@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { NotaEmitida } from '@/lib/queries/notas-emitidas'
+import { InutilizarNumeroButton } from './inutilizar-numero-button'
 import { linkDaVenda, marcarNota, selecaoDaPagina, temDocumento, type CategoriaNota, type Situacao, type TipoArquivo } from '@/lib/notas-emitidas'
 
 const POR_PAGINA = 50
@@ -34,8 +35,10 @@ function nomeDaResposta(r: Response) {
  * Tabela com seleção estilo Gmail (#402): a caixa do cabeçalho marca a página; a faixa oferece
  * todas as notas do filtro, que vão ao servidor como filtro, e não como lista de ids.
  */
-export function NotasTabela({ notas, totalComDocumento, filtro }: {
+export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }: {
   notas: NotaEmitida[]
+  /** Sócio e admin geral (#504); o servidor confere de novo. */
+  podeInutilizar: boolean
   /** Notas com documento no filtro, pela contagem do banco: passa do teto da lista. */
   totalComDocumento: number
   filtro: FiltroDownload
@@ -183,6 +186,10 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
                     <span className="mt-0.5 block text-xs text-muted-foreground lg:hidden">
                       série {n.serie ?? '-'}{n.clienteNome && `, ${n.clienteNome}`}{n.motivoStatus && `, ${n.motivoStatus}`}
                     </span>
+                    <span className="lg:hidden">
+                      {n.inutilizacao?.situacao === 'pendente' && <span className="mt-1 block text-xs font-medium text-warning">Inutilização pendente</span>}
+                      {podeInutilizar && n.podeInutilizar && <span className="mt-1 block"><InutilizarNumeroButton nota={n} ambiente={filtro.ambiente} /></span>}
+                    </span>
                   </td>
                   <td className="hidden py-2 pr-3 align-top text-muted-foreground lg:table-cell">{n.serie ?? '-'}</td>
                   <td className="py-2 pr-3 align-top tabular-nums">
@@ -190,7 +197,12 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
                   </td>
                   <td className="hidden py-2 pr-3 align-top lg:table-cell">{n.clienteNome ?? vazio}</td>
                   <td className="py-2 pr-3 align-top"><Badge className={STATUS[n.categoria].cor} title={n.status}>{STATUS[n.categoria].texto}</Badge></td>
-                  <td className="hidden max-w-xs whitespace-normal py-2 pr-3 align-top text-muted-foreground lg:table-cell">{n.motivoStatus ?? '-'}</td>
+                  <td className="hidden max-w-xs whitespace-normal py-2 pr-3 align-top text-muted-foreground lg:table-cell">
+                    {n.motivoStatus ?? '-'}
+                    {n.inutilizacao?.situacao === 'pendente' && <span className="mt-1 block text-xs font-medium text-warning">Inutilização pendente</span>}
+                    {n.inutilizacao?.situacao === 'negada' && <span className="mt-1 block text-xs text-destructive">Inutilização negada: {n.inutilizacao.motivoStatus ?? 'sem motivo'}</span>}
+                    {podeInutilizar && n.podeInutilizar && <span className="mt-1 block"><InutilizarNumeroButton nota={n} ambiente={filtro.ambiente} /></span>}
+                  </td>
                   <td className="py-2 pr-3 text-right align-top tabular-nums text-muted-foreground">{data(n.criadoEm)}</td>
                   <td className="py-2 text-right align-top">
                     {doc ? (

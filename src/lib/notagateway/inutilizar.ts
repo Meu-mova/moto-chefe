@@ -4,7 +4,7 @@ import { grupos, lojas, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, pedirInutilizacao, type InutilizacaoConsultada } from './client'
-import { elegivelParaInutilizar, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
+import { elegivelParaInutilizar, numeroUsadoEmOutraNota, pedidoSemRespostaVenceu, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 import { STATUS_MORTOS } from './status'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
@@ -61,6 +61,15 @@ export async function prepararInutilizacao(
     : []
   const elegivel = elegivelParaInutilizar(nota, outraViva ?? null)
   if (!elegivel.ok) return elegivel
+  // ltrim: o número é texto e pode vir com zero à esquerda.
+  const mesmoNumero = await tx.select({ numero: notasFiscaisSaida.numero, status: notasFiscaisSaida.status, motivoStatus: notasFiscaisSaida.motivoStatus })
+    .from(notasFiscaisSaida).where(and(
+      eq(notasFiscaisSaida.grupoId, nota.grupoId), eq(notasFiscaisSaida.ambiente, nota.ambiente), eq(notasFiscaisSaida.serie, elegivel.serie),
+      ne(notasFiscaisSaida.id, nota.id), sql`ltrim(${notasFiscaisSaida.numero}, '0') = ${String(elegivel.numero)}`,
+    ))
+  if (numeroUsadoEmOutraNota(elegivel.numero, mesmoNumero)) {
+    return { ok: false, erro: `O número ${elegivel.numero} está em outra nota deste grupo que já usou o número na SEFAZ. Não há o que inutilizar.` }
+  }
   const j = validarJustificativa(justificativaBruta)
   if (!j.ok) return { ok: false, erro: j.erro }
 
