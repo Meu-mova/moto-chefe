@@ -404,3 +404,31 @@ test('a situação na lista fica presa ao filtro da lista: nota de outro grupo o
     assert.equal((await anexarSituacaoDeInutilizacao(listaA, filtroA, tx))[0].inutilizacao.tipo, 'pendente')
   })
 })
+
+test('admin_rede na persona do grupo liberado pede a inutilização; em grupo da Conta dona não liberado, não (decisão do Luis)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { gruposLiberadosVivos, usuarioDaRede } = await import('@/lib/grupos-liberados')
+    const dona = await semearConta(tx, 'Dona', '00000000050405')
+    const [irmao] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('IN504 Dona 2', '00000000050406', ${dona.socio.contaId}) returning id`)
+    await configurarNg(tx, irmao.id, 'Homologacao')
+    const casa = await semearConta(tx, 'Rede', '00000000050407')
+    const [geral] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel) values (gen_random_uuid(), 'Geral', 'geral-in597@teste.invalid', 'admin_geral') returning id`)
+    const [rede] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id)
+      values (gen_random_uuid(), 'Rede', 'rede-in597@teste.invalid', 'admin_rede', ${casa.socio.lojaId}, ${casa.socio.contaId}) returning id`)
+    await tx.execute(sql`insert into grupos_liberados (usuario_id, grupo_id, liberado_por) values (${rede.id}, ${dona.grupoId}, ${geral.id})`)
+    const cadastro = { id: rede.id as string, papel: 'admin_rede' as const, lojaId: casa.socio.lojaId, contaId: casa.socio.contaId, gruposAcesso: [] as string[], gruposAprovacao: [] as string[] }
+    const vivos = await gruposLiberadosVivos(rede.id, new Date(), tx)
+
+    // A sessão traduz: admin_socio da Conta dona, sem loja, só com o grupo liberado.
+    const persona = usuarioDaRede(cadastro, vivos, dona.grupoId)
+    assert.deepEqual([persona.papel, persona.lojaId, persona.contaId, persona.gruposAcesso], ['admin_socio', null, dona.socio.contaId, [dona.grupoId]])
+    const noLiberado = await semearNotaNegada(tx, dona.grupoId, 950480, '994')
+    const noIrmao = await semearNotaNegada(tx, irmao.id, 950481, '995')
+    assert.ok((await m.prepararInutilizacao(tx, persona, noLiberado, JUSTIFICATIVA)).ok, 'pede no grupo liberado')
+    assert.deepEqual(await m.prepararInutilizacao(tx, persona, noIrmao, JUSTIFICATIVA), { ok: false, erro: 'NF não encontrada' })
+
+    // Na própria Conta, sem persona, não alcança a nota do grupo liberado.
+    const emCasa = usuarioDaRede(cadastro, vivos, casa.grupoId)
+    assert.deepEqual(await m.prepararInutilizacao(tx, emCasa, noLiberado, JUSTIFICATIVA), { ok: false, erro: 'NF não encontrada' })
+  })
+})
