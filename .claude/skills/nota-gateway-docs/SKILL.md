@@ -15,7 +15,7 @@ A Nota Gateway (NG) emite as NF-e do MOVA. Erro aqui fatura venda errada, trava 
 2. **Confira contra o MOVA**, nesta ordem:
    - `src/lib/notagateway/status.ts`: a classificação dos status. Para saber se a nota trava a venda, está em andamento ou foi recusada, use as funções dele, nunca uma lista escrita à mão.
    - Seção "Fiscal" do `AGENTS.md`: regras do Cesar e do contador (nome fiscal do produto, origem, homologação, segredos).
-   - `src/lib/notagateway/client.ts` e `logo-ng.ts` (ou `grep -n "chamar(" src/lib/notagateway`): o caminho e o método que o MOVA chama de fato.
+   - `src/lib/notagateway/client.ts` e `logo-ng.ts` (ou `grep -nE 'chamar\(|fetch\(' src/lib/notagateway`): o caminho e o método que o MOVA chama de fato.
    - `~/Development/work/moto-chefe/ng-nfe-modelo55.txt`, se existir na máquina (manual da NG para NF-e modelo 55, fora do repo). Não existindo, diga isso no plano.
 
 3. **Divergência = pare e pergunte.** Se a página oficial, o código e o `AGENTS.md` discordarem (um status que a doc tem e o `status.ts` não, um caminho diferente, um prazo), não decida qual está certo. Descreva a divergência com as duas fontes e pare e pergunte ao Maestro; fora da esteira, ao Luis. Deduzir aqui já liberou segunda nota para a mesma venda (#80).
