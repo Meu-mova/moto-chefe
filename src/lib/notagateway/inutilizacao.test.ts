@@ -53,6 +53,8 @@ test('não elegível: sem número ou série gravados', () => {
 test('não elegível: denegada, que chega como "Negada" e já usou o número', () => {
   assert.equal(elegivelParaInutilizar({ ...negada, motivoStatus: '301 - Uso Denegado: irregularidade fiscal do emitente' }, null).ok, false)
   assert.equal(elegivelParaInutilizar({ ...negada, motivoStatus: '302: Uso Denegado' }, null).ok, false)
+  // O status literal "Denegada" é recusa pelo status.ts: a frase é a do número já usado, não "só rejeitada".
+  assert.deepEqual(elegivelParaInutilizar({ ...negada, status: 'Denegada', motivoStatus: null }, null), { ok: false, erro: 'O número desta nota já foi usado na SEFAZ e não pode ser inutilizado.' })
 })
 
 test('não elegível: 539, número já usado em outra nota na SEFAZ', () => {

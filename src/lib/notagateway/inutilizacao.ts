@@ -1,5 +1,5 @@
 // Regras da inutilização de número da NF de saída (#504), pelas respostas do suporte da Nota Gateway.
-import { ehDenegada, ehDuplicidade, MINUTOS_PARA_DESCARTAR, numeroLivre } from './status'
+import { ehDenegada, ehDuplicidade, ehRecusada, MINUTOS_PARA_DESCARTAR, numeroLivre } from './status'
 import { semZerosAEsquerda } from '@/lib/texto'
 
 /** Irreversível na produção: sócios, admin_geral e admin_rede (decisões do Luis, #504 e #597). Tela e servidor leem daqui. */
@@ -63,7 +63,7 @@ export type Elegibilidade = { ok: true; serie: string; numero: number } | { ok: 
  * o mesmo número, salvo se a venda já tem outra nota viva com número diferente.
  */
 export function elegivelParaInutilizar(nota: NotaParaInutilizar, outraNotaVivaDaVenda: { numero: string | null } | null): Elegibilidade {
-  if (nota.status !== 'Negada') return { ok: false, erro: 'Só se inutiliza o número de nota rejeitada pela SEFAZ.' }
+  if (!ehRecusada(nota.status)) return { ok: false, erro: 'Só se inutiliza o número de nota rejeitada pela SEFAZ.' }
   const numero = Number(nota.numero)
   if (!nota.serie?.trim() || !Number.isInteger(numero) || numero < 1) {
     return { ok: false, erro: 'Esta nota não tem número gravado: não há o que inutilizar.' }
