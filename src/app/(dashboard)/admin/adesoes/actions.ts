@@ -22,6 +22,7 @@ import { avisoCnpjDoGrupo, motivoBloqueioVinculo } from '@/lib/adesao-grupo'
 import { colunasSede } from '@/lib/sede-colunas'
 import { aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, criarLojaDaAdesao, dadosDaAtivacao } from '@/lib/ativacao-cliente'
 import { criarUsuariosDaAdesao } from '@/lib/ativacao-usuarios'
+import { statusNgDaAdesao } from '@/lib/adesao-status-ng'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -57,6 +58,18 @@ export async function listarAdesoesAction() {
     recusadaEm: adesoesMova.recusadaEm,
     avisoRecusa: adesoesMova.avisoRecusa,
     grupoId: adesoesMova.grupoId,
+    // Dados fiscais da adesão (#588) para o bloco "Dados para a Nota Gateway".
+    nomeFantasia: adesoesMova.nomeFantasia,
+    telefone: adesoesMova.telefone,
+    sedeCodigoIbge: adesoesMova.sedeCodigoIbge,
+    situacaoCadastral: adesoesMova.situacaoCadastral,
+    regime: adesoesMova.regime,
+    inscricaoEstadual: adesoesMova.inscricaoEstadual,
+    ieIsenta: adesoesMova.ieIsenta,
+    inscricaoMunicipal: adesoesMova.inscricaoMunicipal,
+    emailNotas: adesoesMova.emailNotas,
+    nfSerieAnterior: adesoesMova.nfSerieAnterior,
+    nfUltimoNumero: adesoesMova.nfUltimoNumero,
   }).from(adesoesMova).orderBy(desc(adesoesMova.criadoEm))
 
   // Só o contrato mais recente de cada adesão importa para a lista. Token e HTML
@@ -311,4 +324,9 @@ export async function criarUsuariosAtivacaoAction(adesaoId: string, lojaPorEmail
   })
   if (r.ok) { revalidatePath('/admin/adesoes'); revalidatePath('/admin/usuarios') }
   return r
+}
+
+export async function statusNgAction(adesaoId: string) {
+  await assertAdmin()
+  return statusNgDaAdesao(adesaoId)
 }

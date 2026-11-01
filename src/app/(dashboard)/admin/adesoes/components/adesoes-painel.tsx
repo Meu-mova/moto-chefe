@@ -23,6 +23,7 @@ import {
 import { AtivacaoAcessos, AtivacaoLoja, useAtivacao } from './ativar-cliente'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EnderecoSedeCampos } from './endereco-sede-campos'
+import { NotaGatewayBloco } from './nota-gateway-bloco'
 import { deEnderecoGravado, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
@@ -274,6 +275,7 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
             </TabsTrigger>
             <TabsTrigger value="grupo">Grupo e loja</TabsTrigger>
             <TabsTrigger value="acessos">Usuários e acessos</TabsTrigger>
+            <TabsTrigger value="ng">Nota Gateway</TabsTrigger>
           </TabsList>
         </div>
 
@@ -343,6 +345,14 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
             {ativavel
               ? <AtivacaoAcessos adesaoId={a.id} ativacao={ativacao} />
               : <p className="text-sm text-muted-foreground">Usuários, certificado e portal se aplicam depois do contrato assinado e do grupo ligado.</p>}
+          </TabsContent>
+
+          <TabsContent value="ng">
+            <NotaGatewayBloco adesaoId={a.id} dados={{
+              ...a,
+              sedeCep: a.sede.cep, sedeLogradouro: a.sede.logradouro, sedeNumero: a.sede.numero, sedeComplemento: a.sede.complemento,
+              sedeBairro: a.sede.bairro, sedeCidade: a.sede.cidade, sedeUf: a.sede.uf,
+            }} />
           </TabsContent>
         </div>
       </Tabs>
