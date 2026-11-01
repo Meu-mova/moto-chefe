@@ -13,7 +13,7 @@ import { formatarCpfCnpj } from '@/lib/documento'
 import type { EnderecoSede } from '@/lib/endereco-sede'
 import { UFS } from '@/lib/sefaz/uf'
 
-export type Consulta = { cnpj: string; achou: boolean; situacao: string; avisoRazao: string | null; regimeDaReceita: boolean }
+export type Consulta = { cnpj: string; receita: 'achou' | 'nao_encontrado' | 'sem_resposta'; situacao: string; avisoRazao: string | null; regimeDaReceita: boolean }
 
 const selectClass = 'h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30'
 const opcaoClass = (sel: boolean) =>
@@ -48,7 +48,7 @@ export function PassoEmpresa({ f, mudar, consulta }: Props & { consulta: Consult
 
   return (
     <div className="space-y-4">
-      {consulta.achou ? (
+      {consulta.receita === 'achou' ? (
         <p className="flex gap-2 rounded-lg bg-primary-soft px-3 py-2 text-xs leading-relaxed text-primary-text">
           <Check className="mt-0.5 size-3.5 shrink-0" />
           <span>Encontramos o CNPJ {formatarCpfCnpj(consulta.cnpj)} na Receita Federal.{consulta.situacao && <> Situação: <b>{consulta.situacao}</b>.</>}</span>
@@ -56,7 +56,9 @@ export function PassoEmpresa({ f, mudar, consulta }: Props & { consulta: Consult
       ) : (
         <p className="flex gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-          A Receita Federal não respondeu agora. Preencha os dados abaixo; dá para continuar normalmente.
+          {consulta.receita === 'nao_encontrado'
+            ? <>Não encontramos o CNPJ {formatarCpfCnpj(consulta.cnpj)} na Receita Federal. Preencha os dados abaixo à mão; dá para continuar normalmente.</>
+            : 'A Receita Federal não respondeu agora. Preencha os dados abaixo; dá para continuar normalmente.'}
         </p>
       )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-6">

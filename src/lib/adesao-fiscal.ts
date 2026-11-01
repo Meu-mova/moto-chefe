@@ -1,14 +1,15 @@
 import { z } from 'zod'
 import { emailValido } from '@/lib/email-valido'
-import type { RegimeAdesao } from '@/lib/adesao-campos'
+import { ROTULO_REGIME, type RegimeAdesao } from '@/lib/adesao-campos'
 import type { adesoesMova } from '@/lib/db/schema'
 import { erroEnderecoSede, faltamNoEnderecoSede, limparEnderecoSede, montarEnderecoSede, paraColunasSede, type EnderecoSede } from '@/lib/endereco-sede'
+import { soDigitosDoc } from '@/lib/documento'
 
 // Passos "Sua empresa" e "Impostos e notas" da adesão (#588). Roda no navegador e no
 // servidor: o servidor reconfere tudo o que a tela já limpou.
 
 /** IE, IM, série e número da nota: a NG e a SEFAZ querem só dígitos. */
-export const soDigitos = (v: string) => v.replace(/\D/g, '')
+export const soDigitos = (v: string) => soDigitosDoc(v)
 
 /**
  * Série e última nota de quem já emite: os dois obrigatórios, só dígitos. Série da NF-e vai
@@ -67,7 +68,7 @@ const dadosFiscaisSchema = z.object({
   razaoSocial: texto, nomeFantasia: texto, telefone: texto,
   endereco: z.object({ cep: texto, logradouro: texto, numero: texto, complemento: texto, bairro: texto, cidade: texto, uf: texto }),
   codigoIbge: texto, situacao: texto,
-  regime: z.enum(['simples', 'mei', 'normal', '']).default(''),
+  regime: z.union([z.enum(Object.keys(ROTULO_REGIME) as [RegimeAdesao, ...RegimeAdesao[]]), z.literal('')]).default(''),
   inscricaoEstadual: texto, ieIsenta: z.boolean().default(false), inscricaoMunicipal: texto,
   emailNotas: texto,
   jaEmite: z.boolean().default(false), nfSerie: texto, nfUltimoNumero: texto,

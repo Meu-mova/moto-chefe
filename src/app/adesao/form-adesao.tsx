@@ -138,7 +138,7 @@ export function FormAdesao() {
     if (!res.ok) { setErro(res.erro); return false }
     const e = res.empresa
     setConsultado({ cert: d.cert!, senha: d.certSenha })
-    setConsulta({ cnpj: res.cnpj, achou: !!e, situacao: e?.situacao ?? '', avisoRazao: res.avisoRazao, regimeDaReceita: !!e?.regime })
+    setConsulta({ cnpj: res.cnpj, receita: res.receita, situacao: e?.situacao ?? '', avisoRazao: res.avisoRazao, regimeDaReceita: !!e?.regime })
     // Dados da Receita só preenchem; o que a pessoa já digitou fica.
     if (e) setD(x => {
       const f0 = x.fiscal

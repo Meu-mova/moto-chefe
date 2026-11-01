@@ -29,12 +29,19 @@ test('regime: MEI vence o Simples; sem Simples é normal; sem informação fica 
   assert.equal(mapearEmpresaReceita(nuncaOptou).regime, 'normal', 'sem opção, vale o ano mais recente')
 })
 
-test('falha, erro HTTP ou CNPJ mal formado devolvem null sem lançar', async () => {
+test('falha de rede, 403/5xx ou CNPJ mal formado devolvem null sem lançar', async () => {
   const falha = (async () => { throw new Error('rede') }) as unknown as typeof fetch
-  const http404 = (async () => new Response('{}', { status: 404 })) as unknown as typeof fetch
+  const http403 = (async () => new Response('{}', { status: 403 })) as unknown as typeof fetch
+  const http500 = (async () => new Response('{}', { status: 500 })) as unknown as typeof fetch
   assert.equal(await consultarEmpresaReceita('12345678000195', falha), null)
-  assert.equal(await consultarEmpresaReceita('12345678000195', http404), null)
+  assert.equal(await consultarEmpresaReceita('12345678000195', http403), null)
+  assert.equal(await consultarEmpresaReceita('12345678000195', http500), null)
   assert.equal(await consultarEmpresaReceita('123', falha), null)
+})
+
+test('404 da BrasilAPI é CNPJ não encontrado, não falha', async () => {
+  const http404 = (async () => new Response('{"message":"CNPJ não encontrado"}', { status: 404 })) as unknown as typeof fetch
+  assert.equal(await consultarEmpresaReceita('12345678000195', http404), 'nao_encontrado')
 })
 
 test('resposta boa consulta a URL do CNPJ com User-Agent do MOVA e devolve o mapeado', async () => {
@@ -48,5 +55,5 @@ test('resposta boa consulta a URL do CNPJ com User-Agent do MOVA e devolve o map
   const e = await consultarEmpresaReceita('12345678000195', ok)
   assert.equal(url, 'https://brasilapi.com.br/api/cnpj/v1/12345678000195')
   assert.match(ua, /^MOVA\//, 'sem User-Agent próprio a BrasilAPI responde 403')
-  assert.equal(e?.razaoSocial, 'EMPRESA TESTE LTDA')
+  assert.equal(typeof e === 'object' && e?.razaoSocial, 'EMPRESA TESTE LTDA')
 })
