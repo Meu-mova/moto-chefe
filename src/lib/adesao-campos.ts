@@ -5,6 +5,15 @@
 // com o CHECK do banco.
 export type StatusAdesao = 'pendente' | 'dados_completos' | 'recusada' | 'processada'
 
+/** Regime de impostos da loja; 'normal' = Lucro Presumido ou Real. */
+export type RegimeAdesao = 'simples' | 'mei' | 'normal'
+
+export const ROTULO_REGIME: Record<RegimeAdesao, string> = {
+  simples: 'Simples Nacional',
+  mei: 'MEI',
+  normal: 'Lucro Presumido ou Real',
+}
+
 export const ROTULO_STATUS_ADESAO: Record<StatusAdesao, string> = {
   pendente: 'Pendente',
   dados_completos: 'Dados completos',

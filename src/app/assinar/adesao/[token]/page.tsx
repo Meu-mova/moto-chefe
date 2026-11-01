@@ -6,6 +6,7 @@ import { contratosAdesao, contratosAdesaoEventos, contratosAdesaoCodigos } from 
 import { TEXTOS_ADESAO } from '@/lib/assinatura/textos-emissor'
 import { AssinarClient } from '../../[token]/assinar-client'
 import { solicitarCodigoAdesaoAction, conferirCodigoAdesaoAction, selarAssinaturaAdesaoAction } from './actions'
+import { ipDoPedido } from '@/lib/ip-do-pedido'
 
 // Contrato de licença de uso do MOVA (#165): mesma tela da venda, outras tabelas.
 export default async function AssinarAdesaoPage({ params }: { params: Promise<{ token: string }> }) {
@@ -17,7 +18,7 @@ export default async function AssinarAdesaoPage({ params }: { params: Promise<{ 
   if (!doc) notFound()
 
   const h = await headers()
-  const ip = (h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? '').split(',')[0].trim()
+  const ip = ipDoPedido(h)
   const userAgent = h.get('user-agent') ?? ''
 
   if (doc.status === 'pendente') {

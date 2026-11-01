@@ -3,18 +3,18 @@ import { headers } from 'next/headers'
 import { solicitarCodigo, conferirCodigo, selarAssinatura, type RespostaCodigo, type Contexto, type Geo } from '@/lib/assinatura/fluxo'
 import { repositorioVenda, infraVenda } from '@/lib/assinatura/repositorio-venda'
 import type { RespostasChecklist } from '@/lib/assinatura/documento'
+import { ipDoPedido } from '@/lib/ip-do-pedido'
 
 // As regras da assinatura moram em @/lib/assinatura/fluxo; aqui só se liga o
 // fluxo aos documentos de venda.
 
 export type { RespostaCodigo }
 
-// IP e user-agent de quem está assinando. Na Vercel o IP real vem no
-// x-forwarded-for; o primeiro da lista é o cliente, o resto são proxies.
+// IP e user-agent de quem está assinando.
 async function contextoRequisicao(): Promise<Contexto> {
   const h = await headers()
   return {
-    ip: (h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? '').split(',')[0].trim(),
+    ip: ipDoPedido(h),
     userAgent: h.get('user-agent') ?? '',
   }
 }
