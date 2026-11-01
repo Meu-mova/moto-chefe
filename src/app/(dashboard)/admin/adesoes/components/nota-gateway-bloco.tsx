@@ -1,15 +1,19 @@
 'use client'
 // Bloco "Dados para a Nota Gateway" (#588, Admin do protótipo): o cadastro "Nova empresa"
 // no painel da NG segue manual; aqui ficam os dados na mesma ordem, com Copiar por campo.
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { soDigitos } from '@/lib/adesao-fiscal'
 import {
-  camposIdentificacao, camposLocalizacao, faltandoParaNg, numeracaoSugerida, type CampoNg, type DadosAdesaoNg,
+  camposIdentificacao, camposLocalizacao, faltandoParaNg, numeracaoSugerida, type CampoNg, type DadosAdesaoNg, type NumeracaoInformada,
 } from '@/lib/adesao-nota-gateway'
 import type { StatusNg } from '@/lib/adesao-status-ng'
-import { statusNgAction } from '../actions'
+import { corrigirNumeracaoAction, statusNgAction } from '../actions'
 
 function Pill({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
@@ -45,6 +49,54 @@ function Linha({ campo }: { campo: CampoNg }) {
   )
 }
 
+/** O admin_geral corrige a série e a última nota que o cliente informou (#588). */
+function EditarNumeracao({ adesaoId, atual, onSalvo }: { adesaoId: string; atual: NumeracaoInformada; onSalvo: (n: NumeracaoInformada) => void }) {
+  const [editando, setEditando] = useState(false)
+  const [naoEmite, setNaoEmite] = useState(!atual.serie && !atual.ultima)
+  const [serie, setSerie] = useState(atual.serie ?? '')
+  const [ultima, setUltima] = useState(atual.ultima ?? '')
+  const [erro, setErro] = useState('')
+  const [pendente, iniciar] = useTransition()
+
+  function abrir() {
+    setNaoEmite(!atual.serie && !atual.ultima); setSerie(atual.serie ?? ''); setUltima(atual.ultima ?? ''); setErro(''); setEditando(true)
+  }
+  function salvar() {
+    iniciar(async () => {
+      const r = await corrigirNumeracaoAction(adesaoId, { naoEmite, serie, ultima })
+      if (!r.ok) { setErro(r.erro); return }
+      onSalvo(r.valor)
+      setEditando(false)
+      toast.success('Numeração corrigida')
+    })
+  }
+
+  if (!editando) return <Button type="button" variant="outline" size="sm" onClick={abrir}>Editar série e última nota</Button>
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={naoEmite} onChange={e => { setNaoEmite(e.target.checked); if (e.target.checked) { setSerie(''); setUltima('') } }} />
+        Loja não emite
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label htmlFor={`${adesaoId}-serie`}>Série</Label>
+          <Input id={`${adesaoId}-serie`} inputMode="numeric" disabled={naoEmite} value={serie} onChange={e => setSerie(soDigitos(e.target.value))} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${adesaoId}-ultima`}>Última nota emitida</Label>
+          <Input id={`${adesaoId}-ultima`} inputMode="numeric" disabled={naoEmite} value={ultima} onChange={e => setUltima(soDigitos(e.target.value))} />
+        </div>
+      </div>
+      {erro && <p className="text-xs text-destructive">{erro}</p>}
+      <div className="flex gap-2">
+        <Button type="button" size="sm" onClick={salvar} disabled={pendente}>{pendente ? 'Salvando…' : 'Salvar'}</Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => setEditando(false)} disabled={pendente}>Cancelar</Button>
+      </div>
+    </div>
+  )
+}
+
 const dataBr = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
 export function NotaGatewayBloco({ adesaoId, dados }: { adesaoId: string; dados: DadosAdesaoNg }) {
@@ -55,6 +107,8 @@ export function NotaGatewayBloco({ adesaoId, dados }: { adesaoId: string; dados:
     return () => { vivo = false }
   }, [adesaoId])
 
+  // Correção salva vale na hora; a lista da página só chega no próximo carregamento.
+  const [numeracao, setNumeracao] = useState<NumeracaoInformada>({ serie: dados.nfSerieAnterior, ultima: dados.nfUltimoNumero })
   const faltando = faltandoParaNg(dados)
   const cert = status && status !== 'erro' ? status.certificado : null
 
@@ -101,12 +155,13 @@ export function NotaGatewayBloco({ adesaoId, dados }: { adesaoId: string; dados:
         </TabsContent>
         <TabsContent value="numeracao" className="space-y-2 text-sm">
           <p className="text-muted-foreground">Depois de cadastrar, cole o Id da empresa em Notas fiscais. A numeração da NF-e se grava por lá.</p>
-          {numeracaoSugerida(dados).map(n => (
+          {numeracaoSugerida({ nfSerieAnterior: numeracao.serie, nfUltimoNumero: numeracao.ultima }).map(n => (
             <p key={n.ambiente}>
               <b>{n.ambiente}</b>: série {n.serie} · próxima nota {n.proxima}
               {n.daAdesao && <span className="text-xs text-muted-foreground"> (a loja informou a última nota emitida; confira no DANFE)</span>}
             </p>
           ))}
+          <EditarNumeracao adesaoId={adesaoId} atual={numeracao} onSalvo={setNumeracao} />
         </TabsContent>
       </Tabs>
     </div>

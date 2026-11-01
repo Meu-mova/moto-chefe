@@ -1,4 +1,5 @@
 import { ROTULO_REGIME, type RegimeAdesao } from '@/lib/adesao-campos'
+import { soDigitos } from '@/lib/adesao-fiscal'
 
 // Bloco "Dados para a Nota Gateway" em /admin/adesoes (#588): os dados da adesão na ordem
 // do cadastro "Nova empresa" do painel da NG, prontos para copiar. Roda no navegador.
@@ -62,6 +63,24 @@ export function numeracaoSugerida(a: Pick<DadosAdesaoNg, 'nfSerieAnterior' | 'nf
     },
     { ambiente: 'Homologação', serie: '2', proxima: '1', daAdesao: false },
   ]
+}
+
+export type NumeracaoInformada = { serie: string | null; ultima: string | null }
+
+/**
+ * Correção da série e da última nota pelo admin_geral (#588). "Loja não emite" limpa os
+ * dois; senão os dois são obrigatórios, só dígitos. Série da NF-e vai de 0 a 999 e o
+ * número tem até 9 dígitos (leiaute da SEFAZ).
+ */
+export function lerNumeracaoInformada(e: { naoEmite: boolean; serie: string; ultima: string }):
+  { ok: true; valor: NumeracaoInformada } | { ok: false; erro: string } {
+  if (e.naoEmite) return { ok: true, valor: { serie: null, ultima: null } }
+  const serie = soDigitos(e.serie ?? '')
+  const ultima = soDigitos(e.ultima ?? '')
+  if (!serie || !ultima) return { ok: false, erro: 'Informe a série e o número da última nota, ou marque que a loja não emite' }
+  if (serie.length > 3) return { ok: false, erro: 'Série tem no máximo 3 dígitos' }
+  if (ultima.length > 9) return { ok: false, erro: 'Número da nota tem no máximo 9 dígitos' }
+  return { ok: true, valor: { serie, ultima } }
 }
 
 /** Campos que o cadastro na NG precisa e a adesão não trouxe. */

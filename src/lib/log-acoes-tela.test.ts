@@ -68,4 +68,6 @@ test('correção do preço de compra mostra chassi e os dois valores (#514)', ()
 test('transferência entre grupos: Conta e se ligou ou desligou (#552)', () => {
   assert.equal(resumoDoEvento(ev({ tipo: 'transferencia_grupos_alterada', detalhe: { contaId: 'c1', contaNome: 'Conta X', de: false, para: true } })), 'Conta X · ligou')
   assert.equal(resumoDoEvento(ev({ tipo: 'transferencia_grupos_alterada', detalhe: { contaId: 'c1', contaNome: 'Conta X', de: true, para: false } })), 'Conta X · desligou')
+  assert.equal(resumoDoEvento(ev({ tipo: 'numeracao_adesao_alterada', detalhe: { loja: 'Loja X', antes: { serie: '1', ultima: '1532' }, depois: { serie: null, ultima: null } } })),
+    'Loja X · série 1, última 1532 → não emite')
 })

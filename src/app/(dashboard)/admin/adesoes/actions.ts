@@ -23,6 +23,7 @@ import { colunasSede } from '@/lib/sede-colunas'
 import { aplicarCertificadoDaAdesao, aplicarPortalDaAdesao, criarLojaDaAdesao, dadosDaAtivacao } from '@/lib/ativacao-cliente'
 import { criarUsuariosDaAdesao } from '@/lib/ativacao-usuarios'
 import { statusNgDaAdesao } from '@/lib/adesao-status-ng'
+import { corrigirNumeracaoDaAdesao } from '@/lib/adesao-numeracao'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -329,4 +330,11 @@ export async function criarUsuariosAtivacaoAction(adesaoId: string, lojaPorEmail
 export async function statusNgAction(adesaoId: string) {
   await assertAdmin()
   return statusNgDaAdesao(adesaoId)
+}
+
+export async function corrigirNumeracaoAction(adesaoId: string, entrada: { naoEmite: boolean; serie: string; ultima: string }) {
+  const u = await assertAdmin()
+  const r = await corrigirNumeracaoDaAdesao({ adesaoId, usuarioId: u.id, entrada })
+  if (r.ok) revalidatePath('/admin/adesoes')
+  return r
 }

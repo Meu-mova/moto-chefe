@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { camposIdentificacao, camposLocalizacao, faltandoParaNg, numeracaoSugerida, type DadosAdesaoNg } from './adesao-nota-gateway'
+import { camposIdentificacao, camposLocalizacao, faltandoParaNg, lerNumeracaoInformada, numeracaoSugerida, type DadosAdesaoNg } from './adesao-nota-gateway'
 
 const A: DadosAdesaoNg = {
   razaoSocial: 'EMPRESA TESTE LTDA', nomeFantasia: null, cnpj: '12345678000195', telefone: '1133330000',
@@ -28,4 +28,12 @@ test('numeração: padrão série 1 e 2 do 1; quem já emitia continua da últim
   ])
   assert.deepEqual(numeracaoSugerida({ nfSerieAnterior: '001', nfUltimoNumero: '1532' })[0],
     { ambiente: 'Produção', serie: '1', proxima: '1533', daAdesao: true })
+})
+
+test('correção da numeração: só dígitos, os dois obrigatórios, e "não emite" limpa', () => {
+  assert.deepEqual(lerNumeracaoInformada({ naoEmite: false, serie: 'Série 1', ultima: '1.533' }), { ok: true, valor: { serie: '1', ultima: '1533' } })
+  assert.deepEqual(lerNumeracaoInformada({ naoEmite: true, serie: '1', ultima: '99' }), { ok: true, valor: { serie: null, ultima: null } })
+  assert.equal(lerNumeracaoInformada({ naoEmite: false, serie: '1', ultima: 'abc' }).ok, false)
+  assert.deepEqual(lerNumeracaoInformada({ naoEmite: false, serie: '1000', ultima: '1' }), { ok: false, erro: 'Série tem no máximo 3 dígitos' })
+  assert.deepEqual(lerNumeracaoInformada({ naoEmite: false, serie: '1', ultima: '1234567890' }), { ok: false, erro: 'Número da nota tem no máximo 9 dígitos' })
 })
