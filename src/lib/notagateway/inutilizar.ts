@@ -2,7 +2,7 @@ import { and, count, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, lojas, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from '@/lib/db/schema'
 import { podeVerGrupo } from '@/lib/acesso-grupo'
-import { registrarAcaoSensivel } from '@/lib/log-acoes'
+import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { semZerosAEsquerda } from '@/lib/texto'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao, type InutilizacaoConsultada } from './client'
 import { ambienteLiberado } from './ambiente'
@@ -165,9 +165,23 @@ export const AVISO_SEM_RESPOSTA = 'A Nota Gateway não respondeu. O pedido ficou
 type ResultadoDoEnvio = 'enviado' | 'sem_resposta' | 'recusado'
 
 /**
- * Pede a inutilização à NG; o resultado chega depois, por consultarInutilizacao. Todo
- * pedido vai ao log com o resultado (C7): só o que o pedido tem, nunca token nem empresaId.
+ * Todo pedido vai ao log com o resultado (C7): só o que o pedido tem, nunca token nem
+ * empresaId. A linha do pedido já está gravada quando o log roda: erro no log não desfaz
+ * a resposta, vira só console.error.
  */
+function registrarPedido(
+  exec: DependenciasInutilizacao['exec'], usuarioId: string, notaId: string, pedido: PedidoInutilizacao, resultado: ResultadoDoEnvio, motivo?: string,
+): Promise<void> {
+  return registrarAcaoSensivelSemFalhar({
+    tipo: 'nf_emitida', usuarioId, grupoId: pedido.grupoId,
+    detalhe: {
+      origem: 'mova', etapa: 'inutilizacao', resultado, ...(motivo ? { motivo } : {}), notaId, inutilizacaoId: pedido.inutilizacaoId,
+      numeroVenda: pedido.numeroVenda, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial,
+    },
+  }, exec)
+}
+
+/** Pede a inutilização à NG; o resultado chega depois, por consultarInutilizacao. */
 export async function inutilizarNumeroDaNota(
   usuario: UsuarioInutilizacao, notaId: string, justificativa: string, deps: DependenciasInutilizacao = DEPENDENCIAS,
 ): Promise<Resultado<{ inutilizacaoId: string; aviso: string | null }>> {
@@ -175,21 +189,7 @@ export async function inutilizarNumeroDaNota(
   const preparo = await prepararInutilizacao(exec, usuario, notaId, justificativa)
   if (!preparo.ok) return preparo
   const { pedido } = preparo
-  const registrar = (resultado: ResultadoDoEnvio, motivo?: string) => registrarAcaoSensivel({
-    tipo: 'nf_emitida', usuarioId: usuario.id, grupoId: pedido.grupoId,
-    detalhe: {
-      origem: 'mova', etapa: 'inutilizacao', resultado, ...(motivo ? { motivo } : {}), notaId, inutilizacaoId: pedido.inutilizacaoId,
-      numeroVenda: pedido.numeroVenda, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial,
-    },
-  }, exec)
-  // Depois do envio o pedido já existe na NG: erro no log vira só console.error, não desfaz a resposta.
-  const registrarSemFalhar = async (resultado: ResultadoDoEnvio) => {
-    try {
-      await registrar(resultado)
-    } catch (e) {
-      console.error('[inutilizacao] falha ao registrar o pedido no log:', e instanceof Error ? e.message : e)
-    }
-  }
+  const registrar = (resultado: ResultadoDoEnvio, motivo?: string) => registrarPedido(exec, usuario.id, notaId, pedido, resultado, motivo)
   const recusar = async (status: string, motivo: string) => {
     await gravarResultadoDaInutilizacao(exec, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
     await registrar('recusado', motivo)
@@ -208,10 +208,10 @@ export async function inutilizarNumeroDaNota(
     // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: pode ter criado; segue pendente e a consulta decide.
     if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
     console.error(`[inutilizacao] Nota Gateway sem resposta (${e instanceof NotaGatewayIndisponivel ? `HTTP ${e.status}` : 'rede'})`)
-    await registrarSemFalhar('sem_resposta')
+    await registrar('sem_resposta')
     return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: AVISO_SEM_RESPOSTA }
   }
-  await registrarSemFalhar('enviado')
+  await registrar('enviado')
   return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: null }
 }
 
