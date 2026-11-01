@@ -1,5 +1,6 @@
 // Regras da inutilização de número da NF de saída (#504), pelas respostas do suporte da Nota Gateway.
-import { ehDenegada, ehDuplicidade, MINUTOS_PARA_DESCARTAR } from './status'
+import { ehDenegada, ehDuplicidade, MINUTOS_PARA_DESCARTAR, numeroLivre } from './status'
+import { semZerosAEsquerda } from '@/lib/texto'
 
 /** Irreversível na produção: só os sócios e o admin_geral (decisão do Luis, #504). Tela e servidor leem daqui. */
 const PAPEIS_QUE_PEDEM = ['admin_geral', 'admin_socio'] as const
@@ -68,8 +69,58 @@ export function elegivelParaInutilizar(nota: NotaParaInutilizar, outraNotaVivaDa
     return { ok: false, erro: 'Esta nota não tem número gravado: não há o que inutilizar.' }
   }
   if (ehDenegada(nota) || ehDuplicidade(nota)) return { ok: false, erro: 'O número desta nota já foi usado na SEFAZ e não pode ser inutilizado.' }
-  // Inteiro, não texto: "0974" e "974" são o mesmo número.
-  const substituida = !!outraNotaVivaDaVenda && Number(outraNotaVivaDaVenda.numero) !== numero
+  // "0974" e "974" são o mesmo número; a série vai sem zeros à esquerda, como a SEFAZ compara.
+  const substituida = !!outraNotaVivaDaVenda && semZerosAEsquerda(outraNotaVivaDaVenda.numero) !== semZerosAEsquerda(nota.numero)
   if (nota.vendaId && !substituida) return { ok: false, erro: 'A venda desta nota continua ativa: corrija e reenvie a nota em vez de inutilizar o número.' }
-  return { ok: true, serie: nota.serie.trim(), numero }
+  return { ok: true, serie: semZerosAEsquerda(nota.serie), numero }
+}
+
+export type NotaDoNumero = { id: string; numero: string | null; serie: string | null; status: string; motivoStatus: string | null }
+
+export type PedidoDoNumero = { situacao: SituacaoInutilizacao; motivoStatus: string | null; serie: string; numeroInicial: number; criadoEm: Date | string }
+
+/**
+ * Tudo o que a decisão precisa, carregado uma vez (inutilizar.ts) para o pedido e para a
+ * lista: a regra mora aqui, e o SQL só traz candidatos do mesmo grupo e ambiente.
+ */
+export type ContextoInutilizacao = {
+  nota: NotaParaInutilizar & { id: string }
+  /** Outra nota viva da mesma venda (reenvio que saiu com número novo). */
+  outraNotaVivaDaVenda: { numero: string | null } | null
+  /** Notas com o mesmo número, em qualquer série; a própria pode vir junto. */
+  outrasNotas: NotaDoNumero[]
+  /** Pedidos de inutilização do mesmo número, de qualquer nota e série. */
+  pedidos: PedidoDoNumero[]
+}
+
+export type DecisaoInutilizacao =
+  | { tipo: 'pode'; serie: string; numero: number; ultimaNegada: string | null }
+  | { tipo: 'pendente' | 'autorizada' | 'numero_usado' | 'nenhuma'; erro: string }
+
+type SerieENumero = { serie: string | null; numero: string | number | null }
+
+function mesmaSerieENumero(a: SerieENumero, b: SerieENumero): boolean {
+  return semZerosAEsquerda(String(a.numero ?? '')) === semZerosAEsquerda(String(b.numero ?? ''))
+    && semZerosAEsquerda(a.serie) === semZerosAEsquerda(b.serie)
+}
+
+const maisRecentePrimeiro = (a: PedidoDoNumero, b: PedidoDoNumero) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
+
+/**
+ * O que a linha mostra e o que o servidor aceita, pela mesma regra (#597): a nota tem de
+ * ser elegível; um pedido não negado do número, desta ou de outra nota, esconde o botão
+ * (C5); outra nota que ocupa o número (numeroLivre) também (C4); a última negada aparece
+ * com o motivo e deixa pedir de novo.
+ */
+export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutilizacao {
+  const elegivel = elegivelParaInutilizar(ctx.nota, ctx.outraNotaVivaDaVenda)
+  if (!elegivel.ok) return { tipo: 'nenhuma', erro: elegivel.erro }
+  const pedidos = ctx.pedidos.filter(p => mesmaSerieENumero({ serie: p.serie, numero: p.numeroInicial }, elegivel))
+  const vivo = pedidos.find(p => p.situacao !== 'negada')
+  if (vivo?.situacao === 'autorizada') return { tipo: 'autorizada', erro: 'Este número já foi inutilizado.' }
+  if (vivo) return { tipo: 'pendente', erro: 'Este número já tem um pedido de inutilização.' }
+  const ocupado = ctx.outrasNotas.some(o => o.id !== ctx.nota.id && mesmaSerieENumero(o, elegivel) && !numeroLivre(o))
+  if (ocupado) return { tipo: 'numero_usado', erro: `O número ${elegivel.numero} está em outra nota deste grupo que já o usou na SEFAZ. Não há o que inutilizar.` }
+  const ultima = [...pedidos].sort(maisRecentePrimeiro)[0]
+  return { tipo: 'pode', serie: elegivel.serie, numero: elegivel.numero, ultimaNegada: ultima ? ultima.motivoStatus?.trim() || 'sem motivo informado' : null }
 }
