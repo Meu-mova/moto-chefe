@@ -76,11 +76,9 @@ test('pedido que a NG não conhece só vence depois de 15 minutos', () => {
   assert.equal(pedidoSemRespostaVenceu(criado, new Date('2026-10-29T12:15:00Z')), true)
 })
 
-test('quem pede a inutilização: só admin_geral e admin_socio (decisão do Luis, #504)', () => {
-  assert.equal(podePedirInutilizacao('admin_geral'), true)
-  assert.equal(podePedirInutilizacao('admin_socio'), true)
-  // O admin_rede entra na sessão como admin_socio no grupo liberado; a string crua não vale.
-  for (const papel of ['aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo', 'admin_rede', '']) {
+test('quem pede a inutilização: admin_geral, admin_socio e admin_rede (decisões do Luis, #504 e #597)', () => {
+  for (const papel of ['admin_geral', 'admin_socio', 'admin_rede']) assert.equal(podePedirInutilizacao(papel), true, papel)
+  for (const papel of ['aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo', '']) {
     assert.equal(podePedirInutilizacao(papel), false, papel || '(vazio)')
   }
 })

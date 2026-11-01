@@ -2,8 +2,8 @@
 import { ehDenegada, ehDuplicidade, MINUTOS_PARA_DESCARTAR, numeroLivre } from './status'
 import { semZerosAEsquerda } from '@/lib/texto'
 
-/** Irreversível na produção: só os sócios e o admin_geral (decisão do Luis, #504). Tela e servidor leem daqui. */
-const PAPEIS_QUE_PEDEM = ['admin_geral', 'admin_socio'] as const
+/** Irreversível na produção: sócios, admin_geral e admin_rede (decisões do Luis, #504 e #597). Tela e servidor leem daqui. */
+const PAPEIS_QUE_PEDEM = ['admin_geral', 'admin_socio', 'admin_rede'] as const
 
 export function podePedirInutilizacao(papel: string): boolean {
   return (PAPEIS_QUE_PEDEM as readonly string[]).includes(papel)
