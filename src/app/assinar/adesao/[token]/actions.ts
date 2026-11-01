@@ -2,13 +2,14 @@
 import { headers } from 'next/headers'
 import { solicitarCodigo, conferirCodigo, selarAssinatura, type RespostaCodigo, type Contexto, type Geo } from '@/lib/assinatura/fluxo'
 import { repositorioAdesao, infraAdesao } from '@/lib/assinatura/repositorio-adesao'
+import { ipDoPedido } from '@/lib/ip-do-pedido'
 
 // Mesmo fluxo da venda, ligado às tabelas contratos_adesao*. Sem checklist.
 
 async function contextoRequisicao(): Promise<Contexto> {
   const h = await headers()
   return {
-    ip: (h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? '').split(',')[0].trim(),
+    ip: ipDoPedido(h),
     userAgent: h.get('user-agent') ?? '',
   }
 }

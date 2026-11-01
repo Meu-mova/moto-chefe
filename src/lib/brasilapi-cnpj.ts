@@ -1,6 +1,8 @@
 // Consulta do CNPJ na BrasilAPI para pré-preencher a adesão (#588). Só servidor, uma
-// consulta por adesão. Falha ou demora devolve null: a pessoa preenche e segue.
+// consulta por adesão. Falha ou demora devolve null e CNPJ que a Receita não conhece devolve
+// 'nao_encontrado': nos dois casos a pessoa preenche e segue.
 import type { RegimeAdesao } from '@/lib/adesao-campos'
+import { soDigitos } from '@/lib/adesao-fiscal'
 
 export type EmpresaReceita = {
   razaoSocial: string
@@ -19,7 +21,7 @@ export type EmpresaReceita = {
 }
 
 const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '')
-const digitos = (v: unknown) => texto(v).replace(/\D/g, '')
+const digitos = (v: unknown) => soDigitos(texto(v))
 
 // MEI também é optante do Simples: confere o MEI primeiro. Quem nunca optou vem com
 // opcao_pelo_simples null; aí vale a forma de tributação do ano mais recente.
@@ -58,13 +60,14 @@ export function mapearEmpresaReceita(r: Record<string, unknown>): EmpresaReceita
   }
 }
 
-export async function consultarEmpresaReceita(cnpj: string, buscar: typeof fetch = fetch): Promise<EmpresaReceita | null> {
+export async function consultarEmpresaReceita(cnpj: string, buscar: typeof fetch = fetch): Promise<EmpresaReceita | 'nao_encontrado' | null> {
   if (!/^\d{14}$/.test(cnpj)) return null
   try {
     const res = await buscar(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, {
       signal: AbortSignal.timeout(5000), cache: 'no-store', // Sem User-Agent próprio a BrasilAPI responde 403 ao fetch do Node (teste no navegador, 01/11/2026).
       headers: { accept: 'application/json', 'user-agent': 'MOVA/1.0 (+https://www.meumova.com)' },
     })
+    if (res.status === 404) return 'nao_encontrado'
     if (!res.ok) {
       console.warn('consultarEmpresaReceita: BrasilAPI respondeu', res.status)
       return null

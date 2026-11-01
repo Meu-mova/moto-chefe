@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { db } from '@/lib/db'
 import { grupos, lojas, logAcoes } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
+import { ipDoPedido } from '@/lib/ip-do-pedido'
 
 // Log de acessos e ações sensíveis (#198). Quem chama nunca deve falhar por causa
 // do log: use registrarSemFalhar fora de teste.
@@ -32,7 +33,7 @@ const MAX_USER_AGENT = 500
 
 /** Na Vercel o IP do cliente é o primeiro do x-forwarded-for. */
 export function origemDaRequisicao(h: Headers): Origem {
-  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip')?.trim() || null
+  const ip = ipDoPedido(h) || null
   const userAgent = h.get('user-agent')?.slice(0, MAX_USER_AGENT) || null
   return { ip, userAgent }
 }
