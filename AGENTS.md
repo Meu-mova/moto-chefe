@@ -227,8 +227,11 @@ leitura e gravação:
 
 ## Fiscal — cuidado redobrado
 
-- Antes de mudar ou investigar algo fiscal, use a skill `nota-gateway-docs`: decisão fiscal cita a
-  página oficial da NG e o trecho que a sustenta; divergência entre doc e código, pergunte.
+- **Antes de criar, editar, apagar ou investigar algo fiscal** (`src/lib/notagateway/`, NF de saída,
+  inutilização, cancelamento, carta de correção, webhook, status, rejeição SEFAZ): leia
+  `docs/fiscal/sumario.md` e o resumo do assunto, e use a skill `nota-gateway-docs`. Decisão fiscal
+  cita a página oficial da NG e o trecho; assunto sem resumo, crie no mesmo PR; divergência entre
+  doc e código, pergunte.
 - NF-e própria via **Nota Gateway** (`src/lib/notagateway/`,
   `/admin/notas-fiscais`). Ambiente por grupo; **homologação nunca fatura a venda
   nem manda e-mail ao cliente**. Não apague linhas de `notas_fiscais_saida`
