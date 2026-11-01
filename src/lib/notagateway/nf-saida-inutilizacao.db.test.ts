@@ -57,6 +57,18 @@ async function semearNotaNegada(tx: Tx, grupoId: string, vendaNumero: number, nu
 
 const inutilizacoes = (tx: Tx, notaId: string) => linhas(tx, sql`select * from notas_fiscais_saida_inutilizacoes where nota_id = ${notaId}`)
 
+type Semente = { status?: string; numero?: string; serie?: string; motivo?: string | null }
+
+/** Nota de venda cancelada com qualquer status: ocupa o número ou não (#597). */
+async function semearNota(tx: Tx, grupoId: string, vendaNumero: number, { status = 'Autorizada', numero = '974', serie = '1', motivo = null }: Semente = {}) {
+  const [nota] = await linhas(tx, sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, motivo_status, numero, serie, payload)
+    values (null, ${vendaNumero}, ${grupoId}, ${`in597-${vendaNumero}`}, 'Homologacao', ${status}, ${motivo}, ${numero}, ${serie}, '{}'::jsonb) returning id`)
+  return nota.id as string
+}
+
+const notasDaDecisao = (tx: Tx, ids: string[]) => linhas(tx, sql`select id, numero, serie, status, motivo_status as "motivoStatus", venda_id as "vendaId"
+  from notas_fiscais_saida where id = any(${sql.param(ids)}::uuid[])`)
+
 test('a Conta B não pede inutilização da nota da Conta A, e recebe a mesma frase do id inexistente (#504)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000050401')
@@ -142,5 +154,65 @@ test('pedido que não chegou à NG (marcado não enviado) libera o número para 
     assert.equal((await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA)).ok, true)
     const status = (await inutilizacoes(tx, notaA)).map(l => `${l.status}:${l.situacao}`).sort()
     assert.deepEqual(status, ['Enviando:pendente', 'NaoEnviada:negada', 'SemConfiguracao:negada'])
+  })
+})
+
+test('número em nota que o ocupa no mesmo grupo e série recusa antes do envio; em outra Conta ou em grupo irmão, não (C4)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const b = await semearConta(tx, 'B', '00000000050402')
+    const notaA = await semearNotaNegada(tx, a.grupoId, 950410, '0976')
+    const notaB = await semearNotaNegada(tx, b.grupoId, 950411, '976')
+    await semearNota(tx, a.grupoId, 950412, { status: 'Autorizada', numero: '976' })
+
+    assert.deepEqual(await m.prepararInutilizacao(tx, a.socio, notaA, JUSTIFICATIVA),
+      { ok: false, erro: 'O número 976 está em outra nota deste grupo que já o usou na SEFAZ. Não há o que inutilizar.' })
+    assert.equal((await inutilizacoes(tx, notaA)).length, 0, 'nada gravado')
+    assert.ok((await m.prepararInutilizacao(tx, b.socio, notaB, JUSTIFICATIVA)).ok, 'a autorizada da A não trava o número da B')
+
+    // Em andamento também ocupa: o candidato vem do SQL, a regra decide em JS.
+    const notaA2 = await semearNotaNegada(tx, a.grupoId, 950413, '977')
+    await semearNota(tx, a.grupoId, 950414, { status: 'Processando', numero: '977' })
+    assert.equal((await m.prepararInutilizacao(tx, a.socio, notaA2, JUSTIFICATIVA)).ok, false, 'Processando ocupa')
+
+    // Grupo irmão da mesma Conta: o recorte é por grupo, não por Conta.
+    const [irmao] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values ('IN504 A2', '00000000050403', ${a.socio.contaId}) returning id`)
+    const notaIrmao = await semearNotaNegada(tx, irmao.id, 950415, '976')
+    assert.ok((await m.prepararInutilizacao(tx, { ...a.socio, gruposAcesso: [irmao.id] }, notaIrmao, JUSTIFICATIVA)).ok, 'a autorizada do grupo A não trava o grupo irmão')
+  })
+})
+
+test('série "001" e "1" são a mesma série: recusa o número ocupado e grava o pedido com a série sem zeros (C4)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const ocupada = await semearNotaNegada(tx, a.grupoId, 950420, '976')
+    await semearNota(tx, a.grupoId, 950421, { status: 'Autorizada', numero: '0976', serie: '001' })
+    assert.equal((await m.prepararInutilizacao(tx, a.socio, ocupada, JUSTIFICATIVA)).ok, false)
+
+    const livre = await semearNota(tx, a.grupoId, 950422, { status: 'Negada', motivo: '225 - Falha no schema', numero: '0978', serie: '001' })
+    const r = await m.prepararInutilizacao(tx, a.socio, livre, JUSTIFICATIVA)
+    assert.ok(r.ok)
+    const [linha] = await inutilizacoes(tx, livre)
+    assert.deepEqual([linha.serie, linha.numero_inicial], ['1', 978])
+  })
+})
+
+test('duas recusadas com o mesmo número: o pedido numa esconde o botão da outra, e o preparo da outra recusa (C5)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000050401')
+    const b = await semearConta(tx, 'B', '00000000050402')
+    const n1 = await semearNotaNegada(tx, a.grupoId, 950430, '978')
+    const n2 = await semearNotaNegada(tx, a.grupoId, 950431, '978')
+    assert.ok((await m.prepararInutilizacao(tx, a.socio, n1, JUSTIFICATIVA)).ok)
+    assert.deepEqual(await m.prepararInutilizacao(tx, a.socio, n2, JUSTIFICATIVA), { ok: false, erro: 'Este número já tem um pedido de inutilização.' })
+
+    const { decidirInutilizacao } = await import('@/lib/notagateway/inutilizacao')
+    const notas = await notasDaDecisao(tx, [n1, n2])
+    const daA = await m.contextoDeInutilizacao(tx, { grupoId: a.grupoId, ambiente: 'Homologacao' }, notas)
+    assert.deepEqual(notas.map(n => decidirInutilizacao(daA.get(n.id)!).tipo), ['pendente', 'pendente'])
+
+    // O mesmo loader com o grupo da B não enxerga o pedido nem as notas da A.
+    const daB = await m.contextoDeInutilizacao(tx, { grupoId: b.grupoId, ambiente: 'Homologacao' }, notas)
+    assert.deepEqual([daB.get(n1)!.pedidos, daB.get(n1)!.outrasNotas], [[], []])
   })
 })

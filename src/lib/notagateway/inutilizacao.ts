@@ -93,6 +93,8 @@ export type ContextoInutilizacao = {
   pedidos: PedidoDoNumero[]
 }
 
+export const ERRO_JA_PEDIDA = 'Este número já tem um pedido de inutilização.'
+
 export type DecisaoInutilizacao =
   | { tipo: 'pode'; serie: string; numero: number; ultimaNegada: string | null }
   | { tipo: 'pendente' | 'autorizada' | 'numero_usado' | 'nenhuma'; erro: string }
@@ -118,7 +120,7 @@ export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutiliza
   const pedidos = ctx.pedidos.filter(p => mesmaSerieENumero({ serie: p.serie, numero: p.numeroInicial }, elegivel))
   const vivo = pedidos.find(p => p.situacao !== 'negada')
   if (vivo?.situacao === 'autorizada') return { tipo: 'autorizada', erro: 'Este número já foi inutilizado.' }
-  if (vivo) return { tipo: 'pendente', erro: 'Este número já tem um pedido de inutilização.' }
+  if (vivo) return { tipo: 'pendente', erro: ERRO_JA_PEDIDA }
   const ocupado = ctx.outrasNotas.some(o => o.id !== ctx.nota.id && mesmaSerieENumero(o, elegivel) && !numeroLivre(o))
   if (ocupado) return { tipo: 'numero_usado', erro: `O número ${elegivel.numero} está em outra nota deste grupo que já o usou na SEFAZ. Não há o que inutilizar.` }
   const ultima = [...pedidos].sort(maisRecentePrimeiro)[0]

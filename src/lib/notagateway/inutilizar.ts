@@ -1,10 +1,14 @@
-import { and, count, eq, ne, notInArray, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, lojas, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from '@/lib/db/schema'
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
+import { semZerosAEsquerda } from '@/lib/texto'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, pedirInutilizacao, type InutilizacaoConsultada } from './client'
-import { elegivelParaInutilizar, pedidoSemRespostaVenceu, podePedirInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
+import {
+  type ContextoInutilizacao, decidirInutilizacao, ERRO_JA_PEDIDA, pedidoSemRespostaVenceu, podePedirInutilizacao, situacaoInutilizacao,
+  STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa,
+} from './inutilizacao'
 import { STATUS_MORTOS } from './status'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
@@ -37,50 +41,79 @@ async function grupoVisivel(tx: Executor, usuario: UsuarioInutilizacao, grupoId:
 
 export type PedidoInutilizacao = {
   inutilizacaoId: string; grupoId: string; idExterno: string; ambiente: string
-  serie: string; numeroInicial: number; numeroFinal: number; justificativa: string
+  serie: string; numeroInicial: number; numeroFinal: number; justificativa: string; numeroVenda: number
 }
 
-/** Confere permissão e elegibilidade e grava o pedido como pendente, antes de chamar a NG. */
+export type EscopoInutilizacao = { grupoId: string; ambiente: string }
+
+type NotaDaDecisao = ContextoInutilizacao['nota']
+
+/**
+ * Contexto da decisão (decidirInutilizacao) para notas do mesmo grupo e ambiente, numa
+ * ida só ao banco: o pedido passa uma nota, a lista passa as recusadas visíveis. O grupo
+ * vai no where das três consultas; o SQL só traz candidatos (o `ltrim` é a mesma regra de
+ * semZerosAEsquerda) e a regra pura decide.
+ */
+export async function contextoDeInutilizacao(
+  tx: Pick<typeof db, 'select'>, escopo: EscopoInutilizacao, notas: NotaDaDecisao[],
+): Promise<Map<string, ContextoInutilizacao>> {
+  const numeros = [...new Set(notas.map(n => semZerosAEsquerda(n.numero)).filter(Boolean))]
+  const inteiros = numeros.map(Number).filter(Number.isInteger)
+  const vendas = [...new Set(notas.flatMap(n => (n.vendaId ? [n.vendaId] : [])))]
+  const doEscopo = and(eq(notasFiscaisSaida.grupoId, escopo.grupoId), eq(notasFiscaisSaida.ambiente, escopo.ambiente))
+
+  const comMesmoNumero = numeros.length === 0 ? [] : await tx.select({
+    id: notasFiscaisSaida.id, numero: notasFiscaisSaida.numero, serie: notasFiscaisSaida.serie,
+    status: notasFiscaisSaida.status, motivoStatus: notasFiscaisSaida.motivoStatus,
+  }).from(notasFiscaisSaida).where(and(doEscopo, inArray(sql`ltrim(${notasFiscaisSaida.numero}, '0')`, numeros)))
+  const vivasDasVendas = vendas.length === 0 ? [] : await tx.select({
+    id: notasFiscaisSaida.id, vendaId: notasFiscaisSaida.vendaId, numero: notasFiscaisSaida.numero,
+  }).from(notasFiscaisSaida).where(and(doEscopo, inArray(notasFiscaisSaida.vendaId, vendas), notInArray(notasFiscaisSaida.status, STATUS_MORTOS)))
+  const pedidos = inteiros.length === 0 ? [] : await tx.select({
+    situacao: notasFiscaisSaidaInutilizacoes.situacao, motivoStatus: notasFiscaisSaidaInutilizacoes.motivoStatus, serie: notasFiscaisSaidaInutilizacoes.serie,
+    numeroInicial: notasFiscaisSaidaInutilizacoes.numeroInicial, criadoEm: notasFiscaisSaidaInutilizacoes.criadoEm,
+  }).from(notasFiscaisSaidaInutilizacoes).where(and(
+    eq(notasFiscaisSaidaInutilizacoes.grupoId, escopo.grupoId), eq(notasFiscaisSaidaInutilizacoes.ambiente, escopo.ambiente),
+    inArray(notasFiscaisSaidaInutilizacoes.numeroInicial, inteiros),
+  ))
+
+  return new Map(notas.map(n => [n.id, {
+    nota: n,
+    outraNotaVivaDaVenda: vivasDasVendas.find(v => v.vendaId === n.vendaId && v.id !== n.id) ?? null,
+    outrasNotas: comMesmoNumero,
+    pedidos,
+  }]))
+}
+
+/** Confere permissão e a decisão (a mesma da lista) e grava o pedido como pendente, antes de chamar a NG. */
 export async function prepararInutilizacao(
   tx: Executor, usuario: UsuarioInutilizacao, notaId: string, justificativaBruta: string,
 ): Promise<Resultado<{ pedido: PedidoInutilizacao }>> {
   const filtroConta = usuario.papel === 'admin_geral' ? undefined : eq(grupos.contaId, usuario.contaId ?? '')
   const [nota] = await tx.select({
-    id: notasFiscaisSaida.id, grupoId: notasFiscaisSaida.grupoId, vendaId: notasFiscaisSaida.vendaId, idExterno: notasFiscaisSaida.idExterno,
-    ambiente: notasFiscaisSaida.ambiente, status: notasFiscaisSaida.status, motivoStatus: notasFiscaisSaida.motivoStatus,
-    numero: notasFiscaisSaida.numero, serie: notasFiscaisSaida.serie,
+    id: notasFiscaisSaida.id, grupoId: notasFiscaisSaida.grupoId, vendaId: notasFiscaisSaida.vendaId, vendaNumero: notasFiscaisSaida.vendaNumero,
+    idExterno: notasFiscaisSaida.idExterno, ambiente: notasFiscaisSaida.ambiente, status: notasFiscaisSaida.status,
+    motivoStatus: notasFiscaisSaida.motivoStatus, numero: notasFiscaisSaida.numero, serie: notasFiscaisSaida.serie,
   }).from(notasFiscaisSaida).innerJoin(grupos, eq(grupos.id, notasFiscaisSaida.grupoId))
     .where(and(eq(notasFiscaisSaida.id, notaId), filtroConta)).limit(1)
   if (!nota || !(await grupoVisivel(tx, usuario, nota.grupoId))) return { ok: false, erro: NAO_ENCONTRADA }
 
-  const [outraViva] = nota.vendaId
-    ? await tx.select({ numero: notasFiscaisSaida.numero }).from(notasFiscaisSaida).where(and(
-        eq(notasFiscaisSaida.vendaId, nota.vendaId), eq(notasFiscaisSaida.grupoId, nota.grupoId), eq(notasFiscaisSaida.ambiente, nota.ambiente),
-        ne(notasFiscaisSaida.id, nota.id), notInArray(notasFiscaisSaida.status, STATUS_MORTOS),
-      )).limit(1)
-    : []
-  const elegivel = elegivelParaInutilizar(nota, outraViva ?? null)
-  if (!elegivel.ok) return elegivel
+  const decisao = decidirInutilizacao((await contextoDeInutilizacao(tx, nota, [nota])).get(nota.id)!)
+  if (decisao.tipo !== 'pode') return { ok: false, erro: decisao.erro }
   const j = validarJustificativa(justificativaBruta)
   if (!j.ok) return { ok: false, erro: j.erro }
 
-  const [jaPedida] = await tx.select({ id: notasFiscaisSaidaInutilizacoes.id }).from(notasFiscaisSaidaInutilizacoes).where(and(
-    eq(notasFiscaisSaidaInutilizacoes.grupoId, nota.grupoId), eq(notasFiscaisSaidaInutilizacoes.ambiente, nota.ambiente),
-    eq(notasFiscaisSaidaInutilizacoes.serie, elegivel.serie), eq(notasFiscaisSaidaInutilizacoes.numeroInicial, elegivel.numero),
-    ne(notasFiscaisSaidaInutilizacoes.situacao, 'negada'),
-  )).limit(1)
-  if (jaPedida) return { ok: false, erro: 'Este número já tem um pedido de inutilização.' }
-
   const [{ n }] = await tx.select({ n: count() }).from(notasFiscaisSaidaInutilizacoes).where(eq(notasFiscaisSaidaInutilizacoes.notaId, nota.id))
   const idExterno = `${nota.idExterno}-inut-${n + 1}`
+  // Duas abas pedindo o mesmo número ao mesmo tempo: o índice único parcial barra a segunda.
   const [linha] = await tx.insert(notasFiscaisSaidaInutilizacoes).values({
-    notaId: nota.id, grupoId: nota.grupoId, idExterno, ambiente: nota.ambiente, serie: elegivel.serie,
-    numeroInicial: elegivel.numero, numeroFinal: elegivel.numero, justificativa: j.justificativa, pedidaPor: usuario.id,
+    notaId: nota.id, grupoId: nota.grupoId, idExterno, ambiente: nota.ambiente, serie: decisao.serie,
+    numeroInicial: decisao.numero, numeroFinal: decisao.numero, justificativa: j.justificativa, pedidaPor: usuario.id,
   }).onConflictDoNothing().returning({ id: notasFiscaisSaidaInutilizacoes.id })
-  if (!linha) return { ok: false, erro: 'Este número já tem um pedido de inutilização.' }
+  if (!linha) return { ok: false, erro: ERRO_JA_PEDIDA }
   return { ok: true, pedido: {
-    inutilizacaoId: linha.id, grupoId: nota.grupoId, idExterno, ambiente: nota.ambiente,
-    serie: elegivel.serie, numeroInicial: elegivel.numero, numeroFinal: elegivel.numero, justificativa: j.justificativa,
+    inutilizacaoId: linha.id, grupoId: nota.grupoId, idExterno, ambiente: nota.ambiente, serie: decisao.serie,
+    numeroInicial: decisao.numero, numeroFinal: decisao.numero, justificativa: j.justificativa, numeroVenda: nota.vendaNumero,
   } }
 }
 
