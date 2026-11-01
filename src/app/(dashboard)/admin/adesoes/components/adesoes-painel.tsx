@@ -23,6 +23,7 @@ import {
 import { AtivacaoAcessos, AtivacaoLoja, useAtivacao } from './ativar-cliente'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EnderecoSedeCampos } from './endereco-sede-campos'
+import { NotaGatewayBloco } from './nota-gateway-bloco'
 import { deEnderecoGravado, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
 
 const CLASSE_STATUS: Record<StatusAdesao, string> = {
@@ -150,7 +151,7 @@ function valoresIniciais(a: AdesaoLinha): Record<CampoContrato, string> {
   }
 }
 
-type Aba = 'contrato' | 'grupo' | 'acessos'
+type Aba = 'contrato' | 'grupo' | 'acessos' | 'ng'
 
 const sedeInicial = (a: AdesaoLinha): EnderecoSede => deEnderecoGravado(a.sede)
 
@@ -267,13 +268,15 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
       <Tabs value={aba} onValueChange={v => setAba(v as Aba)} className="flex min-h-0 flex-1 flex-col gap-0">
         {/* overflow-y-hidden tira a barra vertical que o sublinhado da aba (5px abaixo) criava; o pb devolve esse espaço. */}
         <div className="overflow-x-auto overflow-y-hidden border-b px-4 pb-[5px]">
-          <TabsList variant="line">
+          {/* Com a aba Nota Gateway (#588) as quatro não cabem no painel estreito: quebram em vez de rolar. */}
+          <TabsList variant="line" className="flex-wrap justify-start group-data-horizontal/tabs:h-auto">
             <TabsTrigger value="contrato">
               Contrato
               {!travada && situacao !== 'assinado' && faltam.length > 0 && <Badge variant="outline" className="border-warning text-warning">{faltam.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="grupo">Grupo e loja</TabsTrigger>
             <TabsTrigger value="acessos">Usuários e acessos</TabsTrigger>
+            <TabsTrigger value="ng">Nota Gateway</TabsTrigger>
           </TabsList>
         </div>
 
@@ -343,6 +346,14 @@ function Detalhe({ adesao: a, grupos, envioTravado, onFechar }: { adesao: Adesao
             {ativavel
               ? <AtivacaoAcessos adesaoId={a.id} ativacao={ativacao} />
               : <p className="text-sm text-muted-foreground">Usuários, certificado e portal se aplicam depois do contrato assinado e do grupo ligado.</p>}
+          </TabsContent>
+
+          <TabsContent value="ng">
+            <NotaGatewayBloco adesaoId={a.id} dados={{
+              ...a,
+              sedeCep: a.sede.cep, sedeLogradouro: a.sede.logradouro, sedeNumero: a.sede.numero, sedeComplemento: a.sede.complemento,
+              sedeBairro: a.sede.bairro, sedeCidade: a.sede.cidade, sedeUf: a.sede.uf,
+            }} />
           </TabsContent>
         </div>
       </Tabs>

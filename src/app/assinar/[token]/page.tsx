@@ -6,6 +6,7 @@ import { documentosAssinatura, assinaturaEventos, assinaturaCodigos } from '@/li
 import { TEXTOS_VENDA } from '@/lib/assinatura/textos-emissor'
 import { AssinarClient } from './assinar-client'
 import { solicitarCodigoAction, conferirCodigoAction, selarAssinaturaAction } from './actions'
+import { ipDoPedido } from '@/lib/ip-do-pedido'
 
 export default async function AssinarPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -16,7 +17,7 @@ export default async function AssinarPage({ params }: { params: Promise<{ token:
   if (!doc) notFound()
 
   const h = await headers()
-  const ip = (h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? '').split(',')[0].trim()
+  const ip = ipDoPedido(h)
   const userAgent = h.get('user-agent') ?? ''
 
   if (doc.status === 'pendente') {
