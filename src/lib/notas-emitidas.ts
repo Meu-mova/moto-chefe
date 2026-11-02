@@ -1,4 +1,4 @@
-import { ehRecusada } from '@/lib/notagateway/status'
+import { codigoRecusa, ehRecusada } from '@/lib/notagateway/status'
 import { hojeBrt, mesBrt, parseDataInput } from '@/lib/data-venda'
 
 /** Filtros da tela Notas Emitidas (#348). A Denegada separada da Recusada vem da #347. */
@@ -39,6 +39,23 @@ export type Situacao = Exclude<CategoriaNota, 'descartada'> | 'todas'
 
 export function naSituacao(n: { categoria: CategoriaNota }, situacao: Situacao): boolean {
   return situacao === 'todas' ? n.categoria !== 'descartada' : n.categoria === situacao
+}
+
+/** A coluna Motivo só nas abas em que ele existe: nas outras seria uma coluna larga quase vazia (#597). */
+export function colunaMotivoVisivel(situacao: Situacao): boolean {
+  return situacao === 'recusada' || situacao === 'cancelada'
+}
+
+/**
+ * Código da SEFAZ e texto do motivo separados, para "Motivo da SEFAZ (539)" no cartão e no
+ * diálogo (#597). Sem código numérico (erro de validação da Nota Gateway), o texto vai inteiro.
+ */
+export function motivoDaSefaz(motivo: string | null): { codigo: number | null; texto: string } | null {
+  const bruto = motivo?.trim()
+  if (!bruto) return null
+  const codigo = codigoRecusa(bruto)
+  const texto = codigo === null ? bruto : bruto.replace(/^\d{3}\s*[-:]?\s*(?:Rejeicao:\s*)?/i, '').trim()
+  return { codigo, texto: texto || bruto }
 }
 
 /** Só a autorizada e a cancelada têm documento: a recusada e a em andamento não valem na SEFAZ. */

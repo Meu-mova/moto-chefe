@@ -19,7 +19,7 @@ test('ambiente da nota diferente do grupo: orienta a voltar o ambiente; igual: n
   assert.equal(divergenciaDeAmbiente('Producao', 'Producao', 'cancelá-la'), null)
   assert.equal(
     divergenciaDeAmbiente('Producao', 'Homologacao', 'cancelá-la'),
-    'Esta nota é de produção e o grupo está em homologação. Volte o ambiente em Admin → Notas fiscais para cancelá-la',
+    'Esta nota é de produção e o grupo está em homologação. Volte o ambiente em Admin, Notas fiscais, para cancelá-la',
   )
 })
 
