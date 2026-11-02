@@ -1,6 +1,7 @@
 // Regras da inutilização de número da NF de saída (#504), pelas respostas do suporte da Nota Gateway.
 import { ehDenegada, ehDuplicidade, ehRecusada, MINUTOS_PARA_DESCARTAR, numeroLivre } from './status'
 import { semZerosAEsquerda } from '@/lib/texto'
+import { ambienteDaNg, divergenciaDeAmbiente } from './ambiente'
 
 /** Irreversível na produção: sócios, admin_geral e admin_rede (decisões do Luis, #504 e #597). Tela e servidor leem daqui. */
 const PAPEIS_QUE_PEDEM = ['admin_geral', 'admin_socio', 'admin_rede'] as const
@@ -97,11 +98,16 @@ export type ContextoInutilizacao = {
 
 export const ERRO_JA_PEDIDA = 'Este número já tem um pedido de inutilização.'
 export const ERRO_SEM_CONFIGURACAO = 'Nota Gateway não configurada para esta empresa.'
-export const ERRO_AMBIENTE_MUDOU = 'O ambiente da empresa mudou desde a emissão desta nota.'
+/** A ação que a orientação de ambiente cita (divergenciaDeAmbiente). */
+export const ACAO_INUTILIZAR = 'inutilizar o número'
 
+/**
+ * `nenhuma`: nota não elegível, sem botão nem texto. Os demais tipos sem botão levam em
+ * `erro` a frase que a linha mostra e que o servidor devolve (a mesma).
+ */
 export type DecisaoInutilizacao =
   | { tipo: 'pode'; serie: string; numero: number; ultimaNegada: string | null }
-  | { tipo: 'pendente' | 'autorizada' | 'numero_usado' | 'nenhuma'; erro: string }
+  | { tipo: 'pendente' | 'autorizada' | 'numero_usado' | 'nenhuma' | 'sem_configuracao' | 'ambiente_divergente'; erro: string }
 
 type SerieENumero = { serie: string | null; numero: string | number | null }
 
@@ -126,8 +132,9 @@ export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutiliza
   const vivo = pedidos.find(p => p.situacao !== 'negada')
   if (vivo?.situacao === 'autorizada') return { tipo: 'autorizada', erro: 'Este número já foi inutilizado.' }
   if (vivo) return { tipo: 'pendente', erro: ERRO_JA_PEDIDA }
-  if (ctx.ambienteDoGrupo === null) return { tipo: 'nenhuma', erro: ERRO_SEM_CONFIGURACAO }
-  if (ctx.ambienteDoGrupo !== ctx.nota.ambiente) return { tipo: 'nenhuma', erro: ERRO_AMBIENTE_MUDOU }
+  if (ctx.ambienteDoGrupo === null) return { tipo: 'sem_configuracao', erro: ERRO_SEM_CONFIGURACAO }
+  const divergencia = divergenciaDeAmbiente(ctx.nota.ambiente, ambienteDaNg(ctx.ambienteDoGrupo), ACAO_INUTILIZAR)
+  if (divergencia) return { tipo: 'ambiente_divergente', erro: divergencia }
   const ocupado = ctx.outrasNotas.some(o => o.id !== ctx.nota.id && mesmaSerieENumero(o, elegivel) && !numeroLivre(o))
   if (ocupado) return { tipo: 'numero_usado', erro: `O número ${elegivel.numero} está em outra nota deste grupo (autorizada, cancelada, denegada ou em andamento). Não há o que inutilizar.` }
   const ultima = [...pedidos].sort(maisRecentePrimeiro)[0]

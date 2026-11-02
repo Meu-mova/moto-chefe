@@ -361,7 +361,7 @@ test('configDoAmbiente lê a credencial do grupo: sem configuração, ambiente d
     assert.deepEqual(await m.configDoAmbiente(c.grupoId, 'Homologacao', tx), { erro: 'Nota Gateway não configurada para esta empresa.' })
 
     await tx.execute(sql`update notagateway_config set token = ${cifrar('tok-cifrado')}, empresa_id = 'emp-1', ambiente = 'Producao' where grupo_id = ${a.grupoId}`)
-    assert.deepEqual(await m.configDoAmbiente(a.grupoId, 'Homologacao', tx), { erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
+    assert.deepEqual(await m.configDoAmbiente(a.grupoId, 'Homologacao', tx), { erro: 'Esta nota é de homologação e o grupo está em produção. Volte o ambiente em Admin → Notas fiscais para inutilizar o número' })
     assert.deepEqual(await m.configDoAmbiente(a.grupoId, 'Producao', tx), { cfg: { token: 'tok-cifrado', empresaId: 'emp-1', ambiente: 'Producao' } })
   })
 })
@@ -372,11 +372,12 @@ test('grupo em outro ambiente da NG: a lista não mostra o botão e o pedido rec
     const { hojeBrt } = await import('@/lib/data-venda')
     const a = await semearConta(tx, 'A', '00000000050401', 'Producao')
     const homolog = await semearNotaNegada(tx, a.grupoId, 950470, '992')
-    assert.deepEqual(await m.prepararInutilizacao(tx, a.socio, homolog, JUSTIFICATIVA), { ok: false, erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
+    const orientacao = 'Esta nota é de homologação e o grupo está em produção. Volte o ambiente em Admin → Notas fiscais para inutilizar o número'
+    assert.deepEqual(await m.prepararInutilizacao(tx, a.socio, homolog, JUSTIFICATIVA), { ok: false, erro: orientacao })
     assert.equal((await inutilizacoes(tx, homolog)).length, 0)
     const lista = await listarNotasEmitidas({ grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao', de: '2000-01-01', ate: hojeBrt() }, tx)
     const [situacao] = await anexarSituacaoDeInutilizacao(lista, { grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao', de: '2000-01-01', ate: hojeBrt() }, tx)
-    assert.deepEqual(situacao.inutilizacao, { tipo: 'nenhuma', erro: 'O ambiente da empresa mudou desde a emissão desta nota.' })
+    assert.deepEqual(situacao.inutilizacao, { tipo: 'ambiente_divergente', erro: orientacao })
     // A recusada de produção do mesmo grupo segue elegível.
     const producao = await semearNota(tx, a.grupoId, 950471, { status: 'Negada', motivo: '225 - Falha no schema', numero: '993', ambiente: 'Producao' })
     assert.ok((await m.prepararInutilizacao(tx, a.socio, producao, JUSTIFICATIVA)).ok)

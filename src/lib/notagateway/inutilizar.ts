@@ -5,9 +5,9 @@ import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { semZerosAEsquerda } from '@/lib/texto'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao, type InutilizacaoConsultada } from './client'
-import { ambienteLiberado } from './ambiente'
+import { ambienteLiberado, divergenciaDeAmbiente } from './ambiente'
 import {
-  type ContextoInutilizacao, decidirInutilizacao, ERRO_AMBIENTE_MUDOU, ERRO_JA_PEDIDA, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu,
+  ACAO_INUTILIZAR, type ContextoInutilizacao, decidirInutilizacao, ERRO_JA_PEDIDA, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu,
   podePedirInutilizacao, situacaoInutilizacao,
   STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa,
 } from './inutilizacao'
@@ -154,7 +154,8 @@ export async function configDoAmbiente(
 ): Promise<{ cfg: ConfigNotaGateway } | { erro: string }> {
   const cfg = await configNotaGateway(grupoId, exec)
   if (!cfg) return { erro: ERRO_SEM_CONFIGURACAO }
-  if (cfg.ambiente !== ambiente) return { erro: ERRO_AMBIENTE_MUDOU }
+  const divergencia = divergenciaDeAmbiente(ambiente, cfg.ambiente, ACAO_INUTILIZAR)
+  if (divergencia) return { erro: divergencia }
   return { cfg }
 }
 

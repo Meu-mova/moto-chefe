@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { decidirInutilizacao, elegivelParaInutilizar, ERRO_AMBIENTE_MUDOU, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu, podePedirInutilizacao, type ContextoInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
+import { decidirInutilizacao, elegivelParaInutilizar, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu, podePedirInutilizacao, type ContextoInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, validarJustificativa } from './inutilizacao'
 
 test('justificativa: tira acentos e espaços sobrando', () => {
   assert.deepEqual(validarJustificativa('  Venda cancelada após\n a rejeição  '), { ok: true, justificativa: 'Venda cancelada apos a rejeicao' })
@@ -147,9 +147,9 @@ test('decide: "0974" série "001" é o mesmo número e série que "974" série "
   assert.deepEqual(decidirInutilizacao({ ...ctxBase, nota: { ...notaBase, numero: '0974', serie: '001' } }), { tipo: 'pode', serie: '1', numero: 974, ultimaNegada: null })
 })
 
-test('decide: o grupo precisa estar no ambiente da nota; sem credencial da NG, nada (C1)', () => {
-  assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: 'Producao' }), { tipo: 'nenhuma', erro: ERRO_AMBIENTE_MUDOU })
-  assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: null }), { tipo: 'nenhuma', erro: ERRO_SEM_CONFIGURACAO })
+test('decide: grupo em outro ambiente ou sem credencial da NG: sem botão, com a orientação na linha (C1)', () => {
+  assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: 'Producao' }), { tipo: 'ambiente_divergente', erro: 'Esta nota é de homologação e o grupo está em produção. Volte o ambiente em Admin → Notas fiscais para inutilizar o número' })
+  assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: null }), { tipo: 'sem_configuracao', erro: ERRO_SEM_CONFIGURACAO })
   // O pedido em andamento continua aparecendo, mesmo com o grupo em outro ambiente.
   assert.equal(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: 'Producao', pedidos: [pedido()] }).tipo, 'pendente')
 })

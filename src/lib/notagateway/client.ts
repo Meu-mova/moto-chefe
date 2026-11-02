@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { notagatewayConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { decifrar } from '@/lib/cripto'
-import { ambienteLiberado } from './ambiente'
+import { ambienteDaNg, ambienteLiberado } from './ambiente'
 import type { EmitenteDanfe } from './emitente-danfe'
 
 /**
@@ -28,7 +28,7 @@ export async function configNotaGateway(grupoId: string, exec: Pick<typeof db, '
   return {
     token: decifrar(cfg.token).toString('utf8'),
     empresaId: cfg.empresaId,
-    ambiente: cfg.ambiente === 'Producao' ? 'Producao' : 'Homologacao',
+    ambiente: ambienteDaNg(cfg.ambiente),
   }
 }
 
