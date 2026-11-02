@@ -149,88 +149,88 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
         baixando={baixando === 'selecao'} onBaixar={() => baixar('ambos', [...marcadas], 'selecao')} acoes={acoes} />
 
       <div className="hidden md:block">
-      <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-        <Button size="sm" variant="outline" disabled={baixando !== null || totalComDocumento === 0} onClick={() => baixar('ambos', [])}>
-          {baixando === 'ambos' ? <Loader2 className="animate-spin" /> : <Download />}
-          Baixar as {totalComDocumento} do filtro
-        </Button>
-      </div>
-
-      {qtdSelecionada > 0 && (
-        <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md bg-primary-soft px-3 py-2 text-sm text-primary-text">
-          {estado === 'filtro' ? (
-            <span>Todas as {totalComDocumento} notas do filtro estão selecionadas.</span>
-          ) : estado === 'pagina' && totalComDocumento > idsDaPagina.length && marcadas.size === idsDaPagina.length ? (
-            <span>
-              As {idsDaPagina.length} notas desta página estão selecionadas.{' '}
-              <button type="button" className={`font-medium ${link}`} onClick={() => setTodasDoFiltro(true)}>
-                Selecionar todas as {totalComDocumento} notas do filtro
-              </button>
-            </span>
-          ) : (
-            <span>{qtdSelecionada} {qtdSelecionada === 1 ? 'nota selecionada' : 'notas selecionadas'}</span>
-          )}
-          {botoes(idsSelecionados)}
-          <button type="button" className={`font-medium ${link}`} onClick={limpar}>Limpar seleção</button>
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+          <Button size="sm" variant="outline" disabled={baixando !== null || totalComDocumento === 0} onClick={() => baixar('ambos', [])}>
+            {baixando === 'ambos' ? <Loader2 className="animate-spin" /> : <Download />}
+            Baixar as {totalComDocumento} do filtro
+          </Button>
         </div>
-      )}
 
-      <div className="overflow-x-auto">
-        <table aria-label="Notas emitidas" className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-xs text-muted-foreground">
-              <th scope="col" className="w-8 py-2 pr-3 text-left">
-                <input ref={cabecalho} type="checkbox" aria-label="Selecionar as notas desta página" className="size-4 cursor-pointer accent-primary"
-                  checked={estado === 'pagina' || estado === 'filtro'} disabled={idsDaPagina.length === 0}
-                  onChange={e => marcarPagina(e.target.checked)} />
-              </th>
-              <th scope="col" className="py-2 pr-3 text-left font-semibold">Nota</th>
-              <th scope="col" className="py-2 pr-3 text-left font-semibold">Série</th>
-              <th scope="col" className="py-2 pr-3 text-left font-semibold">Venda</th>
-              <th scope="col" className="py-2 pr-3 text-left font-semibold">Cliente</th>
-              <th scope="col" className="py-2 pr-3 text-left font-semibold">Status</th>
-              {mostraMotivo && <th scope="col" className="py-2 pr-3 text-left font-semibold">Motivo</th>}
-              <th scope="col" className="py-2 pr-3 text-right font-semibold">Data</th>
-              <th scope="col" className="w-10 py-2 text-right"><span className="sr-only">Ações</span></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {linhas.map(n => {
-              const doc = temDocumento(n)
-              const venda = linkDaVenda(n)
-              return (
-                <tr key={n.id} className="hover:bg-muted">
-                  {/* Coluna reservada: a nota sem documento ocupa o mesmo espaço, e o número alinha. */}
-                  <td className={celula}>
-                    {doc ? (
-                      <input type="checkbox" aria-label={`Selecionar a nota ${n.numero ?? ''}`} className="block size-4 cursor-pointer accent-primary disabled:cursor-not-allowed"
-                        disabled={todasDoFiltro} title={todasDoFiltro ? 'Limpe a seleção para escolher notas' : undefined}
-                        checked={todasDoFiltro || marcadas.has(n.id)} onChange={e => marcar(n.id, e.target.checked)} />
-                    ) : <span aria-hidden className="block size-4" />}
-                  </td>
-                  <td className={`${celula} font-semibold tabular-nums text-foreground`}>{n.numero ?? '-'}</td>
-                  <td className={`${celula} text-muted-foreground`}>{n.serie ?? '-'}</td>
-                  <td className={`${celula} tabular-nums`}>
-                    {n.vendaNumero == null ? vazio : venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : <>#{n.vendaNumero}</>}
-                  </td>
-                  <td className={`${celula} max-w-48 truncate`}>{n.clienteNome ?? vazio}</td>
-                  <td className={celula}>
-                    <span className="flex flex-col items-start gap-1">
-                      <SeloStatus nota={n} />
-                      <SituacaoInutilizacao decisao={n.inutilizacao} />
-                    </span>
-                  </td>
-                  {mostraMotivo && (
-                    <td className={`${celula} max-w-64 truncate text-muted-foreground`} title={n.motivoStatus ?? undefined}>{n.motivoStatus ?? ''}</td>
-                  )}
-                  <td className={`${celula} text-right tabular-nums text-muted-foreground`}>{diaBrt(n.criadoEm)}</td>
-                  <td className="h-14 py-0 text-right align-middle">{acoes(n)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+        {qtdSelecionada > 0 && (
+          <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md bg-primary-soft px-3 py-2 text-sm text-primary-text">
+            {estado === 'filtro' ? (
+              <span>Todas as {totalComDocumento} notas do filtro estão selecionadas.</span>
+            ) : estado === 'pagina' && totalComDocumento > idsDaPagina.length && marcadas.size === idsDaPagina.length ? (
+              <span>
+                As {idsDaPagina.length} notas desta página estão selecionadas.{' '}
+                <button type="button" className={`font-medium ${link}`} onClick={() => setTodasDoFiltro(true)}>
+                  Selecionar todas as {totalComDocumento} notas do filtro
+                </button>
+              </span>
+            ) : (
+              <span>{qtdSelecionada} {qtdSelecionada === 1 ? 'nota selecionada' : 'notas selecionadas'}</span>
+            )}
+            {botoes(idsSelecionados)}
+            <button type="button" className={`font-medium ${link}`} onClick={limpar}>Limpar seleção</button>
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table aria-label="Notas emitidas" className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-xs text-muted-foreground">
+                <th scope="col" className="w-8 py-2 pr-3 text-left">
+                  <input ref={cabecalho} type="checkbox" aria-label="Selecionar as notas desta página" className="size-4 cursor-pointer accent-primary"
+                    checked={estado === 'pagina' || estado === 'filtro'} disabled={idsDaPagina.length === 0}
+                    onChange={e => marcarPagina(e.target.checked)} />
+                </th>
+                <th scope="col" className="py-2 pr-3 text-left font-semibold">Nota</th>
+                <th scope="col" className="py-2 pr-3 text-left font-semibold">Série</th>
+                <th scope="col" className="py-2 pr-3 text-left font-semibold">Venda</th>
+                <th scope="col" className="py-2 pr-3 text-left font-semibold">Cliente</th>
+                <th scope="col" className="py-2 pr-3 text-left font-semibold">Status</th>
+                {mostraMotivo && <th scope="col" className="py-2 pr-3 text-left font-semibold">Motivo</th>}
+                <th scope="col" className="py-2 pr-3 text-right font-semibold">Data</th>
+                <th scope="col" className="w-10 py-2 text-right"><span className="sr-only">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {linhas.map(n => {
+                const doc = temDocumento(n)
+                const venda = linkDaVenda(n)
+                return (
+                  <tr key={n.id} className="hover:bg-muted">
+                    {/* Coluna reservada: a nota sem documento ocupa o mesmo espaço, e o número alinha. */}
+                    <td className={celula}>
+                      {doc ? (
+                        <input type="checkbox" aria-label={`Selecionar a nota ${n.numero ?? ''}`} className="block size-4 cursor-pointer accent-primary disabled:cursor-not-allowed"
+                          disabled={todasDoFiltro} title={todasDoFiltro ? 'Limpe a seleção para escolher notas' : undefined}
+                          checked={todasDoFiltro || marcadas.has(n.id)} onChange={e => marcar(n.id, e.target.checked)} />
+                      ) : <span aria-hidden className="block size-4" />}
+                    </td>
+                    <td className={`${celula} font-semibold tabular-nums text-foreground`}>{n.numero ?? '-'}</td>
+                    <td className={`${celula} text-muted-foreground`}>{n.serie ?? '-'}</td>
+                    <td className={`${celula} tabular-nums`}>
+                      {n.vendaNumero == null ? vazio : venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : <>#{n.vendaNumero}</>}
+                    </td>
+                    <td className={`${celula} max-w-48 truncate`}>{n.clienteNome ?? vazio}</td>
+                    <td className={celula}>
+                      <span className="flex flex-col items-start gap-1">
+                        <SeloStatus nota={n} />
+                        <SituacaoInutilizacao decisao={n.inutilizacao} />
+                      </span>
+                    </td>
+                    {mostraMotivo && (
+                      <td className={`${celula} max-w-64 truncate text-muted-foreground`} title={n.motivoStatus ?? undefined}>{n.motivoStatus ?? ''}</td>
+                    )}
+                    <td className={`${celula} text-right tabular-nums text-muted-foreground`}>{diaBrt(n.criadoEm)}</td>
+                    <td className="h-14 py-0 text-right align-middle">{acoes(n)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {paginas > 1 && (
