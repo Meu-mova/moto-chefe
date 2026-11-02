@@ -10,6 +10,7 @@ import { colunaMotivoVisivel, linkDaVenda, marcarNota, selecaoDaPagina, temDocum
 import { AcoesDaNota } from './acoes-da-nota'
 import { InutilizarDialogo, type NotaDoDialogo } from './inutilizar-dialogo'
 import { MotivoDialogo } from './motivo-dialogo'
+import { NotasCartoes } from './notas-cartoes'
 import { SeloStatus } from './selo-status'
 import { SituacaoInutilizacao } from './situacao-inutilizacao'
 
@@ -46,6 +47,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
   const [paraInutilizar, setParaInutilizar] = useState<NotaDoDialogo | null>(null)
   const [motivoDe, setMotivoDe] = useState<NotaEmitidaComInutilizacao | null>(null)
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set())
+  const [selecionando, setSelecionando] = useState(false)
   const [todasDoFiltro, setTodasDoFiltro] = useState(false)
   const [baixando, setBaixando] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
@@ -64,6 +66,11 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
   function limpar() {
     setMarcadas(new Set())
     setTodasDoFiltro(false)
+  }
+
+  function selecionar(ligar: boolean) {
+    if (!ligar) limpar()
+    setSelecionando(ligar)
   }
 
   function marcarPagina(marcar: boolean) {
@@ -136,6 +143,12 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
 
   return (
     <div className="space-y-2">
+      {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
+
+      <NotasCartoes notas={linhas} selecionando={selecionando} onSelecionar={selecionar} marcadas={marcadas} onMarcar={marcar}
+        baixando={baixando === 'selecao'} onBaixar={() => baixar('ambos', [...marcadas], 'selecao')} acoes={acoes} />
+
+      <div className="hidden md:block">
       <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
         <Button size="sm" variant="outline" disabled={baixando !== null || totalComDocumento === 0} onClick={() => baixar('ambos', [])}>
           {baixando === 'ambos' ? <Loader2 className="animate-spin" /> : <Download />}
@@ -161,8 +174,6 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
           <button type="button" className={`font-medium ${link}`} onClick={limpar}>Limpar seleção</button>
         </div>
       )}
-
-      {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
 
       <div className="overflow-x-auto">
         <table aria-label="Notas emitidas" className="w-full text-sm">
@@ -219,6 +230,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
             })}
           </tbody>
         </table>
+      </div>
       </div>
 
       {paginas > 1 && (

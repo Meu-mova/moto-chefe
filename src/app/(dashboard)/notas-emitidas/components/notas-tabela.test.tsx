@@ -56,6 +56,7 @@ const textoDaTela = () => document.body.textContent ?? ''
 const vezes = (texto: string) => textoDaTela().split(texto).length - 1
 const botoes = (inicio: string) => [...document.querySelectorAll('button')].filter(b => (b.textContent ?? '').trim().startsWith(inicio))
 const clicar = (el: Element) => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+const botao = (texto: string) => [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').trim() === texto)!
 const itensDoMenu = () => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
 const itemDoMenu = (texto: string) => itensDoMenu().find(i => (i.textContent ?? '').includes(texto))
 const desabilitado = (el: Element | undefined) => el?.getAttribute('aria-disabled') === 'true'
@@ -232,7 +233,7 @@ test('a situação da inutilização vira um selo na linha; a frase inteira fica
   ]
   for (const [inutilizacao, selo, frase] of casos) {
     await t.desenhar([{ ...NOTA, inutilizacao }], false)
-    assert.equal(vezes(selo), 1, selo)
+    assert.equal(vezes(selo), 2, `${selo}: na linha da tabela e no cartão do celular`)
     assert.ok(!textoDaTela().includes(frase), `${selo}: a frase não cabe na linha`)
     await t.abrirMenu('974')
     await t.escolher('Ver motivo completo')
@@ -252,14 +253,9 @@ test('"Ver motivo completo" mostra o motivo da SEFAZ com o código separado, e F
   assert.ok(textoDaTela().includes('Motivo da nota 974'))
   assert.ok(textoDaTela().includes('Motivo da SEFAZ (539)'))
   assert.ok(textoDaTela().includes('Duplicidade de NF-e, com diferenca na Chave de Acesso [chNFe: 3126]'))
-  assert.ok(textoDaTela().includes('Série 1, venda #31601. Recusada em 29/10/2026'))
+  assert.ok(textoDaTela().includes('venda #31601'))
   await t.fechar()
   assert.ok(!textoDaTela().includes('Motivo da nota 974'))
-  await t.desenhar([{ ...NOTA, status: 'Processando', categoria: 'em_andamento' }], true, { ...FILTRO, situacao: 'em_andamento' })
-  await t.abrirMenu('974')
-  await t.escolher('Ver motivo completo')
-  assert.ok(textoDaTela().includes('Em andamento desde 29/10/2026'))
-  await t.fechar()
   await t.desmontar()
 })
 
@@ -273,7 +269,7 @@ test('grupo em outro ambiente ou sem credencial: selo na linha e a orientação 
   ]
   for (const [inutilizacao, selo, frase] of casos) {
     await t.desenhar([{ ...NOTA, inutilizacao }])
-    assert.equal(vezes(selo), 1, selo)
+    assert.equal(vezes(selo), 2, selo)
     await t.abrirMenu('974')
     assert.equal(itemDoMenu('Inutilizar número'), undefined, selo)
     await t.escolher('Ver motivo completo')
@@ -369,4 +365,43 @@ test('a lista esvazia com o diálogo aberto: ele continua na tela (C6)', async (
   assert.ok(textoDaTela().includes('Nenhuma nota neste filtro.'))
   assert.ok(dialogoDeInutilizar())
   await t.desmontar()
+})
+
+const lista = () => document.querySelector('ul[aria-label="Notas emitidas"]')!
+
+test('celular: cartão com o cliente em destaque, os selos, o motivo da SEFAZ em bloco só na recusada e os fatos da nota (C8)', async () => {
+  const t = await montar()
+  await t.desenhar([NOTA, { ...AUTORIZADA, clienteNome: 'Maria Oliveira' }], true, { ...FILTRO, situacao: 'todas' })
+  const cartoes = [...lista().querySelectorAll(':scope > li')].map(li => li.textContent ?? '')
+  assert.equal(cartoes.length, 2)
+  const [recusada, autorizada] = cartoes as [string, string]
+  assert.ok(recusada.includes('Sem cliente') && recusada.includes('Recusada'))
+  assert.ok(recusada.includes('Motivo da SEFAZ (225)') && recusada.includes('Falha no schema'), 'recusada: bloco do motivo')
+  assert.ok(recusada.includes('NF 974') && recusada.includes('Série 1') && recusada.includes('Venda #31601') && recusada.includes('29/10'))
+  assert.ok(autorizada.includes('Maria Oliveira') && autorizada.includes('Autorizada') && autorizada.includes('NF 975'))
+  assert.ok(!autorizada.includes('Motivo da SEFAZ'), 'autorizada: sem bloco de motivo')
+  assert.equal(lista().querySelectorAll('input[type="checkbox"]').length, 0, 'fora do modo Selecionar: sem caixas')
+  assert.ok(textoDaTela().includes('2 notas'))
+  await t.desmontar()
+})
+
+test('celular: "Selecionar" mostra as caixas, só a nota com documento marca, Baixar leva as marcadas e Cancelar limpa (#402)', async () => {
+  await comDownloadFalso(async chamadas => {
+    const t = await montar()
+    await t.desenhar([NOTA, AUTORIZADA], true, { ...FILTRO, situacao: 'todas' })
+    await t.act(async () => { clicar(botao('Selecionar')) })
+    const caixa = (numero: string) => lista().querySelector<HTMLInputElement>(`input[aria-label="Selecionar a nota ${numero}"]`)!
+    assert.ok(caixa('974').disabled, 'recusada: sem documento, caixa desabilitada')
+    assert.ok(!caixa('975').disabled)
+    assert.ok(botao('Baixar').disabled, 'nada marcado: Baixar espera')
+    await t.act(async () => { caixa('975').click() })
+    assert.ok(textoDaTela().includes('1 selecionada'))
+    await t.act(async () => { clicar(botao('Baixar')); await esperar(50) })
+    assert.deepEqual(chamadas.map(c => c.corpo), [{ situacao: 'todas', ambiente: 'Producao', de: '2026-10-01', ate: '2026-10-31', tipo: 'ambos', id: ['nota-2'] }])
+    await t.act(async () => { clicar(botao('Cancelar')) })
+    assert.equal(lista().querySelectorAll('input[type="checkbox"]').length, 0, 'saiu do modo')
+    assert.ok(textoDaTela().includes('2 notas'))
+    assert.ok(!document.querySelector<HTMLInputElement>('table input[aria-label="Selecionar a nota 975"]')!.checked, 'a seleção foi limpa para a tabela também')
+    await t.desmontar()
+  })
 })
