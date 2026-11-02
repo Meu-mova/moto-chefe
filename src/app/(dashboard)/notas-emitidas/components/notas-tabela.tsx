@@ -145,7 +145,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
     <div className="space-y-2">
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
 
-      <NotasCartoes notas={linhas} selecionando={selecionando} onSelecionar={selecionar} marcadas={marcadas} onMarcar={marcar}
+      <NotasCartoes notas={linhas} total={notas.length} selecionando={selecionando} onSelecionar={selecionar} marcadas={marcadas} onMarcar={marcar}
         baixando={baixando === 'selecao'} onBaixar={() => baixar('ambos', [...marcadas], 'selecao')} acoes={acoes} />
 
       <div className="hidden md:block">

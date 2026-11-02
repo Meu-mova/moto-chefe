@@ -11,7 +11,10 @@ import { SeloStatus } from './selo-status'
 import { SituacaoInutilizacao } from './situacao-inutilizacao'
 
 type Props = {
+  /** As notas da página atual. */
   notas: NotaEmitidaComInutilizacao[]
+  /** Quantas notas a lista tem ao todo, para a barra; a paginação fica fora deste componente. */
+  total: number
   /** Modo Selecionar: a coluna das caixas aparece e a barra vira "N selecionadas". */
   selecionando: boolean
   onSelecionar: (ligar: boolean) => void
@@ -32,7 +35,7 @@ const link = 'text-primary-text underline-offset-4 hover:underline'
  * SEFAZ em bloco só na recusada e os fatos no rodapé. A seleção para baixar só existe no modo
  * Selecionar, para a caixa não disputar espaço com o conteúdo.
  */
-export function NotasCartoes({ notas, selecionando, onSelecionar, marcadas, onMarcar, baixando, onBaixar, acoes }: Props) {
+export function NotasCartoes({ notas, total, selecionando, onSelecionar, marcadas, onMarcar, baixando, onBaixar, acoes }: Props) {
   const qtd = marcadas.size
   return (
     <div className="md:hidden">
@@ -49,7 +52,7 @@ export function NotasCartoes({ notas, selecionando, onSelecionar, marcadas, onMa
           </>
         ) : (
           <>
-            <span className="text-sm text-muted-foreground"><b className="font-semibold text-foreground">{notas.length}</b> {notas.length === 1 ? 'nota' : 'notas'}</span>
+            <span className="text-sm text-muted-foreground"><b className="font-semibold text-foreground">{total}</b> {total === 1 ? 'nota' : 'notas'}</span>
             <Button variant="outline" className="h-10 px-3.5" onClick={() => onSelecionar(true)}>Selecionar</Button>
           </>
         )}
