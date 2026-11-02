@@ -63,6 +63,17 @@ export function ehDuplicidade(n: NotaComMotivo): boolean {
 }
 
 /**
+ * O número desta nota ficou sem dono na SEFAZ e pode ser inutilizado por outra
+ * (#597): só a recusada não denegada e a descartada (nunca chegou à Nota Gateway).
+ * A lista é do que LIBERA: qualquer outro status, inclusive um novo da API, ocupa
+ * o número, como a trava por exclusão do #80.
+ */
+export function numeroLivre(n: NotaComMotivo): boolean {
+  if (n.status === 'Descartada') return true
+  return ehRecusada(n.status) && !ehDenegada(n)
+}
+
+/**
  * Recusa que se reenvia com o mesmo id (e o mesmo número): na rejeição a Nota
  * Gateway manda os dados novos com o número da tentativa; no erro 4xx dela a
  * nota nem foi registrada. Só a denegada pede id novo (#347).

@@ -103,9 +103,9 @@ export async function registrarAcaoSensivel(a: AcaoSensivel, executor: Executor 
 }
 
 /** Para as actions: a ação já aconteceu, e erro no log não pode desfazer a resposta. */
-export async function registrarAcaoSensivelSemFalhar(a: AcaoSensivel): Promise<void> {
+export async function registrarAcaoSensivelSemFalhar(a: AcaoSensivel, executor: Executor = db): Promise<void> {
   try {
-    await registrarAcaoSensivel(a)
+    await registrarAcaoSensivel(a, executor)
   } catch (e) {
     console.error(`[log-acoes] falha ao registrar ${a.tipo}:`, e instanceof Error ? e.message : e)
   }

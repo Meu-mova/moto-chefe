@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { credencialParaTela } from './credencial-tela'
+import { credencialCompleta, credencialParaTela } from './credencial-tela'
 
 const cfg = {
   token: 'TOKEN-CIFRADO', empresaId: 'ID-DA-EMPRESA-NA-NG', ambiente: 'Producao',
@@ -20,4 +20,10 @@ test('o que vai para a tela não leva o empresaId nem o token, só se estão cad
 
 test('sem empresa cadastrada na NG: temEmpresa falso', () => {
   assert.equal(credencialParaTela({ ...cfg, empresaId: null }).temEmpresa, false)
+})
+
+test('credencial completa: token e empresa gravados; só um deles não chama a NG (#597)', () => {
+  assert.equal(credencialCompleta({ token: 'cifrado', empresaId: 'emp' }), true)
+  assert.equal(credencialCompleta({ token: 'cifrado', empresaId: null }), false)
+  assert.equal(credencialCompleta({ token: '', empresaId: 'emp' }), false)
 })

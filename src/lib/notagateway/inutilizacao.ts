@@ -1,5 +1,14 @@
 // Regras da inutilização de número da NF de saída (#504), pelas respostas do suporte da Nota Gateway.
-import { ehDenegada, ehDuplicidade, MINUTOS_PARA_DESCARTAR } from './status'
+import { ehDenegada, ehDuplicidade, ehRecusada, MINUTOS_PARA_DESCARTAR, numeroLivre } from './status'
+import { semZerosAEsquerda } from '@/lib/texto'
+import { ambienteDaNg, divergenciaDeAmbiente } from './ambiente'
+
+/** Irreversível na produção: sócios, admin_geral e admin_rede (decisões do Luis, #504 e #597). Tela e servidor leem daqui. */
+const PAPEIS_QUE_PEDEM = ['admin_geral', 'admin_socio', 'admin_rede'] as const
+
+export function podePedirInutilizacao(papel: string): boolean {
+  return (PAPEIS_QUE_PEDEM as readonly string[]).includes(papel)
+}
 
 export const JUSTIFICATIVA_MIN = 15
 export const JUSTIFICATIVA_MAX = 255
@@ -55,14 +64,84 @@ export type Elegibilidade = { ok: true; serie: string; numero: number } | { ok: 
  * o mesmo número, salvo se a venda já tem outra nota viva com número diferente.
  */
 export function elegivelParaInutilizar(nota: NotaParaInutilizar, outraNotaVivaDaVenda: { numero: string | null } | null): Elegibilidade {
-  if (nota.status !== 'Negada') return { ok: false, erro: 'Só se inutiliza o número de nota rejeitada pela SEFAZ.' }
+  if (!ehRecusada(nota.status)) return { ok: false, erro: 'Só se inutiliza o número de nota rejeitada pela SEFAZ.' }
   const numero = Number(nota.numero)
   if (!nota.serie?.trim() || !Number.isInteger(numero) || numero < 1) {
     return { ok: false, erro: 'Esta nota não tem número gravado: não há o que inutilizar.' }
   }
   if (ehDenegada(nota) || ehDuplicidade(nota)) return { ok: false, erro: 'O número desta nota já foi usado na SEFAZ e não pode ser inutilizado.' }
-  // Inteiro, não texto: "0974" e "974" são o mesmo número.
-  const substituida = !!outraNotaVivaDaVenda && Number(outraNotaVivaDaVenda.numero) !== numero
+  // "0974" e "974" são o mesmo número; a série vai sem zeros à esquerda, como a SEFAZ compara.
+  const substituida = !!outraNotaVivaDaVenda && semZerosAEsquerda(outraNotaVivaDaVenda.numero) !== semZerosAEsquerda(nota.numero)
   if (nota.vendaId && !substituida) return { ok: false, erro: 'A venda desta nota continua ativa: corrija e reenvie a nota em vez de inutilizar o número.' }
-  return { ok: true, serie: nota.serie.trim(), numero }
+  return { ok: true, serie: semZerosAEsquerda(nota.serie), numero }
+}
+
+export type NotaDoNumero = { id: string; numero: string | null; serie: string | null; status: string; motivoStatus: string | null }
+
+export type PedidoDoNumero = { situacao: SituacaoInutilizacao; motivoStatus: string | null; serie: string; numeroInicial: number; criadoEm: Date | string }
+
+/**
+ * Tudo o que a decisão precisa, carregado uma vez (inutilizar.ts) para o pedido e para a
+ * lista: a regra mora aqui, e o SQL só traz candidatos do mesmo grupo e ambiente.
+ */
+export type ContextoInutilizacao = {
+  nota: NotaParaInutilizar & { id: string; ambiente: string }
+  /** Outra nota viva da mesma venda (reenvio que saiu com número novo). */
+  outraNotaVivaDaVenda: { numero: string | null } | null
+  /** Notas com o mesmo número, em qualquer série; a própria pode vir junto. */
+  outrasNotas: NotaDoNumero[]
+  /** Pedidos de inutilização do mesmo número, de qualquer nota e série. */
+  pedidos: PedidoDoNumero[]
+  /** Ambiente da credencial da NG do grupo (notagateway_config, sem decifrar); null = sem credencial. */
+  ambienteDoGrupo: string | null
+}
+
+/** Contexto de nota que não vai ao loader: a elegibilidade (status) decide antes de olhar o resto. */
+export function contextoVazio(nota: ContextoInutilizacao['nota']): ContextoInutilizacao {
+  return { nota, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [], ambienteDoGrupo: null }
+}
+
+export const ERRO_JA_PEDIDA = 'Este número já tem um pedido de inutilização.'
+export const ERRO_SEM_CONFIGURACAO = 'Nota Gateway não configurada para esta empresa.'
+/** A ação que a orientação de ambiente cita (divergenciaDeAmbiente). */
+export const ACAO_INUTILIZAR = 'inutilizar o número'
+
+/**
+ * `nenhuma`: nota não elegível, sem botão nem texto. Os demais tipos sem botão levam em
+ * `erro` a frase que a linha mostra e que o servidor devolve (a mesma).
+ */
+export type DecisaoInutilizacao =
+  | { tipo: 'pode'; serie: string; numero: number; ultimaNegada: string | null }
+  | { tipo: 'pendente' | 'autorizada' | 'numero_usado' | 'nenhuma' | 'sem_configuracao' | 'ambiente_divergente'; erro: string }
+
+type SerieENumero = { serie: string | null; numero: string | number | null }
+
+function mesmaSerieENumero(a: SerieENumero, b: SerieENumero): boolean {
+  return semZerosAEsquerda(a.numero?.toString()) === semZerosAEsquerda(b.numero?.toString())
+    && semZerosAEsquerda(a.serie) === semZerosAEsquerda(b.serie)
+}
+
+const maisRecentePrimeiro = (a: PedidoDoNumero, b: PedidoDoNumero) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
+
+/**
+ * O que a linha mostra e o que o servidor aceita, pela mesma regra (#597): a nota tem de
+ * ser elegível; um pedido não negado do número, desta ou de outra nota, esconde o botão
+ * (C5); o grupo tem de estar no ambiente da nota (a credencial vai ao ambiente dela);
+ * outra nota que ocupa o número (numeroLivre) também esconde (C4); a última negada aparece
+ * com o motivo e deixa pedir de novo.
+ */
+export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutilizacao {
+  const elegivel = elegivelParaInutilizar(ctx.nota, ctx.outraNotaVivaDaVenda)
+  if (!elegivel.ok) return { tipo: 'nenhuma', erro: elegivel.erro }
+  const pedidos = ctx.pedidos.filter(p => mesmaSerieENumero({ serie: p.serie, numero: p.numeroInicial }, elegivel))
+  const vivo = pedidos.find(p => p.situacao !== 'negada')
+  if (vivo?.situacao === 'autorizada') return { tipo: 'autorizada', erro: 'Este número já foi inutilizado.' }
+  if (vivo) return { tipo: 'pendente', erro: ERRO_JA_PEDIDA }
+  if (ctx.ambienteDoGrupo === null) return { tipo: 'sem_configuracao', erro: ERRO_SEM_CONFIGURACAO }
+  const divergencia = divergenciaDeAmbiente(ctx.nota.ambiente, ambienteDaNg(ctx.ambienteDoGrupo), ACAO_INUTILIZAR)
+  if (divergencia) return { tipo: 'ambiente_divergente', erro: divergencia }
+  const ocupado = ctx.outrasNotas.some(o => o.id !== ctx.nota.id && mesmaSerieENumero(o, elegivel) && !numeroLivre(o))
+  if (ocupado) return { tipo: 'numero_usado', erro: `O número ${elegivel.numero} está em outra nota deste grupo (autorizada, cancelada, denegada ou em andamento). Não há o que inutilizar.` }
+  const ultima = [...pedidos].sort(maisRecentePrimeiro)[0]
+  return { tipo: 'pode', serie: elegivel.serie, numero: elegivel.numero, ultimaNegada: ultima ? ultima.motivoStatus?.trim() || 'sem motivo informado' : null }
 }

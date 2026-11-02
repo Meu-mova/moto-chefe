@@ -1,19 +1,9 @@
 import { afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { vincularLogoNaNg } from './logo-ng'
+import { cfgDeTeste as cfg, responderComFetch as responder, restaurarFetch } from './fetch-de-teste'
 
-const cfg = { token: 'TOKEN-SECRETO-123', empresaId: 'EMPRESA-SECRETA-456', ambiente: 'Homologacao' as const }
-const original = globalThis.fetch
-afterEach(() => { globalThis.fetch = original })
-
-function responder(status: number, corpo = '') {
-  const pedidos: { url: string; init: RequestInit }[] = []
-  globalThis.fetch = (async (url: string, init: RequestInit) => {
-    pedidos.push({ url, init })
-    return new Response(corpo, { status })
-  }) as typeof fetch
-  return pedidos
-}
+afterEach(restaurarFetch)
 
 test('envia o PNG em multipart no campo logotipo para a logo da empresa do grupo', async () => {
   const pedidos = responder(200)
