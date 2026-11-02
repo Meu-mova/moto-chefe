@@ -15,9 +15,14 @@ export const JUSTIFICATIVA_MAX = 255
 
 export type ValidacaoJustificativa = { ok: true; justificativa: string } | { ok: false; erro: string }
 
+/** O texto como vai à NG: sem acento e sem espaço repetido. O contador do diálogo mede este (C3). */
+export function normalizarJustificativa(bruta: string): string {
+  return bruta.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
+}
+
 // A NG só aceita ASCII básico: o acento sai, e o que sobrar fora disso (emoji, travessão) recusa.
 export function validarJustificativa(bruta: string): ValidacaoJustificativa {
-  const justificativa = bruta.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
+  const justificativa = normalizarJustificativa(bruta)
   if (/[^\x20-\x7e]/.test(justificativa)) return { ok: false, erro: 'A justificativa só aceita letras, números e pontuação simples.' }
   if (justificativa.length < JUSTIFICATIVA_MIN) return { ok: false, erro: `A justificativa precisa de pelo menos ${JUSTIFICATIVA_MIN} caracteres.` }
   if (justificativa.length > JUSTIFICATIVA_MAX) return { ok: false, erro: `A justificativa pode ter no máximo ${JUSTIFICATIVA_MAX} caracteres.` }

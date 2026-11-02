@@ -7,6 +7,7 @@ import test, { afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
 import type { ResultadoAction } from '@/lib/resultado-action'
+import type { FiltroDownload } from './notas-tabela'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true })
 const g = globalThis as Record<string, unknown>
@@ -29,7 +30,7 @@ const AUTORIZADA: NotaEmitidaComInutilizacao = {
   linkDanfe: 'https://ng.example/975.pdf', linkXml: 'https://ng.example/975.xml', inutilizacao: { tipo: 'nenhuma', erro: 'Só nota recusada tem o número livre.' },
 }
 // O filtro da tela diz Produção de propósito: o diálogo tem de mostrar o ambiente DA NOTA (C2).
-const FILTRO = { situacao: 'recusada' as const, ambiente: 'Producao' as const, de: '2026-10-01', ate: '2026-10-31' }
+const FILTRO: FiltroDownload = { situacao: 'recusada', ambiente: 'Producao', de: '2026-10-01', ate: '2026-10-31' }
 const JUSTIFICATIVA = 'Venda cancelada apos a rejeicao'
 
 const router = { refresh: mock.fn() }
@@ -52,6 +53,9 @@ const clicar = (el: Element) => el.dispatchEvent(new dom.window.MouseEvent('clic
 const itensDoMenu = () => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
 const itemDoMenu = (texto: string) => itensDoMenu().find(i => (i.textContent ?? '').includes(texto))
 const desabilitado = (el: Element | undefined) => el?.getAttribute('aria-disabled') === 'true'
+// O campo só existe dentro do diálogo da inutilização: diz se ele está na tela.
+const dialogoDeInutilizar = () => document.querySelector('#justificativa-inutilizacao') !== null
+const ajudaDaJustificativa = () => document.getElementById('justificativa-ajuda')?.textContent ?? ''
 
 async function montar() {
   const React = (await import('react')).default
@@ -83,13 +87,20 @@ async function montar() {
   return { desenhar, abrirMenu, escolher, abrir, digitar, confirmar, fechar, pedir, desmontar, act }
 }
 
-test('o diálogo mostra número, série e o ambiente da nota, não o do filtro (C2)', async () => {
+test('o diálogo mostra a nota, o motivo da SEFAZ e o ambiente da nota, não o do filtro (C2)', async () => {
   const t = await montar()
   await t.desenhar([NOTA])
   await t.abrir()
-  assert.ok(textoDaTela().includes('Inutilizar número da nota'), 'o diálogo abre')
+  assert.ok(dialogoDeInutilizar(), 'o diálogo abre')
+  assert.ok(textoDaTela().includes('Nota 974, série 1, venda #31601'))
   assert.ok(textoDaTela().includes('Teste (homologação)'), 'ambiente da nota, com o filtro da tela em Produção')
+  assert.ok(textoDaTela().includes('Nota de teste: sem valor fiscal'))
+  assert.ok(!textoDaTela().includes('nunca mais vai ser usado'))
+  assert.ok(textoDaTela().includes('Motivo da SEFAZ (225)') && textoDaTela().includes('Falha no schema'))
   assert.equal(botoes('Inutilizar o número 974').length, 1)
+  // O contador mede o texto como o servidor vai medir: sem acento, sem espaço repetido.
+  await t.digitar('  Venda  cancelada após ')
+  assert.ok(ajudaDaJustificativa().includes('20'), ajudaDaJustificativa())
   await t.desmontar()
 })
 
@@ -117,7 +128,7 @@ test('recusa do servidor aparece no diálogo, que continua na tela quando a linh
   await t.desenhar([PENDENTE])
   await t.act(async () => { await esperar(DEPOIS_DA_ANIMACAO_MS) })
   assert.ok(textoDaTela().includes('A Nota Gateway recusou o pedido: serie invalida'), 'o diálogo não some com o redesenho')
-  assert.ok(textoDaTela().includes('Inutilizar número da nota'))
+  assert.ok(dialogoDeInutilizar())
   // Fechar depois da recusa também atualiza a lista: a linha pode ter virado negada.
   await t.fechar('Cancelar')
   assert.equal(router.refresh.mock.callCount(), 1)
@@ -130,7 +141,7 @@ test('erro inesperado da action vira mensagem no diálogo, sem fechar (C6)', asy
   await t.desenhar([NOTA])
   await t.pedir()
   assert.ok(textoDaTela().includes('Não deu para pedir a inutilização'))
-  assert.ok(textoDaTela().includes('Inutilizar número da nota'))
+  assert.ok(dialogoDeInutilizar())
   await t.desmontar()
 })
 
@@ -141,7 +152,7 @@ test('sucesso: o diálogo diz que o pedido foi enviado e a lista só atualiza no
   assert.ok(textoDaTela().includes('Pedido enviado'))
   assert.equal(router.refresh.mock.callCount(), 0, 'nada atualiza com o diálogo aberto')
   await t.fechar()
-  assert.ok(!textoDaTela().includes('Inutilizar número da nota'), 'fechou')
+  assert.ok(!dialogoDeInutilizar(), 'fechou')
   assert.equal(router.refresh.mock.callCount(), 1)
   await t.desmontar()
 })
@@ -217,17 +228,18 @@ test('"Ver motivo completo" mostra o motivo da SEFAZ com o código separado, e F
 test('grupo em outro ambiente ou sem credencial: selo na linha e a orientação em "Ver motivo completo", sem o item de inutilizar', async () => {
   const t = await montar()
   const orientacao = 'Esta nota é de homologação e o grupo está em produção. Volte o ambiente em Admin → Notas fiscais para inutilizar o número'
-  const casos: [NotaEmitidaComInutilizacao['inutilizacao'], string][] = [
-    [{ tipo: 'ambiente_divergente', erro: orientacao }, 'Grupo em outro ambiente'],
-    [{ tipo: 'sem_configuracao', erro: 'Nota Gateway não configurada para esta empresa.' }, 'Nota Gateway não configurada'],
+  const semCredencial = 'Nota Gateway não configurada para esta empresa.'
+  const casos: [NotaEmitidaComInutilizacao['inutilizacao'], string, string][] = [
+    [{ tipo: 'ambiente_divergente', erro: orientacao }, 'Grupo em outro ambiente', orientacao],
+    [{ tipo: 'sem_configuracao', erro: semCredencial }, 'Nota Gateway não configurada', semCredencial],
   ]
-  for (const [inutilizacao, selo] of casos) {
+  for (const [inutilizacao, selo, frase] of casos) {
     await t.desenhar([{ ...NOTA, inutilizacao }])
     assert.equal(vezes(selo), 1, selo)
     await t.abrirMenu('974')
     assert.equal(itemDoMenu('Inutilizar número'), undefined, selo)
     await t.escolher('Ver motivo completo')
-    assert.ok(textoDaTela().includes(inutilizacao.erro), selo)
+    assert.ok(textoDaTela().includes(frase), selo)
     await t.fechar()
   }
   await t.desmontar()
@@ -289,12 +301,12 @@ test('trava enquanto envia: botões desabilitados, sem o X e Escape não fecha; 
     await esperar(DEPOIS_DA_ANIMACAO_MS)
   })
   await escape()
-  assert.ok(textoDaTela().includes('Inutilizar número da nota'), 'Escape não fecha enquanto envia')
+  assert.ok(dialogoDeInutilizar(), 'Escape não fecha enquanto envia')
   await t.act(async () => { resolver(enviado); await esperar(50) })
   assert.ok(textoDaTela().includes('Pedido enviado'))
   // Controle: livre, o mesmo Escape fecha (e atualiza a lista, como o Fechar).
   await escape()
-  assert.ok(!textoDaTela().includes('Inutilizar número da nota'), 'Escape fecha depois do envio')
+  assert.ok(!dialogoDeInutilizar(), 'Escape fecha depois do envio')
   assert.equal(router.refresh.mock.callCount(), 1)
   await t.desmontar()
 })
@@ -304,7 +316,7 @@ test('ambiente: só Homologacao é teste; produção e qualquer outro valor most
   for (const ambiente of ['Producao', '']) {
     await t.desenhar([{ ...NOTA, ambiente }])
     await t.abrir()
-    assert.ok(textoDaTela().includes('Na produção, a inutilização não tem volta'), ambiente || '(vazio)')
+    assert.ok(textoDaTela().includes('O número 974 nunca mais vai ser usado'), ambiente || '(vazio)')
     assert.ok(!textoDaTela().includes('Teste (homologação)'), ambiente || '(vazio)')
     await t.fechar('Cancelar')
   }
@@ -329,6 +341,6 @@ test('a lista esvazia com o diálogo aberto: ele continua na tela (C6)', async (
   await t.desenhar([])
   await t.act(async () => { await esperar(DEPOIS_DA_ANIMACAO_MS) })
   assert.ok(textoDaTela().includes('Nenhuma nota neste filtro.'))
-  assert.ok(textoDaTela().includes('Inutilizar número da nota'))
+  assert.ok(dialogoDeInutilizar())
   await t.desmontar()
 })
