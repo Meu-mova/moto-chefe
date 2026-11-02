@@ -69,3 +69,13 @@ test('transferência entre grupos: Conta e se ligou ou desligou (#552)', () => {
   assert.equal(resumoDoEvento(ev({ tipo: 'transferencia_grupos_alterada', detalhe: { contaId: 'c1', contaNome: 'Conta X', de: false, para: true } })), 'Conta X · ligou')
   assert.equal(resumoDoEvento(ev({ tipo: 'transferencia_grupos_alterada', detalhe: { contaId: 'c1', contaNome: 'Conta X', de: true, para: false } })), 'Conta X · desligou')
 })
+
+test('resumo do pedido de inutilização: número, série, venda, resultado e motivo (#597)', () => {
+  const detalhe = { origem: 'mova', etapa: 'inutilizacao', numero: 974, serie: '1', numeroVenda: 31601, ambiente: 'Homologacao' }
+  const evento = (p: Record<string, unknown>) => ev({ tipo: 'nf_emitida', detalhe: { ...detalhe, ...p } })
+  assert.equal(resumoDoEvento(evento({ resultado: 'enviado' })), 'Inutilização do nº 974 série 1 da venda #31601 · pedida · homologação')
+  assert.equal(resumoDoEvento(evento({ resultado: 'recusado', motivo: 'Faixa ja utilizada', ambiente: 'Producao' })), 'Inutilização do nº 974 série 1 da venda #31601 · recusada · “Faixa ja utilizada”')
+  assert.equal(resumoDoEvento(evento({ resultado: 'sem_resposta', ambiente: 'Producao' })), 'Inutilização do nº 974 série 1 da venda #31601 · pedida sem resposta da Nota Gateway')
+  // Linha da v1.15.0: só era gravada depois do envio aceito, sem `resultado`.
+  assert.equal(resumoDoEvento(evento({ ambiente: 'Producao' })), 'Inutilização do nº 974 série 1 da venda #31601 · pedida')
+})

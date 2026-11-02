@@ -92,6 +92,12 @@ export function resumoDoEvento(e: EventoLog): string {
     case 'troca_grupo': return `Entrou em ${e.grupoNome ?? 'grupo excluído'}`
     case 'venda_cancelada': return `Venda #${v('numeroVenda')} · ${v('cliente')} · ${d.valor == null ? '?' : brl(d.valor)} · “${v('motivo')}”`
     case 'nf_emitida': {
+      if (d.etapa === 'inutilizacao') {
+        // Linha antiga (v1.15.0) só existia depois do envio aceito: sem `resultado`, foi pedida.
+        const resultado = d.resultado == null ? 'pedida' : { enviado: 'pedida', sem_resposta: 'pedida sem resposta da Nota Gateway', recusado: 'recusada' }[String(d.resultado)] ?? '?'
+        return [`Inutilização do nº ${v('numero')} série ${v('serie')} da venda #${v('numeroVenda')}`, resultado, d.motivo ? `“${d.motivo}”` : null, d.ambiente === 'Homologacao' ? 'homologação' : null]
+          .filter(Boolean).join(' · ')
+      }
       const partes = [d.numeroNf ? `NF ${d.numeroNf} da venda #${d.numeroVenda ?? '?'}` : `NF da venda #${d.numeroVenda ?? '?'}`]
       if (d.status) partes.push(String(d.status))
       if (d.ambiente === 'Homologacao') partes.push('homologação')

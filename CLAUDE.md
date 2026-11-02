@@ -8,6 +8,11 @@ mais se erra:
 
 - Mudança com valor visível para o Cesar **nasce de issue**, com o Luis (`LuisCarlos01`) como
   responsável, e entra no Project com Módulo e Prioridade. Tarefa miúda vira checklist dentro da issue.
+- **Spec antes do código** (`/to-spec` + `/to-tickets`) quando a entrega vira 2+ PRs dependentes,
+  traz regra de negócio nova para o Cesar validar, toca fiscal, isolamento, venda/caixa/estoque ou
+  migração, ou envolve mais de uma dupla. Detalhes no `AGENTS.md` ("Antes do código").
+- **Sem código duplicado**: antes de escrever helper, tipo ou lista, procure no `src/` e reuse;
+  cópia achada vira extração em `src/lib`. Regra no `AGENTS.md` ("Antes do código").
 - Tipo da issue é o **Issue Type**, não label. Só as labels da tabela do `CONTRIBUTING.md`; nova,
   só combinando com o Luis.
 - PR e commits citam **`Refs #N`, nunca `Closes #N`**: a issue só fecha no passo da release.
@@ -60,6 +65,11 @@ mais se erra:
   `globals.css` e na tabela de contraste de `docs/produto/identidade-visual.md` (ADR-0016).
 - Arquivo que você tocar sai sem cor hardcoded nas linhas que mudou. As telas antigas migram pela
   épica #90; não misture migração em massa num PR de outra coisa.
+
+## Fiscal: consulte a doc antes
+
+- Mudança ou investigação fiscal começa por `docs/fiscal/sumario.md` e pela skill `nota-gateway-docs`;
+  regra completa em `AGENTS.md`, seção "Fiscal".
 
 ## Vercel CLI
 

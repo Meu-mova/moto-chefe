@@ -2,8 +2,9 @@ import { db } from '@/lib/db'
 import { notagatewayConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { decifrar } from '@/lib/cripto'
-import { ambienteLiberado } from './ambiente'
+import { ambienteDaNg, ambienteLiberado } from './ambiente'
 import type { EmitenteDanfe } from './emitente-danfe'
+import { credencialCompleta } from './credencial-tela'
 
 /**
  * Cliente HTTP da Nota Gateway (API v2). A credencial é do GRUPO, porque o MOVA
@@ -22,13 +23,13 @@ export type ConfigNotaGateway = {
   ambiente: 'Homologacao' | 'Producao'
 }
 
-export async function configNotaGateway(grupoId: string): Promise<ConfigNotaGateway | null> {
-  const [cfg] = await db.select().from(notagatewayConfig).where(eq(notagatewayConfig.grupoId, grupoId)).limit(1)
-  if (!cfg?.token || !cfg.empresaId) return null
+export async function configNotaGateway(grupoId: string, exec: Pick<typeof db, 'select'> = db): Promise<ConfigNotaGateway | null> {
+  const [cfg] = await exec.select().from(notagatewayConfig).where(eq(notagatewayConfig.grupoId, grupoId)).limit(1)
+  if (!cfg || !credencialCompleta(cfg)) return null
   return {
     token: decifrar(cfg.token).toString('utf8'),
-    empresaId: cfg.empresaId,
-    ambiente: cfg.ambiente === 'Producao' ? 'Producao' : 'Homologacao',
+    empresaId: cfg.empresaId!,
+    ambiente: ambienteDaNg(cfg.ambiente),
   }
 }
 
@@ -220,6 +221,25 @@ export async function xmlCartaCorrecao(cfg: ConfigNotaGateway, idExterno: string
 export class InutilizacaoRecusada extends Error {}
 
 /**
+ * Só as mensagens de uma lista no formato documentado `[{ codigo, mensagem }]`, com teto;
+ * sem lista, só o status. Vai para motivo_status, tela e log (#597): o corpo cru de um 4xx
+ * fora da doc pode ecoar o caminho com o empresaId.
+ */
+function mensagensDocumentadas(json: unknown, status: number): string {
+  const mensagens = Array.isArray(json)
+    ? json.map((e: { mensagem?: unknown }) => e?.mensagem).filter((m): m is string => typeof m === 'string' && m.trim() !== '')
+    : []
+  return mensagens.length ? mensagens.join('; ').slice(0, 300) : `HTTP ${status}`
+}
+
+/** 5xx: a NG não disse se criou o pedido. Só o status sai daqui; o corpo não vai para log nem tela (#597). */
+export class NotaGatewayIndisponivel extends Error {
+  constructor(readonly status: number) {
+    super(`Nota Gateway com erro interno (${status})`)
+  }
+}
+
+/**
  * Pede a inutilização da faixa (#504). Como na emissão, o 200 só confirma o
  * pedido: o resultado da SEFAZ chega pela consulta. Quem chama garante que o
  * ambiente do grupo é o da nota.
@@ -236,8 +256,8 @@ export async function pedirInutilizacao(
     numeroFinal: p.numeroFinal,
     justificativa: p.justificativa,
   })
-  if (r.status >= 400 && r.status < 500) throw new InutilizacaoRecusada(mensagensDeErro(r.json, r.texto))
-  if (r.status >= 500) throw new Error(`Nota Gateway com erro interno (${r.status}): ${mensagensDeErro(r.json, r.texto)}`)
+  if (r.status >= 400 && r.status < 500) throw new InutilizacaoRecusada(mensagensDocumentadas(r.json, r.status))
+  if (r.status >= 500) throw new NotaGatewayIndisponivel(r.status)
 }
 
 export type InutilizacaoConsultada = { status: string; motivoStatus: string | null; protocolo: string | null }
@@ -246,7 +266,7 @@ export type InutilizacaoConsultada = { status: string; motivoStatus: string | nu
 export async function consultarInutilizacaoNaNg(cfg: ConfigNotaGateway, idExterno: string): Promise<InutilizacaoConsultada | null> {
   const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}/nf-e/inutilizacao/${encodeURIComponent(idExterno)}`)
   if (r.status === 404) return null
-  if (r.status >= 400) throw new Error(`Falha ao consultar a inutilização: ${mensagensDeErro(r.json, r.texto)}`)
+  if (r.status >= 400) throw new Error(`Falha ao consultar a inutilização: ${mensagensDocumentadas(r.json, r.status)}`)
   const c = r.json as Record<string, any>
   return {
     status: String(c?.status ?? 'Processando'),

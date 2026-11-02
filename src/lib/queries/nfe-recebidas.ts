@@ -1,5 +1,6 @@
 import { execRows } from '@/lib/db'
 import { sql, type SQL } from 'drizzle-orm'
+import { semZerosAEsquerda } from '@/lib/texto'
 
 export type NotaRecebida = {
   chave: string
@@ -52,7 +53,7 @@ export function classificarBusca(texto: string): { tipo: 'chave' | 'numero'; val
   if (digitos.length === 44) return { tipo: 'chave', valor: digitos }
   // Mesma normalização do ltrim(..., '0') usado do lado do banco (abaixo e em
   // "já lançada"): sem isso "0000123" e "123" não bateriam com a mesma nota.
-  return { tipo: 'numero', valor: digitos.replace(/^0+/, '') || '0' }
+  return { tipo: 'numero', valor: semZerosAEsquerda(digitos) }
 }
 
 /**
@@ -132,7 +133,7 @@ export async function listarNotasRecebidas(grupoId: string, filtros: FiltrosNota
  */
 export function numeroDaChave(chave: string): string {
   const bloco = chave.substring(25, 34)
-  return bloco.replace(/^0+/, '') || '0'
+  return semZerosAEsquerda(bloco)
 }
 
 /**

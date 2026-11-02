@@ -3,7 +3,10 @@
 import { ITENS, podeAcessar } from '../../src/lib/navegacao'
 import { DOMINIO_TESTE } from './seed-dados'
 
-export const USUARIOS_MATRIZ: { email: string; papel: string }[] = [
+/** `rotulo`: o que a saída mostra no lugar do e-mail (a cópia da produção mascara). */
+export type UsuarioMatriz = { email: string; papel: string; rotulo?: string }
+
+export const USUARIOS_MATRIZ: UsuarioMatriz[] = [
   { email: `geral@${DOMINIO_TESTE}`, papel: 'admin_geral' },
   ...['socio', 'aux', 'vendedor', 'mecanico', 'motorista'].map((prefixo, i) => ({
     email: `${prefixo}.sul@${DOMINIO_TESTE}`,
@@ -11,7 +14,18 @@ export const USUARIOS_MATRIZ: { email: string; papel: string }[] = [
   })),
 ]
 
-export const ROTAS_MATRIZ: string[] = [...new Set(ITENS.map(i => i.href))]
+/** Usuários da matriz: os do seed, ou a lista em JSON de MATRIZ_USUARIOS (cópia local, #594). */
+export function usuariosDaMatriz(json: string | undefined): UsuarioMatriz[] {
+  if (!json) return USUARIOS_MATRIZ
+  const lista: unknown = JSON.parse(json)
+  if (!Array.isArray(lista) || lista.length === 0 ||
+    !lista.every(u => typeof u?.email === 'string' && typeof u?.papel === 'string')) {
+    throw new Error('MATRIZ_USUARIOS precisa ser uma lista não vazia de { email, papel }')
+  }
+  return lista as UsuarioMatriz[]
+}
+
+export const ROTAS_MATRIZ: string[] =[...new Set(ITENS.map(i => i.href))]
 
 export type Esperado = 'abre' | 'volta'
 

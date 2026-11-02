@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ambienteLiberado, divergenciaDeAmbiente } from './ambiente'
+import { ambienteDaNg, ambienteLiberado, divergenciaDeAmbiente } from './ambiente'
 
 test('homologação passa em qualquer lugar: produção, preview e máquina de dev', () => {
   for (const vercelEnv of ['production', 'preview', 'development', undefined]) {
@@ -19,6 +19,12 @@ test('ambiente da nota diferente do grupo: orienta a voltar o ambiente; igual: n
   assert.equal(divergenciaDeAmbiente('Producao', 'Producao', 'cancelá-la'), null)
   assert.equal(
     divergenciaDeAmbiente('Producao', 'Homologacao', 'cancelá-la'),
-    'Esta nota é de produção e o grupo está em homologação — volte o ambiente em Admin → Notas fiscais para cancelá-la',
+    'Esta nota é de produção e o grupo está em homologação. Volte o ambiente em Admin, Notas fiscais, para cancelá-la',
   )
+})
+
+test('ambiente gravado vira um dos dois da NG; qualquer outro valor é homologação, que nunca vale na SEFAZ', () => {
+  assert.equal(ambienteDaNg('Producao'), 'Producao')
+  assert.equal(ambienteDaNg('Homologacao'), 'Homologacao')
+  assert.equal(ambienteDaNg(''), 'Homologacao')
 })

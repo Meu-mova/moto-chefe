@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { STATUS_MORTOS, cancelamentoConcluido, codigoRecusa, ehDenegada, recusaParaAbrir, ehDuplicidade, reenviaMesmoNumero, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, podeCancelarExtemporaneo, normalizarContador, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
+import { STATUS_MORTOS, cancelamentoConcluido, codigoRecusa, ehDenegada, numeroLivre, recusaParaAbrir, ehDuplicidade, reenviaMesmoNumero, deveDesfazerFaturamento, efeitoNaVenda, ehFinal, ehRecusada, limiteCancelamento, motivoDoStatus, podeDescartarTentativa, podeCancelarExtemporaneo, normalizarContador, situacaoCancelamento, travaDoCancelamentoDaVenda } from './status'
 
 // Os status não finais da doc "Status da nota fiscal" da Nota Gateway.
 const INTERMEDIARIOS = [
@@ -307,4 +307,17 @@ test('erro de validação da própria Nota Gateway (código com letras) é recus
   assert.equal(ehDenegada(nota), false)
   assert.equal(ehDuplicidade(nota), false)
   assert.equal(reenviaMesmoNumero(nota), true)
+})
+
+test('número livre: só a recusada não denegada e a descartada deixam o número sem dono na SEFAZ (#597)', () => {
+  assert.equal(numeroLivre({ status: 'Negada', motivoStatus: '225 - Falha no schema' }), true)
+  assert.equal(numeroLivre({ status: 'Descartada', motivoStatus: null }), true)
+  // A 539 diz que OUTRA nota usou o número: esta não o ocupa.
+  assert.equal(numeroLivre({ status: 'Negada', motivoStatus: '539 - Duplicidade de NF-e' }), true)
+  for (const status of ['Autorizada', 'CancelamentoNegado', 'Cancelada', 'Enviando', 'Processando', 'Denegada', ...INTERMEDIARIOS, 'StatusNovoDaApi']) {
+    assert.equal(numeroLivre({ status, motivoStatus: null }), false, status)
+  }
+  for (const codigo of [301, 302, 303]) {
+    assert.equal(numeroLivre({ status: 'Negada', motivoStatus: `${codigo} - Uso Denegado` }), false, String(codigo))
+  }
 })

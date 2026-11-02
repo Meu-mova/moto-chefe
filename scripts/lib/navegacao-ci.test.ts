@@ -40,7 +40,7 @@ test('nomePrint: tema, largura, passo com 2 dígitos e rota sem barra', () => {
   assert.equal(nomePrint('escuro', 390, 3, '/relatorios/coletiva', 'esqueleto'), 'escuro-390-03-relatorios_coletiva-esqueleto.png')
 })
 
-test('a matriz rota x papel (#579) roda quando muda o próprio teste', () => {
-  assert.equal(tocaTelas(['scripts/lib/acesso-rotas.ts']), true)
-  assert.equal(tocaTelas(['scripts/e2e-acesso-rotas.ts']), true)
+test('a matriz rota x papel não dispara a navegação do CI: roda na máquina (#594)', () => {
+  assert.equal(tocaTelas(['scripts/lib/acesso-rotas.ts']), false)
+  assert.equal(tocaTelas(['scripts/e2e-acesso-rotas.ts']), false)
 })
