@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { diaCurtoBrt } from '@/lib/data-venda'
-import { linkDaVenda, motivoDaSefaz, temDocumento } from '@/lib/notas-emitidas'
+import { linkDaVenda, motivoDaSefaz, temDocumento, type selecaoDaPagina } from '@/lib/notas-emitidas'
 import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
 import { SeloStatus } from './selo-status'
 import { SituacaoInutilizacao } from './situacao-inutilizacao'
@@ -15,9 +15,15 @@ type Props = {
   notas: NotaEmitidaComInutilizacao[]
   /** Quantas notas a lista tem ao todo, para a barra; a paginação fica fora deste componente. */
   total: number
-  /** Modo Selecionar: a coluna das caixas aparece e a barra vira "N selecionadas". */
+  /** Modo Selecionar: a coluna das caixas aparece e a barra vira "Selecionar todas", Cancelar e "Baixar N". */
   selecionando: boolean
   onSelecionar: (ligar: boolean) => void
+  /** Quantas notas estão marcadas, no mesmo número que o download leva. */
+  qtd: number
+  /** O estado da caixa "Selecionar todas": a mesma conta do cabeçalho da tabela. */
+  estado: ReturnType<typeof selecaoDaPagina>
+  /** Marca ou desmarca as notas com documento da página. */
+  onMarcarTodas: (marcar: boolean) => void
   marcadas: Set<string>
   onMarcar: (id: string, marcar: boolean) => void
   baixando: boolean
@@ -35,18 +41,26 @@ const link = 'text-primary-text underline-offset-4 hover:underline'
  * SEFAZ em bloco só na recusada e os fatos no rodapé. A seleção para baixar só existe no modo
  * Selecionar, para a caixa não disputar espaço com o conteúdo.
  */
-export function NotasCartoes({ notas, total, selecionando, onSelecionar, marcadas, onMarcar, baixando, onBaixar, acoes }: Props) {
-  const qtd = marcadas.size
+export function NotasCartoes({ notas, total, selecionando, onSelecionar, qtd, estado, onMarcarTodas, marcadas, onMarcar, baixando, onBaixar, acoes }: Props) {
+  const todas = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (todas.current) todas.current.indeterminate = estado === 'parte'
+  }, [estado, selecionando])
+  const temParaMarcar = notas.some(temDocumento)
   return (
     <div className="md:hidden">
       <div className="flex min-h-14 items-center justify-between gap-2 border-b border-border py-2">
         {selecionando ? (
           <>
-            <span role="status" className="text-sm text-muted-foreground"><b className="font-semibold text-foreground">{qtd}</b> {qtd === 1 ? 'selecionada' : 'selecionadas'}</span>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input ref={todas} type="checkbox" className="size-5 accent-primary disabled:opacity-40" disabled={!temParaMarcar || baixando}
+                checked={estado === 'pagina' || estado === 'filtro'} onChange={e => onMarcarTodas(e.target.checked)} />
+              Selecionar todas
+            </label>
             <span className="flex gap-2">
               <Button variant="outline" className="h-10 px-3.5" disabled={baixando} onClick={() => onSelecionar(false)}>Cancelar</Button>
               <Button className="h-10 px-3.5" disabled={qtd === 0 || baixando} onClick={onBaixar}>
-                {baixando && <Loader2 className="animate-spin" />}Baixar
+                {baixando && <Loader2 className="animate-spin" />}{qtd > 0 ? `Baixar ${qtd}` : 'Baixar'}
               </Button>
             </span>
           </>

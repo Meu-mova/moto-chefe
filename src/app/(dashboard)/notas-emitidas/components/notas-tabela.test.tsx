@@ -400,8 +400,7 @@ test('celular: "Selecionar" mostra as caixas, só a nota com documento marca, Ba
     assert.ok(!caixa('975').disabled)
     assert.ok(botao('Baixar').disabled, 'nada marcado: Baixar espera')
     await t.act(async () => { caixa('975').click() })
-    assert.ok(textoDaTela().includes('1 selecionada'))
-    await t.act(async () => { clicar(botao('Baixar')); await esperar(50) })
+    await t.act(async () => { clicar(botao('Baixar 1')); await esperar(50) })
     assert.deepEqual(chamadas.map(c => c.corpo), [{ situacao: 'todas', ambiente: 'Producao', de: '2026-10-01', ate: '2026-10-31', tipo: 'ambos', id: ['nota-2'] }])
     await t.act(async () => { clicar(botao('Cancelar')) })
     assert.equal(lista().querySelectorAll('input[type="checkbox"]').length, 0, 'saiu do modo')
@@ -409,4 +408,62 @@ test('celular: "Selecionar" mostra as caixas, só a nota com documento marca, Ba
     assert.ok(!document.querySelector<HTMLInputElement>('table input[aria-label="Selecionar a nota 975"]')!.checked, 'a seleção foi limpa para a tabela também')
     await t.desmontar()
   })
+})
+
+const AUTORIZADA_2: NotaEmitidaComInutilizacao = { ...AUTORIZADA, id: 'nota-3', numero: '976' }
+const CANCELADA: NotaEmitidaComInutilizacao = { ...AUTORIZADA, id: 'nota-4', numero: '977', status: 'Cancelada', categoria: 'cancelada' }
+const EM_ANDAMENTO: NotaEmitidaComInutilizacao = { ...NOTA, id: 'nota-5', numero: '978', status: 'Processando', categoria: 'em_andamento', motivoStatus: null }
+const MISTA = [NOTA, AUTORIZADA, EM_ANDAMENTO, AUTORIZADA_2, CANCELADA]
+
+const caixaDe = (numero: string) => lista().querySelector<HTMLInputElement>(`input[aria-label="Selecionar a nota ${numero}"]`)!
+const caixaTodas = () => [...document.querySelectorAll('label')].find(l => (l.textContent ?? '').includes('Selecionar todas'))!.querySelector('input')!
+const filtroTodas = { ...FILTRO, situacao: 'todas' as const }
+
+test('celular: "Selecionar todas" marca só as notas com documento e o botão vira "Baixar 3"', async () => {
+  const t = await montar()
+  await t.desenhar(MISTA, true, filtroTodas)
+  await t.act(async () => { clicar(botao('Selecionar')) })
+  assert.ok(botao('Baixar').disabled, 'nada marcado: Baixar espera')
+  await t.act(async () => { caixaTodas().click() })
+  assert.deepEqual(['975', '976', '977'].map(n => caixaDe(n).checked), [true, true, true])
+  assert.deepEqual(['974', '978'].map(n => caixaDe(n).checked), [false, false], 'recusada e em andamento não entram')
+  assert.ok(!botao('Baixar 3').disabled)
+  assert.ok(caixaTodas().checked && !caixaTodas().indeterminate)
+  await t.desmontar()
+})
+
+test('celular: desmarcar uma atualiza o número e deixa "Selecionar todas" indeterminada; desmarcar todas volta a 0', async () => {
+  const t = await montar()
+  await t.desenhar(MISTA, true, filtroTodas)
+  await t.act(async () => { clicar(botao('Selecionar')) })
+  await t.act(async () => { caixaTodas().click() })
+  await t.act(async () => { caixaDe('976').click() })
+  assert.ok(!botao('Baixar 2').disabled)
+  assert.ok(caixaTodas().indeterminate && !caixaTodas().checked, 'só parte marcada')
+  await t.act(async () => { caixaDe('976').click() })
+  await t.act(async () => { caixaTodas().click() })
+  assert.ok(botao('Baixar').disabled, 'voltou a 0')
+  assert.deepEqual(['975', '976', '977'].map(n => caixaDe(n).checked), [false, false, false])
+  assert.ok(!caixaTodas().indeterminate)
+  await t.desmontar()
+})
+
+test('celular: "Baixar 3" chama o mesmo download em lote da tabela, com os ids das notas com documento', async () => {
+  await comDownloadFalso(async chamadas => {
+    const t = await montar()
+    await t.desenhar(MISTA, true, filtroTodas)
+    await t.act(async () => { clicar(botao('Selecionar')) })
+    await t.act(async () => { caixaTodas().click() })
+    await t.act(async () => { clicar(botao('Baixar 3')); await esperar(50) })
+    assert.deepEqual(chamadas.map(c => [c.url, c.corpo.tipo, [...(c.corpo.id as string[])].sort()]), [['/api/notas-emitidas/arquivos', 'ambos', ['nota-2', 'nota-3', 'nota-4']]])
+    await t.desmontar()
+  })
+})
+
+test('celular: sem nota com documento, "Selecionar todas" fica desabilitada', async () => {
+  const t = await montar()
+  await t.desenhar([NOTA, EM_ANDAMENTO], true, filtroTodas)
+  await t.act(async () => { clicar(botao('Selecionar')) })
+  assert.ok(caixaTodas().disabled)
+  await t.desmontar()
 })
