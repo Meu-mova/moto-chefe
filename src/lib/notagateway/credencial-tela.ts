@@ -3,6 +3,14 @@
 
 import { ambienteDaNg } from './ambiente'
 
+/**
+ * Token e empresa gravados: é o que configNotaGateway exige para chamar a NG, e a mesma
+ * condição que o loader da inutilização usa para dizer se o grupo tem credencial (#597).
+ */
+export function credencialCompleta(cfg: { token: string | null; empresaId: string | null }): boolean {
+  return !!cfg.token && !!cfg.empresaId
+}
+
 export type CredencialTela = {
   temToken: boolean
   temEmpresa: boolean

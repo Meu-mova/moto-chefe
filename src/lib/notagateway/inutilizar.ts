@@ -6,6 +6,7 @@ import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { semZerosAEsquerda } from '@/lib/texto'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao, type InutilizacaoConsultada } from './client'
 import { ambienteLiberado, divergenciaDeAmbiente } from './ambiente'
+import { credencialCompleta } from './credencial-tela'
 import {
   ACAO_INUTILIZAR, type ContextoInutilizacao, decidirInutilizacao, ERRO_JA_PEDIDA, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu,
   podePedirInutilizacao, situacaoInutilizacao,
@@ -54,7 +55,8 @@ type NotaDaDecisao = ContextoInutilizacao['nota']
  * Contexto da decisão (decidirInutilizacao) para notas do mesmo grupo e ambiente, numa
  * ida só ao banco: o pedido passa uma nota, a lista passa as recusadas visíveis. O grupo
  * vai no where das quatro consultas. O `ltrim` do SQL só pré-filtra candidatos; a comparação
- * que vale é a da regra pura, com semZerosAEsquerda. Da credencial da NG só sai o ambiente.
+ * que vale é a da regra pura, com semZerosAEsquerda. Da credencial da NG sai só o ambiente,
+ * e só se ela está completa (a condição de configNotaGateway); o token não é decifrado.
  */
 export async function contextoDeInutilizacao(
   tx: Pick<typeof db, 'select'>, escopo: EscopoInutilizacao, notas: NotaDaDecisao[],
@@ -79,8 +81,9 @@ export async function contextoDeInutilizacao(
     inArray(notasFiscaisSaidaInutilizacoes.numeroInicial, inteiros),
   ))
 
-  const [config] = await tx.select({ ambiente: notagatewayConfig.ambiente }).from(notagatewayConfig).where(eq(notagatewayConfig.grupoId, escopo.grupoId)).limit(1)
-  const ambienteDoGrupo = config?.ambiente ?? null
+  const [config] = await tx.select({ ambiente: notagatewayConfig.ambiente, token: notagatewayConfig.token, empresaId: notagatewayConfig.empresaId })
+    .from(notagatewayConfig).where(eq(notagatewayConfig.grupoId, escopo.grupoId)).limit(1)
+  const ambienteDoGrupo = config && credencialCompleta(config) ? config.ambiente : null
 
   return new Map(notas.map(n => [n.id, {
     nota: n,

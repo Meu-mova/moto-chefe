@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { decifrar } from '@/lib/cripto'
 import { ambienteDaNg, ambienteLiberado } from './ambiente'
 import type { EmitenteDanfe } from './emitente-danfe'
+import { credencialCompleta } from './credencial-tela'
 
 /**
  * Cliente HTTP da Nota Gateway (API v2). A credencial é do GRUPO, porque o MOVA
@@ -24,10 +25,10 @@ export type ConfigNotaGateway = {
 
 export async function configNotaGateway(grupoId: string, exec: Pick<typeof db, 'select'> = db): Promise<ConfigNotaGateway | null> {
   const [cfg] = await exec.select().from(notagatewayConfig).where(eq(notagatewayConfig.grupoId, grupoId)).limit(1)
-  if (!cfg?.token || !cfg.empresaId) return null
+  if (!cfg || !credencialCompleta(cfg)) return null
   return {
     token: decifrar(cfg.token).toString('utf8'),
-    empresaId: cfg.empresaId,
+    empresaId: cfg.empresaId!,
     ambiente: ambienteDaNg(cfg.ambiente),
   }
 }

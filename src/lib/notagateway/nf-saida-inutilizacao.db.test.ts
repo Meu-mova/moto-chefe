@@ -41,8 +41,8 @@ const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q
 const JUSTIFICATIVA = 'Venda cancelada após a rejeição da nota'
 
 /** Credencial da NG do grupo; o token só é decifrado onde o teste cifra um de verdade. */
-const configurarNg = (tx: Tx, grupoId: string, ambiente: string) =>
-  tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id, ambiente) values (${grupoId}, 'token-de-teste', 'empresa-de-teste', ${ambiente})`)
+const configurarNg = (tx: Tx, grupoId: string, ambiente: string, empresaId: string | null = 'empresa-de-teste') =>
+  tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id, ambiente) values (${grupoId}, 'token-de-teste', ${empresaId}, ${ambiente})`)
 
 async function semearConta(tx: Tx, nome: string, cnpj: string, ambienteDaNg: string | null = 'Homologacao') {
   const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'IN504 ' + nome}) returning id`)
@@ -431,5 +431,20 @@ test('admin_rede na persona do grupo liberado pede a inutilização; em grupo da
     // Na própria Conta, sem persona, não alcança a nota do grupo liberado.
     const emCasa = usuarioDaRede(cadastro, vivos, casa.grupoId)
     assert.deepEqual(await m.prepararInutilizacao(tx, emCasa, noLiberado, JUSTIFICATIVA), { ok: false, erro: 'NF não encontrada' })
+  })
+})
+
+test('credencial com token e sem empresa: a lista diz sem configuração e o preparo recusa antes de gravar (C1)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { anexarSituacaoDeInutilizacao, listarNotasEmitidas } = await import('@/lib/queries/notas-emitidas')
+    const { hojeBrt } = await import('@/lib/data-venda')
+    const a = await semearConta(tx, 'A', '00000000050401', null)
+    await configurarNg(tx, a.grupoId, 'Homologacao', null)
+    const nota = await semearNotaNegada(tx, a.grupoId, 950500, '997')
+    assert.deepEqual(await m.prepararInutilizacao(tx, a.socio, nota, JUSTIFICATIVA), { ok: false, erro: 'Nota Gateway não configurada para esta empresa.' })
+    assert.equal((await inutilizacoes(tx, nota)).length, 0, 'nada gravado')
+    const filtro = { grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao' as const, de: '2000-01-01', ate: hojeBrt() }
+    const [situacao] = await anexarSituacaoDeInutilizacao(await listarNotasEmitidas(filtro, tx), filtro, tx)
+    assert.deepEqual(situacao.inutilizacao, { tipo: 'sem_configuracao', erro: 'Nota Gateway não configurada para esta empresa.' })
   })
 })
