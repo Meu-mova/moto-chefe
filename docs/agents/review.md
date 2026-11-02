@@ -22,6 +22,9 @@ aqui fica a lista curta de conferência.
   operam). Conferir: a condição da tela é a mesma função do servidor, ou derivada dela.
 - **Erro engolido em `catch` não pode virar "a opção sumiu"** (#578). Conferir: todo `catch`
   que devolve "indisponível" diz por quê na tela, sem expor segredo.
+- **Tela nova ou mudada só vai para o código com protótipo aprovado pelo Luis, no desktop e no
+  celular** (#597: três rodadas de revisão aprovaram uma tela que o Luis rejeitou no 1º preview).
+  Conferir: o PR com tela cita o protótipo escolhido, e a tela bate com ele nas duas larguras.
 
 ## Fluxo de dados
 
@@ -42,7 +45,23 @@ aqui fica a lista curta de conferência.
   pegou. Use a cópia local da produção (`prod-local/copiar-prod.py`); fora da produção o MOVA só
   chama a Nota Gateway em homologação. Credencial real só o Luis cola, na tela, só na cópia; ao
   fim rode `copiar-prod.py` de novo para apagar.
+- **`npm run dev` contra a cópia da produção não pode ler o `.env.local`** (#597: o Next completou
+  com o `.env.local` do staging as variáveis que a cópia não define, como Resend e Mercado Pago).
+  Renomeie o `.env.local` antes de subir e confira que o log não mostra "Environments: .env.local".
+- **Prova de vermelho de teste de tela com `mock.module('../x')`: crie o módulo `x` antes** e rode o
+  teste contra o componente antigo. `ERR_MODULE_NOT_FOUND` não é vermelho: não prova nada sobre a
+  tela (#597, `notas-tabela.test.tsx`). Desmonte e restaure os mocks num `afterEach` desde o 1º
+  teste: teste que falha no meio não chega ao `unmount` e suja o seguinte.
 - **`psql -c` não troca variável `:'x'`**: passe o SQL pela entrada padrão (`psql -v x=... <<EOF`).
+
+## PRs em pilha
+
+- **Depois do squash do PR de baixo, o `git merge origin/dev` no de cima dá conflito** nos arquivos
+  que os dois mexeram, porque o merge-base continua o antigo (#607 e #608). Confira que a `dev` tem
+  a árvore do PR de baixo (`git diff <ponta do PR de baixo> origin/dev` vazio), rode
+  `git merge -X ours origin/dev` e confira que nada mudou (`git diff <ponta anterior> HEAD` vazio).
+- **Trocar a base do PR para a `dev` não dispara o CI**: feche e reabra o PR. O smoke do preview só
+  roda em deploy novo; se a fila o cancelou, `gh run rerun <id>`.
 
 ## Release
 
