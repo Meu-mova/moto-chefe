@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { classificarNota, linkDaVenda, nomeDoArquivo, notasDoLote, periodoEmissao, marcarNota, selecaoDaPagina } from './notas-emitidas'
+import { classificarNota, colunaMotivoVisivel, linkDaVenda, motivoDaSefaz, nomeDoArquivo, notasDoLote, periodoEmissao, marcarNota, selecaoDaPagina } from './notas-emitidas'
 
 test('classificarNota agrupa os status da Nota Gateway nos filtros da tela', () => {
   assert.equal(classificarNota('Autorizada'), 'autorizada')
@@ -67,4 +67,20 @@ test('marcarNota: marca e desmarca; com todas do filtro ativo, a caixa da linha 
   assert.deepEqual([...marcarNota(new Set(['1', '2']), false, '1', false)], ['2'])
   const daPagina1 = new Set(['1', '2'])
   assert.equal(marcarNota(daPagina1, true, '77', false), daPagina1, 'desmarcar nota de outra página não reduz a seleção à página 1')
+})
+
+test('motivoDaSefaz separa o código do texto, para o rótulo "Motivo da SEFAZ (código)" (#597)', () => {
+  assert.deepEqual(motivoDaSefaz('539 - Rejeicao: Duplicidade de NF-e, com diferenca na Chave de Acesso [chNFe: 3126]'), { codigo: 539, texto: 'Duplicidade de NF-e, com diferenca na Chave de Acesso [chNFe: 3126]' })
+  assert.deepEqual(motivoDaSefaz('225 - Falha no schema'), { codigo: 225, texto: 'Falha no schema' })
+  assert.deepEqual(motivoDaSefaz('302: Uso Denegado'), { codigo: 302, texto: 'Uso Denegado' })
+  // Erro de validação da própria Nota Gateway: sem código numérico, o texto vai inteiro.
+  assert.deepEqual(motivoDaSefaz('Código: GW7324\r\nDescrição: O CFOP do produto deve conter apenas números.'), { codigo: null, texto: 'Código: GW7324\r\nDescrição: O CFOP do produto deve conter apenas números.' })
+  assert.equal(motivoDaSefaz(null), null)
+  assert.equal(motivoDaSefaz('   '), null)
+})
+
+test('a coluna Motivo só aparece nas abas Recusadas e Canceladas', () => {
+  assert.equal(colunaMotivoVisivel('recusada'), true)
+  assert.equal(colunaMotivoVisivel('cancelada'), true)
+  for (const s of ['todas', 'autorizada', 'em_andamento'] as const) assert.equal(colunaMotivoVisivel(s), false, s)
 })
