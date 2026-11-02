@@ -148,7 +148,7 @@ test('decide: "0974" série "001" é o mesmo número e série que "974" série "
 })
 
 test('decide: grupo em outro ambiente ou sem credencial da NG: sem botão, com a orientação na linha (C1)', () => {
-  assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: 'Producao' }), { tipo: 'ambiente_divergente', erro: 'Esta nota é de homologação e o grupo está em produção. Volte o ambiente em Admin → Notas fiscais para inutilizar o número' })
+  assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: 'Producao' }), { tipo: 'ambiente_divergente', erro: 'Esta nota é de homologação e o grupo está em produção. Volte o ambiente em Admin, Notas fiscais, para inutilizar o número' })
   assert.deepEqual(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: null }), { tipo: 'sem_configuracao', erro: ERRO_SEM_CONFIGURACAO })
   // O pedido em andamento continua aparecendo, mesmo com o grupo em outro ambiente.
   assert.equal(decidirInutilizacao({ ...ctxBase, ambienteDoGrupo: 'Producao', pedidos: [pedido()] }).tipo, 'pendente')

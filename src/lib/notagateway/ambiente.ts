@@ -22,5 +22,5 @@ export function ambienteDaNg(valor: string): 'Homologacao' | 'Producao' {
 export function divergenciaDeAmbiente(notaAmbiente: string, grupoAmbiente: 'Homologacao' | 'Producao', acao: string): string | null {
   if (notaAmbiente === grupoAmbiente) return null
   const nota = NOME_AMBIENTE[notaAmbiente as keyof typeof NOME_AMBIENTE] ?? notaAmbiente
-  return `Esta nota é de ${nota} e o grupo está em ${NOME_AMBIENTE[grupoAmbiente]}. Volte o ambiente em Admin → Notas fiscais para ${acao}`
+  return `Esta nota é de ${nota} e o grupo está em ${NOME_AMBIENTE[grupoAmbiente]}. Volte o ambiente em Admin, Notas fiscais, para ${acao}`
 }

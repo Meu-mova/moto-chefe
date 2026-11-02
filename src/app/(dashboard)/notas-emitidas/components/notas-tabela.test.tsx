@@ -265,7 +265,7 @@ test('"Ver motivo completo" mostra o motivo da SEFAZ com o código separado, e F
 
 test('grupo em outro ambiente ou sem credencial: selo na linha e a orientação em "Ver motivo completo", sem o item de inutilizar', async () => {
   const t = await montar()
-  const orientacao = 'Esta nota é de homologação e o grupo está em produção. Volte o ambiente em Admin → Notas fiscais para inutilizar o número'
+  const orientacao = 'Esta nota é de homologação e o grupo está em produção. Volte o ambiente em Admin, Notas fiscais, para inutilizar o número'
   const semCredencial = 'Nota Gateway não configurada para esta empresa.'
   const casos: [NotaEmitidaComInutilizacao['inutilizacao'], string, string][] = [
     [{ tipo: 'ambiente_divergente', erro: orientacao }, 'Grupo em outro ambiente', orientacao],
