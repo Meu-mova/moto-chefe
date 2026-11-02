@@ -61,6 +61,7 @@ type NotaDaDecisao = ContextoInutilizacao['nota']
 export async function contextoDeInutilizacao(
   tx: Pick<typeof db, 'select'>, escopo: EscopoInutilizacao, notas: NotaDaDecisao[],
 ): Promise<Map<string, ContextoInutilizacao>> {
+  if (notas.length === 0) return new Map()
   const numeros = [...new Set(notas.map(n => semZerosAEsquerda(n.numero)).filter(Boolean))]
   const inteiros = numeros.map(Number).filter(Number.isInteger)
   const vendas = [...new Set(notas.flatMap(n => (n.vendaId ? [n.vendaId] : [])))]
@@ -165,7 +166,7 @@ export async function configDoAmbiente(
 /** O que a casca pede de fora; o teste de banco troca a NG, a configuração e a transação. */
 export type DependenciasInutilizacao = {
   exec: Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
-  config: (grupoId: string, ambiente: string) => Promise<{ cfg: ConfigNotaGateway } | { erro: string }>
+  config: (grupoId: string, ambiente: string, exec: DependenciasInutilizacao['exec']) => Promise<{ cfg: ConfigNotaGateway } | { erro: string }>
   enviar: typeof pedirInutilizacao
   vercelEnv: string | undefined
 }
@@ -211,7 +212,7 @@ export async function inutilizarNumeroDaNota(
   // Banco ou chave de cifra falhando ao ler a configuração: recusa, e não pedido pendente sem ter ido à NG (C6).
   const lerConfig = async () => {
     try {
-      return await deps.config(pedido.grupoId, pedido.ambiente)
+      return await deps.config(pedido.grupoId, pedido.ambiente, exec)
     } catch (e) {
       console.error('[inutilizacao] falha ao ler a configuração da Nota Gateway:', e instanceof Error ? e.message : e)
       return { erro: 'Não deu para ler a configuração da Nota Gateway desta empresa. Tente de novo.' }
@@ -228,7 +229,8 @@ export async function inutilizarNumeroDaNota(
   } catch (e) {
     // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: pode ter criado; segue pendente e a consulta decide.
     if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
-    console.error(`[inutilizacao] Nota Gateway sem resposta (${e instanceof NotaGatewayIndisponivel ? `HTTP ${e.status}` : 'rede'})`)
+    // Só o status HTTP ou o nome do erro, nunca a mensagem (C7).
+    console.error(`[inutilizacao] Nota Gateway sem resposta (${e instanceof NotaGatewayIndisponivel ? `HTTP ${e.status}` : e instanceof Error ? e.name : 'erro'})`)
     await registrar('sem_resposta')
     return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: AVISO_SEM_RESPOSTA }
   }

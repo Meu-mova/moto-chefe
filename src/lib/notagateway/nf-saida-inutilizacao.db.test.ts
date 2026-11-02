@@ -259,11 +259,11 @@ test('envio: todo pedido vai ao log com o resultado; 4xx nega, 5xx ou rede deixa
       assert.ok(r3.ok && r3.aviso === m.AVISO_SEM_RESPOSTA)
       assert.equal((await inutilizacoes(tx, rede))[0].situacao, 'pendente')
 
-      // O console vê só o status HTTP ou "rede": nunca a mensagem crua, o token ou o empresaId (C7).
+      // O console vê só o status HTTP ou o nome do erro: nunca a mensagem crua, o token ou o empresaId (C7).
       const textos = erroDoConsole.mock.calls.map(c => c.arguments.join(' '))
       assert.equal(textos.length, 2)
       assert.match(textos[0], /HTTP 503/)
-      assert.match(textos[1], /rede/)
+      assert.match(textos[1], /\(Error\)/)
       for (const proibido of ['corpo-cru-da-ng', 'token-de-teste', 'empresa-de-teste', 'serie invalida']) {
         assert.ok(textos.every(t => !t.includes(proibido)), proibido)
       }
@@ -446,5 +446,21 @@ test('credencial com token e sem empresa: a lista diz sem configuração e o pre
     const filtro = { grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao' as const, de: '2000-01-01', ate: hojeBrt() }
     const [situacao] = await anexarSituacaoDeInutilizacao(await listarNotasEmitidas(filtro, tx), filtro, tx)
     assert.deepEqual(situacao.inutilizacao, { tipo: 'sem_configuracao', erro: 'Nota Gateway não configurada para esta empresa.' })
+  })
+})
+
+test('produção no deploy de produção: o pedido sai para a NG e fica pendente com log enviado', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000050401', 'Producao')
+    const nota = await semearNota(tx, a.grupoId, 950510, { status: 'Negada', motivo: '225 - Falha no schema', numero: '998', ambiente: 'Producao' })
+    const enviados: string[] = []
+    const r = await m.inutilizarNumeroDaNota(a.socio, nota, JUSTIFICATIVA, {
+      exec: tx, config: async () => ({ cfg: { token: 't', empresaId: 'e', ambiente: 'Producao' as const } }),
+      enviar: async (_cfg, p) => { enviados.push(p.idExterno) }, vercelEnv: 'production',
+    })
+    assert.ok(r.ok && r.aviso === null)
+    assert.deepEqual(enviados, [`${(await inutilizacoes(tx, nota))[0].id_externo}`])
+    assert.equal((await inutilizacoes(tx, nota))[0].situacao, 'pendente')
+    assert.deepEqual((await logDe(tx, r.inutilizacaoId)).map(l => l.detalhe.resultado), ['enviado'])
   })
 })

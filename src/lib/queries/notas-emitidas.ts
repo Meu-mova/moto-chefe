@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { fimDoDiaBrt, inicioDoDiaBrt } from '@/lib/data-venda'
 import { grupos, motos, notasFiscaisSaida, vendas } from '@/lib/db/schema'
 import { classificarNota, notasDoLote, type CategoriaNota, type Situacao } from '@/lib/notas-emitidas'
-import { decidirInutilizacao, type DecisaoInutilizacao } from '@/lib/notagateway/inutilizacao'
+import { contextoVazio, decidirInutilizacao, type DecisaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 import { contextoDeInutilizacao } from '@/lib/notagateway/inutilizar'
 
 type Executor = Pick<typeof db, 'select'>
@@ -100,10 +100,9 @@ export async function anexarSituacaoDeInutilizacao(
   const noFiltro = (n: NotaEmitida) => n.grupoId === filtro.grupoId && n.ambiente === filtro.ambiente
   const escopo = { grupoId: filtro.grupoId, ambiente: filtro.ambiente }
   const contexto = await contextoDeInutilizacao(exec, escopo, notas.filter(n => noFiltro(n) && n.categoria === 'recusada'))
-  const semContexto = (n: NotaEmitida) => ({ nota: n, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [], ambienteDoGrupo: null })
   return notas.map(n => ({
     ...n,
-    inutilizacao: noFiltro(n) ? decidirInutilizacao(contexto.get(n.id) ?? semContexto(n)) : FORA_DO_FILTRO,
+    inutilizacao: noFiltro(n) ? decidirInutilizacao(contexto.get(n.id) ?? contextoVazio(n)) : FORA_DO_FILTRO,
   }))
 }
 

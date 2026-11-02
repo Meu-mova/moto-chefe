@@ -221,15 +221,15 @@ export async function xmlCartaCorrecao(cfg: ConfigNotaGateway, idExterno: string
 export class InutilizacaoRecusada extends Error {}
 
 /**
- * Só as mensagens da lista documentada `[{ codigo, mensagem }]`; sem lista, só o status.
- * Vai para motivo_status, tela e log (#597): o corpo cru de um 4xx fora da doc pode ecoar
- * o caminho com o empresaId.
+ * Só as mensagens de uma lista no formato documentado `[{ codigo, mensagem }]`, com teto;
+ * sem lista, só o status. Vai para motivo_status, tela e log (#597): o corpo cru de um 4xx
+ * fora da doc pode ecoar o caminho com o empresaId.
  */
 function mensagensDocumentadas(json: unknown, status: number): string {
   const mensagens = Array.isArray(json)
     ? json.map((e: { mensagem?: unknown }) => e?.mensagem).filter((m): m is string => typeof m === 'string' && m.trim() !== '')
     : []
-  return mensagens.length ? mensagens.join('; ') : `HTTP ${status}`
+  return mensagens.length ? mensagens.join('; ').slice(0, 300) : `HTTP ${status}`
 }
 
 /** 5xx: a NG não disse se criou o pedido. Só o status sai daqui; o corpo não vai para log nem tela (#597). */

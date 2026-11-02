@@ -96,6 +96,11 @@ export type ContextoInutilizacao = {
   ambienteDoGrupo: string | null
 }
 
+/** Contexto de nota que não vai ao loader: a elegibilidade (status) decide antes de olhar o resto. */
+export function contextoVazio(nota: ContextoInutilizacao['nota']): ContextoInutilizacao {
+  return { nota, outraNotaVivaDaVenda: null, outrasNotas: [], pedidos: [], ambienteDoGrupo: null }
+}
+
 export const ERRO_JA_PEDIDA = 'Este número já tem um pedido de inutilização.'
 export const ERRO_SEM_CONFIGURACAO = 'Nota Gateway não configurada para esta empresa.'
 /** A ação que a orientação de ambiente cita (divergenciaDeAmbiente). */
