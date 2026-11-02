@@ -40,7 +40,13 @@ mock.module('next/link', { defaultExport: ({ href, children }: { href: string; c
 type Resposta = ResultadoAction<{ aviso: string | null }>
 const enviado: Resposta = { ok: true, dados: { aviso: null } }
 const api = { responder: async (): Promise<Resposta> => enviado }
-afterEach(() => { api.responder = async () => enviado; router.refresh.mock.resetCalls() })
+// Teste que falha no meio não chega ao desmontar: o afterEach limpa o que sobrou, para não sujar o próximo.
+const montados: (() => Promise<void>)[] = []
+afterEach(async () => {
+  api.responder = async () => enviado
+  router.refresh.mock.resetCalls()
+  for (const desmontar of montados.splice(0)) await desmontar()
+})
 mock.module('../actions', { namedExports: { pedirInutilizacaoAction: () => api.responder() } })
 
 const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
@@ -56,6 +62,26 @@ const desabilitado = (el: Element | undefined) => el?.getAttribute('aria-disable
 // O campo só existe dentro do diálogo da inutilização: diz se ele está na tela.
 const dialogoDeInutilizar = () => document.querySelector('#justificativa-inutilizacao') !== null
 const ajudaDaJustificativa = () => document.getElementById('justificativa-ajuda')?.textContent ?? ''
+
+type Chamada = { url: string; corpo: Record<string, unknown> }
+// Captura o que vai à rota de download e segura a navegação do <a download>, que o jsdom não faz.
+async function comDownloadFalso(corpo: (chamadas: Chamada[], baixados: string[]) => Promise<void>) {
+  const chamadas: Chamada[] = []
+  const baixados: string[] = []
+  const fetchOriginal = g.fetch
+  const clickOriginal = dom.window.HTMLAnchorElement.prototype.click
+  g.fetch = async (url: string, init: RequestInit) => {
+    chamadas.push({ url, corpo: JSON.parse(String(init.body)) })
+    return { ok: true, headers: new Headers({ 'Content-Disposition': 'attachment; filename="975.pdf"' }), blob: async () => new Blob(['%PDF']) }
+  }
+  dom.window.HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) { baixados.push(this.download) }
+  try {
+    await corpo(chamadas, baixados)
+  } finally {
+    g.fetch = fetchOriginal
+    dom.window.HTMLAnchorElement.prototype.click = clickOriginal
+  }
+}
 
 async function montar() {
   const React = (await import('react')).default
@@ -83,7 +109,14 @@ async function montar() {
   const confirmar = () => act(async () => { clicar(botoes('Inutilizar o número')[0]!); await esperar(50) })
   const fechar = (rotulo = 'Fechar') => act(async () => { clicar(botoes(rotulo)[0]!); await esperar(DEPOIS_DA_ANIMACAO_MS) })
   const pedir = async () => { await abrir(); await digitar(JUSTIFICATIVA); await confirmar() }
-  const desmontar = () => act(async () => { root.unmount(); container.remove() })
+  let montado = true
+  const desmontar = () => act(async () => {
+    if (!montado) return
+    montado = false
+    root.unmount()
+    container.remove()
+  })
+  montados.push(desmontar)
   return { desenhar, abrirMenu, escolher, abrir, digitar, confirmar, fechar, pedir, desmontar, act }
 }
 
@@ -219,9 +252,14 @@ test('"Ver motivo completo" mostra o motivo da SEFAZ com o código separado, e F
   assert.ok(textoDaTela().includes('Motivo da nota 974'))
   assert.ok(textoDaTela().includes('Motivo da SEFAZ (539)'))
   assert.ok(textoDaTela().includes('Duplicidade de NF-e, com diferenca na Chave de Acesso [chNFe: 3126]'))
-  assert.ok(textoDaTela().includes('venda #31601'))
+  assert.ok(textoDaTela().includes('Série 1, venda #31601. Recusada em 29/10/2026'))
   await t.fechar()
   assert.ok(!textoDaTela().includes('Motivo da nota 974'))
+  await t.desenhar([{ ...NOTA, status: 'Processando', categoria: 'em_andamento' }], true, { ...FILTRO, situacao: 'em_andamento' })
+  await t.abrirMenu('974')
+  await t.escolher('Ver motivo completo')
+  assert.ok(textoDaTela().includes('Em andamento desde 29/10/2026'))
+  await t.fechar()
   await t.desmontar()
 })
 
@@ -246,16 +284,7 @@ test('grupo em outro ambiente ou sem credencial: selo na linha e a orientação 
 })
 
 test('baixar pelo menu: PDF e XML da nota com documento vão à rota com o id da nota e o filtro (regressão)', async () => {
-  const chamadas: { url: string; corpo: Record<string, unknown> }[] = []
-  const fetchOriginal = g.fetch
-  g.fetch = async (url: string, init: RequestInit) => {
-    chamadas.push({ url, corpo: JSON.parse(String(init.body)) })
-    return { ok: true, headers: new Headers({ 'Content-Disposition': 'attachment; filename="975.pdf"' }), blob: async () => new Blob(['%PDF']) }
-  }
-  const baixados: string[] = []
-  const clickOriginal = dom.window.HTMLAnchorElement.prototype.click
-  dom.window.HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) { baixados.push(this.download) }
-  try {
+  await comDownloadFalso(async (chamadas, baixados) => {
     const t = await montar()
     await t.desenhar([AUTORIZADA], true, { ...FILTRO, situacao: 'todas' })
     await t.abrirMenu('975')
@@ -270,10 +299,7 @@ test('baixar pelo menu: PDF e XML da nota com documento vão à rota com o id da
     assert.equal(chamadas[0]!.url, '/api/notas-emitidas/arquivos')
     assert.deepEqual(baixados, ['975.pdf', '975.pdf'], 'o nome vem do Content-Disposition')
     await t.desmontar()
-  } finally {
-    g.fetch = fetchOriginal
-    dom.window.HTMLAnchorElement.prototype.click = clickOriginal
-  }
+  })
 })
 
 test('a coluna Motivo só aparece nas abas Recusadas e Canceladas', async () => {

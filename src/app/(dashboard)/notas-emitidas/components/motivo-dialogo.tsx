@@ -15,6 +15,12 @@ function fraseDaInutilizacao(d: DecisaoInutilizacao): string | null {
   return d.erro
 }
 
+/** "Recusada em 01/11/2026"; a nota em andamento ainda não tem um "em": fica "desde". */
+function quandoDaNota(nota: NotaEmitidaComInutilizacao): string {
+  const quando = diaBrt(nota.criadoEm)
+  return nota.categoria === 'em_andamento' ? `Em andamento desde ${quando}` : `${STATUS[nota.categoria].texto} em ${quando}`
+}
+
 /** "Ver motivo completo" do menu da linha (#597): o motivo da SEFAZ inteiro e a situação da inutilização. */
 export function MotivoDialogo({ nota, onFechar }: { nota: NotaEmitidaComInutilizacao | null; onFechar: () => void }) {
   const motivo = nota ? motivoDaSefaz(nota.motivoStatus) : null
@@ -27,7 +33,7 @@ export function MotivoDialogo({ nota, onFechar }: { nota: NotaEmitidaComInutiliz
             <DialogHeader>
               <DialogTitle>Motivo da nota {nota.numero ?? ''}</DialogTitle>
               <DialogDescription>
-                Série {nota.serie ?? '-'}{nota.vendaNumero != null && `, venda #${nota.vendaNumero}`}, {STATUS[nota.categoria].texto.toLowerCase()} em {diaBrt(nota.criadoEm)}
+                Série {nota.serie ?? '-'}{nota.vendaNumero != null && `, venda #${nota.vendaNumero}`}. {quandoDaNota(nota)}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 rounded-lg border border-border bg-muted px-3 py-2.5 text-sm">
