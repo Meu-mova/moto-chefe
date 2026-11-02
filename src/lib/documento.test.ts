@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, mascararCpfCnpj, rotuloDocumento, soDigitosDoc, tipoPessoaDoDocumento, tipoPessoaSeCompleto, validarDocumento } from './documento'
+import { cnpjValido, formatarCpfCnpj, lerContribuinteIcms, lerDocumentoCliente, limparDocumento, mascararCpfCnpj, rotuloDocumento, soDigitosDoc, tipoPessoaDoDocumento, tipoPessoaSeCompleto, validarDocumento } from './documento'
 
 test('formata CPF e CNPJ pelo comprimento', () => {
   assert.equal(formatarCpfCnpj('12345678901'), '123.456.789-01')
@@ -64,9 +64,39 @@ test('documento vazio ou de tamanho que não é CPF nem CNPJ é recusado', () =>
   assert.deepEqual(lerDocumentoCliente('112223330001'), erro)
 })
 
-test('CNPJ alfanumérico é recusado', () => {
-  // Fora do escopo da #65: quem não sabe do formato novo digitaria letra sem querer.
-  assert.equal(lerDocumentoCliente('12.ABC.345/01DE-35').ok, false)
+// ─── CNPJ alfanumérico (IN RFB 2.229/2024, #534) ───────────────────────────
+// Exemplo oficial da Receita: 12.ABC.345/01DE-35.
+test('CNPJ alfanumérico com o DV certo é aceito como pessoa jurídica, em maiúsculas e sem pontuação', () => {
+  assert.equal(cnpjValido('12.ABC.345/01DE-35'), true)
+  assert.deepEqual(lerDocumentoCliente('12.abc.345/01de-35'), { ok: true, tipoPessoa: 'juridica', documento: '12ABC34501DE35' })
+  assert.deepEqual(validarDocumento('juridica', '12ABC34501DE35'), { ok: true, documento: '12ABC34501DE35' })
+})
+
+test('CNPJ alfanumérico com DV errado é recusado', () => {
+  assert.equal(cnpjValido('12ABC34501DE36'), false)
+  assert.equal(lerDocumentoCliente('12.ABC.345/01DE-36').ok, false)
+})
+
+test('letra no DV não é CNPJ', () => {
+  assert.equal(cnpjValido('12ABC34501DE3A'), false)
+})
+
+test('letra no CPF não é CPF', () => {
+  assert.equal(lerDocumentoCliente('5299822472A').ok, false)
+})
+
+test('limparDocumento tira pontuação e espaço e põe em maiúsculas', () => {
+  assert.equal(limparDocumento(' 12.abc.345/01de-35 '), '12ABC34501DE35')
+  assert.equal(limparDocumento('529.982.247-25'), '52998224725')
+  assert.equal(limparDocumento(null), '')
+})
+
+test('CNPJ alfanumérico formata e mascara com a letra no lugar', () => {
+  assert.equal(formatarCpfCnpj('12ABC34501DE35'), '12.ABC.345/01DE-35')
+  assert.equal(mascararCpfCnpj('12abc'), '12.ABC')
+  assert.equal(mascararCpfCnpj('12ABC34501DE35'), '12.ABC.345/01DE-35')
+  assert.equal(tipoPessoaSeCompleto('12.ABC.345/01DE-35'), 'juridica')
+  assert.equal(rotuloDocumento('12ABC34501DE35'), 'CNPJ')
 })
 
 // ─── Máscara do campo CPF/CNPJ enquanto se digita ──────────────────────────

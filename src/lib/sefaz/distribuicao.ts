@@ -9,7 +9,7 @@
 import https from 'node:https'
 import { gunzipSync } from 'node:zlib'
 import { lerRetorno, type RespostaDistribuicao } from './parser'
-import { somenteDigitos } from '@/lib/grupo-cnpj'
+import { soDigitosDoc } from '@/lib/documento'
 import { codigoDaUf } from './uf'
 
 const HOST = 'www1.nfe.fazenda.gov.br'
@@ -60,7 +60,7 @@ export async function consultarDistribuicao(opts: {
   // Os dois campos interpolados no XML levam a mesma defesa: o ultNSU normalmente
   // já vem só com dígitos (do nsu.ts, que só repassa o que a própria SEFAZ
   // devolveu, ou o literal '0'), mas o tipo é `string` solto e não garante isso.
-  const corpo = envelope(somenteDigitos(opts.cnpj), opts.uf, opts.ultNSU.replace(/\D/g, '') || '0')
+  const corpo = envelope(soDigitosDoc(opts.cnpj), opts.uf, opts.ultNSU.replace(/\D/g, '') || '0')
 
   const resposta = await new Promise<string>((resolve, reject) => {
     const req = https.request(

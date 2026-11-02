@@ -14,7 +14,7 @@ import { db } from '@/lib/db'
 import { grupos } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { decifrar } from '@/lib/cripto'
-import { somenteDigitos } from '@/lib/grupo-cnpj'
+import { chaveDoCnpj } from '@/lib/grupo-cnpj'
 
 /**
  * A regra em si, separada do banco para poder ser testada: a chave do grupo
@@ -59,16 +59,16 @@ export function resumirEndpoint(url: string): string {
 
 /** Endpoint do mcp.ai do grupo dono deste CNPJ. Lança se não houver nenhum. */
 export async function endpointMcpDoGrupo(cnpjGrupo: string): Promise<string> {
-  const digitos = somenteDigitos(cnpjGrupo)
+  const chave = chaveDoCnpj(cnpjGrupo)
   // Os CNPJs ficam formatados em `grupos.cnpj` e chegam aqui do mesmo cadastro,
-  // mas comparar por dígitos é o que já se faz no resto do módulo (`mesmoCnpj`)
+  // mas comparar sem pontuação é o que já se faz no resto do módulo (`mesmoCnpj`)
   // — um cadastro sem pontuação não pode fazer a chave "sumir".
   const ativos = await db
     .select({ nome: grupos.nome, cnpj: grupos.cnpj, url: grupos.mcpaiEndpointUrl })
     .from(grupos)
     .where(eq(grupos.ativo, true))
 
-  const grupo = ativos.find(g => somenteDigitos(g.cnpj) === digitos)
+  const grupo = ativos.find(g => chaveDoCnpj(g.cnpj) === chave)
   if (!grupo) {
     throw new Error(`Nenhum grupo ativo cadastrado com o CNPJ ${cnpjGrupo} — não sei com qual conta do mcp.ai falar.`)
   }
