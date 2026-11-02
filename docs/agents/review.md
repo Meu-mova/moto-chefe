@@ -69,6 +69,10 @@ aqui fica a lista curta de conferência.
   teste contra o componente antigo. `ERR_MODULE_NOT_FOUND` não é vermelho: não prova nada sobre a
   tela (#597, `notas-tabela.test.tsx`). Desmonte e restaure os mocks num `afterEach` desde o 1º
   teste: teste que falha no meio não chega ao `unmount` e suja o seguinte.
+- **Matriz rota × papel roda na máquina, antes da release, se algum PR mexeu em rota, permissão
+  ou navegação**: `npm run e2e:acesso:local`, com a cópia da produção de pé e o app em
+  `localhost:3600` (passo a passo no topo de `scripts/e2e-acesso-rotas-local.ts`). Saiu do CI
+  porque a fila do staging cancelava a matriz do PR ao lado (#594).
 - **`psql -c` não troca variável `:'x'`**: passe o SQL pela entrada padrão (`psql -v x=... <<EOF`).
 
 ## Rodadas de implementação e revisão

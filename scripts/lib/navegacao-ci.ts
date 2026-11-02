@@ -15,8 +15,6 @@ export const menuNoHamburguer = (largura: number) => largura < 1024
 
 const ARQUIVOS_DO_TESTE = [
   'scripts/navegacao-ci.ts', 'scripts/lib/navegacao-ci.ts', '.github/workflows/navegacao.yml',
-  // Matriz rota x papel (#579).
-  'scripts/e2e-acesso-rotas.ts', 'scripts/lib/acesso-rotas.ts',
 ]
 
 /** O teste só roda em PR que mexe em tela ou no próprio teste. */

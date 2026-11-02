@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ITENS } from '../../src/lib/navegacao'
-import { ROTAS_MATRIZ, USUARIOS_MATRIZ, esperado, falhaDaVisita } from './acesso-rotas'
+import { ROTAS_MATRIZ, USUARIOS_MATRIZ, esperado, falhaDaVisita, usuariosDaMatriz } from './acesso-rotas'
 
 test('a matriz cobre toda rota da tabela de navegação e os 6 papéis do seed', () => {
   for (const i of ITENS) assert.ok(ROTAS_MATRIZ.includes(i.href), i.href)
@@ -32,4 +32,12 @@ test('com permissão: passa abrindo a própria rota', () => {
   assert.equal(falhaDaVisita('abre', v('/dashboard')), 'com permissão e foi para /dashboard')
   assert.equal(falhaDaVisita('abre', v('/login')), 'caiu no /login')
   assert.equal(falhaDaVisita('abre', v('/admin/grupos', { status: 500 })), 'status 500')
+})
+
+test('a lista de usuários pode vir de fora (cópia local, #594); sem ela, os do seed', () => {
+  assert.deepEqual(usuariosDaMatriz(undefined), USUARIOS_MATRIZ)
+  const lista = [{ email: 'x@a.com', papel: 'vendedor', rotulo: 'x***@a.com' }]
+  assert.deepEqual(usuariosDaMatriz(JSON.stringify(lista)), lista)
+  assert.throws(() => usuariosDaMatriz('[{"email":"x@a.com"}]'), /MATRIZ_USUARIOS/)
+  assert.throws(() => usuariosDaMatriz('[]'), /MATRIZ_USUARIOS/)
 })
