@@ -3,27 +3,25 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import type { NotaEmitida } from '@/lib/queries/notas-emitidas'
-import { linkDaVenda, marcarNota, selecaoDaPagina, temDocumento, type CategoriaNota, type Situacao, type TipoArquivo } from '@/lib/notas-emitidas'
+import { diaBrt } from '@/lib/data-venda'
+import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
+import { colunaMotivoVisivel, linkDaVenda, marcarNota, selecaoDaPagina, temDocumento, type Situacao, type TipoArquivo } from '@/lib/notas-emitidas'
+import { AcoesDaNota } from './acoes-da-nota'
+import { InutilizarDialogo, type NotaDoDialogo } from './inutilizar-dialogo'
+import { MotivoDialogo } from './motivo-dialogo'
+import { SeloStatus } from './selo-status'
+import { SituacaoInutilizacao } from './situacao-inutilizacao'
 
 const POR_PAGINA = 50
 const ROTA = '/api/notas-emitidas/arquivos'
 
-const STATUS: Record<CategoriaNota, { texto: string; cor: string }> = {
-  autorizada:   { texto: 'Autorizada', cor: 'bg-primary-soft text-primary-text' },
-  cancelada:    { texto: 'Cancelada', cor: 'bg-muted text-muted-foreground' },
-  recusada:     { texto: 'Recusada', cor: 'bg-destructive/10 text-destructive' },
-  em_andamento: { texto: 'Em andamento', cor: 'bg-warning/10 text-warning' },
-  descartada:   { texto: 'Descartada', cor: 'bg-muted text-muted-foreground' },
-}
-
 export type FiltroDownload = { situacao: Situacao; ambiente: 'Producao' | 'Homologacao'; de: string; ate: string }
 
-const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 const link = 'text-primary-text underline-offset-4 hover:underline'
 const vazio = <span className="text-muted-foreground">-</span>
+// Toda célula com a mesma altura e alinhada ao centro: o segundo selo não faz a linha crescer (#597).
+const celula = 'h-14 py-0 pr-3 align-middle'
 
 // O nome do arquivo vem no Content-Disposition da rota.
 function nomeDaResposta(r: Response) {
@@ -32,15 +30,21 @@ function nomeDaResposta(r: Response) {
 
 /**
  * Tabela com seleção estilo Gmail (#402): a caixa do cabeçalho marca a página; a faixa oferece
- * todas as notas do filtro, que vão ao servidor como filtro, e não como lista de ids.
+ * todas as notas do filtro, que vão ao servidor como filtro, e não como lista de ids. As ações
+ * da nota ficam no menu da linha (#597).
  */
-export function NotasTabela({ notas, totalComDocumento, filtro }: {
-  notas: NotaEmitida[]
+export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }: {
+  notas: NotaEmitidaComInutilizacao[]
   /** Notas com documento no filtro, pela contagem do banco: passa do teto da lista. */
   totalComDocumento: number
   filtro: FiltroDownload
+  /** podePedirInutilizacao(papel), a mesma regra do servidor (#597). */
+  podeInutilizar: boolean
 }) {
   const [pagina, setPagina] = useState(0)
+  // Fora da linha: a linha muda depois do pedido e os diálogos continuam na tela (C6).
+  const [paraInutilizar, setParaInutilizar] = useState<NotaDoDialogo | null>(null)
+  const [motivoDe, setMotivoDe] = useState<NotaEmitidaComInutilizacao | null>(null)
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set())
   const [todasDoFiltro, setTodasDoFiltro] = useState(false)
   const [baixando, setBaixando] = useState<string | null>(null)
@@ -51,6 +55,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
   const linhas = notas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA)
   const idsDaPagina = linhas.filter(temDocumento).map(n => n.id)
   const estado = selecaoDaPagina(idsDaPagina, marcadas, todasDoFiltro)
+  const mostraMotivo = colunaMotivoVisivel(filtro.situacao)
 
   useEffect(() => {
     if (cabecalho.current) cabecalho.current.indeterminate = estado === 'parte'
@@ -113,8 +118,21 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
       ))}
     </span>
   )
+  // O mesmo menu na linha da tabela e no cartão do celular.
+  const acoes = (n: NotaEmitidaComInutilizacao, className?: string) => (
+    <AcoesDaNota nota={n} podeInutilizar={podeInutilizar} ocupado={baixando !== null} className={className}
+      onVerMotivo={() => setMotivoDe(n)} onBaixar={tipo => baixar(tipo, [n.id], `${tipo}:${n.id}`)} onInutilizar={() => setParaInutilizar(n)} />
+  )
 
-  if (notas.length === 0) return <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma nota neste filtro.</p>
+  // Fora de qualquer ramo: a lista pode esvaziar com um diálogo aberto, e ele tem de continuar na tela (C6).
+  const dialogos = (
+    <>
+      <InutilizarDialogo nota={paraInutilizar} onFechar={() => setParaInutilizar(null)} />
+      <MotivoDialogo nota={motivoDe} onFechar={() => setMotivoDe(null)} />
+    </>
+  )
+
+  if (notas.length === 0) return <><p className="py-6 text-center text-sm text-muted-foreground">Nenhuma nota neste filtro.</p>{dialogos}</>
 
   return (
     <div className="space-y-2">
@@ -156,13 +174,13 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
                   onChange={e => marcarPagina(e.target.checked)} />
               </th>
               <th scope="col" className="py-2 pr-3 text-left font-semibold">Nota</th>
-              <th scope="col" className="hidden py-2 pr-3 text-left font-semibold lg:table-cell">Série</th>
+              <th scope="col" className="py-2 pr-3 text-left font-semibold">Série</th>
               <th scope="col" className="py-2 pr-3 text-left font-semibold">Venda</th>
-              <th scope="col" className="hidden py-2 pr-3 text-left font-semibold lg:table-cell">Cliente</th>
+              <th scope="col" className="py-2 pr-3 text-left font-semibold">Cliente</th>
               <th scope="col" className="py-2 pr-3 text-left font-semibold">Status</th>
-              <th scope="col" className="hidden py-2 pr-3 text-left font-semibold lg:table-cell">Motivo</th>
+              {mostraMotivo && <th scope="col" className="py-2 pr-3 text-left font-semibold">Motivo</th>}
               <th scope="col" className="py-2 pr-3 text-right font-semibold">Data</th>
-              <th scope="col" className="py-2 text-right font-semibold">Arquivos</th>
+              <th scope="col" className="w-10 py-2 text-right"><span className="sr-only">Ações</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -171,39 +189,31 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
               const venda = linkDaVenda(n)
               return (
                 <tr key={n.id} className="hover:bg-muted">
-                  <td className="py-2 pr-3 align-top">
-                    {doc && (
-                      <input type="checkbox" aria-label={`Selecionar a nota ${n.numero ?? ''}`} className="size-4 cursor-pointer accent-primary disabled:cursor-not-allowed"
+                  {/* Coluna reservada: a nota sem documento ocupa o mesmo espaço, e o número alinha. */}
+                  <td className={celula}>
+                    {doc ? (
+                      <input type="checkbox" aria-label={`Selecionar a nota ${n.numero ?? ''}`} className="block size-4 cursor-pointer accent-primary disabled:cursor-not-allowed"
                         disabled={todasDoFiltro} title={todasDoFiltro ? 'Limpe a seleção para escolher notas' : undefined}
                         checked={todasDoFiltro || marcadas.has(n.id)} onChange={e => marcar(n.id, e.target.checked)} />
-                    )}
+                    ) : <span aria-hidden className="block size-4" />}
                   </td>
-                  <td className="py-2 pr-3 align-top tabular-nums">
-                    <span className="font-semibold text-foreground">{n.numero ?? '-'}</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground lg:hidden">
-                      série {n.serie ?? '-'}{n.clienteNome && `, ${n.clienteNome}`}{n.motivoStatus && `, ${n.motivoStatus}`}
-                    </span>
-                  </td>
-                  <td className="hidden py-2 pr-3 align-top text-muted-foreground lg:table-cell">{n.serie ?? '-'}</td>
-                  <td className="py-2 pr-3 align-top tabular-nums">
+                  <td className={`${celula} font-semibold tabular-nums text-foreground`}>{n.numero ?? '-'}</td>
+                  <td className={`${celula} text-muted-foreground`}>{n.serie ?? '-'}</td>
+                  <td className={`${celula} tabular-nums`}>
                     {n.vendaNumero == null ? vazio : venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : <>#{n.vendaNumero}</>}
                   </td>
-                  <td className="hidden py-2 pr-3 align-top lg:table-cell">{n.clienteNome ?? vazio}</td>
-                  <td className="py-2 pr-3 align-top"><Badge className={STATUS[n.categoria].cor} title={n.status}>{STATUS[n.categoria].texto}</Badge></td>
-                  <td className="hidden max-w-xs whitespace-normal py-2 pr-3 align-top text-muted-foreground lg:table-cell">{n.motivoStatus ?? '-'}</td>
-                  <td className="py-2 pr-3 text-right align-top tabular-nums text-muted-foreground">{data(n.criadoEm)}</td>
-                  <td className="py-2 text-right align-top">
-                    {doc ? (
-                      <span className="inline-flex gap-3">
-                        {(['pdf', 'xml'] as const).map(tipo => (
-                          <button key={tipo} type="button" className={`inline-flex items-center gap-1 ${link} disabled:opacity-60`} disabled={baixando !== null}
-                            onClick={() => baixar(tipo, [n.id], `${tipo}:${n.id}`)}>
-                            {baixando === `${tipo}:${n.id}` && <Loader2 className="size-3 animate-spin" />}{tipo.toUpperCase()}
-                          </button>
-                        ))}
-                      </span>
-                    ) : <span className="text-muted-foreground">sem documento</span>}
+                  <td className={`${celula} max-w-48 truncate`}>{n.clienteNome ?? vazio}</td>
+                  <td className={celula}>
+                    <span className="flex flex-col items-start gap-1">
+                      <SeloStatus nota={n} />
+                      <SituacaoInutilizacao decisao={n.inutilizacao} />
+                    </span>
                   </td>
+                  {mostraMotivo && (
+                    <td className={`${celula} max-w-64 truncate text-muted-foreground`} title={n.motivoStatus ?? undefined}>{n.motivoStatus ?? ''}</td>
+                  )}
+                  <td className={`${celula} text-right tabular-nums text-muted-foreground`}>{diaBrt(n.criadoEm)}</td>
+                  <td className="h-14 py-0 text-right align-middle">{acoes(n)}</td>
                 </tr>
               )
             })}
@@ -218,6 +228,8 @@ export function NotasTabela({ notas, totalComDocumento, filtro }: {
           <Button size="sm" variant="outline" disabled={pagina === paginas - 1} onClick={() => setPagina(p => p + 1)} aria-label="Próxima página"><ChevronRight /></Button>
         </nav>
       )}
+
+      {dialogos}
     </div>
   )
 }

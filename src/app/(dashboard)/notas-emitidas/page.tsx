@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
-import { contarPorCategoria, listarNotasEmitidas } from '@/lib/queries/notas-emitidas'
+import { anexarSituacaoDeInutilizacao, contarPorCategoria, listarNotasEmitidas } from '@/lib/queries/notas-emitidas'
 import { naSituacao, periodoBr, periodoEmissao, type Situacao } from '@/lib/notas-emitidas'
+import { diaBrt } from '@/lib/data-venda'
+import { podePedirInutilizacao } from '@/lib/notagateway/inutilizacao'
 import { tamanhoEstimado } from '@/lib/notas-contador'
 import { emailDoContador, ultimoEnvioAoContador } from '@/lib/queries/notas-contador'
 import { Secao } from '../dashboard/components/painel-secoes'
@@ -20,8 +22,6 @@ const SITUACOES: { valor: Situacao; rotulo: string }[] = [
   { valor: 'recusada', rotulo: 'Recusadas' },
   { valor: 'em_andamento', rotulo: 'Em andamento' },
 ]
-
-const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
 export default async function NotasEmitidasPage({
   searchParams,
@@ -44,8 +44,8 @@ export default async function NotasEmitidasPage({
     emailDoContador(doGrupo), ultimoEnvioAoContador(doGrupo),
   ])
   const producao = contagemProducao ?? contagem
-  const ultimoEnvio = ultimo && `${data(ultimo.em)}, para ${ultimo.para}, ${ultimo.notas} ${ultimo.notas === 1 ? 'nota' : 'notas'}`
-  const visiveis = notas.filter(n => naSituacao(n, situacao))
+  const ultimoEnvio = ultimo && `${diaBrt(ultimo.em)}, para ${ultimo.para}, ${ultimo.notas} ${ultimo.notas === 1 ? 'nota' : 'notas'}`
+  const visiveis = await anexarSituacaoDeInutilizacao(notas.filter(n => naSituacao(n, situacao)), filtro)
   const total = (s: Situacao) => (s === 'todas' ? contagem.autorizada + contagem.cancelada + contagem.recusada + contagem.em_andamento : contagem[s])
   const comDocumento = situacao === 'todas' ? contagem.autorizada + contagem.cancelada
     : situacao === 'autorizada' || situacao === 'cancelada' ? contagem[situacao] : 0
@@ -105,7 +105,7 @@ export default async function NotasEmitidasPage({
         )}
         {/* key: trocar de filtro limpa a seleção e volta à primeira página. */}
         <NotasTabela key={`${situacao}|${ambiente}|${periodo.de}|${periodo.ate}`} notas={visiveis} totalComDocumento={comDocumento}
-          filtro={{ situacao, ambiente, ...periodo }} />
+          filtro={{ situacao, ambiente, ...periodo }} podeInutilizar={podePedirInutilizacao(usuario.papel)} />
       </Secao>
     </div>
   )
