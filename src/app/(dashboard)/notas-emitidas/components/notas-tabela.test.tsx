@@ -56,6 +56,7 @@ const textoDaTela = () => document.body.textContent ?? ''
 const vezes = (texto: string) => textoDaTela().split(texto).length - 1
 const botoes = (inicio: string) => [...document.querySelectorAll('button')].filter(b => (b.textContent ?? '').trim().startsWith(inicio))
 const clicar = (el: Element) => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+const botao = (texto: string) => [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').trim() === texto)!
 const itensDoMenu = () => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
 const itemDoMenu = (texto: string) => itensDoMenu().find(i => (i.textContent ?? '').includes(texto))
 const desabilitado = (el: Element | undefined) => el?.getAttribute('aria-disabled') === 'true'
@@ -232,7 +233,7 @@ test('a situação da inutilização vira um selo na linha; a frase inteira fica
   ]
   for (const [inutilizacao, selo, frase] of casos) {
     await t.desenhar([{ ...NOTA, inutilizacao }], false)
-    assert.equal(vezes(selo), 1, selo)
+    assert.equal(vezes(selo), 2, `${selo}: na linha da tabela e no cartão do celular`)
     assert.ok(!textoDaTela().includes(frase), `${selo}: a frase não cabe na linha`)
     await t.abrirMenu('974')
     await t.escolher('Ver motivo completo')
@@ -273,7 +274,7 @@ test('grupo em outro ambiente ou sem credencial: selo na linha e a orientação 
   ]
   for (const [inutilizacao, selo, frase] of casos) {
     await t.desenhar([{ ...NOTA, inutilizacao }])
-    assert.equal(vezes(selo), 1, selo)
+    assert.equal(vezes(selo), 2, selo)
     await t.abrirMenu('974')
     assert.equal(itemDoMenu('Inutilizar número'), undefined, selo)
     await t.escolher('Ver motivo completo')
@@ -368,5 +369,101 @@ test('a lista esvazia com o diálogo aberto: ele continua na tela (C6)', async (
   await t.act(async () => { await esperar(DEPOIS_DA_ANIMACAO_MS) })
   assert.ok(textoDaTela().includes('Nenhuma nota neste filtro.'))
   assert.ok(dialogoDeInutilizar())
+  await t.desmontar()
+})
+
+const lista = () => document.querySelector('ul[aria-label="Notas emitidas"]')!
+
+test('celular: cartão com o cliente em destaque, os selos, o motivo da SEFAZ em bloco só na recusada e os fatos da nota (C8)', async () => {
+  const t = await montar()
+  await t.desenhar([NOTA, { ...AUTORIZADA, clienteNome: 'Maria Oliveira' }], true, { ...FILTRO, situacao: 'todas' })
+  const cartoes = [...lista().querySelectorAll(':scope > li')].map(li => li.textContent ?? '')
+  assert.equal(cartoes.length, 2)
+  const [recusada, autorizada] = cartoes as [string, string]
+  assert.ok(recusada.includes('Sem cliente') && recusada.includes('Recusada'))
+  assert.ok(recusada.includes('Motivo da SEFAZ (225)') && recusada.includes('Falha no schema'), 'recusada: bloco do motivo')
+  assert.ok(recusada.includes('NF 974') && recusada.includes('Série 1') && recusada.includes('Venda #31601') && recusada.includes('29/10'))
+  assert.ok(autorizada.includes('Maria Oliveira') && autorizada.includes('Autorizada') && autorizada.includes('NF 975'))
+  assert.ok(!autorizada.includes('Motivo da SEFAZ'), 'autorizada: sem bloco de motivo')
+  assert.equal(lista().querySelectorAll('input[type="checkbox"]').length, 0, 'fora do modo Selecionar: sem caixas')
+  assert.ok(textoDaTela().includes('2 notas'))
+  await t.desmontar()
+})
+
+test('celular: "Selecionar" mostra as caixas, só a nota com documento marca, Baixar leva as marcadas e Cancelar limpa (#402)', async () => {
+  await comDownloadFalso(async chamadas => {
+    const t = await montar()
+    await t.desenhar([NOTA, AUTORIZADA], true, { ...FILTRO, situacao: 'todas' })
+    await t.act(async () => { clicar(botao('Selecionar')) })
+    const caixa = (numero: string) => lista().querySelector<HTMLInputElement>(`input[aria-label="Selecionar a nota ${numero}"]`)!
+    assert.ok(caixa('974').disabled, 'recusada: sem documento, caixa desabilitada')
+    assert.ok(!caixa('975').disabled)
+    assert.ok(botao('Baixar').disabled, 'nada marcado: Baixar espera')
+    await t.act(async () => { caixa('975').click() })
+    await t.act(async () => { clicar(botao('Baixar 1')); await esperar(50) })
+    assert.deepEqual(chamadas.map(c => c.corpo), [{ situacao: 'todas', ambiente: 'Producao', de: '2026-10-01', ate: '2026-10-31', tipo: 'ambos', id: ['nota-2'] }])
+    await t.act(async () => { clicar(botao('Cancelar')) })
+    assert.equal(lista().querySelectorAll('input[type="checkbox"]').length, 0, 'saiu do modo')
+    assert.ok(textoDaTela().includes('2 notas'))
+    assert.ok(!document.querySelector<HTMLInputElement>('table input[aria-label="Selecionar a nota 975"]')!.checked, 'a seleção foi limpa para a tabela também')
+    await t.desmontar()
+  })
+})
+
+const AUTORIZADA_2: NotaEmitidaComInutilizacao = { ...AUTORIZADA, id: 'nota-3', numero: '976' }
+const CANCELADA: NotaEmitidaComInutilizacao = { ...AUTORIZADA, id: 'nota-4', numero: '977', status: 'Cancelada', categoria: 'cancelada' }
+const EM_ANDAMENTO: NotaEmitidaComInutilizacao = { ...NOTA, id: 'nota-5', numero: '978', status: 'Processando', categoria: 'em_andamento', motivoStatus: null }
+const MISTA = [NOTA, AUTORIZADA, EM_ANDAMENTO, AUTORIZADA_2, CANCELADA]
+
+const caixaDe = (numero: string) => lista().querySelector<HTMLInputElement>(`input[aria-label="Selecionar a nota ${numero}"]`)!
+const caixaTodas = () => [...document.querySelectorAll('label')].find(l => (l.textContent ?? '').includes('Selecionar todas'))!.querySelector('input')!
+const filtroTodas = { ...FILTRO, situacao: 'todas' as const }
+
+test('celular: "Selecionar todas" marca só as notas com documento e o botão vira "Baixar 3"', async () => {
+  const t = await montar()
+  await t.desenhar(MISTA, true, filtroTodas)
+  await t.act(async () => { clicar(botao('Selecionar')) })
+  assert.ok(botao('Baixar').disabled, 'nada marcado: Baixar espera')
+  await t.act(async () => { caixaTodas().click() })
+  assert.deepEqual(['975', '976', '977'].map(n => caixaDe(n).checked), [true, true, true])
+  assert.deepEqual(['974', '978'].map(n => caixaDe(n).checked), [false, false], 'recusada e em andamento não entram')
+  assert.ok(!botao('Baixar 3').disabled)
+  assert.ok(caixaTodas().checked && !caixaTodas().indeterminate)
+  await t.desmontar()
+})
+
+test('celular: desmarcar uma atualiza o número e deixa "Selecionar todas" indeterminada; desmarcar todas volta a 0', async () => {
+  const t = await montar()
+  await t.desenhar(MISTA, true, filtroTodas)
+  await t.act(async () => { clicar(botao('Selecionar')) })
+  await t.act(async () => { caixaTodas().click() })
+  await t.act(async () => { caixaDe('976').click() })
+  assert.ok(!botao('Baixar 2').disabled)
+  assert.ok(caixaTodas().indeterminate && !caixaTodas().checked, 'só parte marcada')
+  await t.act(async () => { caixaDe('976').click() })
+  await t.act(async () => { caixaTodas().click() })
+  assert.ok(botao('Baixar').disabled, 'voltou a 0')
+  assert.deepEqual(['975', '976', '977'].map(n => caixaDe(n).checked), [false, false, false])
+  assert.ok(!caixaTodas().indeterminate)
+  await t.desmontar()
+})
+
+test('celular: "Baixar 3" chama o mesmo download em lote da tabela, com os ids das notas com documento', async () => {
+  await comDownloadFalso(async chamadas => {
+    const t = await montar()
+    await t.desenhar(MISTA, true, filtroTodas)
+    await t.act(async () => { clicar(botao('Selecionar')) })
+    await t.act(async () => { caixaTodas().click() })
+    await t.act(async () => { clicar(botao('Baixar 3')); await esperar(50) })
+    assert.deepEqual(chamadas.map(c => [c.url, c.corpo.tipo, [...(c.corpo.id as string[])].sort()]), [['/api/notas-emitidas/arquivos', 'ambos', ['nota-2', 'nota-3', 'nota-4']]])
+    await t.desmontar()
+  })
+})
+
+test('celular: sem nota com documento, "Selecionar todas" fica desabilitada', async () => {
+  const t = await montar()
+  await t.desenhar([NOTA, EM_ANDAMENTO], true, filtroTodas)
+  await t.act(async () => { clicar(botao('Selecionar')) })
+  assert.ok(caixaTodas().disabled)
   await t.desmontar()
 })

@@ -87,7 +87,7 @@ export default async function NotasEmitidasPage({
         titulo={rotulo}
         acao={
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{total(situacao)} {total(situacao) === 1 ? 'nota' : 'notas'}</span>
+            <span className="hidden text-sm text-muted-foreground md:inline">{total(situacao)} {total(situacao) === 1 ? 'nota' : 'notas'}</span>
             <EnviarContador resumo={{
               grupo: grupo.nome, ...periodo, periodo: periodoBr(periodo.de, periodo.ate),
               autorizadas: producao.autorizada, canceladas: producao.cancelada,
