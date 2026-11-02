@@ -266,7 +266,7 @@ export type InutilizacaoConsultada = { status: string; motivoStatus: string | nu
 export async function consultarInutilizacaoNaNg(cfg: ConfigNotaGateway, idExterno: string): Promise<InutilizacaoConsultada | null> {
   const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}/nf-e/inutilizacao/${encodeURIComponent(idExterno)}`)
   if (r.status === 404) return null
-  if (r.status >= 400) throw new Error(`Falha ao consultar a inutilização: ${mensagensDeErro(r.json, r.texto)}`)
+  if (r.status >= 400) throw new Error(`Falha ao consultar a inutilização: ${mensagensDocumentadas(r.json, r.status)}`)
   const c = r.json as Record<string, any>
   return {
     status: String(c?.status ?? 'Processando'),
