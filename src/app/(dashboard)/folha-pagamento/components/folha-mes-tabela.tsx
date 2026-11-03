@@ -1,6 +1,7 @@
 import { fmtBRL } from '@/lib/preco-minimo'
 import type { FolhaDoMes } from '@/lib/queries/folha'
 import { CELULA, GRADE, NUMERO, SO_DESKTOP, SO_TABLET } from './folha-mes-grade'
+import { ValorOuZero } from './folha-mes-valor'
 import { LinhaFolha, type LinhaFolhaDados } from './folha-mes-linha'
 
 const TITULO = 'text-xs font-medium text-muted-foreground'
@@ -30,7 +31,7 @@ export function FolhaMesTabela({ ativos, totais, mes }: { ativos: LinhaFolhaDado
           <div role="cell" className={`${NUMERO} ${SO_TABLET}`}>{fmtBRL(totais.comissoes)}</div>
           <div role="cell" className={`${NUMERO} ${SO_DESKTOP}`}>{fmtBRL(totais.premiacoes)}</div>
           <div role="cell" className={`${NUMERO} ${SO_DESKTOP}`}>{fmtBRL(totais.ajudaCusto)}</div>
-          <div role="cell" className={`${NUMERO} ${SO_DESKTOP} text-warning`}>{totais.adiantamentos > 0 ? `-${fmtBRL(totais.adiantamentos)}` : fmtBRL(0)}</div>
+          <div role="cell" className={`${NUMERO} ${SO_DESKTOP}`}><ValorOuZero valor={totais.adiantamentos} negativo /></div>
           <div role="cell" className={NUMERO}>{fmtBRL(totais.geral)}</div>
           <div role="cell" className={`${NUMERO} ${SO_TABLET} text-info`}>{fmtBRL(totais.efetivo)}</div>
         </div>
