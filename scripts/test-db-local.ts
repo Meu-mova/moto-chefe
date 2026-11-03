@@ -11,19 +11,20 @@
  * este script acabou de subir, na porta que o pg_ctl conseguiu ocupar.
  */
 import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { ehSobra, pidDoPostmaster, PREFIXO_PG_TESTE } from './lib/sobras-pg-teste'
 
 const manter = process.argv.includes('--manter')
 
-const SAIDA_POR_SINAL = { SIGINT: 130, SIGTERM: 143 } as const
+const SAIDA_POR_SINAL = { SIGHUP: 129, SIGINT: 130, SIGTERM: 143 } as const
 type Sinal = keyof typeof SAIDA_POR_SINAL
 let sinalRecebido: Sinal | null = null
 let filhoAtual: ChildProcess | null = null
 
-// Ctrl+C ou kill no meio: repassa ao comando em andamento e deixa o finally derrubar o Postgres.
+// Ctrl+C, kill ou fechar o terminal (SIGHUP) no meio: repassa ao comando em andamento e deixa o finally derrubar o Postgres.
 for (const sinal of Object.keys(SAIDA_POR_SINAL) as Sinal[]) {
   process.on(sinal, () => {
     sinalRecebido ??= sinal
@@ -51,6 +52,35 @@ async function rodar(cmd: string, args: string[], opcoes: SpawnOptions = {}) {
   if (status !== 0) throw new Error(`${cmd} ${args[0] ?? ''} saiu com ${status}`)
 }
 
+// Terminal fechado: escrever na tela falha com EIO/EPIPE e não pode derrubar o finally.
+for (const saida of [process.stdout, process.stderr]) saida.on('error', () => {})
+
+function processoVivo(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM' // existe, só não é nosso
+  }
+}
+
+/** SIGKILL não passa pelo finally: apaga o que execuções anteriores deixaram, sem tocar em Postgres vivo. */
+function limparSobras(raiz: string) {
+  for (const nome of readdirSync(raiz).filter(n => n.startsWith(PREFIXO_PG_TESTE))) {
+    const dir = join(raiz, nome)
+    try {
+      const arquivoPid = join(dir, 'postmaster.pid')
+      const pid = pidDoPostmaster(existsSync(arquivoPid) ? readFileSync(arquivoPid, 'utf8') : null)
+      const idadeMs = Date.now() - statSync(dir).mtimeMs
+      if (!ehSobra({ pid, vivo: pid !== null && processoVivo(pid), idadeMs })) continue
+      rmSync(dir, { recursive: true, force: true })
+      console.log(`Sobra de execução anterior apagada: ${dir}`)
+    } catch (e) {
+      console.error(`Não deu para limpar ${dir}: ${e instanceof Error ? e.message : e}`)
+    }
+  }
+}
+
 /** Porta que o sistema dá como livre agora; o pg_ctl é que confirma, ao ocupá-la. */
 function portaLivre(): Promise<number> {
   return new Promise((ok, falha) => {
@@ -64,6 +94,11 @@ function portaLivre(): Promise<number> {
 }
 
 async function main() {
+  try {
+    limparSobras(tmpdir())
+  } catch (e) {
+    console.error(`Não deu para varrer as sobras: ${e instanceof Error ? e.message : e}`)
+  }
   const porta = await portaLivre()
   const dir = mkdtempSync(join(tmpdir(), 'mova-pg-teste-'))
   const url = `postgresql://postgres@localhost:${porta}/postgres`
