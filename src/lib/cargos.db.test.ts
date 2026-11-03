@@ -235,7 +235,7 @@ test('editar a base grava no log de permissões, na Conta do cargo; editar só o
     const { resumoDoEvento } = await import('@/lib/log-acoes-tela')
     const evento = { id: 'x', tipo: 'permissao_alterada', usuarioId: a.quem.usuarioId, usuarioNome: null, contaDoUsuario: null, contaId: a.quem.contaId,
       grupoNome: null, ip: null, userAgent: null, dia: '2026-11-02', criadoEm: new Date(), detalhe: gravado[0].detalhe }
-    assert.equal(resumoDoEvento(evento), 'Cargo Recepção 2 · alterado: papel base (aux_adm → vendedor)')
+    assert.equal(resumoDoEvento(evento), 'Cargo Recepção 2 · alterado: papel base (Aux. Administrativo → Vendedor)')
 
     // Edição recusada não deixa rastro.
     assert.equal((await mod.editarCargo(tx, a.quem, a.cargoId, { nome: 'Recepção 2', papelBase: 'admin_geral' })).ok, false)

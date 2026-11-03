@@ -112,7 +112,7 @@ test('excluir sem ser admin_geral volta como recusa', async () => {
 const doCargo = { ...dados, papel: 'cargo', cargoId: 'c1', gruposAcesso: [], gruposAprovacao: ['grupo-b'] }
 const CONTA_DA_LOJA = [{ contaId: 'conta-a' }]
 
-test('criar: cargo com base Sócio confere os grupos de aprovação; base Adm. da loja não guarda a lista', async () => {
+test('criar: cargo com base Admin Sócio confere os grupos de aprovação; base Aux. Administrativo não guarda a lista', async () => {
   const { criarUsuarioAction } = await import('./actions')
   cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'admin_socio' }
   respostas = [CONTA_DA_LOJA, []] // nenhum dos grupos marcados existe
@@ -123,7 +123,7 @@ test('criar: cargo com base Sócio confere os grupos de aprovação; base Adm. d
   cargoDoCadastro = { ok: true, cargoId: null, papelBase: null }
 })
 
-test('editar: cargo com base Sócio confere os grupos de aprovação; base Adm. da loja não guarda a lista', async () => {
+test('editar: cargo com base Admin Sócio confere os grupos de aprovação; base Aux. Administrativo não guarda a lista', async () => {
   const { editarUsuarioAction } = await import('./actions')
   cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'admin_socio' }
   respostas = [[], CONTA_DA_LOJA, []]

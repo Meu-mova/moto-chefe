@@ -127,10 +127,10 @@ async function escolherCargo(id: string) {
   })
 }
 
-test('cargo com base Sócio manda no payload a aprovação, a transferência e os grupos de acesso (#617)', async () => {
+test('cargo com base Admin Sócio manda no payload a aprovação, a transferência e os grupos de acesso (#617)', async () => {
   await montar('admin_geral', [usuarioComCargo], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio, cargoGerente] })
   const dados = await salvarEdicaoDe('Gerente A', async () => {
-    assert.ok(abas().includes('Aprovação'), 'aprovação aparece para cargo base Sócio')
+    assert.ok(abas().includes('Aprovação'), 'aprovação aparece para cargo base Admin Sócio')
     await clicar(aba('Acesso'))
     await clicar(caixaDe('Grupo B'))
     await clicar(aba('Aprovação'))
@@ -143,14 +143,14 @@ test('cargo com base Sócio manda no payload a aprovação, a transferência e o
   assert.equal(dados.cargoId, 'c3')
 })
 
-test('cargo com base Adm. da loja não mostra a aprovação e manda as listas vazias, mesmo se o usuário as tinha (#617)', async () => {
+test('cargo com base Aux. Administrativo não mostra a aprovação e manda as listas vazias, mesmo se o usuário as tinha (#617)', async () => {
   const antigo = { ...usuarioComCargo, id: 'u5', nome: 'Gerente B', cargoId: 'c1', gruposAprovacao: ['gA'], gruposAcesso: ['gB'], aprovaPagamentoSensivel: true }
   await montar('admin_geral', [antigo], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio, cargoGerente] })
   const dados = await salvarEdicaoDe('Gerente B', async () => assert.ok(!abas().includes('Aprovação')))
   assert.deepEqual([dados.gruposAprovacao, dados.gruposAcesso, dados.aprovaPagamentoSensivel], [[], [], false])
 })
 
-test('trocar o cargo de base Sócio para Adm. da loja zera as duas listas e a transferência (#617)', async () => {
+test('trocar o cargo de base Admin Sócio para Aux. Administrativo zera as duas listas e a transferência (#617)', async () => {
   const comListas = { ...usuarioComCargo, gruposAprovacao: ['gA'], gruposAcesso: ['gB'], aprovaPagamentoSensivel: true }
   await montar('admin_geral', [comListas], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio, cargoGerente] })
   const dados = await salvarEdicaoDe('Gerente A', async () => {
@@ -164,7 +164,7 @@ test('trocar o cargo de base Sócio para Adm. da loja zera as duas listas e a tr
 // Causa do "esbarra ao editar a si mesmo" (#616): sem as abas, o formulário do cargo Sócio mandava as
 // listas vazias, e salvar a si mesmo apagava a aprovação e o acesso. A recusa de "trocar o próprio
 // papel" não tem causa: o servidor compara cargo com cargo.
-test('quem tem cargo com base Sócio edita a si mesmo e mantém aprovação, transferência e grupos de acesso (#617)', async () => {
+test('quem tem cargo com base Admin Sócio edita a si mesmo e mantém aprovação, transferência e grupos de acesso (#617)', async () => {
   const eu = { ...usuarioComCargo, id: 'g', gruposAprovacao: ['gA'], gruposAcesso: ['gB'], aprovaPagamentoSensivel: true }
   await montar('admin_socio', [eu], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio], gestor: { id: 'g', aprovaPagamentoSensivel: true, gruposAprovacao: ['gA'] } })
   const dados = await salvarEdicaoDe('Gerente A')
@@ -175,11 +175,11 @@ test('diálogo de cargos: a escolha da base mostra o que cada base faz e grava n
   await montar('admin_geral', [marina])
   await clicar(botao('Cargos'))
   // Lista: nome, base e número de usuários.
-  assert.ok(document.body.textContent?.includes('Base Adm. da loja, 1 usuário'))
+  assert.ok(document.body.textContent?.includes('Base Aux. Administrativo, 1 usuário'))
   await clicar(botao('Novo cargo'))
   const linha = (rotulo: string) => [...document.querySelectorAll('[role=dialog] tbody tr')].find(tr => tr.querySelector('label')?.textContent?.trim() === rotulo)
   assert.equal(document.querySelectorAll('[role=dialog] tbody tr').length, 5, 'uma linha por base')
-  assert.ok(linha('Adm. da loja')?.textContent?.includes('sem NF'), 'adm. da loja cancela só venda sem NF')
+  assert.ok(linha('Aux. Administrativo')?.textContent?.includes('sem NF'), 'aux_adm cancela só venda sem NF')
   assert.equal(linha('Vendedor')?.textContent?.match(/não/g)?.length, 4, 'vendedor não faz nenhuma das quatro')
   assert.ok(document.body.textContent?.includes('Escolha uma base'))
   assert.ok(document.body.textContent?.includes('Aprovar venda vale só nos grupos marcados'), 'aprovar depende dos grupos de aprovação do cadastro')
@@ -193,9 +193,9 @@ test('diálogo de cargos: a escolha da base mostra o que cada base faz e grava n
     const set = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!
     set.call(nome, 'Gerente_admin'); nome.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
   })
-  await clicar(linha('Sócio')?.querySelector('input'))
+  await clicar(linha('Admin Sócio')?.querySelector('input'))
   const { oQueABaseFaz } = await import('@/lib/base-do-cargo')
-  assert.ok(document.body.textContent?.includes(`Telas: as ${oQueABaseFaz('admin_socio').telas.length} telas do papel Sócio.`), 'resumo das telas da base escolhida')
+  assert.ok(document.body.textContent?.includes(`Telas: as ${oQueABaseFaz('admin_socio').telas.length} telas do papel Admin Sócio.`), 'resumo das telas da base escolhida')
   await clicar(botao('Criar cargo'))
   assert.deepEqual(criadas, [{ nome: 'Gerente_admin', papelBase: 'admin_socio' }])
 })
@@ -262,7 +262,7 @@ test('só a tabela de bases rola na horizontal: o fieldset pode encolher abaixo 
   assert.ok(campos?.classList.contains('min-w-0'))
 })
 
-test('lista de usuários: cargo com base Sócio mostra onde aprova; base Adm. da loja, não (#617)', async () => {
+test('lista de usuários: cargo com base Admin Sócio mostra onde aprova; base Aux. Administrativo, não (#617)', async () => {
   const gerenteAdmin = { id: 'c3', nome: 'Cargo Sócio', papelBase: 'admin_socio', contaId: 'A' }
   const sociaDoCargo = { ...base, id: 'u4', nome: 'Usuário Cargo Sócio', papel: 'cargo', cargoId: 'c3', grupoDaLojaId: 'gA' }
   const container = await montar('admin_geral', [sociaDoCargo, marina], { cargos: [gerenteAdmin, cargoGerente] })
@@ -274,7 +274,7 @@ test('lista de usuários: cargo com base Sócio mostra onde aprova; base Adm. da
 
 test('lista de usuários: quem tem cargo mostra o cargo e a base; papel fixo, não (#616)', async () => {
   const container = await montar('admin_geral', [marina, bruno])
-  assert.ok(container.textContent?.includes('Cargo da Conta, base Adm. da loja'))
+  assert.ok(container.textContent?.includes('Cargo da Conta, base Aux. Administrativo'))
   assert.equal(container.textContent?.match(/Cargo da Conta, base/g)?.length, 2, 'uma vez na tabela e outra na lista do celular')
   assert.ok(container.textContent?.includes('Gerente'))
 })

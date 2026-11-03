@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
 import { CargosDialog, type CargoDaConta } from './cargos-dialog'
-import { cargosDoAlvo, ROTULO_DA_BASE } from '@/lib/cargos-opcoes'
+import { cargosDoAlvo } from '@/lib/cargos-opcoes'
+import { OPCOES_DE_PAPEL, rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { guardaAcessoAGrupos, guardaAprovacao, papelDasListas } from '@/lib/listas-do-cadastro'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
@@ -62,17 +63,6 @@ type DadosForm = {
   cargoId: string | null
   gruposLiberados: string[]
 }
-
-const PAPEIS: { value: string; label: string }[] = [
-  { value: 'admin_geral',  label: 'Admin Geral' },
-  { value: 'admin_rede',   label: 'Admin de Rede' },
-  { value: 'admin_socio',  label: 'Admin Sócio' },
-  { value: 'aux_adm',      label: 'Aux. Administrativo' },
-  { value: 'vendedor',     label: 'Vendedor' },
-  { value: 'mecanico',     label: 'Mecânico' },
-  { value: 'motorista',    label: 'Motorista' },
-  { value: 'cargo',        label: 'Cargo da Conta' },
-]
 
 type Limites = LimitesDaTela
 
@@ -259,12 +249,12 @@ function FormUsuario({
             <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && limites.travaASiMesmo}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a função">
-                  {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : 'Selecione a função'}
+                  {(v: string | null) => v ? rotuloDoPapelGravado(v) : 'Selecione a função'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {/* O papel atual sempre na lista: sem item para o valor, o Select mostraria o valor cru. */}
-                {PAPEIS.filter(p => limites.papeis.includes(p.value) || p.value === inicial?.papel).map(p => (
+                {OPCOES_DE_PAPEL.filter(p => limites.papeis.includes(p.value) || p.value === inicial?.papel).map(p => (
                   <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -472,11 +462,11 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   const [filtros, setFiltros] = useState<FiltrosUsuarios>({ busca: '', papel: '', contaId: '', situacao: 'ativos' })
   const lista = filtrarUsuarios(usuarios, filtros)
   const contasDaLista = [...new Set(usuarios.map(u => u.contaId).filter((c): c is string => !!c))]
-  const nomePapel = (u: Usuario) => u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : (PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel)
+  const nomePapel = (u: Usuario) => u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : rotuloDoPapelGravado(u.papel)
   // Quem tem cargo mostra o selo do cargo e, embaixo, de onde ele vem.
   const detalhePapel = (u: Usuario) => {
     const cargo = u.papel === 'cargo' ? cargos.find(c => c.id === u.cargoId) : null
-    return cargo ? `Cargo da Conta, base ${ROTULO_DA_BASE[cargo.papelBase]}` : null
+    return cargo ? `Cargo da Conta, base ${rotuloDoPapelGravado(cargo.papelBase)}` : null
   }
   const ondeAprova = (u: Usuario) => {
     const base = u.papel === 'cargo' ? cargos.find(c => c.id === u.cargoId)?.papelBase ?? null : null
@@ -507,7 +497,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
         {/* selects nativos: o Select do design system mostraria o id no lugar do nome */}
         <select aria-label="Função" value={filtros.papel} onChange={e => setFiltros(f => ({ ...f, papel: e.target.value }))} className="h-8 flex-1 rounded-md border border-input bg-card px-2 text-sm sm:flex-none">
           <option value="">Todas as funções</option>
-          {PAPEIS.filter(p => usuarios.some(u => u.papel === p.value)).map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          {OPCOES_DE_PAPEL.filter(p => usuarios.some(u => u.papel === p.value)).map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
         {contasDaLista.length > 1 && (
           <select aria-label="Conta" value={filtros.contaId} onChange={e => setFiltros(f => ({ ...f, contaId: e.target.value }))} className="h-8 flex-1 rounded-md border border-input bg-card px-2 text-sm sm:flex-none">

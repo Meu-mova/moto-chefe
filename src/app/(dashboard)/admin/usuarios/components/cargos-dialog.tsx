@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { oQueABaseFaz, type OQueABaseFaz } from '@/lib/base-do-cargo'
-import { ROTULO_DA_BASE } from '@/lib/cargos-opcoes'
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import { PAPEIS_BASE_DO_CARGO, type PapelBase } from '@/lib/gestao-usuarios'
 import { apagarCargoAction, criarCargoAction, editarCargoAction } from '../cargos-actions'
 
@@ -19,7 +19,7 @@ const COLUNAS = ['Aprova venda', 'Cancela venda', 'Opera caixa', 'Emite NF']
 function resumoDasTelas(base: PapelBase | ''): string {
   if (!base) return 'Escolha uma base para ver as telas.'
   const { telas, soOBasico } = oQueABaseFaz(base)
-  return soOBasico ? `Telas: só o básico (${telas.join(', ')}).` : `Telas: as ${telas.length} telas do papel ${ROTULO_DA_BASE[base]}.`
+  return soOBasico ? `Telas: só o básico (${telas.join(', ')}).` : `Telas: as ${telas.length} telas do papel ${rotuloDoPapelGravado(base)}.`
 }
 
 const textoUsuarios = (n: number) => n === 0 ? 'nenhum usuário' : `${n} ${n === 1 ? 'usuário' : 'usuários'}`
@@ -64,7 +64,7 @@ function EscolhaDaBase({ base, onChange, travado }: { base: PapelBase | ''; onCh
                 <th scope="row" className="py-0 pl-3 text-left font-normal">
                   <label className="flex min-h-11 cursor-pointer items-center gap-2">
                     <input type="radio" name="papel-base" value={b} checked={b === base} onChange={() => onChange(b)} disabled={travado} className="size-4 accent-primary" />
-                    {ROTULO_DA_BASE[b]}
+                    {rotuloDoPapelGravado(b)}
                   </label>
                 </th>
                 <Celulas faz={oQueABaseFaz(b)} />
@@ -140,7 +140,7 @@ export function CargosDialog({ open, onOpenChange, cargos }: {
                 <li key={c.id} className="flex items-center justify-between gap-2 py-2">
                   <div className="min-w-0">
                     <p className="font-medium">{c.nome}</p>
-                    <p className="truncate text-xs text-muted-foreground">Base {ROTULO_DA_BASE[c.papelBase]}, {textoUsuarios(c.usuarios)}</p>
+                    <p className="truncate text-xs text-muted-foreground">Base {rotuloDoPapelGravado(c.papelBase)}, {textoUsuarios(c.usuarios)}</p>
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Button variant="ghost" size="icon" aria-label={`Editar ${c.nome}`} onClick={() => abrir(c)} disabled={pending}><Pencil size={14} /></Button>

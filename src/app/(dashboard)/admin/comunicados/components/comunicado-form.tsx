@@ -5,15 +5,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { criarComunicadoAction } from '../actions'
+import { OPCOES_DE_PAPEL, PAPEIS_DE_COMUNICADO } from '@/lib/rotulo-do-papel'
 
-const PAPEIS = [
-  { value: 'admin_geral',  label: 'Admin Geral' },
-  { value: 'admin_socio',  label: 'Admin / Sócio' },
-  { value: 'aux_adm',      label: 'Aux. Administrativo' },
-  { value: 'vendedor',     label: 'Vendedor' },
-  { value: 'mecanico',     label: 'Mecânico' },
-  { value: 'motorista',    label: 'Motorista' },
-]
+const PAPEIS = OPCOES_DE_PAPEL.filter(p => PAPEIS_DE_COMUNICADO.includes(p.value))
 
 export function ComunicadoForm() {
   const [titulo, setTitulo] = useState('')

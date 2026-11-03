@@ -6,6 +6,7 @@ import { FileText, Upload, Trash2, ExternalLink } from 'lucide-react'
 import {
   uploadHoleriteAction, removerHoleriteAction, getHoleriteUrlAction, type HoleriteRow,
 } from '../holerites-actions'
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 
 // Os dois arquivos que a contabilidade manda todo mês. A ordem aqui é a ordem das
 // colunas da tabela.
@@ -15,15 +16,6 @@ const TIPOS = [
 ] as const
 
 export type FuncionarioHolerite = { id: string; nome: string; papel: string; lojaNome: string }
-
-const PAPEL_LABEL: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  admin_socio: 'Admin Sócio',
-  aux_adm:     'Auxiliar Adm.',
-  vendedor:    'Vendedor',
-  mecanico:    'Mecânico',
-  motorista:   'Motorista',
-}
 
 function fmtTamanho(bytes: number | null) {
   if (!bytes) return ''
@@ -205,7 +197,7 @@ export function HoleritesTable({ funcionarios, holerites, mes }: {
               <tr key={f.id} className="hover:bg-muted align-top">
                 <td className="px-4 py-3">
                   <p className="font-medium">{f.nome}</p>
-                  <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
+                  <p className="text-xs text-muted-foreground">{rotuloDoPapelGravado(f.papel)} · {f.lojaNome}</p>
                 </td>
                 {TIPOS.map(t => (
                   <td key={t.valor} className="px-4 py-3">
