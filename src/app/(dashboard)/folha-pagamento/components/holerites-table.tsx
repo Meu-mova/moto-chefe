@@ -83,8 +83,8 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
         const semDetalhe = chevron.current && getComputedStyle(chevron.current).display === 'none'
         if (!semDetalhe && !(e.target as HTMLElement).closest('button, a, input')) setAberta(v => !v)
       }}>
-      <div role="cell" className="min-w-0 px-4 py-3">
-        <p role="rowheader" className="font-medium">{f.nome}</p>
+      <div role="rowheader" className="min-w-0 px-4 py-3">
+        <p className="font-medium">{f.nome}</p>
         <input ref={envio.inputRef} type="file" accept="application/pdf" className="hidden"
           onChange={e => { const arquivo = e.target.files?.[0]; if (arquivo) void envio.enviar(arquivo) }} />
         <p className="text-xs text-muted-foreground">{rotuloDoPapel({ papel: f.papel })} · {f.lojaNome}</p>

@@ -84,7 +84,7 @@ async function montar(holerites = base, funcionarios = pessoas) {
 const texto = () => document.body.textContent ?? ''
 const botao = (nome: string) => [...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === nome || b.textContent?.replace(/\s+/g, ' ').trim() === nome)
 const linhas = () => [...document.querySelectorAll('[role=row]')].filter(r => r.querySelector('[role=rowheader]'))
-const nomes = () => linhas().map(l => l.querySelector('[role=rowheader]')!.textContent)
+const nomes = () => linhas().map(l => l.querySelector('[role=rowheader] > p')!.textContent)
 
 async function clicar(el: Element | undefined) {
   const { act } = await import('react')
