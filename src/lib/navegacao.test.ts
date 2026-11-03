@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { ITENS, MODULOS_DE_CARGO, acessaModulo, itensDoMenu, itensVisiveis, modulosQuePodeDar, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
+import { ITENS, acessaModulo, itensDoMenu, itensVisiveis, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
 import { podeOperarNfSaida } from '@/app/(dashboard)/vendas/papeis-nf-saida'
 
 const SEM_REGRA_PROPRIA = {}
@@ -118,10 +118,8 @@ test('Entrada (#488, decisão do Luis): sócio e geral pelo papel; aux_adm só l
   assert.ok(acessaModulo({ papel: 'aux_adm', modulosExtras: ['entrada'] }, 'entrada'), 'aux_adm liberado')
   assert.ok(ids({ papel: 'aux_adm', modulosExtras: ['entrada'] }).includes('entrada'), 'e aparece no menu')
   assert.ok(!acessaModulo({ papel: 'vendedor', modulosExtras: ['entrada'] }, 'entrada'), 'vendedor, nem liberado')
-  assert.ok(!acessaModulo({ papel: 'cargo', modulosDoCargo: ['entrada'] }, 'entrada'), 'cargo, nem pelo cargo')
   assert.ok(!acessaModulo({ papel: 'cargo', modulosExtras: ['entrada'] }, 'entrada'), 'cargo, nem liberado')
   assert.ok(!acessaModulo({ papel: 'admin_socio', modulosBloqueados: ['entrada'] }, 'entrada'))
-  assert.ok(!MODULOS_DE_CARGO.includes('entrada'))
   assert.deepEqual(ITENS.find(i => i.id === 'entrada')?.liberavelPara, ['aux_adm'])
 })
 
@@ -187,46 +185,17 @@ test('Notas Emitidas abre para exatamente os papéis que operam NF de saída (#3
   }
 })
 
-test('cargo vê só os módulos marcados mais os que todos veem (#449)', () => {
-  const cargo: UsuarioNav = { papel: 'cargo', modulosDoCargo: ['clientes', 'agenda'] }
-  assert.deepEqual(ids(cargo), ['agenda', 'calendario', 'clientes', 'dashboard', 'meus-documentos'])
+test('cargo ainda sem papel base (cargo não achado) vê só o que todos veem (#449)', () => {
   assert.deepEqual(ids({ papel: 'cargo' }), ['calendario', 'dashboard', 'meus-documentos'])
-})
-
-test('cargo não abre tela só pelo papel nem só do admin_geral, mesmo marcada (#449)', () => {
-  const cargo: UsuarioNav = { papel: 'cargo', modulosDoCargo: ['usuarios', 'lojas'] }
-  assert.deepEqual(ids(cargo), ['calendario', 'dashboard', 'meus-documentos'])
-})
-
-test('bloqueio por pessoa ganha do cargo (#449)', () => {
-  const cargo: UsuarioNav = { papel: 'cargo', modulosDoCargo: ['clientes'], modulosBloqueados: ['clientes'] }
-  assert.ok(!ids(cargo).includes('clientes'))
-})
-
-test('módulos que o sócio pode dar: só os liberados para cargo que ele mesmo vê (#449)', () => {
-  const liberados = ['clientes', 'caixa', 'usuarios', 'lojas']
-  assert.deepEqual(modulosQuePodeDar(SOCIO, SEM_REGRA_PROPRIA, liberados), ['caixa', 'clientes'])
-  assert.deepEqual(modulosQuePodeDar(VENDEDOR, SEM_REGRA_PROPRIA, liberados), ['clientes'])
-})
-
-test('a lista de módulos liberados para cargo só tem itens que existem e não são só de papel (#449)', () => {
-  for (const id of MODULOS_DE_CARGO) {
-    const item = ITENS.find(i => i.id === id)
-    assert.ok(item && !item.soPeloPapel && !item.soAdminGeral && !item.regraPropria, id)
-  }
+  assert.deepEqual(ids({ papel: 'cargo', modulosExtras: ['usuarios', 'lojas'] }), ['calendario', 'dashboard', 'meus-documentos'])
 })
 
 test('acessaModulo segue a mesma regra do menu, por id (#450)', () => {
-  assert.ok(acessaModulo({ papel: 'cargo', modulosDoCargo: ['clientes'] }, 'clientes'))
-  assert.ok(!acessaModulo({ papel: 'cargo', modulosDoCargo: [] }, 'clientes'))
+  assert.ok(!acessaModulo({ papel: 'cargo' }, 'clientes'))
   assert.ok(!acessaModulo({ papel: 'mecanico' }, 'clientes'))
   assert.ok(acessaModulo({ papel: 'vendedor' }, 'clientes'))
   assert.ok(!acessaModulo({ papel: 'vendedor', modulosBloqueados: ['clientes'] }, 'clientes'))
   assert.ok(!acessaModulo({ papel: 'admin_geral' }, 'nao-existe'))
-})
-
-test('módulos liberados para cargo: clientes (#450)', () => {
-  assert.deepEqual(MODULOS_DE_CARGO, ['clientes'])
 })
 
 test('itens da mesma seção ficam juntos na categoria, senão o subtítulo se repete no menu', () => {

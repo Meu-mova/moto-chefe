@@ -121,7 +121,10 @@ export function resumoDoEvento(e: EventoLog): string {
         .filter(Boolean).join(' · ')
     case 'permissao_alterada': {
       const campos = Array.isArray(d.campos) ? `: ${d.campos.map(c => ROTULO_CAMPO_PERMISSAO[c] ?? c).join(', ')}` : ''
-      const papel = d.papelAntes ? ` (${d.papelAntes} → ${d.papel})` : ''
+      // Quem tem cargo aparece como "cargo X", não como o papel interno "cargo".
+      const de = d.cargoAntes ? `cargo ${d.cargoAntes}` : d.papelAntes
+      const para = d.cargo ? `cargo ${d.cargo}` : d.papel
+      const papel = d.papelAntes || d.cargoAntes ? ` (${de} → ${para})` : d.acao === 'criado' && d.cargo ? ` (cargo ${d.cargo})` : ''
       const acao = d.acao == null ? '?' : ROTULO_ACAO_PERMISSAO[String(d.acao)] ?? d.acao
       return `${v('alvoNome')} · ${acao}${campos}${papel}`
     }

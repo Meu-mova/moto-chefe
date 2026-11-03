@@ -11,8 +11,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
-import { CargosDialog, type Cargo } from './cargos-dialog'
-import { CARGOS_VISIVEIS, cargosDoAlvo } from '@/lib/cargos-opcoes'
+import { CargosDialog, type CargoDaConta } from './cargos-dialog'
+import { cargosDoAlvo, ROTULO_DA_BASE } from '@/lib/cargos-opcoes'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
@@ -131,7 +131,7 @@ function FormUsuario({
   liberaveis: GrupoLiberavel[] | null
   liberadosIniciais: string[]
   inicial?: Partial<Usuario>
-  cargos: Cargo[]
+  cargos: CargoDaConta[]
   contaAtiva: string
   lojas: Loja[]
   grupos: Grupo[]
@@ -374,8 +374,8 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, podeDarAoCargo, liberaveis, liberadosPorUsuario, contasNomes = {} }: {
-  usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: Cargo[]; contaAtiva: string; podeDarAoCargo: string[]
+export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, liberaveis, liberadosPorUsuario, contasNomes = {} }: {
+  usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: CargoDaConta[]; contaAtiva: string
   liberaveis: GrupoLiberavel[] | null; liberadosPorUsuario: Record<string, string[]>
   /** Nomes das Contas dos usuários da lista (só delas). */
   contasNomes?: Record<string, string>
@@ -427,6 +427,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           gruposAcesso:            dados.gruposAcesso,
           modulosExtras:           dados.modulosExtras,
           modulosBloqueados:       dados.modulosBloqueados,
+          cargoId:                 dados.cargoId,
         })
         if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário atualizado')
@@ -471,6 +472,11 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   const lista = filtrarUsuarios(usuarios, filtros)
   const contasDaLista = [...new Set(usuarios.map(u => u.contaId).filter((c): c is string => !!c))]
   const nomePapel = (u: Usuario) => u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : (PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel)
+  // Quem tem cargo mostra o selo do cargo e, embaixo, de onde ele vem.
+  const detalhePapel = (u: Usuario) => {
+    const cargo = u.papel === 'cargo' ? cargos.find(c => c.id === u.cargoId) : null
+    return cargo ? `Cargo da Conta, base ${ROTULO_DA_BASE[cargo.papelBase]}` : null
+  }
   const ondeAprova = (u: Usuario) => {
     if (!PAPEIS_APROVADORES.includes(u.papel)) return 'Não aprova'
     // O grupo da loja já aprova por padrão e às vezes também está marcado: conta uma vez só.
@@ -516,7 +522,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           ))}
         </div>
         <span className="hidden flex-1 sm:block" />
-        {CARGOS_VISIVEIS && <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2"><BadgeCheck size={16} /> Cargos</Button>}
+        {limites.podeCargos && <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2"><BadgeCheck size={16} /> Cargos</Button>}
         <Button onClick={() => setCriando(true)} className="gap-2"><UserPlus size={16} /> Novo usuário</Button>
       </div>
 
@@ -542,7 +548,10 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
                     <span className="min-w-0"><span className="block font-medium">{u.nome}</span><span className="block text-xs text-muted-foreground">{u.email}</span></span>
                   </button>
                 </td>
-                <td className="px-3 py-2"><span className="whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-xs text-muted-foreground">{nomePapel(u)}</span></td>
+                <td className="px-3 py-2">
+                  <span className="whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-xs text-muted-foreground">{nomePapel(u)}</span>
+                  {detalhePapel(u) && <span className="mt-0.5 block text-xs text-muted-foreground">{detalhePapel(u)}</span>}
+                </td>
                 <td className="px-3 py-2">{u.lojaNome ?? <span className="text-muted-foreground">Sem loja</span>}</td>
                 {contasDaLista.length > 1 && <td className="px-3 py-2 text-muted-foreground">{u.contaId ? contasNomes[u.contaId] : 'Plataforma'}</td>}
                 <td className="px-3 py-2 text-muted-foreground tabular-nums">{ondeAprova(u)}</td>
@@ -565,6 +574,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
               <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="rounded-sm border px-1.5 py-0.5">{nomePapel(u)}</span>{u.lojaNome ?? 'Sem loja'}
               </span>
+              {detalhePapel(u) && <span className="block text-xs text-muted-foreground">{detalhePapel(u)}</span>}
             </span>
             <Situacao ativo={u.ativo} />
           </button>
@@ -572,7 +582,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
       </div>
       {lista.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário com esses filtros.</p>}
 
-      {CARGOS_VISIVEIS && <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargosDoAlvo(cargos, null, contaAtiva)} podeDar={podeDarAoCargo} />}
+      {limites.podeCargos && <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargosDoAlvo(cargos, null, contaAtiva).map(c => ({ ...c, usuarios: usuarios.filter(u => u.cargoId === c.id).length }))} />}
 
       {/* Painel lateral de criar e editar; no celular ocupa a tela. */}
       <Sheet open={painel} onOpenChange={o => { if (!o && !pending) { setCriando(false); setEditando(null) } }}>

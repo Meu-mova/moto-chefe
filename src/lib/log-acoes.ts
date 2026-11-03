@@ -119,6 +119,8 @@ export type Permissoes = {
   aprovaPagamentoSensivel: boolean
   modulosExtras: string[]
   modulosBloqueados: string[]
+  /** Só com papel 'cargo' (#616). */
+  cargoId: string | null
 }
 
 /** Nome e e-mail ficam de fora: o log é de permissão, não de cadastro. */
@@ -127,4 +129,27 @@ export function camposDePermissaoAlterados(antes: Permissoes, depois: Permissoes
     ? [...a].sort().join('\u0000') === [...b].sort().join('\u0000')
     : a === b
   return (Object.keys(antes) as (keyof Permissoes)[]).filter(k => !igual(antes[k], depois[k]))
+}
+
+/** O recorte do cadastro que o log de permissão compara. */
+export function permissoesDe(u: Permissoes): Permissoes {
+  return {
+    papel: u.papel, lojaId: u.lojaId, gruposAcesso: u.gruposAcesso, gruposAprovacao: u.gruposAprovacao,
+    aprovaPagamentoSensivel: u.aprovaPagamentoSensivel, modulosExtras: u.modulosExtras, modulosBloqueados: u.modulosBloqueados,
+    cargoId: u.cargoId,
+  }
+}
+
+/** Detalhe do log; `nomesDosCargos` (id para nome) deixa o texto dizer QUAL cargo, não o id. */
+export function detalheDaMudancaDePermissao(
+  antes: Permissoes, depois: Permissoes, campos: (keyof Permissoes)[], nomesDosCargos: Record<string, string>,
+): Record<string, unknown> {
+  const cargoAntes = antes.cargoId ? nomesDosCargos[antes.cargoId] : undefined
+  const cargo = depois.cargoId ? nomesDosCargos[depois.cargoId] : undefined
+  return {
+    acao: 'alterado', campos,
+    ...(campos.includes('papel') ? { papelAntes: antes.papel, papel: depois.papel } : {}),
+    ...(cargoAntes ? { cargoAntes } : {}),
+    ...(cargo ? { cargo } : {}),
+  }
 }

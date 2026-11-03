@@ -1,6 +1,13 @@
-// Cargos escondidos na v1.14.0 por decisão do Luis (#449): tela e servidor recusam até ligar.
-export const CARGOS_VISIVEIS = false
-export const CARGO_INDISPONIVEL = 'Função indisponível'
+import type { PapelBase } from '@/lib/gestao-usuarios'
+
+/** Como a tela de cargos chama cada base (o rótulo do papel fixo, na tela de usuários, é outro). */
+export const ROTULO_DA_BASE: Record<PapelBase, string> = {
+  admin_socio: 'Sócio',
+  aux_adm: 'Adm. da loja',
+  vendedor: 'Vendedor',
+  mecanico: 'Mecânico',
+  motorista: 'Motorista',
+}
 
 /**
  * Cargos que o select do usuário oferece (#450): os da Conta dele. O admin_geral recebe os

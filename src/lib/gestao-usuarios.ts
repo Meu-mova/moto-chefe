@@ -7,7 +7,6 @@
 // grupo de fora para o usuário sair do alcance; senão o sócio trocaria a senha de um
 // par com mais grupos e entraria por ele.
 
-import { CARGO_INDISPONIVEL, CARGOS_VISIVEIS } from '@/lib/cargos-opcoes'
 import { ITENS, liberavelPara } from '@/lib/navegacao'
 
 export type Gestor = {
@@ -32,6 +31,8 @@ export type CadastroGestao = AlvoGestao & {
   modulosBloqueados: string[]
   aprovaPagamentoSensivel: boolean
   ativo: boolean
+  /** Só com papel 'cargo' (#616). */
+  cargoId?: string | null
   /** O formulário informou uma loja; grupoDaLoja null aí é loja que não existe. */
   lojaPedida?: boolean
 }
@@ -40,6 +41,11 @@ export type CadastroGestao = AlvoGestao & {
 // já deixa de fora quem tem qualquer outro grupo da Conta dona.
 export function ehGestorDeUsuarios(gestor: { papel: string }): boolean {
   return gestor.papel === 'admin_geral' || gestor.papel === 'admin_socio'
+}
+
+/** Cria, edita e apaga cargo e dá cargo a um usuário: só o admin_geral por ora (#616). */
+export function podeGerenciarCargos(usuario: { papel: string }): boolean {
+  return usuario.papel === 'admin_geral'
 }
 
 function gruposDe(alvo: AlvoGestao): string[] {
@@ -64,7 +70,6 @@ export function recusaDaGravacao(
   antes: (CadastroGestao & { id: string }) | null,
   depois: CadastroGestao,
 ): string | null {
-  if (!CARGOS_VISIVEIS && depois.papel === 'cargo') return CARGO_INDISPONIVEL
   // Tela liberável só para certos papéis (Entrada: só aux_adm, #488): vale até para o admin_geral.
   const naoLiberavel = depois.modulosExtras.map(id => ITENS.find(i => i.id === id)).find(i => i && !liberavelPara(i, depois.papel))
   if (naoLiberavel) return `${naoLiberavel.label} não pode ser liberada para esta função`
@@ -75,6 +80,10 @@ export function recusaDaGravacao(
   // Para a Conta não ficar sem sócio.
   if (antes?.id === gestor.id && (depois.papel !== antes.papel || !depois.ativo)) {
     return 'Você não pode desativar nem trocar o papel de si mesmo'
+  }
+  // Quem já tem o cargo mantém e edita o resto; mudar para cargo ou de cargo é atribuir.
+  if (depois.papel === 'cargo' && !(antes?.papel === 'cargo' && antes.cargoId === depois.cargoId)) {
+    return 'Só o Admin Geral atribui cargo'
   }
   if (depois.papel === 'admin_geral') return 'Só o Admin Geral dá o papel Admin Geral'
   if (depois.papel === 'admin_rede') return 'Só o Admin Geral dá o papel Admin de Rede'
@@ -107,15 +116,22 @@ export function recusaDaGravacao(
   return null
 }
 
-const PAPEIS = ['admin_geral', 'admin_rede', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
+const PAPEIS = ['admin_geral', 'admin_rede', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo'] as const
+
+export type PapelBase = Exclude<(typeof PAPEIS)[number], 'admin_geral' | 'admin_rede' | 'cargo'>
+
+/** Os papéis que o sócio dá a um usuário. São também os que um cargo aceita como base (#616). */
+export const PAPEIS_BASE_DO_CARGO = PAPEIS.filter((p): p is PapelBase => p !== 'admin_geral' && p !== 'admin_rede' && p !== 'cargo')
 
 /** O que a tela de /admin/usuarios oferece: os mesmos limites que recusaDaGravacao confere. */
 export function limitesDaTela(gestor: Gestor) {
   const geral = gestor.papel === 'admin_geral'
+  const papeis: string[] = geral ? [...PAPEIS] : [...PAPEIS_BASE_DO_CARGO]
   return {
     meuId: gestor.id,
     podeExcluir: podeExcluir(gestor),
-    papeis: (geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral' && p !== 'admin_rede')).filter(p => CARGOS_VISIVEIS || p !== 'cargo'),
+    papeis,
+    podeCargos: podeGerenciarCargos(gestor),
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,
     aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,
