@@ -29,7 +29,8 @@ test('avisoDaAba: sem aviso nas abas que seguem loja e mês; aviso nas demais', 
   assert.equal(avisoDaAba('holerites'), null)
   assert.match(avisoDaAba('funcionarios') ?? '', /O mês não muda esta aba/)
   assert.match(avisoDaAba('premiacao') ?? '', /os filtros de loja e de mês não mudam esta aba/)
-  for (const id of ['comissoes', 'adiantamentos', 'ajustes']) {
+  assert.equal(avisoDaAba('comissoes'), 'Mostra as regras de todas as lojas do grupo; o mês só define quais estão vigentes.')
+  for (const id of ['adiantamentos', 'ajustes']) {
     assert.match(avisoDaAba(id) ?? '', /o filtro de loja não muda esta aba\. Segue o mês escolhido/, id)
   }
 })

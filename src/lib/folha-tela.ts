@@ -11,7 +11,7 @@ const AVISO_SO_MES = 'Mostra todas as lojas do grupo: o filtro de loja não muda
 export const ABAS_FOLHA: readonly { id: string; rotulo: string; aviso: string | null; imprime: boolean }[] = [
   { id: 'mes', rotulo: 'Folha do Mês', aviso: null, imprime: true },
   { id: 'funcionarios', rotulo: 'Funcionários', aviso: 'Mostra quem é da loja escolhida no filtro. O mês não muda esta aba: estes valores valem todo mês até alguém mudar.', imprime: false },
-  { id: 'comissoes', rotulo: 'Comissões', aviso: AVISO_SO_MES, imprime: false },
+  { id: 'comissoes', rotulo: 'Comissões', aviso: 'Mostra as regras de todas as lojas do grupo; o mês só define quais estão vigentes.', imprime: false },
   { id: 'premiacao', rotulo: 'Premiação (OTE)', aviso: 'Vale para o grupo todo e para todo mês: os filtros de loja e de mês não mudam esta aba.', imprime: false },
   { id: 'adiantamentos', rotulo: 'Adiantamentos', aviso: AVISO_SO_MES, imprime: false },
   { id: 'holerites', rotulo: 'Holerites', aviso: null, imprime: false },
