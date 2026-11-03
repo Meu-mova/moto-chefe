@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { mesBrt } from '@/lib/data-venda'
+import { rotuloMes } from '@/lib/folha-tela'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
@@ -47,7 +48,7 @@ export default async function FolhaImprimirPage({
   const nomeLoja = lojaParam
     ? (dados.lojas.find(l => l.id === lojaParam)?.nome ?? 'Loja')
     : 'Todas as lojas'
-  const mesExtenso = new Date(`${mesParam}-15`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const mesExtenso = rotuloMes(mesParam)
   const emitidoEm = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
   return (
