@@ -11,7 +11,7 @@ import { PixTopo } from './components/pix-topo'
 import { PixLista, type LinhaPix } from './components/pix-lista'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { hojeBrt } from '@/lib/data-venda'
-import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
+import { corteConciliacao } from '@/lib/conciliacao-periodo'
 
 // A sincronização (server action) pode passar de 1 min; a página é o teto dela.
 export const maxDuration = 300
@@ -53,9 +53,10 @@ export default async function PixMcpPage({
   const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
 
   const fromPedido = params.from ? new Date(params.from + 'T00:00:00.000Z') : new Date(toInputDate(inicioMesAtual) + 'T00:00:00.000Z')
-  // Antes do início do período de conciliação não existe recebimento pra
-  // mostrar (só histórico importado) — ver INICIO_CONCILIACAO.
-  const fromDate = fromPedido < INICIO_CONCILIACAO_EM ? INICIO_CONCILIACAO_EM : fromPedido
+  // Antes do início do período de conciliação não existe recebimento pra mostrar (só
+  // histórico importado); e quem não é admin só vê os últimos 30 dias — ver corteConciliacao.
+  const corte = corteConciliacao(usuario.papel)
+  const fromDate = fromPedido < corte.em ? corte.em : fromPedido
   const toDate = params.to ? new Date(params.to + 'T23:59:59.999Z') : hoje
 
   // Datas exibidas no seletor de período: em Brasília, para o atalho "Mês" casar com o padrão após as 21h.
@@ -163,10 +164,10 @@ export default async function PixMcpPage({
       </div>
       <PixTopo
         itens={itens}
-        from={params.from ? toInputDate(fromDate) : primeiroDoMes < INICIO_CONCILIACAO ? INICIO_CONCILIACAO : primeiroDoMes}
+        from={params.from ? toInputDate(fromDate) : primeiroDoMes < corte.data ? corte.data : primeiroDoMes}
         to={params.to ?? hojeBrt()}
         hoje={hojeBrt()}
-        min={INICIO_CONCILIACAO}
+        min={corte.data}
         rotuloSync={ultimaSync ? rotuloSyncBrt(ultimaSync) : 'Ainda não sincronizado'}
         sincronizarAoAbrir={sincronizarAoAbrir}
       />

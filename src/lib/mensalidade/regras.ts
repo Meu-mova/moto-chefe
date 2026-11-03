@@ -1,4 +1,4 @@
-import { hojeBrt } from '@/lib/data-venda'
+import { hojeBrt, somarDias } from '@/lib/data-venda'
 
 // Regras da mensalidade do MOVA (contrato de adesão, cláusula 4; spec
 // 2026-09-14-assinatura-mova-design.md). Datas são 'AAAA-MM-DD' no fuso de Brasília.
@@ -8,12 +8,6 @@ export const DIAS_ANTECEDENCIA_COBRANCA = 10
 export const DIAS_ATE_BLOQUEIO = 5
 export const MULTA_ATRASO = 0.02
 export const JUROS_AO_MES = 0.01
-
-function somarDias(data: string, dias: number): string {
-  const d = new Date(`${data}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + dias)
-  return d.toISOString().slice(0, 10)
-}
 
 function diasEntre(de: string, ate: string): number {
   return Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400_000)

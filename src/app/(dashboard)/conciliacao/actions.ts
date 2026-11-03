@@ -8,7 +8,7 @@ import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
-import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-periodo'
+import { corteConciliacao, MSG_FORA_DO_PRAZO } from '@/lib/conciliacao-periodo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import { extrairTerminalInfinityPay } from '@/lib/conciliacao-terminal'
@@ -293,6 +293,12 @@ export async function vincularVendaAction(conciliacaoId: string, alvoId: string,
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
+  // Transação de cartão mais antiga que o corte do papel não se vincula (corteConciliacao).
+  const [transacao] = await db.select({ dataTransacao: conciliacoesCartao.dataTransacao }).from(conciliacoesCartao)
+    .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id))).limit(1)
+  if (!transacao) throw new Error('Conciliação não encontrada')
+  if (transacao.dataTransacao < corteConciliacao(usuario.papel).data) throw new Error(MSG_FORA_DO_PRAZO)
+
   if (tipo === 'peca') {
     const [pecaVenda] = await db.select({ lojaId: vendasPecas.lojaId }).from(vendasPecas).where(eq(vendasPecas.id, alvoId)).limit(1)
     if (!pecaVenda || !lojaIdsGrupo.includes(pecaVenda.lojaId)) {
@@ -376,8 +382,8 @@ export async function buscarConciliacoesPorValor(valor: number) {
     .where(
       and(
         eq(conciliacoesCartao.grupoId, grupo.id),
-        // Fora do período de conciliação não é candidato — ver INICIO_CONCILIACAO.
-        gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
+        // Fora do período de conciliação, ou além dos 30 dias de quem não é admin, não é candidato.
+        gte(conciliacoesCartao.dataTransacao, corteConciliacao(usuario.papel).data),
         sql`${conciliacoesCartao.vendaId} IS NULL`,
         sql`ABS(${conciliacoesCartao.valorBruto}::numeric - ${valor}) <= 0.05`,
       )
@@ -504,7 +510,7 @@ export async function buscarConciliacoesLivres(query: string) {
     .from(conciliacoesCartao)
     .where(and(
       eq(conciliacoesCartao.grupoId, grupo.id),
-      gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
+      gte(conciliacoesCartao.dataTransacao, corteConciliacao(usuario.papel).data),
       eq(conciliacoesCartao.conciliado, false),
       filtro,
     ))
@@ -566,7 +572,7 @@ export async function buscarPixLivres(valor: number, query?: string): Promise<Pi
     .from(pixRecebimentosMcp)
     .where(and(
       eq(pixRecebimentosMcp.grupoId, grupo.id),
-      gte(pixRecebimentosMcp.data, INICIO_CONCILIACAO_EM),
+      gte(pixRecebimentosMcp.data, corteConciliacao(usuario.papel).em),
       isNull(pixRecebimentosMcp.tipoCorrespondencia),
       filtro,
     ))
@@ -589,11 +595,12 @@ export async function vincularPixAlvoAction(pixId: string, alvo: AlvoConciliacao
   if (!lojaIdsGrupo.includes(lojaId)) throw new Error('Venda não pertence ao grupo ativo')
 
   const [pix] = await db
-    .select({ pagadorNome: pixRecebimentosMcp.pagadorNome })
+    .select({ pagadorNome: pixRecebimentosMcp.pagadorNome, data: pixRecebimentosMcp.data })
     .from(pixRecebimentosMcp)
     .where(and(eq(pixRecebimentosMcp.id, pixId), eq(pixRecebimentosMcp.grupoId, grupo.id)))
     .limit(1)
   if (!pix) throw new Error('PIX não encontrado no grupo ativo')
+  if (pix.data < corteConciliacao(usuario.papel).em) throw new Error(MSG_FORA_DO_PRAZO)
   if (ehTransferenciaInterna(pix.pagadorNome)) {
     throw new Error('Essa transferência é interna (maquininha/conta do próprio grupo) e não pode ser conciliada com uma venda')
   }

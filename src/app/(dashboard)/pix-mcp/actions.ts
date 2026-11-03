@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
+import { corteConciliacao, MSG_FORA_DO_PRAZO } from '@/lib/conciliacao-periodo'
 
 const PAPEIS_PERMITIDOS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
@@ -20,8 +21,13 @@ export async function lancarCorrespondenciaAction(
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
 
-  const [linha] = await db.select({ pagadorNome: pixRecebimentosMcp.pagadorNome }).from(pixRecebimentosMcp).where(eq(pixRecebimentosMcp.id, id)).limit(1)
-  if (linha && ehTransferenciaInterna(linha.pagadorNome)) {
+  // Lido já no grupo ativo: PIX de outro grupo recebe a mesma resposta de inexistente.
+  const [linha] = await db.select({ pagadorNome: pixRecebimentosMcp.pagadorNome, data: pixRecebimentosMcp.data }).from(pixRecebimentosMcp)
+    .where(and(eq(pixRecebimentosMcp.id, id), eq(pixRecebimentosMcp.grupoId, grupo.id))).limit(1)
+  if (!linha) throw new Error('PIX não encontrado no grupo ativo')
+  // Mais antigo que o corte do papel (30 dias para quem não é admin) não se vincula.
+  if (linha.data < corteConciliacao(usuario.papel).em) throw new Error(MSG_FORA_DO_PRAZO)
+  if (ehTransferenciaInterna(linha.pagadorNome)) {
     throw new Error('Essa transferência é interna (maquininha/conta do próprio grupo) e não pode ser conciliada com uma venda')
   }
 

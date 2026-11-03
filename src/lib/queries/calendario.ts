@@ -4,6 +4,7 @@ import { and, or, eq, ne, gte, lte, inArray, asc } from 'drizzle-orm'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { ocorrenciasNoIntervalo, podeVerEvento } from '@/lib/calendario'
 import type { getUsuarioLogado } from '@/lib/auth'
+import { somarDias } from '@/lib/data-venda'
 
 type UsuarioLogado = Awaited<ReturnType<typeof getUsuarioLogado>>
 
@@ -36,12 +37,6 @@ export function hojeBRT(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 }
 
-/** Soma dias a uma data 'YYYY-MM-DD' sem passar por fuso. */
-export function somarDias(yyyyMmDd: string, dias: number): string {
-  const [y, m, d] = yyyyMmDd.split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1, d + dias))
-  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`
-}
 
 async function carregarOcorrencias(
   usuario: UsuarioLogado,

@@ -53,6 +53,14 @@ export function inicioDoDiaBrt(yyyyMmDd: string): Date {
   return new Date(`${yyyyMmDd}T03:00:00.000Z`)
 }
 
+/** Soma (ou subtrai, com dias negativos) dias a 'YYYY-MM-DD', sem passar por fuso. */
+export function somarDias(yyyyMmDd: string, dias: number): string {
+  validar(yyyyMmDd)
+  const d = new Date(`${yyyyMmDd}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + dias)
+  return d.toISOString().slice(0, 10)
+}
+
 /** 23:59:59.999 de Brasília do dia informado, em UTC. */
 export function fimDoDiaBrt(yyyyMmDd: string): Date {
   validar(yyyyMmDd)

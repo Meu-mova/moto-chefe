@@ -5,7 +5,7 @@ import { eq, desc, and, isNull, isNotNull, inArray, gte, sql } from 'drizzle-orm
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
-import { INICIO_CONCILIACAO } from '@/lib/conciliacao-periodo'
+import { corteConciliacao } from '@/lib/conciliacao-periodo'
 import { redirect } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { UploadRelatorio } from './components/upload-relatorio'
@@ -36,10 +36,11 @@ export default async function ConciliacaoPage({
     filtro === 'todas'       ? undefined :
     eq(conciliacoesCartao.conciliado, false)
 
-  // Nada de antes do início do período de conciliação — ver INICIO_CONCILIACAO.
+  // Nada de antes do início do período de conciliação, e quem não é admin só vê os últimos
+  // 30 dias (corteConciliacao). Lista e contadores usam o mesmo recorte.
   const doPeriodo = and(
     eq(conciliacoesCartao.grupoId, grupo.id),
-    gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
+    gte(conciliacoesCartao.dataTransacao, corteConciliacao(usuario.papel).data),
   )
 
   const whereClause = and(doPeriodo, filtroStatus)
