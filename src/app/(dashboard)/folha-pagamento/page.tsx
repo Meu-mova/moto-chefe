@@ -16,15 +16,7 @@ import { HoleritesTable } from './components/holerites-table'
 import { listarHoleritesAction } from './holerites-actions'
 import { rotuloMes } from '@/lib/folha-tela'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
-
-const PAPEL_LABEL: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  admin_socio: 'Admin Sócio',
-  aux_adm:     'Auxiliar Adm.',
-  vendedor:    'Vendedor',
-  mecanico:    'Mecânico',
-  motorista:   'Motorista',
-}
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 
 // A folha é a página mais pesada (buscarDadosFolha dispara ~13 consultas). Se o
 // banco engasgar (instância do Fluid com conexões presas), sem timeout ela
@@ -125,7 +117,7 @@ export default async function FolhaPagamentoPage({
       <TabsContent value="mes" className="space-y-6">
         <FolhaMesResumo totais={folha.totais} ativos={folha.ativos.length} />
         <FolhaMesTabela
-          ativos={folha.ativos.map(f => ({ ...f, papelLabel: PAPEL_LABEL[f.papel] ?? f.papel }))}
+          ativos={folha.ativos.map(f => ({ ...f, papelLabel: rotuloDoPapelGravado(f.papel) }))}
           totais={folha.totais}
           mes={mesParam}
         />
