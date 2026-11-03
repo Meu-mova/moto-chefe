@@ -94,7 +94,11 @@ function portaLivre(): Promise<number> {
 }
 
 async function main() {
-  limparSobras(tmpdir())
+  try {
+    limparSobras(tmpdir())
+  } catch (e) {
+    console.error(`Não deu para varrer as sobras: ${e instanceof Error ? e.message : e}`)
+  }
   const porta = await portaLivre()
   const dir = mkdtempSync(join(tmpdir(), 'mova-pg-teste-'))
   const url = `postgresql://postgres@localhost:${porta}/postgres`
