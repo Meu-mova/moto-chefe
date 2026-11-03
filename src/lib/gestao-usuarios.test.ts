@@ -216,7 +216,7 @@ test('a tela oferece Cargos e "Cargo da Conta" a quem gerencia cargos (#617)', (
   assert.ok(!sem.papeis.includes('cargo'))
 })
 
-test('gestor que tem cargo com base Sócio edita a si mesmo sem trocar o papel (#617)', () => {
+test('a regra de gestão não recusa o cargo com base Sócio que edita a si mesmo e mantém o papel (#617)', () => {
   const eu = { id: 'eu', papel: 'admin_socio', gruposVisiveis: [VALE], gruposAprovacao: [VALE], itensLiberaveis: [], aprovaPagamentoSensivel: false }
   const antes = { id: 'eu', ...cadastro({ papel: 'cargo', cargoId: 'c1' }) }
   assert.equal(recusaDaGravacao(eu, antes, cadastro({ papel: 'cargo', cargoId: 'c1', gruposAprovacao: [VALE] })), null)

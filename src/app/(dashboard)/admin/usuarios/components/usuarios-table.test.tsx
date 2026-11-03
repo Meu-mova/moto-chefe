@@ -118,24 +118,65 @@ test('o admin_geral liga e desliga a caixa Gerenciar cargos (#617)', async () =>
   assert.equal(caixaDe('Gerenciar cargos')?.disabled, false)
 })
 
-test('cargo com base Sócio mostra Aprovação e Acesso a grupos, e manda as marcações no payload (#617)', async () => {
-  const gerenteAdmin = { id: 'c3', nome: 'Gerente_admin', papelBase: 'admin_socio', contaId: 'A' }
-  const grupos = [{ id: 'gA', nome: 'Grupo A', contaId: 'A' }, { id: 'gB', nome: 'Grupo B', contaId: 'A' }]
-  const lojas = [{ id: 'l1', nome: 'Loja Centro', grupoId: 'gA' }]
-  const ana = { ...base, id: 'u4', nome: 'Gerente A', papel: 'cargo', cargoId: 'c3', lojaId: 'l1', grupoDaLojaId: 'gA' }
-  const bia = { ...ana, id: 'u5', nome: 'Gerente B', cargoId: 'c1' }
-  await montar('admin_geral', [ana, bia], { grupos, lojas, cargos: [gerenteAdmin, cargoGerente] })
-  const abas = () => [...document.querySelectorAll('[role=tab]')].map(t => t.textContent?.trim())
+const gruposDoCargo = [{ id: 'gA', nome: 'Grupo A', contaId: 'A' }, { id: 'gB', nome: 'Grupo B', contaId: 'A' }]
+const lojasDoCargo = [{ id: 'l1', nome: 'Loja Centro', grupoId: 'gA' }]
+const cargoSocio = { id: 'c3', nome: 'Cargo Sócio', papelBase: 'admin_socio', contaId: 'A' }
+const usuarioComCargo = { ...base, id: 'u4', nome: 'Gerente A', papel: 'cargo', cargoId: 'c3', lojaId: 'l1', grupoDaLojaId: 'gA' }
+const abas = () => [...document.querySelectorAll('[role=tab]')].map(t => t.textContent?.trim())
+const aba = (nome: string) => [...document.querySelectorAll('[role=tab]')].find(t => t.textContent?.trim() === nome)
+async function escolherCargo(id: string) {
+  const { act } = await import('react')
+  const select = document.getElementById('cargo-usuario') as HTMLSelectElement
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, 'value')!.set!.call(select, id)
+    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+  })
+}
+
+test('cargo com base Sócio manda no payload a aprovação, a transferência e os grupos de acesso (#617)', async () => {
+  await montar('admin_geral', [usuarioComCargo], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio, cargoGerente] })
   const dados = await salvarEdicaoDe('Gerente A', async () => {
     assert.ok(abas().includes('Aprovação'), 'aprovação aparece para cargo base Sócio')
-    await clicar([...document.querySelectorAll('[role=tab]')].find(t => t.textContent?.trim() === 'Aprovação'))
+    await clicar(aba('Acesso'))
     await clicar(caixaDe('Grupo B'))
+    await clicar(aba('Aprovação'))
+    await clicar(caixaDe('Grupo B'))
+    await clicar(caixaDe('Aprova transferência bancária'))
   })
+  assert.deepEqual(dados.gruposAcesso, ['gB'])
   assert.deepEqual(dados.gruposAprovacao, ['gB'])
-  // Base Adm. da loja não aprova: a aba não aparece e nada é enviado.
-  const semAprovacao = await salvarEdicaoDe('Gerente B', async () => assert.ok(!abas().includes('Aprovação')))
-  assert.deepEqual(semAprovacao.gruposAprovacao, [])
+  assert.equal(dados.aprovaPagamentoSensivel, true)
+  assert.equal(dados.cargoId, 'c3')
 })
+
+test('cargo com base Adm. da loja não mostra a aprovação e manda as listas vazias, mesmo se o usuário as tinha (#617)', async () => {
+  const antigo = { ...usuarioComCargo, id: 'u5', nome: 'Gerente B', cargoId: 'c1', gruposAprovacao: ['gA'], gruposAcesso: ['gB'], aprovaPagamentoSensivel: true }
+  await montar('admin_geral', [antigo], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio, cargoGerente] })
+  const dados = await salvarEdicaoDe('Gerente B', async () => assert.ok(!abas().includes('Aprovação')))
+  assert.deepEqual([dados.gruposAprovacao, dados.gruposAcesso, dados.aprovaPagamentoSensivel], [[], [], false])
+})
+
+test('trocar o cargo de base Sócio para Adm. da loja zera as duas listas e a transferência (#617)', async () => {
+  const comListas = { ...usuarioComCargo, gruposAprovacao: ['gA'], gruposAcesso: ['gB'], aprovaPagamentoSensivel: true }
+  await montar('admin_geral', [comListas], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio, cargoGerente] })
+  const dados = await salvarEdicaoDe('Gerente A', async () => {
+    await clicar(aba('Dados'))
+    await escolherCargo('c1')
+    assert.ok(!abas().includes('Aprovação'))
+  })
+  assert.deepEqual([dados.gruposAprovacao, dados.gruposAcesso, dados.aprovaPagamentoSensivel, dados.cargoId], [[], [], false, 'c1'])
+})
+
+// Causa do "esbarra ao editar a si mesmo" (#616): sem as abas, o formulário do cargo Sócio mandava as
+// listas vazias, e salvar a si mesmo apagava a aprovação e o acesso. A recusa de "trocar o próprio
+// papel" não tem causa: o servidor compara cargo com cargo.
+test('quem tem cargo com base Sócio edita a si mesmo e mantém aprovação, transferência e grupos de acesso (#617)', async () => {
+  const eu = { ...usuarioComCargo, id: 'g', gruposAprovacao: ['gA'], gruposAcesso: ['gB'], aprovaPagamentoSensivel: true }
+  await montar('admin_socio', [eu], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio], gestor: { id: 'g', aprovaPagamentoSensivel: true, gruposAprovacao: ['gA'] } })
+  const dados = await salvarEdicaoDe('Gerente A')
+  assert.deepEqual([dados.gruposAprovacao, dados.gruposAcesso, dados.aprovaPagamentoSensivel, dados.papel], [['gA'], ['gB'], true, 'cargo'])
+})
+
 test('diálogo de cargos: a escolha da base mostra o que cada base faz e grava nome e base (#616)', async () => {
   await montar('admin_geral', [marina])
   await clicar(botao('Cargos'))
