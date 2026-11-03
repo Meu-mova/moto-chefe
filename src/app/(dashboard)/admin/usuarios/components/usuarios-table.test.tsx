@@ -80,11 +80,11 @@ test('sócio com a permissão de cargos vê o botão Cargos (#617)', async () =>
 
 const abaModulos = () => [...document.querySelectorAll('[role=tab]')].find(t => t.textContent?.trim() === 'Módulos')
 const caixaDe = (rotulo: string) => [...document.querySelectorAll('label')].find(l => l.textContent?.includes(rotulo))?.querySelector('input')
-const adminRede = { ...base, id: 'u3', nome: 'Paulo Rede', papel: 'admin_rede', cargoId: null }
+const adminRede = { ...base, id: 'u3', nome: 'Usuário Rede', papel: 'admin_rede', cargoId: null }
 
 test('o admin_geral oferece Gerenciar cargos a sócio e a admin de rede, e a liga no payload (#617)', async () => {
   await montar('admin_geral', [adminRede])
-  const dados = await salvarEdicaoDe('Paulo Rede', async () => {
+  const dados = await salvarEdicaoDe('Usuário Rede', async () => {
     await clicar(abaModulos())
     await clicar(caixaDe('Gerenciar cargos'))
   })
@@ -122,18 +122,18 @@ test('cargo com base Sócio mostra Aprovação e Acesso a grupos, e manda as mar
   const gerenteAdmin = { id: 'c3', nome: 'Gerente_admin', papelBase: 'admin_socio', contaId: 'A' }
   const grupos = [{ id: 'gA', nome: 'Grupo A', contaId: 'A' }, { id: 'gB', nome: 'Grupo B', contaId: 'A' }]
   const lojas = [{ id: 'l1', nome: 'Loja Centro', grupoId: 'gA' }]
-  const ana = { ...base, id: 'u4', nome: 'Ana Gerente', papel: 'cargo', cargoId: 'c3', lojaId: 'l1', grupoDaLojaId: 'gA' }
-  const bia = { ...ana, id: 'u5', nome: 'Bia Gerente', cargoId: 'c1' }
+  const ana = { ...base, id: 'u4', nome: 'Gerente A', papel: 'cargo', cargoId: 'c3', lojaId: 'l1', grupoDaLojaId: 'gA' }
+  const bia = { ...ana, id: 'u5', nome: 'Gerente B', cargoId: 'c1' }
   await montar('admin_geral', [ana, bia], { grupos, lojas, cargos: [gerenteAdmin, cargoGerente] })
   const abas = () => [...document.querySelectorAll('[role=tab]')].map(t => t.textContent?.trim())
-  const dados = await salvarEdicaoDe('Ana Gerente', async () => {
+  const dados = await salvarEdicaoDe('Gerente A', async () => {
     assert.ok(abas().includes('Aprovação'), 'aprovação aparece para cargo base Sócio')
     await clicar([...document.querySelectorAll('[role=tab]')].find(t => t.textContent?.trim() === 'Aprovação'))
     await clicar(caixaDe('Grupo B'))
   })
   assert.deepEqual(dados.gruposAprovacao, ['gB'])
   // Base Adm. da loja não aprova: a aba não aparece e nada é enviado.
-  const semAprovacao = await salvarEdicaoDe('Bia Gerente', async () => assert.ok(!abas().includes('Aprovação')))
+  const semAprovacao = await salvarEdicaoDe('Gerente B', async () => assert.ok(!abas().includes('Aprovação')))
   assert.deepEqual(semAprovacao.gruposAprovacao, [])
 })
 test('diálogo de cargos: a escolha da base mostra o que cada base faz e grava nome e base (#616)', async () => {
@@ -228,7 +228,7 @@ test('só a tabela de bases rola na horizontal: o fieldset pode encolher abaixo 
 })
 
 test('lista de usuários: cargo com base Sócio mostra onde aprova; base Adm. da loja, não (#617)', async () => {
-  const gerenteAdmin = { id: 'c3', nome: 'Gerente B', papelBase: 'admin_socio', contaId: 'A' }
+  const gerenteAdmin = { id: 'c3', nome: 'Cargo Sócio', papelBase: 'admin_socio', contaId: 'A' }
   const sociaDoCargo = { ...base, id: 'u4', nome: 'Usuário Cargo Sócio', papel: 'cargo', cargoId: 'c3', grupoDaLojaId: 'gA' }
   const container = await montar('admin_geral', [sociaDoCargo, marina], { cargos: [gerenteAdmin, cargoGerente] })
   const linhas = [...container.querySelectorAll('tbody tr')]
