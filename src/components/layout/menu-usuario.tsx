@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ChevronsUpDown, LogOut, UserRound } from 'lucide-react'
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
 import { cn } from '@/lib/utils'
+import { rotuloDoPapel } from '@/lib/rotulo-do-papel'
 import { TEMAS, useTemaAtivo } from '@/components/theme-provider'
 import { logoutAction } from '@/app/(auth)/login/actions'
 import {
@@ -10,17 +11,7 @@ import {
   DropdownMenuRadioGroup, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-export type UsuarioMenu = { nome: string; email: string; papel: string }
-
-const PAPEL_LABEL: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  admin_socio: 'Admin Sócio',
-  admin_rede: 'Admin de Rede',
-  aux_adm: 'Aux. Administrativo',
-  vendedor: 'Vendedor',
-  mecanico: 'Mecânico',
-  motorista: 'Motorista',
-}
+export type UsuarioMenu = { nome: string; email: string; papel: string; cargoNome?: string | null }
 
 function iniciais(nome: string) {
   const partes = nome.trim().split(/\s+/)
@@ -77,7 +68,7 @@ export function MenuUsuario({ usuario, compacto, lado = 'top', comTema }: { usua
           <>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{usuario.nome}</span>
-              <span className="block truncate text-xs text-muted-foreground">{PAPEL_LABEL[usuario.papel] ?? usuario.papel}</span>
+              <span className="block truncate text-xs text-muted-foreground">{rotuloDoPapel(usuario)}</span>
             </span>
             <ChevronsUpDown className="size-4 text-muted-foreground" />
           </>
