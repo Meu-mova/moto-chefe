@@ -2,7 +2,7 @@ import { papelAprova } from '@/lib/aprovacao-permissao'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import type { PapelBase } from '@/lib/gestao-usuarios'
 import { acessaModulo, itensDoMenu } from '@/lib/navegacao'
-import { podeOperarNfSaida } from '../app/(dashboard)/vendas/papeis-nf-saida'
+import { podeOperarNfSaida } from '@/app/(dashboard)/vendas/papeis-nf-saida'
 
 export type OQueABaseFaz = {
   /** O papel pode aprovar; onde aprova (grupos de aprovação) vem do cadastro do usuário. */
