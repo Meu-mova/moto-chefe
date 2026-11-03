@@ -13,6 +13,9 @@ for (const k of ['HTMLElement', 'HTMLButtonElement', 'Element', 'Node', 'Event',
 g.IS_REACT_ACT_ENVIRONMENT = true
 
 const nada = async () => ({ ok: true })
+// O que o editar manda à action: é o que o servidor lê para manter, atribuir ou tirar o cargo.
+const editadas: { id: string; dados: Record<string, unknown> }[] = []
+const editar = async (id: string, dados: Record<string, unknown>) => { editadas.push({ id, dados }); return { ok: true } }
 const chamadas: string[] = []
 const alternar = async (_id: string, ativo: boolean) => { chamadas.push(ativo ? 'reativar' : 'desativar'); return { ok: true } }
 const excluir = async () => { chamadas.push('excluir'); return { ok: true } }
@@ -20,7 +23,7 @@ const criadas: unknown[] = []
 // Segura a resposta do envio para o teste olhar o diálogo enquanto ele está enviando.
 let segurarEnvio: Promise<void> = Promise.resolve()
 const criarCargo = async (dados: unknown) => { criadas.push(dados); await segurarEnvio; return { ok: true } }
-mock.module('../actions', { namedExports: { criarUsuarioAction: nada, editarUsuarioAction: nada, excluirUsuarioAction: excluir, alternarAtivoUsuarioAction: alternar } })
+mock.module('../actions', { namedExports: { criarUsuarioAction: nada, editarUsuarioAction: editar, excluirUsuarioAction: excluir, alternarAtivoUsuarioAction: alternar } })
 mock.module('../cargos-actions', { namedExports: { criarCargoAction: criarCargo, editarCargoAction: nada, apagarCargoAction: nada } })
 
 // Cada teste desmonta o que montou: teste que falha no meio não suja o seguinte.
@@ -33,6 +36,7 @@ afterEach(async () => {
 
 const gestor = (papel: string) => ({ id: 'g', papel, gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
 const cargoGerente = { id: 'c1', nome: 'Gerente', papelBase: 'aux_adm', contaId: 'A' }
+const cargoCaixa = { id: 'c2', nome: 'Caixa', papelBase: 'aux_adm', contaId: 'A' }
 const base = { id: 'u', email: 'u@exemplo.com', papeisExtras: [], lojaId: null, lojaNome: 'Loja Centro', conecta: null, gruposAprovacao: [],
   aprovaPagamentoSensivel: false, gruposAcesso: [], grupoDaLojaId: null, ativo: true, modulosExtras: [], modulosBloqueados: [], contaId: 'A' }
 const marina = { ...base, id: 'u1', nome: 'Marina Costa', papel: 'cargo', cargoId: 'c1' }
@@ -51,7 +55,7 @@ async function montar(papel: string, usuarios: object[] = []) {
   await act(async () => {
     raiz.render(React.createElement(UsuariosTable, {
       usuarios: usuarios as never, lojas: [], grupos: [], limites: limitesDaTela(gestor(papel)),
-      cargos: [cargoGerente] as never, contaAtiva: 'A', liberaveis: null, liberadosPorUsuario: {},
+      cargos: [cargoGerente, cargoCaixa] as never, contaAtiva: 'A', liberaveis: null, liberadosPorUsuario: {},
     }))
   })
   return container
@@ -116,6 +120,34 @@ test('enquanto o cargo é enviado, nome e rádios ficam travados; as colunas tê
   assert.ok(radios().every(r => r.disabled), 'rádios travados')
   await act(async () => { liberar() })
   segurarEnvio = Promise.resolve()
+})
+
+async function salvarEdicaoDe(nome: string, antes?: () => Promise<void>) {
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.includes(nome)))
+  await antes?.()
+  editadas.length = 0
+  await clicar(botao('Salvar'))
+  assert.equal(editadas.length, 1)
+  return editadas[0].dados
+}
+
+test('editar usuário manda o cargo que ele tem, para o servidor mantê-lo (#616)', async () => {
+  await montar('admin_socio', [marina])
+  assert.equal((await salvarEdicaoDe('Marina Costa')).cargoId, 'c1')
+})
+
+test('editar usuário manda o cargo novo escolhido; papel fixo manda cargoId nulo (#616)', async () => {
+  const { act } = await import('react')
+  await montar('admin_geral', [marina, bruno])
+  const novo = await salvarEdicaoDe('Marina Costa', async () => {
+    const select = document.getElementById('cargo-usuario') as HTMLSelectElement
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, 'value')!.set!.call(select, 'c2')
+      select.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+    })
+  })
+  assert.equal(novo.cargoId, 'c2')
+  assert.equal((await salvarEdicaoDe('Bruno Alves')).cargoId, null)
 })
 
 test('lista de usuários: quem tem cargo mostra o cargo e a base; papel fixo, não (#616)', async () => {

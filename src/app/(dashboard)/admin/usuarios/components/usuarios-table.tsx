@@ -427,6 +427,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           gruposAcesso:            dados.gruposAcesso,
           modulosExtras:           dados.modulosExtras,
           modulosBloqueados:       dados.modulosBloqueados,
+          cargoId:                 dados.cargoId,
         })
         if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário atualizado')
