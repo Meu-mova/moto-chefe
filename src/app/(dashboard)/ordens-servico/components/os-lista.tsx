@@ -118,12 +118,13 @@ export function OSLista({ lista }: { lista: OSComDetalhes[] }) {
                 <TableHead>Cliente</TableHead>
                 <TableHead className="hidden 2xl:table-cell">Mecânico</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Conciliação</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead className="w-8"><span className="sr-only">Abrir</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lista.map(os => (
+              {lista.map(os => { const conc = concDe(os); return (
                 <TableRow
                   key={os.id}
                   onClick={() => setSelId(os.id)}
@@ -141,6 +142,8 @@ export function OSLista({ lista }: { lista: OSComDetalhes[] }) {
                   <TableCell className="max-w-40 truncate">{clienteDe(os) ?? '—'}</TableCell>
                   <TableCell className="hidden max-w-32 truncate text-muted-foreground 2xl:table-cell">{os.mecanicoNome ?? '—'}</TableCell>
                   <TableCell><StatusOS status={os.status} /></TableCell>
+                  {/* Mesmo selo dos cartões e do resumo; sem valor ou cancelada não tem o que conciliar. */}
+                  <TableCell>{conc === 'na' ? <span className="text-muted-foreground">—</span> : <ConcBadge status={conc} />}</TableCell>
                   <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums">{moeda(os.valorTotal)}</TableCell>
                   <TableCell>
                     <button type="button" aria-label={`Abrir resumo da OS #${os.numero}`} onClick={e => { e.stopPropagation(); setSelId(os.id) }} className="rounded-md p-1 text-muted-foreground hover:text-foreground">
@@ -148,7 +151,7 @@ export function OSLista({ lista }: { lista: OSComDetalhes[] }) {
                     </button>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) })}
             </TableBody>
           </Table>
         </div>
