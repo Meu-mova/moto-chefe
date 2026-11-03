@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { ABAS_FOLHA, avisoDaAba, hrefComFiltro, mesAdjacente, rotuloMes } from './folha-tela'
 
 test('mesAdjacente: vira o ano em dezembro e em janeiro', () => {
@@ -44,4 +45,11 @@ test('mesAdjacente: mês inválido na URL cai no mês de referência, sem NaN', 
   assert.equal(mesAdjacente('abc', 1, '2026-11'), '2026-12')
   assert.equal(mesAdjacente('2026-13', -1, '2026-11'), '2026-10')
   assert.equal(mesAdjacente('', 1, '2026-12'), '2027-01')
+})
+
+test('a página tem um painel para cada aba de ABAS_FOLHA, na mesma ordem', () => {
+  const pagina = readFileSync('src/app/(dashboard)/folha-pagamento/page.tsx', 'utf8')
+  const paineis = [...pagina.matchAll(/<TabsContent value="([^"]+)"/g)].map(m => m[1])
+  // Renomear uma aba num lado só deixaria o painel nunca mostrado, sem erro.
+  assert.deepEqual(paineis, ABAS_FOLHA.map(a => a.id))
 })
