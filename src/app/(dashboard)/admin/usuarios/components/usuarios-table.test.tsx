@@ -17,7 +17,9 @@ const chamadas: string[] = []
 const alternar = async (_id: string, ativo: boolean) => { chamadas.push(ativo ? 'reativar' : 'desativar'); return { ok: true } }
 const excluir = async () => { chamadas.push('excluir'); return { ok: true } }
 const criadas: unknown[] = []
-const criarCargo = async (dados: unknown) => { criadas.push(dados); return { ok: true } }
+// Segura a resposta do envio para o teste olhar o diálogo enquanto ele está enviando.
+let segurarEnvio: Promise<void> = Promise.resolve()
+const criarCargo = async (dados: unknown) => { criadas.push(dados); await segurarEnvio; return { ok: true } }
 mock.module('../actions', { namedExports: { criarUsuarioAction: nada, editarUsuarioAction: nada, excluirUsuarioAction: excluir, alternarAtivoUsuarioAction: alternar } })
 mock.module('../cargos-actions', { namedExports: { criarCargoAction: criarCargo, editarCargoAction: nada, apagarCargoAction: nada } })
 
@@ -91,6 +93,28 @@ test('diálogo de cargos: a escolha da base mostra o que cada base faz e grava n
   assert.ok(document.body.textContent?.includes('as '), 'resumo das telas da base')
   await clicar(botao('Criar cargo'))
   assert.deepEqual(criadas, [{ nome: 'Gerente_admin', papelBase: 'admin_socio' }])
+})
+
+test('enquanto o cargo é enviado, nome e rádios ficam travados; as colunas têm cabeçalho (#616)', async () => {
+  await montar('admin_geral', [marina])
+  await clicar(botao('Cargos'))
+  await clicar(botao('Novo cargo'))
+  const { act } = await import('react')
+  const nome = document.getElementById('nome-cargo') as HTMLInputElement
+  await act(async () => {
+    const set = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!
+    set.call(nome, 'Gerente_admin'); nome.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+  })
+  assert.equal(document.querySelectorAll('[role=dialog] thead th[scope=col]').length, 5, 'Base e as 4 colunas')
+  const radios = () => [...document.querySelectorAll<HTMLInputElement>('[role=dialog] input[type=radio]')]
+  await clicar(radios()[1])
+  let liberar!: () => void
+  segurarEnvio = new Promise<void>(r => { liberar = r })
+  await clicar(botao('Criar cargo'))
+  assert.equal(nome.disabled, true, 'nome travado')
+  assert.ok(radios().every(r => r.disabled), 'rádios travados')
+  await act(async () => { liberar() })
+  segurarEnvio = Promise.resolve()
 })
 
 test('lista de usuários: quem tem cargo mostra o cargo e a base; papel fixo, não (#616)', async () => {

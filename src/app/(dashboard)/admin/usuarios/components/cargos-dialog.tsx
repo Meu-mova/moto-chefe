@@ -47,27 +47,27 @@ function Celulas({ faz }: { faz: OQueABaseFaz }) {
 }
 
 // Uma linha por base, com o que ela faz hoje (lido das regras reais em oQueABaseFaz).
-function EscolhaDaBase({ base, onChange }: { base: PapelBase | ''; onChange: (b: PapelBase) => void }) {
+function EscolhaDaBase({ base, onChange, travado }: { base: PapelBase | ''; onChange: (b: PapelBase) => void; travado: boolean }) {
   return (
     <fieldset className="space-y-1.5">
       <legend className="text-sm font-medium">Papel base</legend>
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full min-w-[20rem] text-sm">
           <thead className="bg-muted text-xs text-muted-foreground">
             <tr>
-              <th className="py-2 pl-3 text-left font-medium">Base</th>
-              {COLUNAS.map(c => <th key={c} className="px-1 py-2 text-center font-medium sm:px-2">{c}</th>)}
+              <th scope="col" className="py-2 pl-3 text-left font-medium">Base</th>
+              {COLUNAS.map(c => <th key={c} scope="col" className="px-1 py-2 text-center font-medium sm:px-2">{c}</th>)}
             </tr>
           </thead>
           <tbody>
             {PAPEIS_BASE_DO_CARGO.map(b => (
               <tr key={b} className={`border-t ${b === base ? 'bg-primary/10' : ''}`}>
-                <td className="py-0 pl-3">
+                <th scope="row" className="py-0 pl-3 text-left font-normal">
                   <label className="flex min-h-11 cursor-pointer items-center gap-2">
-                    <input type="radio" name="papel-base" value={b} checked={b === base} onChange={() => onChange(b)} className="size-4 accent-primary" />
+                    <input type="radio" name="papel-base" value={b} checked={b === base} onChange={() => onChange(b)} disabled={travado} className="size-4 accent-primary" />
                     {ROTULO_DA_BASE[b]}
                   </label>
-                </td>
+                </th>
                 <Celulas faz={oQueABaseFaz(b)} />
               </tr>
             ))}
@@ -129,9 +129,9 @@ export function CargosDialog({ open, onOpenChange, cargos }: {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="nome-cargo">Nome do cargo</Label>
-                <Input id="nome-cargo" value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Gerente" />
+                <Input id="nome-cargo" value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Gerente" disabled={pending} />
               </div>
-              <EscolhaDaBase base={papelBase} onChange={setPapelBase} />
+              <EscolhaDaBase base={papelBase} onChange={setPapelBase} travado={pending} />
             </div>
           ) : cargos.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum cargo criado.</p>
