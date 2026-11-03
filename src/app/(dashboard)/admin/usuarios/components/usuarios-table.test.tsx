@@ -150,6 +150,18 @@ test('editar usuário manda o cargo novo escolhido; papel fixo manda cargoId nul
   assert.equal((await salvarEdicaoDe('Bruno Alves')).cargoId, null)
 })
 
+test('só a tabela de bases rola na horizontal: o fieldset pode encolher abaixo da largura da tabela (#616)', async () => {
+  await montar('admin_geral', [marina])
+  await clicar(botao('Cargos'))
+  await clicar(botao('Novo cargo'))
+  const campos = document.querySelector('[role=dialog] fieldset')
+  const rolagem = campos?.querySelector('.overflow-x-auto')
+  assert.ok(rolagem?.querySelector('table'), 'a tabela está dentro do que rola')
+  // O JSDOM não tem layout: o fieldset nasce com largura mínima igual à do conteúdo, e só
+  // `min-w-0` deixa o contêiner de rolagem encolher (falha vista a 360 px na Etapa 6).
+  assert.ok(campos?.classList.contains('min-w-0'))
+})
+
 test('lista de usuários: quem tem cargo mostra o cargo e a base; papel fixo, não (#616)', async () => {
   const container = await montar('admin_geral', [marina, bruno])
   assert.ok(container.textContent?.includes('Cargo da Conta, base Adm. da loja'))

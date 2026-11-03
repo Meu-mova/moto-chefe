@@ -48,7 +48,7 @@ function Celulas({ faz }: { faz: OQueABaseFaz }) {
 // Uma linha por base, com o que ela faz hoje (lido das regras reais em oQueABaseFaz).
 function EscolhaDaBase({ base, onChange, travado }: { base: PapelBase | ''; onChange: (b: PapelBase) => void; travado: boolean }) {
   return (
-    <fieldset className="space-y-1.5">
+    <fieldset className="min-w-0 space-y-1.5">
       <legend className="text-sm font-medium">Papel base</legend>
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[20rem] text-sm">
