@@ -43,7 +43,7 @@ export function FolhaCasca({ lojas, lojaAtual, mesAtual, children }: {
             <PrintButton
               href={`/folha-pagamento/imprimir?mes=${mesAtual}&loja=${lojaAtual}`}
               rotulo="Imprimir folha"
-              className="h-11 px-3 @[960px]/folha:h-9"
+              className="h-11 min-w-11 px-3 @[960px]/folha:h-9 @[960px]/folha:min-w-0"
               rotuloClassName="sr-only @[680px]/folha:not-sr-only"
             />
           )}

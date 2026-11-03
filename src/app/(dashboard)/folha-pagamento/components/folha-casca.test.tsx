@@ -122,3 +122,9 @@ test('escolher a seção mostra o painel dela', async () => {
   assert.match(document.body.textContent ?? '', /conteudo ajustes/)
   assert.doesNotMatch(document.body.textContent ?? '', /conteudo mes/)
 })
+
+test('Imprimir no celular mantém o alvo de toque de 44 px de largura, mesmo só com o ícone', async () => {
+  await montar()
+  // jsdom não calcula layout: o que dá para provar aqui é a classe que reserva a largura; a medida real é do navegador.
+  assert.match(botao('Imprimir folha')?.className ?? '', /(^| )min-w-11( |$)/)
+})
