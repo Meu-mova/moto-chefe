@@ -40,13 +40,25 @@ test('resumo de cada ação sensível', () => {
   assert.equal(resumoDoEvento(ev({ tipo: 'venda_cancelada', detalhe: { numeroVenda: 30035, cliente: 'Fulano', valor: '7990.00', motivo: 'desistiu' } })), 'Venda #30035 · Fulano · R$ 7.990,00 · “desistiu”')
   assert.equal(resumoDoEvento(ev({ tipo: 'nf_emitida', detalhe: { origem: 'mova', numeroNf: '415', numeroVenda: 30041, ambiente: 'Homologacao', status: 'Autorizada' } })), 'NF 415 da venda #30041 · Autorizada · homologação')
   assert.equal(resumoDoEvento(ev({ tipo: 'nf_cancelada', detalhe: { numeroNf: '415', motivo: 'erro', extemporaneo: true, ambiente: 'Producao' } })), 'NF 415 · “erro” · extemporâneo')
-  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['papel'], papelAntes: 'vendedor', papel: 'aux_adm' } })), 'Bruno · alterado: papel (vendedor → aux_adm)')
+  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['papel'], papelAntes: 'vendedor', papel: 'aux_adm' } })), 'Bruno · alterado: função (vendedor → aux_adm)')
   assert.equal(resumoDoEvento(ev({ tipo: 'troca_grupo', detalhe: { de: 'g1' } })), 'Entrou em Sul')
-  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['lojaId'] } })), 'Bruno · alterado: lojaId', 'sem mudança de papel, sem (→)')
+  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['lojaId'] } })), 'Bruno · alterado: loja', 'sem mudança de papel, sem (→)')
   assert.equal(resumoDoEvento(ev({ tipo: 'nf_emitida', detalhe: { numeroVenda: 30041, origem: 'mova' } })), 'NF da venda #30041')
   assert.equal(resumoDoEvento(ev({ tipo: 'notas_enviadas_contador', detalhe: { para: 'contador@x.com', de: '2026-10-01', ate: '2026-10-31', notas: 12, modo: 'link' } })),
     'contador@x.com · 01/10/2026 a 31/10/2026 · 12 notas · por link')
   assert.equal(resumoDoEvento(ev({ tipo: 'venda_cancelada', detalhe: {} })), 'Venda #? · ? · ? · “?”', 'linha sem os campos não mostra undefined')
+})
+
+test('mudança de permissão usa o texto da tela de usuários, não o nome do campo (#620)', () => {
+  const resumo = (detalhe: Record<string, unknown>) => resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Marina', ...detalhe } }))
+  assert.equal(resumo({ acao: 'alterado', campos: ['gruposAcesso', 'gruposAprovacao', 'aprovaPagamentoSensivel', 'modulosExtras', 'modulosBloqueados'] }),
+    'Marina · alterado: empresas que enxerga, aprova venda em, aprova transferência bancária, módulos liberados a mais, módulos bloqueados')
+  assert.equal(resumo({ acao: 'alterado', campos: ['cargoId'] }), 'Marina · alterado: cargo')
+  assert.equal(resumo({ acao: 'excluido' }), 'Marina · excluído')
+  assert.equal(resumo({ acao: 'grupo_liberado' }), 'Marina · grupo de outra Conta liberado')
+  assert.equal(resumo({ acao: 'grupo_revogado' }), 'Marina · grupo de outra Conta revogado')
+  assert.equal(resumo({ acao: 'criado' }), 'Marina · criado')
+  assert.equal(resumo({ acao: 'alterado', campos: ['campoNovo'] }), 'Marina · alterado: campoNovo', 'campo fora do mapa aparece pelo nome')
 })
 
 test('admin da Conta só vê a própria; admin_geral escolhe (ou vê todas)', () => {
