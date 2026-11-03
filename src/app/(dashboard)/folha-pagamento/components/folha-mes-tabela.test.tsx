@@ -1,18 +1,12 @@
 // Tabela da Folha do Mês (#628). jsdom não executa container query: quais colunas aparecem em
 // cada largura é CSS e fica para o navegador; aqui vão o conteúdo, a abertura do detalhe e o campo.
-import { JSDOM } from 'jsdom'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import type { LinhaFolhaDados } from './folha-mes-linha'
+import { montarDom } from '@/test/montar-dom'
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true })
-const g = globalThis as Record<string, unknown>
-g.window = dom.window; g.document = dom.window.document
-Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
-for (const k of ['HTMLElement', 'HTMLInputElement', 'HTMLButtonElement', 'Element', 'Node', 'Event', 'MouseEvent', 'KeyboardEvent', 'FocusEvent', 'NodeList', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame']) {
-  g[k] = (dom.window as unknown as Record<string, unknown>)[k]
-}
-g.IS_REACT_ACT_ENVIRONMENT = true
+const { dom, desmontar } = montarDom()
+after(desmontar)
 
 const acaoMock = mock.module('../actions', { namedExports: { salvarValorRealAction: async () => {} } })
 const toastMock = mock.module('sonner', { namedExports: { toast: { error: () => {} } } })

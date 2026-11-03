@@ -1,18 +1,13 @@
 // Regressão: com o cliente JÁ cadastrado, a busca automática por CPF respondia
 // mesclando o estado de antes da última tecla e o CPF voltava a 10 dígitos —
 // clienteCompleto virava falso e o botão de registrar sinal nunca habilitava.
-import { JSDOM } from 'jsdom'
-import test, { mock } from 'node:test'
+import test, { after, mock } from 'node:test'
 import assert from 'node:assert'
+import { montarDom } from '@/test/montar-dom'
 
-const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost' })
+const { dom, desmontar } = montarDom('<!doctype html><html><body><div id="root"></div></body></html>')
+after(desmontar)
 const g = globalThis as Record<string, unknown>
-g.window = dom.window; g.document = dom.window.document
-Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
-for (const k of ['HTMLElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'InputEvent', 'MouseEvent', 'NodeList', 'getComputedStyle']) {
-  g[k] = (dom.window as unknown as Record<string, unknown>)[k]
-}
-g.IS_REACT_ACT_ENVIRONMENT = true
 g.fetch = async () => ({ json: async () => ({ erro: true }) })
 
 const CPF = '877.979.506-44'
