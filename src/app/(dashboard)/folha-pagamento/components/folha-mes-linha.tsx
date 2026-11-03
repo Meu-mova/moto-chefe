@@ -32,7 +32,7 @@ export function LinhaFolha({ f, mes }: { f: LinhaFolhaDados; mes: string }) {
   return (
     <div role="row" className={`${GRADE} border-t ${aberta ? 'bg-muted' : ''}`}>
       <div role="cell" className={CELULA}>
-        <p className="break-normal font-medium hyphens-none">{f.nome}</p>
+        <p className="wrap-anywhere font-medium hyphens-none">{f.nome}</p>
         <p className="text-xs text-muted-foreground"><span className="whitespace-nowrap">{f.papelLabel}</span> · <span className="whitespace-nowrap">{f.lojaNome}</span></p>
       </div>
       <div role="cell" className={`${NUMERO} ${SO_TABLET}`}><ValorOuZero valor={f.salario} /></div>

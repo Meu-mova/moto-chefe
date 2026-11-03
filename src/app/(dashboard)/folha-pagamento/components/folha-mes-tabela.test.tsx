@@ -171,3 +171,11 @@ test('a tabela só tem linhas como filhos, inclusive a mensagem de lista vazia',
   for (const filho of tabela.children) assert.equal(filho.getAttribute('role'), 'row')
   assert.match(tabela.textContent ?? '', /Nenhum funcionário ativo configurado/)
 })
+
+// Sem CSS no jsdom, o que dá para provar é a classe que deixa a palavra comprida quebrar em vez de
+// ser cortada pelo overflow-hidden da tabela; a medida real em 360 px é do navegador.
+test('o nome quebra entre palavras e, se uma palavra sozinha não couber, quebra nela em vez de cortar', async () => {
+  await montar()
+  const nome = [...document.querySelectorAll('p')].find(p => p.textContent === 'Vendedor B Nascimento Albuquerque')!
+  assert.match(nome.className, /\bwrap-anywhere\b/)
+})
