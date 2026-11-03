@@ -127,176 +127,176 @@ export default async function FolhaPagamentoPage({
 
   return (
     <FolhaCasca lojas={dados.lojas} lojaAtual={lojaParam} mesAtual={mesParam}>
-    <TabsContent value="mes" className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Salários</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold">{fmt(folha.totais.salarios)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Comissões</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold">{fmt(folha.totais.comissoes)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Premiações</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold">{fmt(folha.totais.premiacoes)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Ajuda de Custo</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold">{fmt(folha.totais.ajudaCusto)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Adiantamentos</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold text-warning">{folha.totais.adiantamentos > 0 ? '-' + fmt(folha.totais.adiantamentos) : fmt(0)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Geral</CardTitle></CardHeader>
-          <CardContent><p className="text-xl font-bold text-success">{fmt(folha.totais.geral)}</p></CardContent>
-        </Card>
-        {/* Soma o valor real de quem já teve o valor informado e o calculado de
-            quem não teve — é este número que o compromisso de folha usa em
-            Contas a Pagar, e por isso ele nunca fica menor do que a realidade
-            só porque a coluna ainda está pela metade. */}
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pago (real)</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-xl font-bold text-info">{fmt(folha.totais.efetivo)}</p>
-            <p className="text-[11px] text-muted-foreground">
-              {folha.totais.reaisInformados} de {folha.ativos.length} informados
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <TabsContent value="mes" className="space-y-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Salários</CardTitle></CardHeader>
+            <CardContent><p className="text-xl font-bold">{fmt(folha.totais.salarios)}</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Comissões</CardTitle></CardHeader>
+            <CardContent><p className="text-xl font-bold">{fmt(folha.totais.comissoes)}</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Premiações</CardTitle></CardHeader>
+            <CardContent><p className="text-xl font-bold">{fmt(folha.totais.premiacoes)}</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Ajuda de Custo</CardTitle></CardHeader>
+            <CardContent><p className="text-xl font-bold">{fmt(folha.totais.ajudaCusto)}</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Adiantamentos</CardTitle></CardHeader>
+            <CardContent><p className="text-xl font-bold text-warning">{folha.totais.adiantamentos > 0 ? '-' + fmt(folha.totais.adiantamentos) : fmt(0)}</p></CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Geral</CardTitle></CardHeader>
+            <CardContent><p className="text-xl font-bold text-success">{fmt(folha.totais.geral)}</p></CardContent>
+          </Card>
+          {/* Soma o valor real de quem já teve o valor informado e o calculado de
+              quem não teve — é este número que o compromisso de folha usa em
+              Contas a Pagar, e por isso ele nunca fica menor do que a realidade
+              só porque a coluna ainda está pela metade. */}
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Pago (real)</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-xl font-bold text-info">{fmt(folha.totais.efetivo)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {folha.totais.reaisInformados} de {folha.ativos.length} informados
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
-      <div className="bg-card border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted border-b">
-            <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Salário</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Comissão</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Premiação</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Ajuda de Custo</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Adiantamento</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Total a Pagar</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Valor Real Pago</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {folha.ativos.map(f => (
-              <tr key={f.id} className="hover:bg-muted">
-                <td className="px-4 py-2">
-                  <p className="font-medium">{f.nome}</p>
-                  <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
-                </td>
-                <td className="px-4 py-2 text-right">{fmt(f.salario)}</td>
-                {/* A base saiu de coluna própria: com N regras por pessoa, cada
-                    uma tem a sua. Vai embaixo do valor, junto do percentual. */}
-                <td className="px-4 py-2 text-right align-top">
-                  {f.comissao > 0 ? fmt(f.comissao) : '—'}
-                  {f.regras.filter(r => r.tipo !== 'premiacao').map(r => (
-                    <span key={r.id} className="block text-[11px] text-muted-foreground whitespace-nowrap">
-                      {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()} · {fmt(r.valorBase)}
-                    </span>
-                  ))}
-                </td>
-                <td className="px-4 py-2 text-right align-top">
-                  {f.premiacao > 0 ? fmt(f.premiacao) : '—'}
-                  {f.premiacaoFaixa > 0 && (
-                    <span className="block text-[11px] text-muted-foreground whitespace-nowrap">
-                      faixa OTE · {fmt(f.premiacaoFaixa)}
-                    </span>
-                  )}
-                  {f.regras.filter(r => r.tipo === 'premiacao').map(r => (
-                    <span key={r.id} className="block text-[11px] text-muted-foreground whitespace-nowrap">
-                      {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()} · {fmt(r.valorBase)}
-                    </span>
-                  ))}
-                </td>
-                <td className="px-4 py-2 text-right">{f.ajudaCusto > 0 ? fmt(f.ajudaCusto) : '—'}</td>
-                {/* Uma coluna só, com a quebra no title: fixo e eventual descontam
-                    igual, e separar em duas colunas alargaria a tabela por nada. */}
-                <td
-                  className="px-4 py-2 text-right text-warning"
-                  title={f.adiantamento > 0
-                    ? `Fixo ${fmt(f.adiantamentoFixo)} + eventual ${fmt(f.adiantamentoEventual)}`
-                    : undefined}
-                >
-                  {f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}
-                  {f.adiantamentoFixo > 0 && f.adiantamentoEventual > 0 && (
-                    <span className="block text-[11px] text-warning">
-                      fixo {fmt(f.adiantamentoFixo)} + {fmt(f.adiantamentoEventual)}
-                    </span>
-                  )}
-                </td>
-                <td className={`px-4 py-2 text-right font-semibold ${f.totalPagar < 0 ? 'text-destructive' : ''}`}>{fmt(f.totalPagar)}</td>
-                {/* O que a contabilidade pagou de verdade. Em branco, a folha
-                    segue valendo o calculado — ver valorEfetivo em queries/folha. */}
-                <td className="px-4 py-2">
-                  <ValorRealInput
-                    usuarioId={f.id}
-                    mes={mesParam}
-                    valorReal={f.valorReal}
-                    totalPagar={f.totalPagar}
-                  />
-                </td>
+        <div className="bg-card border rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted border-b">
+              <tr>
+                <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Salário</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Comissão</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Premiação</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Ajuda de Custo</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Adiantamento</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Total a Pagar</th>
+                <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Valor Real Pago</th>
               </tr>
-            ))}
-            {folha.ativos.length === 0 && (
-              <tr><td colSpan={8} className="text-center text-muted-foreground py-8">Nenhum funcionário ativo configurado.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </TabsContent>
+            </thead>
+            <tbody className="divide-y">
+              {folha.ativos.map(f => (
+                <tr key={f.id} className="hover:bg-muted">
+                  <td className="px-4 py-2">
+                    <p className="font-medium">{f.nome}</p>
+                    <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
+                  </td>
+                  <td className="px-4 py-2 text-right">{fmt(f.salario)}</td>
+                  {/* A base saiu de coluna própria: com N regras por pessoa, cada
+                      uma tem a sua. Vai embaixo do valor, junto do percentual. */}
+                  <td className="px-4 py-2 text-right align-top">
+                    {f.comissao > 0 ? fmt(f.comissao) : '—'}
+                    {f.regras.filter(r => r.tipo !== 'premiacao').map(r => (
+                      <span key={r.id} className="block text-[11px] text-muted-foreground whitespace-nowrap">
+                        {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()} · {fmt(r.valorBase)}
+                      </span>
+                    ))}
+                  </td>
+                  <td className="px-4 py-2 text-right align-top">
+                    {f.premiacao > 0 ? fmt(f.premiacao) : '—'}
+                    {f.premiacaoFaixa > 0 && (
+                      <span className="block text-[11px] text-muted-foreground whitespace-nowrap">
+                        faixa OTE · {fmt(f.premiacaoFaixa)}
+                      </span>
+                    )}
+                    {f.regras.filter(r => r.tipo === 'premiacao').map(r => (
+                      <span key={r.id} className="block text-[11px] text-muted-foreground whitespace-nowrap">
+                        {r.percentual.toLocaleString('pt-BR')}% {labelDaBase(r.base).toLowerCase()} · {fmt(r.valorBase)}
+                      </span>
+                    ))}
+                  </td>
+                  <td className="px-4 py-2 text-right">{f.ajudaCusto > 0 ? fmt(f.ajudaCusto) : '—'}</td>
+                  {/* Uma coluna só, com a quebra no title: fixo e eventual descontam
+                      igual, e separar em duas colunas alargaria a tabela por nada. */}
+                  <td
+                    className="px-4 py-2 text-right text-warning"
+                    title={f.adiantamento > 0
+                      ? `Fixo ${fmt(f.adiantamentoFixo)} + eventual ${fmt(f.adiantamentoEventual)}`
+                      : undefined}
+                  >
+                    {f.adiantamento > 0 ? '-' + fmt(f.adiantamento) : '—'}
+                    {f.adiantamentoFixo > 0 && f.adiantamentoEventual > 0 && (
+                      <span className="block text-[11px] text-warning">
+                        fixo {fmt(f.adiantamentoFixo)} + {fmt(f.adiantamentoEventual)}
+                      </span>
+                    )}
+                  </td>
+                  <td className={`px-4 py-2 text-right font-semibold ${f.totalPagar < 0 ? 'text-destructive' : ''}`}>{fmt(f.totalPagar)}</td>
+                  {/* O que a contabilidade pagou de verdade. Em branco, a folha
+                      segue valendo o calculado — ver valorEfetivo em queries/folha. */}
+                  <td className="px-4 py-2">
+                    <ValorRealInput
+                      usuarioId={f.id}
+                      mes={mesParam}
+                      valorReal={f.valorReal}
+                      totalPagar={f.totalPagar}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {folha.ativos.length === 0 && (
+                <tr><td colSpan={8} className="text-center text-muted-foreground py-8">Nenhum funcionário ativo configurado.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </TabsContent>
 
-    <TabsContent value="funcionarios" className="space-y-4">
-      <FuncionariosConfigTable funcionarios={funcionariosParaConfig} />
-    </TabsContent>
+      <TabsContent value="funcionarios" className="space-y-4">
+        <FuncionariosConfigTable funcionarios={funcionariosParaConfig} />
+      </TabsContent>
 
-    <TabsContent value="comissoes" className="space-y-4">
-      <p className="text-sm text-muted-foreground">Vigência conferida contra {rotuloMes(mesParam)}</p>
-      {/* key no mês: o formulário nasce com "Vale a partir de" = mês selecionado,
-          e sem remontar ele continuaria mostrando o mês anterior depois de trocar
-          o seletor — cadastrando a regra na vigência errada. */}
-      <RegrasComissaoTable key={mesParam} regras={regrasParaUI} funcionarios={funcionariosParaAjuste} mes={mesParam} />
-    </TabsContent>
+      <TabsContent value="comissoes" className="space-y-4">
+        <p className="text-sm text-muted-foreground">Vigência conferida contra {rotuloMes(mesParam)}</p>
+        {/* key no mês: o formulário nasce com "Vale a partir de" = mês selecionado,
+            e sem remontar ele continuaria mostrando o mês anterior depois de trocar
+            o seletor — cadastrando a regra na vigência errada. */}
+        <RegrasComissaoTable key={mesParam} regras={regrasParaUI} funcionarios={funcionariosParaAjuste} mes={mesParam} />
+      </TabsContent>
 
-    <TabsContent value="premiacao" className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Faixa OTE é premiação em <strong>valor fixo</strong> por meta batida, só para vendedor e sempre sobre as
-        motos que a própria pessoa vendeu. Ela <strong>soma</strong> com as regras de premiação em percentual
-        cadastradas na aba Comissões.
-      </p>
-      <PremiacaoFaixasTable faixas={faixasParaUI} />
-    </TabsContent>
+      <TabsContent value="premiacao" className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Faixa OTE é premiação em <strong>valor fixo</strong> por meta batida, só para vendedor e sempre sobre as
+          motos que a própria pessoa vendeu. Ela <strong>soma</strong> com as regras de premiação em percentual
+          cadastradas na aba Comissões.
+        </p>
+        <PremiacaoFaixasTable faixas={faixasParaUI} />
+      </TabsContent>
 
-    <TabsContent value="adiantamentos" className="space-y-4">
-      <AdiantamentosTable
-        adiantamentos={dados.adiantamentos}
-        funcionarios={funcionariosParaAjuste}
-        mes={mesParam}
-      />
-    </TabsContent>
+      <TabsContent value="adiantamentos" className="space-y-4">
+        <AdiantamentosTable
+          adiantamentos={dados.adiantamentos}
+          funcionarios={funcionariosParaAjuste}
+          mes={mesParam}
+        />
+      </TabsContent>
 
-    <TabsContent value="holerites" className="space-y-4">
-      {/* Só os ativos: quem saiu não recebe holerite novo, e a lista de quem
-          falta enviar tem que ser a lista de quem realmente falta. */}
-      <HoleritesTable
-        funcionarios={folha.ativos.map(f => ({ id: f.id, nome: f.nome, papel: f.papel, lojaNome: f.lojaNome }))}
-        holerites={holeritesDoMes}
-        mes={mesParam}
-      />
-    </TabsContent>
+      <TabsContent value="holerites" className="space-y-4">
+        {/* Só os ativos: quem saiu não recebe holerite novo, e a lista de quem
+            falta enviar tem que ser a lista de quem realmente falta. */}
+        <HoleritesTable
+          funcionarios={folha.ativos.map(f => ({ id: f.id, nome: f.nome, papel: f.papel, lojaNome: f.lojaNome }))}
+          holerites={holeritesDoMes}
+          mes={mesParam}
+        />
+      </TabsContent>
 
-    <TabsContent value="ajustes" className="space-y-4">
-      <AjustesBaseTable
-        ajustes={dados.ajustes}
-        lojas={dados.lojas}
-        funcionarios={funcionariosParaAjuste}
-        mes={mesParam}
-      />
-    </TabsContent>
+      <TabsContent value="ajustes" className="space-y-4">
+        <AjustesBaseTable
+          ajustes={dados.ajustes}
+          lojas={dados.lojas}
+          funcionarios={funcionariosParaAjuste}
+          mes={mesParam}
+        />
+      </TabsContent>
     </FolhaCasca>
   )
 }
