@@ -115,23 +115,31 @@ test('limites da tela: sócio não vê o papel admin_geral nem o Excluir', () =>
   assert.equal(l.podeExcluir, false)
   assert.equal(l.papeis.includes('admin_geral'), false)
   assert.equal(l.papeis.includes('admin_socio'), true)
-  assert.equal(l.papeis.includes('cargo'), false, 'cargos escondidos na v1.14.0 (#449)')
+  assert.equal(l.papeis.includes('cargo'), false, 'só o admin_geral atribui cargo (#616)')
+  assert.equal(l.podeCargos, false)
   assert.deepEqual(l.itensLiberaveis, ['estoque'])
   assert.deepEqual(l.gruposAprovacao, [], 'aprovação só nos grupos onde ele aprova')
   assert.equal(l.travaASiMesmo, true, 'não desativa nem troca o próprio papel')
   const g = limitesDaTela({ id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false })
   assert.equal(g.podeExcluir, true)
+  assert.equal(g.papeis.includes('cargo'), true)
+  assert.equal(g.podeCargos, true)
   assert.equal(g.papeis.includes('admin_geral'), true)
   assert.equal(g.itensLiberaveis, null)
   assert.equal(g.gruposAprovacao, null)
   assert.equal(g.travaASiMesmo, false)
 })
 
-test('cargos escondidos na v1.14.0: ninguém grava usuário com a função cargo (#449)', () => {
+test('só o admin_geral atribui cargo; o sócio mantém o cargo de quem já tem, sem trocar (#616)', () => {
   const geral = { id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
-  assert.equal(limitesDaTela(geral).papeis.includes('cargo'), false)
-  assert.equal(gravar(cadastro({ papel: 'cargo' })), 'Função indisponível')
-  assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'cargo' })), 'Função indisponível')
+  assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'cargo', cargoId: 'c1' })), null)
+  const RECUSA = 'Só o Admin Geral atribui cargo'
+  assert.equal(gravar(cadastro({ papel: 'cargo', cargoId: 'c1' })), RECUSA, 'usuário novo')
+  assert.equal(gravar(cadastro({ papel: 'cargo', cargoId: 'c1' }), { id: 'u', ...cadastro() }), RECUSA, 'vendedor passando a cargo')
+  const comCargo = { id: 'u', ...cadastro({ papel: 'cargo', cargoId: 'c1' }) }
+  assert.equal(gravar(cadastro({ papel: 'cargo', cargoId: 'c1', modulosBloqueados: ['estoque'] }), comCargo), null, 'salva os outros campos')
+  assert.equal(gravar(cadastro({ papel: 'cargo', cargoId: 'c2' }), comCargo), RECUSA, 'trocando de cargo')
+  assert.equal(gravar(cadastro({ papel: 'vendedor' }), comCargo), null, 'saindo do cargo para papel fixo')
 })
 
 // #506: a recusa agora aparece na tela; não pode revelar que o registro existe em outra Conta.
