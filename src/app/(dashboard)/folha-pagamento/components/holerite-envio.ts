@@ -12,7 +12,7 @@ type Resultado = Awaited<ReturnType<typeof uploadHoleriteAction>>
 function avisarEnvio(base: string, r: Resultado) {
   if (r?.avisos?.length) {
     toast.warning(
-      `${base}, mas ${r.avisos.join(' e ')}. O Valor Real Pago não foi preenchido — confira o PDF.`,
+      `${base}, mas ${r.avisos.join(' e ')}. O Valor Real Pago não foi preenchido, confira o PDF.`,
       { duration: 12000 },
     )
   } else if (r?.valorPreenchido != null) {
