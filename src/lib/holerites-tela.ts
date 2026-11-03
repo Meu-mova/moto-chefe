@@ -1,3 +1,5 @@
+import { diaBrt, diaCurtoBrt } from './data-venda'
+
 // Regras de apresentação da aba Holerites da /folha-pagamento: a conta do topo, quem ainda falta
 // e os textos de cada envio. Sem banco nem data atual, para o teste rodar sem nada em volta.
 
@@ -39,11 +41,9 @@ export function resumirEnvios(
   }
 }
 
-// Fuso de Brasília: um envio das 23h30 do dia 31 é 02h30 UTC do dia 1º e não pode virar "01/11".
-const dataBrt = (d: Date, opcoes: Intl.DateTimeFormatOptions) =>
-  new Date(d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', ...opcoes })
-
-export const rotuloEnviado = (d: Date) => `Enviado ${dataBrt(d, { day: '2-digit', month: '2-digit' })}`
+// Dia de Brasília (data-venda.ts): um envio das 23h30 do dia 31 é 02h30 UTC do dia 1º e não pode
+// virar "01/11".
+export const rotuloEnviado = (d: Date) => `Enviado ${diaCurtoBrt(d.toISOString())}`
 
 export function fmtTamanho(bytes: number | null): string {
   if (!bytes) return ''
@@ -53,7 +53,7 @@ export function fmtTamanho(bytes: number | null): string {
 
 /** O que a linha não mostra (quem enviou e o tamanho): só aparece no detalhe. */
 export function descricaoEnvio(h: { enviadoEm: Date; enviadoPorNome: string | null; tamanho: number | null }): string {
-  const quando = dataBrt(h.enviadoEm, { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const quando = diaBrt(h.enviadoEm.toISOString())
   const partes = [h.enviadoPorNome ? `por ${h.enviadoPorNome}` : '', fmtTamanho(h.tamanho)].filter(Boolean)
   return `Enviado em ${quando}${partes.length ? ` ${partes.join(', ')}` : ''}.`
 }
