@@ -44,7 +44,7 @@ export function FolhaCasca({ lojas, lojaAtual, mesAtual, children }: {
               href={`/folha-pagamento/imprimir?mes=${mesAtual}&loja=${lojaAtual}`}
               rotulo="Imprimir folha"
               className="h-11 px-3 @[960px]/folha:h-9"
-              rotuloClassName="hidden @[680px]/folha:inline"
+              rotuloClassName="sr-only @[680px]/folha:not-sr-only"
             />
           )}
         </div>
