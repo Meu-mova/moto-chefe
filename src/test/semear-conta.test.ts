@@ -39,13 +39,26 @@ function arquivosDeBanco(dir: string): string[] {
   })
 }
 
+type Uso = readonly [prefixo: string, arquivo: string]
+
+// Minúsculas porque o e-mail da semente vai para minúsculas (emailDeTeste).
+function prefixosRepetidos(usos: readonly Uso[]): string[] {
+  const porPrefixo = usos.reduce((mapa, [prefixo, arquivo]) =>
+    mapa.set(prefixo.toLowerCase(), [...(mapa.get(prefixo.toLowerCase()) ?? []), arquivo]), new Map<string, string[]>())
+  return [...porPrefixo].filter(([, arquivos]) => new Set(arquivos).size > 1).map(([p, a]) => `${p}: ${[...new Set(a)].join(', ')}`)
+}
+
+test('prefixo repetido em outro arquivo é achado; no mesmo arquivo não', () => {
+  assert.deepEqual(prefixosRepetidos([['AG404', 'a.ts'], ['AG404', 'a.ts'], ['OS404', 'b.ts']]), [])
+  assert.deepEqual(prefixosRepetidos([['AG404', 'a.ts'], ['AG404', 'b.ts']]), ['ag404: a.ts, b.ts'])
+})
+
+test('prefixos que só diferem na caixa colidem (o e-mail vai para minúsculas)', () => {
+  assert.equal(prefixosRepetidos([['AG404', 'a.ts'], ['ag404', 'b.ts']]).length, 1)
+})
+
 test('cada prefixo de semente é de um arquivo só', () => {
-  const porPrefixo = new Map<string, Set<string>>()
-  for (const arquivo of arquivosDeBanco('src')) {
-    for (const [, prefixo] of readFileSync(arquivo, 'utf8').matchAll(PREFIXO)) {
-      porPrefixo.set(prefixo, (porPrefixo.get(prefixo) ?? new Set()).add(arquivo))
-    }
-  }
-  const repetidos = [...porPrefixo].filter(([, arquivos]) => arquivos.size > 1).map(([p, a]) => `${p}: ${[...a].join(', ')}`)
-  assert.deepEqual(repetidos, [])
+  const usos = arquivosDeBanco('src').flatMap(arquivo =>
+    [...readFileSync(arquivo, 'utf8').matchAll(PREFIXO)].map(([, prefixo]): Uso => [prefixo, arquivo]))
+  assert.deepEqual(prefixosRepetidos(usos), [])
 })
