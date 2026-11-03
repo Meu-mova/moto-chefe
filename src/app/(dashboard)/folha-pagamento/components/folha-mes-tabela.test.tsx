@@ -36,6 +36,9 @@ const caio = { ...vazia, id: 'c', nome: 'Mecânico D', papelLabel: 'Mecânico', 
   ajudaCusto: 0, adiantamento: 0, totalPagar: 2684, valorReal: 2700, valorEfetivo: 2700 }
 const totais = { salarios: 7200, comissoes: 3429.4, premiacoes: 600, ajudaCusto: 600, adiantamentos: 1800, geral: 10029.4, efetivo: 10045.4, reaisInformados: 2 }
 
+// Re-renderiza a mesma raiz com novos dados, como o Next faz depois do revalidatePath.
+let renderizar: (ativos: LinhaFolhaDados[]) => Promise<void> = async () => {}
+
 async function montar(ativos: LinhaFolhaDados[] = [ana, bia, caio]) {
   const React = (await import('react')).default
   const { act } = await import('react')
@@ -45,12 +48,17 @@ async function montar(ativos: LinhaFolhaDados[] = [ana, bia, caio]) {
   document.body.appendChild(el)
   const raiz = createRoot(el)
   raizes.push(raiz)
-  await act(async () => { raiz.render(React.createElement(FolhaMesTabela, { ativos, totais, mes: '2026-10' })) })
+  renderizar = novos => act(async () => { raiz.render(React.createElement(FolhaMesTabela, { ativos: novos, totais, mes: '2026-10' })) })
+  await renderizar(ativos)
   return el
 }
 
 const texto = () => document.body.textContent ?? ''
-const seta = (nome: string) => document.querySelector<HTMLButtonElement>(`button[aria-label="Ver detalhes de ${nome}"]`)!
+const setas = (nome: string) => [...document.querySelectorAll<HTMLButtonElement>(`button[aria-label="Ver detalhes de ${nome}"]`)]
+const seta = (nome: string) => setas(nome)[0]!
+const estado = (nome: string, valor: string) => setas(nome).length > 0 && setas(nome).every(b => b.getAttribute('aria-expanded') === valor)
+const aberta = (nome: string) => estado(nome, 'true')
+const fechada = (nome: string) => estado(nome, 'false')
 async function clicar(el: Element) {
   const { act } = await import('react')
   await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
@@ -78,18 +86,21 @@ test('a situação do valor real aparece na linha: confere, sem valor, diferenç
   assert.match(texto(), /Real \+R\$ 16,00/)
 })
 
-test('um campo de valor real por pessoa, e não um por largura', async () => {
+test('um campo de valor real por pessoa, e não um por largura (fechado e com o detalhe aberto)', async () => {
   await montar()
-  assert.equal(document.querySelectorAll('input[aria-label^="Valor real pago de"]').length, 3)
+  const campos = () => document.querySelectorAll('input[aria-label^="Valor real pago de"]').length
+  assert.equal(campos(), 3)
+  await clicar(seta('Vendedor A'))
+  assert.equal(campos(), 3)
 })
 
 test('a seta abre o detalhe só da linha dela e fecha no segundo clique', async () => {
   await montar()
-  assert.equal(seta('Vendedor A').getAttribute('aria-expanded'), 'false')
+  assert.ok(fechada('Vendedor A'))
   assert.doesNotMatch(texto(), /Faixa OTE atingida/)
   await clicar(seta('Vendedor A'))
-  assert.equal(seta('Vendedor A').getAttribute('aria-expanded'), 'true')
-  assert.equal(seta('Mecânico D').getAttribute('aria-expanded'), 'false')
+  assert.ok(aberta('Vendedor A'))
+  assert.ok(fechada('Mecânico D'))
   assert.match(texto(), /Faixa OTE atingida/)
   await clicar(seta('Vendedor A'))
   assert.doesNotMatch(texto(), /Faixa OTE atingida/)
@@ -117,4 +128,15 @@ test('detalhe de quem não tem regra, premiação nem adiantamento diz isso em p
 test('sem funcionário ativo, a tabela avisa em vez de ficar vazia', async () => {
   await montar([])
   assert.match(texto(), /Nenhum funcionário ativo configurado/)
+})
+
+test('salvar o valor real (nova leitura da página) mantém o detalhe aberto e o mesmo campo', async () => {
+  await montar()
+  await clicar(seta('Vendedor A'))
+  const campo = document.querySelector('input[aria-label="Valor real pago de Vendedor A"]')
+  await renderizar([{ ...ana, valorReal: 4200 }, bia, caio])
+  assert.ok(aberta('Vendedor A'))
+  assert.match(texto(), /Faixa OTE atingida/)
+  assert.equal(document.querySelector('input[aria-label="Valor real pago de Vendedor A"]'), campo)
+  assert.match(texto(), /Real \+R\$\u00a019,60/)
 })
