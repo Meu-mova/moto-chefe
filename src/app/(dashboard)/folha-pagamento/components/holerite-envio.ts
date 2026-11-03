@@ -69,14 +69,15 @@ export function useEnvioHolerite(funcionarioId: string, mes: string) {
 
   async function abrir(h: HoleriteRow) {
     ocupar(h.tipo, true)
+    // A janela é aberta ANTES do await: navegador bloqueia window.open que acontece depois de
+    // uma promise, por não ser mais gesto do usuário.
+    const aba = window.open('', '_blank')
     try {
-      // A janela é aberta ANTES do await: navegador bloqueia window.open que acontece depois de
-      // uma promise, por não ser mais gesto do usuário.
-      const aba = window.open('', '_blank')
       const url = await getHoleriteUrlAction(h.id)
       if (aba) aba.location.href = url
       else window.location.href = url
     } catch (e: unknown) {
+      aba?.close()
       toast.error(mensagemDe(e, 'Erro ao abrir o holerite'))
     } finally {
       ocupar(h.tipo, false)
