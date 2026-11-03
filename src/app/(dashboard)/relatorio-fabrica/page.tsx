@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { carregarRelatorioFabrica } from '@/lib/queries/relatorio-fabrica'
 import { PrintButton } from './print-button'
+import { MARCA_DA_FABRICA } from '@/lib/modelos-da-conta'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -110,11 +111,10 @@ export default async function RelatorioFabricaPage({
         </table>
       </div>
 
-      {lojasForaNoGrupo.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Não entram neste relatório: {lojasForaNoGrupo.map(l => l.nome).join(', ')}.
-        </p>
-      )}
+      <p className="text-xs text-muted-foreground">
+        Só motos {MARCA_DA_FABRICA}; outras marcas não entram.
+        {lojasForaNoGrupo.length > 0 && <> Também não entram as lojas: {lojasForaNoGrupo.map(l => l.nome).join(', ')}.</>}
+      </p>
     </div>
   )
 }

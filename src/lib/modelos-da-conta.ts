@@ -13,9 +13,11 @@ const daPlataformaOuDa = (coluna: typeof modelos.contaId | typeof modeloApelidos
 // listas de escolha: moto já gravada com modelo de marca escondida continua aparecendo.
 // Sem next/headers, para ser testado contra o banco.
 
-// Conta nova nasce vendo só a marca da fábrica (decisão do Luis, 21/10). A grafia
-// tem de bater com `modelos.marca`.
-export const MARCAS_DA_CONTA_NOVA = ['MotoChefe']
+// A marca da fábrica. A grafia tem de bater com `modelos.marca`.
+export const MARCA_DA_FABRICA = 'MotoChefe'
+
+// Conta nova nasce vendo só a marca da fábrica (decisão do Luis, 21/10).
+export const MARCAS_DA_CONTA_NOVA = [MARCA_DA_FABRICA]
 
 // Valor visto pela Conta: o ajuste dela (#476) ou, sem ajuste, o original.
 const comAjuste = <T>(ajuste: unknown, original: unknown) => sql<T>`coalesce(${ajuste}, ${original})`
