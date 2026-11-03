@@ -11,6 +11,7 @@ import type { DadosAtivacao } from '@/lib/ativacao-cliente'
 import { aplicarCertificadoAction, aplicarPortalAction, criarLojaAtivacaoAction, criarUsuariosAtivacaoAction, dadosAtivacaoAction } from '../actions'
 import type { ResultadoUsuario } from '@/lib/ativacao-usuarios'
 import { PAPEIS_ADESAO } from '@/lib/adesao'
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 
 // "Ativar cliente" (#292): loja, usuários, certificado A1 e login do portal saem da adesão
 // para o grupo e a loja pelo servidor. Passos nas abas do detalhe (#312), não em diálogo:
@@ -158,7 +159,7 @@ function PassoUsuarios({ adesaoId, dados, aoAplicar }: Passo) {
           <li key={u.email} className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {u.temAcesso ? <Check aria-hidden className="h-4 w-4 text-primary-text" /> : <Circle aria-hidden className="h-4 w-4 text-muted-foreground" />}
             <span>{u.nome}</span>
-            <span className="text-muted-foreground">· {u.email} · {ROTULO_PAPEL.get(u.papel) ?? u.papel}</span>
+            <span className="text-muted-foreground">· {u.email} · {ROTULO_PAPEL.get(u.papel) ?? rotuloDoPapelGravado(u.papel)}</span>
             {u.temAcesso ? <span className="text-xs text-muted-foreground">(já tem acesso)</span>
               : dados.lojas.length > 1 && (
                 <>

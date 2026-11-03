@@ -40,9 +40,9 @@ test('resumo de cada ação sensível', () => {
   assert.equal(resumoDoEvento(ev({ tipo: 'venda_cancelada', detalhe: { numeroVenda: 30035, cliente: 'Fulano', valor: '7990.00', motivo: 'desistiu' } })), 'Venda #30035 · Fulano · R$ 7.990,00 · “desistiu”')
   assert.equal(resumoDoEvento(ev({ tipo: 'nf_emitida', detalhe: { origem: 'mova', numeroNf: '415', numeroVenda: 30041, ambiente: 'Homologacao', status: 'Autorizada' } })), 'NF 415 da venda #30041 · Autorizada · homologação')
   assert.equal(resumoDoEvento(ev({ tipo: 'nf_cancelada', detalhe: { numeroNf: '415', motivo: 'erro', extemporaneo: true, ambiente: 'Producao' } })), 'NF 415 · “erro” · extemporâneo')
-  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['papel'], papelAntes: 'vendedor', papel: 'aux_adm' } })), 'Bruno · alterado: função (vendedor → aux_adm)')
+  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['papel'], papelAntes: 'vendedor', papel: 'aux_adm' } })), 'Bruno · alterado: função (Vendedor → Aux. Administrativo)')
   assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Marina', acao: 'alterado', campos: ['papel', 'cargoId'], papelAntes: 'vendedor', papel: 'cargo', cargo: 'Gerente' } })),
-    'Marina · alterado: função, cargo (vendedor → cargo Gerente)', 'atribuir cargo diz qual')
+    'Marina · alterado: função, cargo (Vendedor → cargo Gerente)', 'atribuir cargo diz qual')
   assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Marina', acao: 'alterado', campos: ['cargoId'], cargoAntes: 'Gerente', cargo: 'Caixa' } })),
     'Marina · alterado: cargo (cargo Gerente → cargo Caixa)', 'trocar de cargo, com o papel igual')
   assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Marina', acao: 'criado', papel: 'cargo', cargo: 'Gerente' } })),

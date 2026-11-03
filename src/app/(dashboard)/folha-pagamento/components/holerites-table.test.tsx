@@ -227,6 +227,11 @@ test('o nome e o papel de cada pessoa ficam legíveis por inteiro mesmo quando a
   assert.equal(papel.getAttribute('title'), 'Vendedor · Loja Centro')
 })
 
+test('papel admin_socio aparece como Admin Sócio', async () => {
+  await montar([], [{ id: 's', nome: 'Sócio S', papel: 'admin_socio', lojaNome: 'Loja Sul' }])
+  assert.match(texto(), /Admin Sócio · Loja Sul/)
+})
+
 test('papel aux_adm aparece como Aux. Administrativo', async () => {
   await montar()
   assert.match(texto(), /Aux\. Administrativo · Loja Centro/)

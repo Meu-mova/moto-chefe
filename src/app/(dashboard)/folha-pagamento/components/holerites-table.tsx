@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react'
 import { AlertCircle, Check, ChevronDown, ExternalLink, Filter, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { rotuloDoPapel } from '@/lib/rotulo-do-papel'
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import {
   TIPOS_HOLERITE, descricaoEnvio, resumirEnvios, rotuloEnviado,
 } from '@/lib/holerites-tela'
@@ -74,7 +74,7 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
   const chevron = useRef<HTMLDivElement>(null)
   const envio = useEnvioHolerite(f.id, mes, holeritesDaPessoa)
   const doTipo = (valor: string) => holeritesDaPessoa.find(h => h.tipo === valor)
-  const descricaoPessoa = `${rotuloDoPapel({ papel: f.papel })} · ${f.lojaNome}`
+  const descricaoPessoa = `${rotuloDoPapelGravado(f.papel)} · ${f.lojaNome}`
   const dica = (h?: HoleriteRow) => (h ? `${h.arquivoNome}. ${descricaoEnvio(h)}` : undefined)
 
   return (
