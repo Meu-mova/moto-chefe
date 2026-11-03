@@ -63,6 +63,9 @@ aqui fica a lista curta de conferência.
 - **Correção vem com teste que falhou antes dela.** Mostre a saída vermelha; refatoração sem mudança
   de comportamento diz "sem vermelho" (#607: o vermelho da correção do 4xx mostrou o `empresaId`
   ecoado). Vermelho por import ou arquivo ausente não conta.
+- **Teste de banco não conta tabela inteira** (#640: `select count(*) from contas` antes e depois falhava
+  às vezes, 3 !== 2). Os arquivos do `test:db` rodam em paralelo no mesmo banco e alguns gravam fora de
+  transação. Conferir: contagem com filtro do que o próprio teste criou (nome, id), nunca o total.
 - **Mock só na fronteira de fora** (Nota Gateway, rede, `next/navigation`). O que lê o banco roda no
   banco do `test:db` (#607: o cenário "grupo sem configuração" simulava a leitura da config e
   provava o mock, não o código).
