@@ -97,7 +97,7 @@ export async function editarCargo(
   if (cargo.papelBase !== valido.papelBase) {
     await registrarAcaoSensivelSemFalhar({
       tipo: 'permissao_alterada', usuarioId: quem.usuarioId, contaId: cargo.contaId,
-      detalhe: { alvoNome: `Cargo ${valido.nome}`, acao: 'alterado', campos: ['papel base'], papelAntes: cargo.papelBase, papel: valido.papelBase },
+      detalhe: { alvoId: id, alvoNome: `Cargo ${valido.nome}`, acao: 'alterado', campos: ['papel base'], papelAntes: cargo.papelBase, papel: valido.papelBase },
     }, exec)
   }
   return { ok: true }

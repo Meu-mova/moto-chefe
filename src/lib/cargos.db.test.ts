@@ -226,10 +226,16 @@ test('editar a base grava no log de permissões, na Conta do cargo; editar só o
     assert.deepEqual(await log(), [], 'só o nome mudou')
 
     assert.deepEqual(await mod.editarCargo(tx, a.quem, a.cargoId, { nome: 'Recepção 2', papelBase: 'vendedor' }), { ok: true })
-    assert.deepEqual(await log(), [{
+    const gravado = await log()
+    assert.deepEqual(gravado, [{
       tipo: 'permissao_alterada', conta_id: a.quem.contaId,
-      detalhe: { alvoNome: 'Cargo Recepção 2', acao: 'alterado', campos: ['papel base'], papelAntes: 'aux_adm', papel: 'vendedor' },
+      detalhe: { alvoId: a.cargoId, alvoNome: 'Cargo Recepção 2', acao: 'alterado', campos: ['papel base'], papelAntes: 'aux_adm', papel: 'vendedor' },
     }])
+    // O que o administrador lê na tela de log.
+    const { resumoDoEvento } = await import('@/lib/log-acoes-tela')
+    const evento = { id: 'x', tipo: 'permissao_alterada', usuarioId: a.quem.usuarioId, usuarioNome: null, contaDoUsuario: null, contaId: a.quem.contaId,
+      grupoNome: null, ip: null, userAgent: null, dia: '2026-11-02', criadoEm: new Date(), detalhe: gravado[0].detalhe }
+    assert.equal(resumoDoEvento(evento), 'Cargo Recepção 2 · alterado: papel base (aux_adm → vendedor)')
 
     // Edição recusada não deixa rastro.
     assert.equal((await mod.editarCargo(tx, a.quem, a.cargoId, { nome: 'Recepção 2', papelBase: 'admin_geral' })).ok, false)
