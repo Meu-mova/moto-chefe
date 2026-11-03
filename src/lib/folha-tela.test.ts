@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ABAS_FOLHA, avisoDaAba, hrefComFiltro, mesAdjacente, rotuloMes } from './folha-tela'
+import { ABAS_FOLHA, avisoDaAba, descreverRegra, diferencaValorReal, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
 
 test('mesAdjacente: vira o ano em dezembro e em janeiro', () => {
   assert.equal(mesAdjacente('2026-12', 1), '2027-01')
@@ -52,4 +52,27 @@ test('a página tem um painel para cada aba de ABAS_FOLHA, na mesma ordem', () =
   const paineis = [...pagina.matchAll(/<TabsContent value="([^"]+)"/g)].map(m => m[1])
   // Renomear uma aba num lado só deixaria o painel nunca mostrado, sem erro.
   assert.deepEqual(paineis, ABAS_FOLHA.map(a => a.id))
+})
+
+// O espaço entre "R$" e o número é o não separável (U+00A0) que o toLocaleString põe.
+test('diferencaValorReal: sem valor real não há diferença; centavo de arredondamento é zero', () => {
+  assert.equal(diferencaValorReal(null, 4180.4), null)
+  assert.equal(diferencaValorReal(4180.4, 4180.4), 0)
+  assert.equal(diferencaValorReal(4180.404, 4180.4), 0)
+  assert.equal(diferencaValorReal(2400, 2384), 16)
+  assert.equal(diferencaValorReal(2380, 2384), -4)
+})
+
+test('situacaoValorReal: o texto da linha no celular', () => {
+  assert.deepEqual(situacaoValorReal(null, 3165), { tipo: 'sem', texto: 'Sem valor real' })
+  assert.deepEqual(situacaoValorReal(4180.4, 4180.4), { tipo: 'confere', texto: 'Real confere' })
+  assert.deepEqual(situacaoValorReal(4180.404, 4180.4), { tipo: 'confere', texto: 'Real confere' })
+  assert.deepEqual(situacaoValorReal(2400, 2384), { tipo: 'diverge', texto: 'Real +R$\u00a016,00' })
+  assert.deepEqual(situacaoValorReal(2380, 2384), { tipo: 'diverge', texto: 'Real -R$\u00a04,00' })
+})
+
+test('descreverRegra: percentual, base em minúsculas e o valor sobre o qual incidiu', () => {
+  const regra = { percentual: 1, base: 'proprias_motos', valorBase: 183040 }
+  assert.equal(descreverRegra(regra), '1% motos vendidas por ele · R$\u00a0183.040,00')
+  assert.equal(descreverRegra({ ...regra, percentual: 0.05, valorBase: 200000 }), '0,05% motos vendidas por ele · R$\u00a0200.000,00')
 })
