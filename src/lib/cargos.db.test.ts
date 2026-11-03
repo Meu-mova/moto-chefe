@@ -255,3 +255,24 @@ test('nome dos cargos por id: só da Conta pedida; id de outra Conta, nulo ou in
     assert.deepEqual(await mod.nomesDosCargos(tx, [a.quem.contaId], [null]), {})
   })
 })
+
+test('qualquer gestor da Conta edita e apaga cargo criado por outro; o de outra Conta, não (#617)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const outroDaA = { ...a.quem, usuarioId: randomUUID() }
+    const outroDaB = { ...b.quem, usuarioId: randomUUID() }
+    assert.deepEqual(await mod.editarCargo(tx, outroDaA, a.cargoId, { nome: 'Recepção 2', papelBase: 'vendedor' }), { ok: true })
+    const [editado] = await linhas(tx, sql`select nome, papel_base from cargos where id = ${a.cargoId}`)
+    assert.deepEqual(editado, { nome: 'Recepção 2', papel_base: 'vendedor' })
+    // Com usuário, continua sem apagar, seja quem for o gestor.
+    const [usuario] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, cargo_id, conta_id) values (${randomUUID()}, 'U', 'u617@exemplo.com', 'cargo', ${a.lojaId}, ${a.cargoId}, ${a.quem.contaId}) returning id`)
+    assert.ok(usuario)
+    assert.deepEqual(await mod.apagarCargo(tx, outroDaA, a.cargoId), { ok: false, erro: 'Cargo em uso por 1 usuário' })
+    // Outro gestor da Conta B não alcança o cargo da A, com a mesma frase do id inexistente.
+    assert.deepEqual(await mod.editarCargo(tx, outroDaB, a.cargoId, { nome: 'X', papelBase: 'vendedor' }), { ok: false, erro: 'Cargo não encontrado' })
+    assert.deepEqual(await mod.apagarCargo(tx, outroDaB, a.cargoId), { ok: false, erro: 'Cargo não encontrado' })
+    await tx.execute(sql`delete from usuarios where id = ${usuario.id}`)
+    assert.deepEqual(await mod.apagarCargo(tx, outroDaA, a.cargoId), { ok: true })
+  })
+})
