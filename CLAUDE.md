@@ -48,7 +48,8 @@ mais se erra:
 - **Jamais uma Conta lê, sobrescreve ou se liga a dado de outra Conta**, qualquer que seja o
   dado: tela, busca, importação, upsert, contagem, mensagem de erro. Sem exceção.
 - Como aplicar: seção "Multi-grupo e permissões" do `AGENTS.md`. Em revisão de PR, conferir isso
-  primeiro; achado aqui bloqueia o merge.
+  primeiro; achado aqui bloqueia o merge e nunca é nitpick, nem leitura por id só para exibir
+  ou logar (#616: o nome do cargo ia para o log lido sem a Conta, e a revisão aprovou).
 - Opção que depende do cliente (maquininha, banco, categoria, modelo, integração) é dado do
   grupo no banco, nunca lista fixa no código, que todas as Contas veriam (#460). Em revisão,
   procurar `const`/`type`/`<option>` com opção de cliente e nome, CNPJ ou e-mail escrito no código.

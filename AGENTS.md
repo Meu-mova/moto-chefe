@@ -99,12 +99,15 @@ recriar tabelas que já existem.
 O fluxo real:
 1. Edite `src/lib/db/schema.ts`.
 2. Escreva SQL à mão em `src/lib/db/migrations/NNNN_nome.sql` — **confira o
-   próximo número livre** (`ls src/lib/db/migrations/*.sql | tail`).
+   próximo número livre** na `dev` (`ls src/lib/db/migrations/*.sql | tail`), nos PRs abertos
+   e no staging (`migrate.ts --status`): no #616 o plano pegou a 0169, já de um PR aberto.
 3. Abra o PR: o workflow `Migrações` aplica baseline + migrações num Postgres descartável
    e barra SQL quebrado. Depois do merge na `dev`, ele mesmo aplica no **staging**.
    Para testar no staging antes do merge, aplique à mão (o CI vê que já está aplicada).
    Depois disso, não edite o arquivo nem abandone o PR sem desfazer no staging: o
-   `migrate.ts` acusa checksum diferente ou registro sem arquivo, e o job do staging trava:
+   `migrate.ts` acusa checksum diferente ou registro sem arquivo, e o job do staging trava.
+   PR que vai ficar parado também se desfaz no staging: a 0169/0170 do #590/#591, sem
+   arquivo na `dev`, fizeram o job falhar em todo merge e deixaram a 0171 do #623 de fora:
    `npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --aplicar`
    (`--status` mostra o que está pendente sem aplicar nada).
 4. Confira lá: `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select ..."`.
