@@ -10,10 +10,10 @@ export function papelDasListas(papel: string, papelBaseDoCargo: string | null): 
   return papel === 'cargo' && papelBaseDoCargo ? papelBaseDoCargo : papel
 }
 
-export function guardaAprovacao(papelDasListas: string): boolean {
-  return COM_APROVACAO.includes(papelDasListas)
+export function guardaAprovacao(papel: string): boolean {
+  return COM_APROVACAO.includes(papel)
 }
 
-export function guardaAcessoAGrupos(papelDasListas: string): boolean {
-  return COM_ACESSO_A_GRUPOS.includes(papelDasListas)
+export function guardaAcessoAGrupos(papel: string): boolean {
+  return COM_ACESSO_A_GRUPOS.includes(papel)
 }
