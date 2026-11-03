@@ -1,20 +1,14 @@
 // Na produção, a nota autorizada fatura a venda e o revalidatePath redesenha o
 // Showroom sem a moto, que passou a vendida e o filtro padrão esconde. Aqui a tabela é
 // redesenhada assim, e o diálogo da NF aberto tem de continuar o mesmo (nf-saida-contexto).
-import { JSDOM } from 'jsdom'
 import { createElement, useState } from 'react'
-import test, { mock } from 'node:test'
+import test, { after, mock } from 'node:test'
 import assert from 'node:assert'
 import type { MotoComDetalhes } from '@/lib/queries/motos'
+import { montarDom } from '@/test/montar-dom'
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true })
-const g = globalThis as Record<string, unknown>
-g.window = dom.window; g.document = dom.window.document
-Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
-for (const k of ['HTMLElement', 'HTMLButtonElement', 'Element', 'Node', 'Event', 'MouseEvent', 'KeyboardEvent', 'FocusEvent', 'NodeList', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame']) {
-  g[k] = (dom.window as unknown as Record<string, unknown>)[k]
-}
-g.IS_REACT_ACT_ENVIRONMENT = true
+const { dom, desmontar } = montarDom()
+after(desmontar)
 
 // O Link do Next precisa do roteador; para o teste basta um <a>.
 mock.module('next/link', { defaultExport: ({ href, children }: { href: string; children: React.ReactNode }) => createElement('a', { href }, children) })
