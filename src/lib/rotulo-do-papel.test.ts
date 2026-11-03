@@ -36,3 +36,7 @@ test('papel gravado: rótulo; valor que não é papel volta como veio', () => {
   assert.equal(rotuloDoPapelGravado('admin_rede'), 'Admin de Rede')
   assert.equal(rotuloDoPapelGravado('xyz'), 'xyz')
 })
+
+test('nome herdado do Object não vira rótulo: volta como veio', () => {
+  assert.equal(rotuloDoPapelGravado('toString'), 'toString')
+})
