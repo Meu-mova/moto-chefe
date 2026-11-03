@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { oQueABaseFaz } from './base-do-cargo'
 
-// Valores escritos à mão a partir das regras de hoje (spec #615): se uma regra mudar, o teste
-// avisa que a tela de cargos mostraria a base errada.
+// Valores escritos à mão a partir das regras de hoje (spec #615). A tela acompanha a regra sozinha;
+// este teste só avisa, quando uma regra de papel muda, que estes literais pedem revisão.
 const resumo = ({ aprovaVenda, cancelaVenda, operaCaixa, emiteNF }: ReturnType<typeof oQueABaseFaz>) => ({ aprovaVenda, cancelaVenda, operaCaixa, emiteNF })
 const NADA = { aprovaVenda: false, cancelaVenda: 'nao', operaCaixa: false, emiteNF: false } as const
 
