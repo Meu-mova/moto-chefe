@@ -298,7 +298,7 @@ export async function editarUsuarioAction(id: string, dados: {
     const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
     const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
     if (campos.length) {
-      const detalhe = detalheDaMudancaDePermissao(permissoesDe(antes), permissoesDe(depois), campos, await nomesDosCargos(db, [antes.cargoId, depois.cargoId]))
+      const detalhe = detalheDaMudancaDePermissao(permissoesDe(antes), permissoesDe(depois), campos, await nomesDosCargos(db, [antes.contaId, depois.contaId], [antes.cargoId, depois.cargoId]))
       await registrarPermissao(admin.id, depois, detalhe)
       // Saiu de uma Conta para outra: o admin da Conta antiga também precisa ver.
       if (antes.contaId !== depois.contaId) await registrarPermissao(admin.id, antes, detalhe)

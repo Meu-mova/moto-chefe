@@ -62,11 +62,15 @@ export async function listarCargos(exec: Executor, quem: Pick<QuemGerenciaCargos
   return exec.select().from(cargos).where(daConta(quem)).orderBy(asc(cargos.nome))
 }
 
-/** Nome por id, para o log dizer qual cargo; os ids vêm do cadastro do usuário, nunca de entrada da tela. */
-export async function nomesDosCargos(exec: Executor, ids: (string | null)[]): Promise<Record<string, string>> {
+/** Nome por id, para o log dizer qual cargo. Só cargo das Contas informadas; o resto fica de fora. */
+export async function nomesDosCargos(
+  exec: Executor, contaIds: (string | null)[], ids: (string | null)[],
+): Promise<Record<string, string>> {
   const validos = ids.filter((i): i is string => !!i)
-  if (!validos.length) return {}
-  const linhas = await exec.select({ id: cargos.id, nome: cargos.nome }).from(cargos).where(inArray(cargos.id, validos))
+  const contas = contaIds.filter((c): c is string => !!c)
+  if (!validos.length || !contas.length) return {}
+  const linhas = await exec.select({ id: cargos.id, nome: cargos.nome }).from(cargos)
+    .where(and(inArray(cargos.id, validos), inArray(cargos.contaId, contas)))
   return Object.fromEntries(linhas.map(l => [l.id, l.nome]))
 }
 

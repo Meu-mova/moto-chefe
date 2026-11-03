@@ -243,10 +243,15 @@ test('editar a base grava no log de permissões, na Conta do cargo; editar só o
   })
 })
 
-test('nome dos cargos por id, para o log dizer qual cargo; id nulo ou inexistente fica de fora (#616)', async () => {
+test('nome dos cargos por id: só da Conta pedida; id de outra Conta, nulo ou inexistente fica de fora (#616)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
-    assert.deepEqual(await mod.nomesDosCargos(tx, [a.cargoId, null, '00000000-0000-0000-0000-000000000000']), { [a.cargoId]: 'Recepção' })
-    assert.deepEqual(await mod.nomesDosCargos(tx, [null]), {})
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const inexistente = '00000000-0000-0000-0000-000000000000'
+    assert.deepEqual(await mod.nomesDosCargos(tx, [a.quem.contaId], [a.cargoId, null, inexistente]), { [a.cargoId]: 'Recepção' })
+    // O id da Conta A pedido pela Conta B não devolve nome, igual ao inexistente.
+    assert.deepEqual(await mod.nomesDosCargos(tx, [b.quem.contaId], [a.cargoId, inexistente]), {})
+    assert.deepEqual(await mod.nomesDosCargos(tx, [b.quem.contaId], [a.cargoId, b.cargoId]), { [b.cargoId]: 'Recepção' })
+    assert.deepEqual(await mod.nomesDosCargos(tx, [a.quem.contaId], [null]), {})
   })
 })
