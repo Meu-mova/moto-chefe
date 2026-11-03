@@ -35,14 +35,15 @@ test('grupo na Conta existente: nasce nela, sem Conta nova nem marcas novas, e a
   await assert.rejects(db.transaction(async tx => {
     const a = await linha(tx, sql`insert into contas (nome) values ('Rede A') returning id`)
     const b = await linha(tx, sql`insert into contas (nome) values ('Rede B') returning id`)
-    const contas = async () => Number((await linha(tx, sql`select count(*)::int n from contas`)).n)
+    // Pelo nome do grupo, não pelo banco todo: outros arquivos do test:db gravam Contas ao mesmo tempo.
+    const contasDoGrupo = async () => Number((await linha(tx, sql`select count(*)::int n from contas where nome = 'Filial A2'`)).n)
     const marcasA = async () => Number((await linha(tx, sql`select count(*)::int n from conta_marcas where conta_id = ${a.id}`)).n)
-    const [antesContas, antesMarcas] = [await contas(), await marcasA()]
+    const antesMarcas = await marcasA()
 
     const r = await criarGrupo(tx, dados('Filial A2', '00000000000191'), String(a.id))
     assert.equal(r.contaId, a.id)
     assert.equal((await linha(tx, sql`select conta_id from grupos where id = ${r.grupoId}`)).conta_id, a.id)
-    assert.equal(await contas(), antesContas, 'nenhuma Conta nova')
+    assert.equal(await contasDoGrupo(), 0, 'nenhuma Conta nova')
     assert.equal(await marcasA(), antesMarcas, 'marcas da Conta A intactas')
 
     const novo = { id: r.grupoId, contaId: String(a.id) }
@@ -72,10 +73,10 @@ test('Conta nova (padrão): cria a Conta com as marcas; Conta inexistente é rec
     assert.equal((await linha(tx, sql`select nome from contas where id = ${r.contaId}`)).nome, 'Loja Nova')
     assert.ok(Number((await linha(tx, sql`select count(*)::int n from conta_marcas where conta_id = ${r.contaId}`)).n) > 0)
 
-    const antes = Number((await linha(tx, sql`select count(*)::int n from grupos`)).n)
+    const fantasmas = async () => Number((await linha(tx, sql`select count(*)::int n from grupos where nome = 'Fantasma'`)).n)
     await assert.rejects(tx.transaction(sp => criarGrupo(sp, dados('Fantasma', '00000000000353'), '00000000-0000-0000-0000-000000000000')), /Conta não encontrada/)
     await assert.rejects(tx.transaction(sp => criarGrupo(sp, dados('Fantasma', '00000000000353'), 'nao-e-uuid')), /Conta não encontrada/)
-    assert.equal(Number((await linha(tx, sql`select count(*)::int n from grupos`)).n), antes)
+    assert.equal(await fantasmas(), 0)
     throw new Desfazer()
   }), Desfazer)
 })
