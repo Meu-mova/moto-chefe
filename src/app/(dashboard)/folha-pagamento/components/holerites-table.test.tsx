@@ -219,6 +219,13 @@ test('Remover só chama o servidor se a pessoa confirmar', async () => {
   assert.deepEqual(toasts, ['Holerite removido'])
 })
 
+test('o nome e o papel de cada pessoa ficam legíveis por inteiro mesmo quando a linha os corta', async () => {
+  await montar()
+  const [nome, papel] = [...linhas()[0].querySelectorAll('[role=rowheader] > p')]
+  assert.equal(nome.getAttribute('title'), 'Vendedor A')
+  assert.equal(papel.getAttribute('title'), 'Vendedor · Loja Centro')
+})
+
 test('papel aux_adm aparece como Aux. Administrativo', async () => {
   await montar()
   assert.match(texto(), /Aux\. Administrativo · Loja Centro/)

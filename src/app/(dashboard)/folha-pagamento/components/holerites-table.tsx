@@ -74,6 +74,7 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
   const chevron = useRef<HTMLDivElement>(null)
   const envio = useEnvioHolerite(f.id, mes)
   const doTipo = (valor: string) => holeritesDaPessoa.find(h => h.tipo === valor)
+  const descricaoPessoa = `${rotuloDoPapel({ papel: f.papel })} · ${f.lojaNome}`
   const dica = (h?: HoleriteRow) => (h ? `${h.arquivoNome}. ${descricaoEnvio(h)}` : undefined)
 
   return (
@@ -84,10 +85,12 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
         if (!semDetalhe && !(e.target as HTMLElement).closest('button, a, input')) setAberta(v => !v)
       }}>
       <div role="rowheader" className="min-w-0 px-4 py-3">
-        <p className="font-medium">{f.nome}</p>
+        {/* A partir de 960 px a coluna do nome fica estreita e a linha precisa ter a mesma altura
+            em todas: o texto vira uma linha com reticências e o inteiro fica no title. */}
+        <p title={f.nome} className="font-medium @[960px]/folha:truncate">{f.nome}</p>
         <input ref={envio.inputRef} type="file" accept="application/pdf" className="hidden"
           onChange={e => { const arquivo = e.target.files?.[0]; if (arquivo) void envio.enviar(arquivo) }} />
-        <p className="text-xs text-muted-foreground">{rotuloDoPapel({ papel: f.papel })} · {f.lojaNome}</p>
+        <p title={descricaoPessoa} className="text-xs text-muted-foreground @[960px]/folha:truncate">{descricaoPessoa}</p>
         <div className="mt-1.5 flex flex-wrap gap-1.5 @[680px]/folha:hidden">
           {TIPOS_HOLERITE.map(t => (
             <Etiqueta key={t.valor} enviado={!!doTipo(t.valor)}>
