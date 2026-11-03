@@ -152,3 +152,14 @@ test('a ordem do Tab é a ordem visual: celular seta → campo; tablet e desktop
   })
   assert.deepEqual(foco, ['seta-celular', 'campo', 'seta-tablet'])
 })
+
+test('a seta só aponta para o detalhe (aria-controls) quando ele existe', async () => {
+  await montar()
+  assert.ok(setas('Vendedor A').every(b => !b.hasAttribute('aria-controls')))
+  await clicar(seta('Vendedor A'))
+  for (const b of setas('Vendedor A')) {
+    const alvo = document.getElementById(b.getAttribute('aria-controls') ?? '')
+    assert.ok(alvo, 'o aria-controls aponta para um elemento que existe')
+    assert.match(alvo.textContent ?? '', /Faixa OTE atingida/)
+  }
+})

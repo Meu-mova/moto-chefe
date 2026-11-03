@@ -19,7 +19,7 @@ const COR_DA_SITUACAO = { sem: 'text-muted-foreground', confere: 'text-success',
 function SetaDetalhe({ f, aberta, alternar, idDetalhe }: { f: LinhaFolhaDados; aberta: boolean; alternar: () => void; idDetalhe: string }) {
   return (
     <Button variant="ghost" size="icon" className="size-11 text-muted-foreground @[960px]/folha:size-8" aria-expanded={aberta}
-      aria-controls={idDetalhe} aria-label={`Ver detalhes de ${f.nome}`} onClick={alternar}>
+      aria-controls={aberta ? idDetalhe : undefined} aria-label={`Ver detalhes de ${f.nome}`} onClick={alternar}>
       <ChevronDown className={aberta ? 'rotate-180' : ''} />
     </Button>
   )
