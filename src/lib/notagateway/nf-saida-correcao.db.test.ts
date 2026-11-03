@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -39,19 +40,16 @@ const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q
 const CNPJ = '11222333000181'
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'CO347 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'CO347 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja CO347 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [aux] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Aux', ${'aux-co347' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}) returning id`)
+  const base = await semearContaBase(tx, { prefixo: 'CO347', nome, cnpj })
+  const auxId = await semearUsuario(tx, base, { papel: 'aux_adm', rotulo: 'aux' })
   const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
     values ('M', ${'CO347' + nome}, 'autopropelido', '1000', 'hub', '32') returning id`)
   // Cliente com o mesmo CNPJ em cada Conta: a IE gravada numa não pode chegar na outra.
   await linhas(tx, sql`insert into clientes (nome, tipo_pessoa, cpf_cnpj, conta_id, indicador_ie, inscricao_estadual)
-    values ('Empresa', 'juridica', ${CNPJ}, ${conta.id}, 'contribuinte', '111')`)
+    values ('Empresa', 'juridica', ${CNPJ}, ${base.contaId}, 'contribuinte', '111')`)
   return {
-    contaId: conta.id as string, grupoId: grupo.id as string, lojaId: loja.id as string, auxId: aux.id as string, modeloId: modelo.id as string,
-    usuario: { papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string },
+    contaId: base.contaId, grupoId: base.grupoId, lojaId: base.lojaId, auxId, modeloId: modelo.id as string,
+    usuario: { papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId },
   }
 }
 

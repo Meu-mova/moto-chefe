@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { and, eq, isNull, sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -37,22 +38,19 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'VD404 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'VD404 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja VD404 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [aux] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Aux', ${'aux-vd404' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}) returning id`)
+  const base = await semearContaBase(tx, { prefixo: 'VD404', nome, cnpj })
+  const auxId = await semearUsuario(tx, base, { papel: 'aux_adm', rotulo: 'aux' })
   const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${'VD404 ' + nome}, 'autopropelido', '1000', 'hub', '32') returning id`)
   const [moto] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status)
-    values (${'VD404-' + nome}, ${modelo.id}, ${loja.id}, 'CINZA', '1', 'vendida') returning id`)
-  const [pedido] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${moto.id}, ${loja.id}, ${aux.id}, 'efetivado') returning id`)
+    values (${'VD404-' + nome}, ${modelo.id}, ${base.lojaId}, 'CINZA', '1', 'vendida') returning id`)
+  const [pedido] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${moto.id}, ${base.lojaId}, ${auxId}, 'efetivado') returning id`)
   const [venda] = await linhas(tx, sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
-    values (${pedido.id}, ${moto.id}, ${loja.id}, ${aux.id}, ${aux.id}, 'Cliente', '52998224725', 1000, 'pix') returning id`)
+    values (${pedido.id}, ${moto.id}, ${base.lojaId}, ${auxId}, ${auxId}, 'Cliente', '52998224725', 1000, 'pix') returning id`)
   return {
     motoId: moto.id as string,
     vendaId: venda.id as string,
-    aux: { papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string },
-    socio: { papel: 'admin_socio', lojaId: null, gruposAcesso: [grupo.id as string], contaId: conta.id as string },
+    aux: { papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId },
+    socio: { papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId },
   }
 }
 

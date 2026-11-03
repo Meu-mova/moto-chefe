@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -41,15 +42,11 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'PC195 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'PC195 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja PC195 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [vend] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Vend', ${'vend-pc195' + nome + '@teste.invalid'}, 'vendedor', ${loja.id}) returning id`)
-  const contaId = conta.id as string
-  const peca = await mod.inserirPeca(tx, contaId, { nome: 'Retrovisor ' + nome, valor: 50 })
-  assert.equal(await saldos.definirSaldo(tx, peca.id, loja.id, 8), true)
-  return { contaId, lojaId: loja.id as string, vendId: vend.id as string, pecaId: peca.id }
+  const base = await semearContaBase(tx, { prefixo: 'PC195', nome, cnpj })
+  const vendId = await semearUsuario(tx, base, { papel: 'vendedor', rotulo: 'vend' })
+  const peca = await mod.inserirPeca(tx, base.contaId, { nome: 'Retrovisor ' + nome, valor: 50 })
+  assert.equal(await saldos.definirSaldo(tx, peca.id, base.lojaId, 8), true)
+  return { contaId: base.contaId, lojaId: base.lojaId, vendId, pecaId: peca.id }
 }
 
 const estoque = (tx: Tx, c: { pecaId: string; lojaId: string }) => saldos.saldoNaLoja(tx, c.pecaId, c.lojaId)

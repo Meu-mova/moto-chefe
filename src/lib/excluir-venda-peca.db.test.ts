@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -35,18 +36,14 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'EX404 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'EX404 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja EX404 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [aux] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Aux', ${'aux-ex404' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}) returning id`)
-  const [socio] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Socio', ${'socio-ex404' + nome + '@teste.invalid'}, 'admin_socio', null) returning id`)
-  const [peca] = await linhas(tx, sql`with p as (insert into pecas_catalogo (nome, valor, conta_id) values ('Retrovisor', 50, ${conta.id}) returning id) insert into pecas_estoque_loja (peca_id, loja_id, quantidade) select id, ${loja.id}, 8 from p returning peca_id as id`)
+  const base = await semearContaBase(tx, { prefixo: 'EX404', nome, cnpj })
+  const auxId = await semearUsuario(tx, base, { papel: 'aux_adm', rotulo: 'aux' })
+  const socioId = await semearUsuario(tx, base, { papel: 'admin_socio', rotulo: 'socio', semLoja: true })
+  const [peca] = await linhas(tx, sql`with p as (insert into pecas_catalogo (nome, valor, conta_id) values ('Retrovisor', 50, ${base.contaId}) returning id) insert into pecas_estoque_loja (peca_id, loja_id, quantidade) select id, ${base.lojaId}, 8 from p returning peca_id as id`)
   return {
-    grupoId: grupo.id as string, lojaId: loja.id as string, pecaId: peca.id as string,
-    aux: { id: aux.id as string, papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string },
-    socio: { id: socio.id as string, papel: 'admin_socio', lojaId: null, gruposAcesso: [grupo.id as string], contaId: conta.id as string },
+    grupoId: base.grupoId, lojaId: base.lojaId, pecaId: peca.id as string,
+    aux: { id: auxId, papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId },
+    socio: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId },
   }
 }
 

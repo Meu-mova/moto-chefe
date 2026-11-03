@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -35,23 +36,20 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'VSV ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'VSV ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja VSV ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [socio] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id)
-    values (gen_random_uuid(), 'Socio', ${'socio-vsv' + nome + '@teste.invalid'}, 'admin_socio', ${loja.id}, ${conta.id}) returning id`)
+  const base = await semearContaBase(tx, { prefixo: 'VSV', nome, cnpj })
+  const socioId = await semearUsuario(tx, base, { papel: 'admin_socio', rotulo: 'socio', comConta: true })
   const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
     values ('VSV', ${'VSV ' + nome}, 'autopropelido', '1000', '', '') returning id`)
   const moto = async (chassi: string, status: string, disponibilidade: string | null) =>
     (await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
-      values (${chassi}, ${modelo.id}, ${loja.id}, 'PRETA', '1', ${status}::moto_status, ${disponibilidade}::disponibilidade_moto) returning id`))[0].id as string
+      values (${chassi}, ${modelo.id}, ${base.lojaId}, 'PRETA', '1', ${status}::moto_status, ${disponibilidade}::disponibilidade_moto) returning id`))[0].id as string
   const vender = async (motoId: string) => {
     const [pedido] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status)
-      values (${motoId}, ${loja.id}, ${socio.id}, 'efetivado') returning id`)
+      values (${motoId}, ${base.lojaId}, ${socioId}, 'efetivado') returning id`)
     await linhas(tx, sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
-      values (${pedido.id}, ${motoId}, ${loja.id}, ${socio.id}, ${socio.id}, 'Cliente', '52998224725', 1000, 'pix') returning id`)
+      values (${pedido.id}, ${motoId}, ${base.lojaId}, ${socioId}, ${socioId}, 'Cliente', '52998224725', 1000, 'pix') returning id`)
   }
-  return { contaId: conta.id as string, lojaId: loja.id as string, socioId: socio.id as string, moto, vender }
+  return { contaId: base.contaId, lojaId: base.lojaId, socioId, moto, vender }
 }
 
 const estado = async (tx: Tx, id: string) =>

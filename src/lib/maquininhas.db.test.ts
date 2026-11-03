@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -41,16 +42,13 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string, operadora: string | null) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'MQ460 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'MQ460 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja MQ460 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [vend] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Vend', ${'vend-mq460' + nome + '@teste.invalid'}, 'vendedor', ${loja.id}) returning id`)
-  const [peca] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, conta_id) values (${'Retrovisor ' + nome}, 50, ${conta.id}) returning id`)
+  const base = await semearContaBase(tx, { prefixo: 'MQ460', nome, cnpj })
+  const vendId = await semearUsuario(tx, base, { papel: 'vendedor', rotulo: 'vend' })
+  const [peca] = await linhas(tx, sql`insert into pecas_catalogo (nome, valor, conta_id) values (${'Retrovisor ' + nome}, 50, ${base.contaId}) returning id`)
   if (operadora) {
-    await linhas(tx, sql`insert into maquininhas (grupo_id, nome, operadora) values (${grupo.id}, 'Maq', ${operadora})`)
+    await linhas(tx, sql`insert into maquininhas (grupo_id, nome, operadora) values (${base.grupoId}, 'Maq', ${operadora})`)
   }
-  return { grupoId: grupo.id as string, lojaId: loja.id as string, vendId: vend.id as string, pecaId: peca.id as string }
+  return { grupoId: base.grupoId, lojaId: base.lojaId, vendId, pecaId: peca.id as string }
 }
 
 const vendaCartao = (lojaId: string, pecaId: string, operadora?: string) => ({

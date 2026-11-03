@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -38,14 +39,11 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [grupo] = await linhas(tx, sql`with c as (insert into contas (nome) values (${'RE347 ' + nome}) returning id)
-    insert into grupos (nome, cnpj, conta_id) select ${'RE347 ' + nome}, ${cnpj}, id from c returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja RE347 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [vend] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Vend', ${'vend-re347' + nome + '@teste.invalid'}, 'vendedor', ${loja.id}) returning id`)
+  const base = await semearContaBase(tx, { prefixo: 'RE347', nome, cnpj })
+  const vendId = await semearUsuario(tx, base, { papel: 'vendedor', rotulo: 'vend' })
   const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
     values ('M', ${'RE347' + nome}, 'autopropelido', '1000', 'hub', '32') returning id`)
-  return { grupoId: grupo.id as string, lojaId: loja.id as string, vendId: vend.id as string, modeloId: modelo.id as string }
+  return { grupoId: base.grupoId, lojaId: base.lojaId, vendId, modeloId: modelo.id as string }
 }
 
 async function semearVenda(tx: Tx, c: Awaited<ReturnType<typeof semearConta>>, chassi: string) {
