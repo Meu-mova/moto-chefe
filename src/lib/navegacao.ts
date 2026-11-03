@@ -5,9 +5,10 @@ import {
   HandCoins, Headset, Home, IdCard, Landmark, Layers, Megaphone, Package,
   Package2, PackageCheck, PackagePlus, QrCode, Radar, Settings2, Shield,
   ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet, FolderOpen,
-  Wrench, ListChecks, Calculator, Trophy, ReceiptText, FileSignature, BadgeDollarSign, History, Star, Network} from 'lucide-react'
+  Wrench, ListChecks, Calculator, Trophy, ReceiptText, FileSignature, BadgeDollarSign, History, Star, Network, BadgeCheck} from 'lucide-react'
 
-// 'cargo' é o papel interno de quem tem cargo da Conta (#449): sozinho não dá poder nenhum.
+// 'cargo' é o papel interno de quem tem cargo da Conta (#449): sozinho não dá poder nenhum. Com
+// cargo achado, a sessão troca 'cargo' pelo papel base (usuarioComCargo, #616).
 export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista' | 'cargo'
 export type Slug = 'comercial' | 'oficina' | 'estoque' | 'financeiro' | 'gestao' | 'configuracao' | 'plataforma'
 
@@ -42,7 +43,17 @@ export type ItemNav = {
    * Liberação individual (modulosExtras) só vale para estes papéis; os de `papeis` continuam
    * pelo papel e cargo não recebe. Entrada (#488): liberável só para aux_adm (decisão do Luis).
    */
-  liberavelPara?: Papel[]
+  liberavelPara?: (Papel | 'admin_rede')[]
+  /**
+   * Permissão, não página (#617): fora do menu e da matriz de rotas. O href é só âncora, único
+   * na tabela.
+   */
+  semTela?: true
+  /**
+   * Só o admin_geral liga ou desliga a liberação individual: nem o sócio que a tem a repassa
+   * (gestao-usuarios).
+   */
+  soAdminGeralLibera?: true
 }
 
 export type UsuarioNav = {
@@ -50,15 +61,13 @@ export type UsuarioNav = {
   papeisExtras?: string[] | null
   modulosExtras?: string[] | null
   modulosBloqueados?: string[] | null
-  /** Módulos do cargo da Conta, só para papel 'cargo' (#449). */
-  modulosDoCargo?: string[] | null
   /** Persona do admin_rede num grupo liberado de outra Conta (#517). */
   grupoLiberado?: string | null
 }
 
 // Telas da Conta inteira (dado pessoal, log): a persona do admin_rede (#517) não
 // abre, porque mostrariam os outros grupos da Conta dona.
-const FORA_DA_PERSONA = ['log', 'dados-funcionarios']
+const FORA_DA_PERSONA = ['log', 'dados-funcionarios', 'cargos']
 
 /** Resultado das regras que não cabem na tabela de papel, por id de item. */
 export type RegrasProprias = Record<string, boolean>
@@ -149,6 +158,9 @@ export const ITENS: ItemNav[] = [
   // ── Configuração: a ordem aqui é a ordem no menu, e cada `secao` vira um subtítulo.
   { id: 'usuarios',       href: '/admin/usuarios', label: 'Usuários',          icon: Users,         categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS, soPeloPapel: true },
   { id: 'log',            href: '/admin/log',      label: 'Log de acessos',    icon: History,       categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS },
+  // Gerenciar cargos (#617): o admin_geral liga por pessoa. O formulário grava o papel real, por isso
+  // o admin_rede também; a sessão o traduz para admin_socio antes de chegar aqui.
+  { id: 'cargos',         href: '/admin/usuarios#cargos', label: 'Gerenciar cargos', icon: BadgeCheck, categoria: 'configuracao', secao: 'Acesso', papeis: SUPER, liberavelPara: ['admin_socio', 'admin_rede'], oculto: true, semTela: true, soAdminGeralLibera: true },
   { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS },
   { id: 'notas-fiscais',  href: '/admin/notas-fiscais', label: 'Notas Fiscais', icon: ReceiptText,   categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: ADMINS },
   { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: SUPER, soAdminGeral: true, oculto: true },
@@ -184,7 +196,7 @@ function temPapelNav(usuario: UsuarioNav, papel: string): boolean {
 
 /** A liberação individual deste item vale para o papel? (Sem restrição, vale para todos.) */
 export function liberavelPara(item: Pick<ItemNav, 'liberavelPara'>, papel: string): boolean {
-  return !item.liberavelPara || item.liberavelPara.includes(papel as Papel)
+  return !item.liberavelPara || item.liberavelPara.some(p => p === papel)
 }
 
 function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): boolean {
@@ -194,7 +206,6 @@ function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): bo
   if (item.regraPropria) return regras[item.id] === true
   if (item.soAdminGeral) return usuario.papel === 'admin_geral'
   if (!item.soPeloPapel && liberavelPara(item, usuario.papel) && (usuario.modulosExtras ?? []).includes(item.id)) return true
-  if (!item.soPeloPapel && !item.liberavelPara && usuario.papel === 'cargo' && (usuario.modulosDoCargo ?? []).includes(item.id)) return true
   return item.papeis.some(p => temPapelNav(usuario, p))
 }
 
@@ -223,18 +234,4 @@ export function podeAcessar(usuario: UsuarioNav, href: string, regras: RegrasPro
 export function acessaModulo(usuario: UsuarioNav, id: string): boolean {
   const item = ITENS.find(i => i.id === id)
   return !!item && !item.regraPropria && visivel(item, usuario, {})
-}
-
-/**
- * Módulos que um cargo da Conta pode receber (#449). Só entra aqui o módulo cujas ações já
- * aceitam o papel 'cargo' pelo acesso ao módulo, com teste; a lista cresce PR a PR.
- */
-export const MODULOS_DE_CARGO: string[] = ['clientes']
-
-/** O que quem gerencia cargos pode marcar: os liberados para cargo que ele mesmo vê. */
-export function modulosQuePodeDar(usuario: UsuarioNav, regras: RegrasProprias, liberados = MODULOS_DE_CARGO): string[] {
-  return itensVisiveis(usuario, regras)
-    .filter(i => liberados.includes(i.id) && !i.soPeloPapel && !i.soAdminGeral && !i.regraPropria)
-    .map(i => i.id)
-    .sort()
 }

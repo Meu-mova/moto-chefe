@@ -11,8 +11,9 @@ mais se erra:
 - **Spec antes do código** (`/to-spec` + `/to-tickets`) quando a entrega vira 2+ PRs dependentes,
   traz regra de negócio nova para o Cesar validar, toca fiscal, isolamento, venda/caixa/estoque ou
   migração, ou envolve mais de uma dupla. Detalhes no `AGENTS.md` ("Antes do código").
-- **Sem código duplicado**: antes de escrever helper, tipo ou lista, procure no `src/` e reuse;
-  cópia achada vira extração em `src/lib`. Regra no `AGENTS.md` ("Antes do código").
+- **Sem código duplicado**: antes de escrever helper, tipo ou lista, leia a pasta que vai mexer
+  e os vizinhos, e procure no `src/` pelo que a coisa **faz** (não só pelo nome que você daria);
+  reuse. Cópia achada vira extração em `src/lib`. Como procurar: `AGENTS.md` ("Antes do código").
 - Tipo da issue é o **Issue Type**, não label. Só as labels da tabela do `CONTRIBUTING.md`; nova,
   só combinando com o Luis.
 - PR e commits citam **`Refs #N`, nunca `Closes #N`**: a issue só fecha no passo da release.
@@ -48,7 +49,8 @@ mais se erra:
 - **Jamais uma Conta lê, sobrescreve ou se liga a dado de outra Conta**, qualquer que seja o
   dado: tela, busca, importação, upsert, contagem, mensagem de erro. Sem exceção.
 - Como aplicar: seção "Multi-grupo e permissões" do `AGENTS.md`. Em revisão de PR, conferir isso
-  primeiro; achado aqui bloqueia o merge.
+  primeiro; achado aqui bloqueia o merge e nunca é nitpick, nem leitura por id só para exibir
+  ou logar (#616: o nome do cargo ia para o log lido sem a Conta, e a revisão aprovou).
 - Opção que depende do cliente (maquininha, banco, categoria, modelo, integração) é dado do
   grupo no banco, nunca lista fixa no código, que todas as Contas veriam (#460). Em revisão,
   procurar `const`/`type`/`<option>` com opção de cliente e nome, CNPJ ou e-mail escrito no código.

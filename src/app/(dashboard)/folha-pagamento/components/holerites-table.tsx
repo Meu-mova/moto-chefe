@@ -1,172 +1,139 @@
 'use client'
-import { useRef, useState, useTransition } from 'react'
-import { toast } from 'sonner'
+import { useRef, useState } from 'react'
+import { AlertCircle, Check, ChevronDown, ExternalLink, Filter, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { FileText, Upload, Trash2, ExternalLink } from 'lucide-react'
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import {
-  uploadHoleriteAction, removerHoleriteAction, getHoleriteUrlAction, type HoleriteRow,
-} from '../holerites-actions'
-
-// Os dois arquivos que a contabilidade manda todo mês. A ordem aqui é a ordem das
-// colunas da tabela.
-const TIPOS = [
-  { valor: 'adiantamento', label: 'Adiantamento' },
-  { valor: 'salario',      label: 'Pagamento do salário' },
-] as const
+  TIPOS_HOLERITE, descricaoEnvio, resumirEnvios, rotuloEnviado,
+} from '@/lib/holerites-tela'
+import { rotuloMes } from '@/lib/folha-tela'
+import type { HoleriteRow } from '../holerites-actions'
+import { useEnvioHolerite } from './holerite-envio'
 
 export type FuncionarioHolerite = { id: string; nome: string; papel: string; lojaNome: string }
 
-const PAPEL_LABEL: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  admin_socio: 'Admin Sócio',
-  aux_adm:     'Auxiliar Adm.',
-  vendedor:    'Vendedor',
-  mecanico:    'Mecânico',
-  motorista:   'Motorista',
+// Faixas pela largura do CONTEÚDO (container `folha`, ver folha-casca.tsx): celular < 680 px (nome
+// e etiquetas curtas, tocar abre as ações), tablet 680 a 959 px (uma etiqueta por tipo), desktop
+// >= 960 px (etiqueta e ações na própria linha, sem detalhe). Colunas fixas para os botões
+// alinharem de cima a baixo.
+const COLUNAS = 'grid-cols-[minmax(0,1fr)_2.75rem] @[680px]/folha:grid-cols-[minmax(0,1fr)_9rem_9rem_2.75rem] @[960px]/folha:grid-cols-[minmax(0,1fr)_24rem_24rem]'
+const ETIQUETA = 'inline-flex h-[26px] items-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-semibold [&_svg]:size-3.5'
+const ALVO = 'h-11 @[960px]/folha:h-9'
+
+function Etiqueta({ enviado, children }: { enviado: boolean; children: React.ReactNode }) {
+  const Icone = enviado ? Check : AlertCircle
+  return (
+    <span className={`${ETIQUETA} ${enviado ? 'border-success/45 bg-success/10 text-success' : 'border-dashed border-warning/60 bg-warning/10 text-warning'}`}>
+      <Icone aria-hidden /> {children}
+    </span>
+  )
 }
 
-function fmtTamanho(bytes: number | null) {
-  if (!bytes) return ''
-  const kb = bytes / 1024
-  return kb < 1024 ? `${Math.round(kb)} KB` : `${(kb / 1024).toFixed(1)} MB`
-}
+type Envio = ReturnType<typeof useEnvioHolerite>
 
-function fmtData(d: Date) {
-  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
-}
-
-function Slot({ funcionarioId, mes, tipo, holerite }: {
-  funcionarioId: string
-  mes: string
-  tipo: string
+function Acoes({ envio, tipo, holerite, pessoa, className }: {
+  envio: Envio
+  tipo: (typeof TIPOS_HOLERITE)[number]
   holerite: HoleriteRow | undefined
+  pessoa: string
+  className: string
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [pending, start] = useTransition()
-  const [abrindo, setAbrindo] = useState(false)
-
-  function enviar(file: File) {
-    const dados = new FormData()
-    dados.set('usuarioId', funcionarioId)
-    dados.set('mes', mes)
-    dados.set('tipo', tipo)
-    dados.set('file', file)
-    start(async () => {
-      try {
-        const r = await uploadHoleriteAction(dados)
-        const base = holerite ? 'Holerite substituído' : 'Holerite enviado'
-        // Aviso e não erro: o arquivo FOI guardado. Fica mais tempo na tela que o
-        // toast comum porque é o único lugar onde a divergência aparece.
-        if (r?.avisos?.length) {
-          toast.warning(
-            `${base}, mas ${r.avisos.join(' e ')}. O Valor Real Pago não foi preenchido — confira o PDF.`,
-            { duration: 12000 },
-          )
-        } else if (r?.valorPreenchido != null) {
-          const valor = r.valorPreenchido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-          toast.success(`${base} · Valor Real Pago preenchido: ${valor}`)
-        } else if (r?.leituraFalhou) {
-          // Sem toast de erro: o holerite foi guardado, que é o que importa. O
-          // aviso existe para ninguém achar que a coluna preencheu sozinha.
-          toast.success(`${base} · não deu para ler o valor no PDF, preencha na mão`)
-        } else {
-          toast.success(base)
-        }
-      } catch (e: unknown) {
-        toast.error(e instanceof Error ? e.message : 'Erro ao enviar o holerite')
-      } finally {
-        // Limpa o input: sem isso, reenviar o MESMO arquivo depois de um erro não
-        // dispara onChange e parece que o botão morreu.
-        if (inputRef.current) inputRef.current.value = ''
-      }
-    })
+  const ocupado = envio.ocupado(tipo.valor)
+  if (!holerite) {
+    return (
+      <div className={className}>
+        <Button variant="outline" className={`${ALVO} col-span-full border-primary text-primary-text`} disabled={ocupado}
+          onClick={() => envio.escolherArquivo(tipo.valor, false)}>
+          <Upload aria-hidden /> {ocupado ? 'Enviando…' : 'Enviar PDF'}
+        </Button>
+      </div>
+    )
   }
+  return (
+    <div className={className}>
+      <Button variant="outline" className={ALVO} disabled={ocupado} onClick={() => envio.abrir(holerite)}>
+        <ExternalLink aria-hidden /> Abrir
+      </Button>
+      <Button variant="outline" className={ALVO} disabled={ocupado} onClick={() => envio.escolherArquivo(tipo.valor, true)}>
+        <Upload aria-hidden /> {ocupado ? 'Enviando…' : 'Substituir'}
+      </Button>
+      <Button variant="outline" className={`${ALVO} w-11 px-0 text-muted-foreground hover:text-destructive @[960px]/folha:w-9`} disabled={ocupado}
+        aria-label={`Remover holerite de ${tipo.nome.toLowerCase()} de ${pessoa}`} onClick={() => envio.remover(holerite)}>
+        <Trash2 aria-hidden />
+      </Button>
+    </div>
+  )
+}
 
-  async function abrir() {
-    if (!holerite) return
-    setAbrindo(true)
-    try {
-      // A janela é aberta ANTES do await: navegador bloqueia window.open que
-      // acontece depois de uma promise, por não ser mais gesto do usuário.
-      const aba = window.open('', '_blank')
-      const url = await getHoleriteUrlAction(holerite.id)
-      if (aba) aba.location.href = url
-      else window.location.href = url
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao abrir o holerite')
-    } finally {
-      setAbrindo(false)
-    }
-  }
-
-  function remover() {
-    if (!holerite) return
-    if (!confirm(`Remover o holerite "${holerite.arquivoNome}"?\n\nO arquivo é apagado do sistema.`)) return
-    start(async () => {
-      try {
-        await removerHoleriteAction(holerite.id)
-        toast.success('Holerite removido')
-      } catch (e: unknown) {
-        toast.error(e instanceof Error ? e.message : 'Erro ao remover')
-      }
-    })
-  }
+function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
+  funcionario: FuncionarioHolerite
+  mes: string
+  holeritesDaPessoa: HoleriteRow[]
+}) {
+  const [aberta, setAberta] = useState(false)
+  const chevron = useRef<HTMLDivElement>(null)
+  const envio = useEnvioHolerite(f.id, mes, holeritesDaPessoa)
+  const doTipo = (valor: string) => holeritesDaPessoa.find(h => h.tipo === valor)
+  const descricaoPessoa = `${rotuloDoPapelGravado(f.papel)} · ${f.lojaNome}`
+  const dica = (h?: HoleriteRow) => (h ? `${h.arquivoNome}. ${descricaoEnvio(h)}` : undefined)
 
   return (
-    <div className="space-y-1">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="application/pdf"
-        className="hidden"
-        onChange={e => { const f = e.target.files?.[0]; if (f) enviar(f) }}
-      />
-
-      {holerite ? (
-        <>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={abrir}
-              disabled={abrindo}
-              title={holerite.arquivoNome}
-              className="inline-flex items-center gap-1 text-xs font-medium text-info hover:opacity-80 max-w-[180px]"
-            >
-              <FileText size={13} className="shrink-0" />
-              <span className="truncate">{holerite.arquivoNome}</span>
-              <ExternalLink size={11} className="shrink-0 opacity-60" />
-            </button>
-            <button
-              onClick={remover}
-              disabled={pending}
-              title="Remover"
-              className="text-muted-foreground hover:text-destructive shrink-0"
-            >
-              <Trash2 size={13} />
-            </button>
+    <div role="row" className={`grid ${COLUNAS} items-center border-t @[960px]/folha:min-h-[4.5rem] ${aberta ? 'bg-muted' : 'hover:bg-muted'}`}
+      onClick={e => {
+        // Só abre onde há detalhe: a partir de 960 px o chevron some e as ações já estão na linha.
+        const semDetalhe = chevron.current && getComputedStyle(chevron.current).display === 'none'
+        if (!semDetalhe && !(e.target as HTMLElement).closest('button, a, input')) setAberta(v => !v)
+      }}>
+      <div role="rowheader" className="min-w-0 px-4 py-3">
+        {/* A partir de 960 px a coluna do nome fica estreita e a linha precisa ter a mesma altura
+            em todas: o texto vira uma linha com reticências e o inteiro fica no title. */}
+        <p title={f.nome} className="font-medium @[960px]/folha:truncate">{f.nome}</p>
+        <input ref={envio.inputRef} type="file" accept="application/pdf" className="hidden"
+          onChange={e => { const arquivo = e.target.files?.[0]; if (arquivo) void envio.enviar(arquivo) }} />
+        <p title={descricaoPessoa} className="text-xs text-muted-foreground @[960px]/folha:truncate">{descricaoPessoa}</p>
+        <div className="mt-1.5 flex flex-wrap gap-1.5 @[680px]/folha:hidden">
+          {TIPOS_HOLERITE.map(t => (
+            <Etiqueta key={t.valor} enviado={!!doTipo(t.valor)}>
+              {t.curto}<span className="sr-only">{doTipo(t.valor) ? ' enviado' : ' falta enviar'}</span>
+            </Etiqueta>
+          ))}
+        </div>
+      </div>
+      {TIPOS_HOLERITE.map(t => {
+        const h = doTipo(t.valor)
+        return (
+          <div key={t.valor} role="cell" className="hidden items-center gap-2.5 py-3 @[680px]/folha:flex">
+            <span className="w-[7.5rem] shrink-0" title={dica(h)}>
+              <Etiqueta enviado={!!h}>{h ? rotuloEnviado(h.enviadoEm) : 'Falta enviar'}</Etiqueta>
+            </span>
+            <Acoes envio={envio} tipo={t} holerite={h} pessoa={f.nome} className="hidden gap-1.5 @[960px]/folha:flex" />
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            {fmtData(holerite.enviadoEm)}
-            {holerite.enviadoPorNome ? ` · ${holerite.enviadoPorNome}` : ''}
-            {holerite.tamanho ? ` · ${fmtTamanho(holerite.tamanho)}` : ''}
-          </p>
-          <button
-            onClick={() => inputRef.current?.click()}
-            disabled={pending}
-            className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
-          >
-            {pending ? 'Enviando…' : 'Substituir'}
-          </button>
-        </>
-      ) : (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs gap-1.5"
-          disabled={pending}
-          onClick={() => inputRef.current?.click()}
-        >
-          <Upload size={12} /> {pending ? 'Enviando…' : 'Enviar PDF'}
-        </Button>
+        )
+      })}
+      <div ref={chevron} role="cell" className="@[960px]/folha:hidden">
+        <button type="button" aria-expanded={aberta} aria-label={`Ver detalhes de ${f.nome}`} onClick={() => setAberta(v => !v)}
+          className="flex size-11 items-center justify-center text-muted-foreground">
+          <ChevronDown aria-hidden className={aberta ? 'rotate-180' : ''} />
+        </button>
+      </div>
+      {aberta && (
+        <div role="cell" className="col-span-full grid gap-2 px-4 pb-3 @[680px]/folha:grid-cols-2 @[960px]/folha:hidden">
+          {TIPOS_HOLERITE.map(t => {
+            const h = doTipo(t.valor)
+            return (
+              <section key={t.valor} className="rounded-lg border bg-card p-3">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <h3 className="text-[13px] font-semibold">{t.nome}</h3>
+                  <Etiqueta enviado={!!h}>{h ? rotuloEnviado(h.enviadoEm) : 'Falta enviar'}</Etiqueta>
+                </div>
+                <p className="mb-2.5 text-[13px] text-muted-foreground">
+                  {h ? descricaoEnvio(h) : 'O PDF deste mês ainda não foi enviado.'}
+                </p>
+                <Acoes envio={envio} tipo={t} holerite={h} pessoa={f.nome} className="grid grid-cols-[1fr_1fr_2.75rem] gap-2" />
+              </section>
+            )
+          })}
+        </div>
       )}
     </div>
   )
@@ -177,53 +144,52 @@ export function HoleritesTable({ funcionarios, holerites, mes }: {
   holerites: HoleriteRow[]
   mes: string
 }) {
-  // Chave composta em vez de dois mapas: o slot é identificado por pessoa + tipo.
-  const porChave = new Map(holerites.map(h => [`${h.usuarioId}|${h.tipo}`, h]))
-  const enviados = holerites.length
-  const esperados = funcionarios.length * TIPOS.length
+  const [soFalta, setSoFalta] = useState(false)
+  const resumo = resumirEnvios(funcionarios, holerites)
+  const visiveis = soFalta ? funcionarios.filter(f => resumo.pessoasComFalta.includes(f.id)) : funcionarios
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        PDFs que a contabilidade manda todo mês. Ficam em bucket privado — o link de abertura vale 10 minutos e é
-        gerado na hora. Reenviar substitui o arquivo daquele mês, sem acumular duas versões.
-        {' '}<span className="text-muted-foreground">{enviados} de {esperados} enviados neste mês.</span>
+      <section aria-label="Envio dos holerites" className="grid gap-3 rounded-lg border bg-card px-4 py-3.5 @[680px]/folha:grid-cols-[1fr_auto] @[680px]/folha:items-center @[680px]/folha:gap-6">
+        <div className="@[680px]/folha:max-w-[30rem]">
+          <p role="status" className="text-[15px]">
+            <b className="text-xl tabular-nums">{resumo.enviados} de {resumo.esperados}</b> enviados em {rotuloMes(mes)}
+          </p>
+          <div role="progressbar" aria-label="Holerites enviados" aria-valuemin={0} aria-valuemax={resumo.esperados}
+            aria-valuenow={resumo.enviados} className="my-2 h-2 overflow-hidden rounded-full bg-muted">
+            <span className="block h-full rounded-full bg-success" style={{ width: `${resumo.porcentagem}%` }} />
+          </div>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
+            {resumo.porTipo.map(t => (
+              <li key={t.valor}>{t.nome}: <b className="tabular-nums text-foreground">{t.enviados} de {funcionarios.length}</b></li>
+            ))}
+          </ul>
+        </div>
+        <Button variant="outline" aria-pressed={soFalta} onClick={() => setSoFalta(v => !v)}
+          className={`${ALVO} w-full @[680px]/folha:w-auto ${soFalta ? 'border-primary bg-primary-soft font-semibold text-primary-text' : ''}`}>
+          <Filter aria-hidden /> Só o que falta{' '}
+          <span className="min-w-[22px] rounded-full bg-warning/15 px-1.5 text-xs font-semibold text-warning">{resumo.pessoasComFalta.length}</span>
+        </Button>
+      </section>
+
+      <p className="max-w-[72ch] text-sm text-muted-foreground">
+        PDFs que a contabilidade manda todo mês. O link para abrir vale 10 minutos. Enviar de novo troca o arquivo daquele mês.
       </p>
 
-      <div className="bg-card border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted border-b">
-            <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
-              {TIPOS.map(t => (
-                <th key={t.valor} className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">{t.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {funcionarios.map(f => (
-              <tr key={f.id} className="hover:bg-muted align-top">
-                <td className="px-4 py-3">
-                  <p className="font-medium">{f.nome}</p>
-                  <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
-                </td>
-                {TIPOS.map(t => (
-                  <td key={t.valor} className="px-4 py-3">
-                    <Slot
-                      funcionarioId={f.id}
-                      mes={mes}
-                      tipo={t.valor}
-                      holerite={porChave.get(`${f.id}|${t.valor}`)}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-            {funcionarios.length === 0 && (
-              <tr><td colSpan={3} className="text-center text-muted-foreground py-6">Nenhum funcionário ativo neste recorte.</td></tr>
-            )}
-          </tbody>
-        </table>
+      <div role="table" aria-label="Holerites por funcionário" className="overflow-hidden rounded-lg border bg-card">
+        <div role="row" className={`hidden ${COLUNAS} bg-muted py-2 text-xs font-medium text-muted-foreground @[680px]/folha:grid`}>
+          <div role="columnheader" className="px-4">Funcionário</div>
+          {TIPOS_HOLERITE.map(t => <div key={t.valor} role="columnheader">{t.nome}</div>)}
+          <div role="columnheader" className="sr-only @[960px]/folha:hidden">Detalhes</div>
+        </div>
+        {visiveis.map(f => (
+          <LinhaPessoa key={f.id} funcionario={f} mes={mes} holeritesDaPessoa={holerites.filter(h => h.usuarioId === f.id)} />
+        ))}
+        {visiveis.length === 0 && (
+          <p className="border-t py-6 text-center text-sm text-muted-foreground">
+            {funcionarios.length === 0 ? 'Nenhum funcionário ativo neste recorte.' : 'Ninguém com envio pendente neste mês.'}
+          </p>
+        )}
       </div>
     </div>
   )

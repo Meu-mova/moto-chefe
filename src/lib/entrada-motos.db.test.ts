@@ -3,7 +3,7 @@
 // loja da própria Conta, e loja de outra Conta recebe a mesma resposta de loja inexistente.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sql } from 'drizzle-orm'
+import { nomeDeTeste, semearContaBase, semearLoja } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -32,16 +32,11 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
   await assert.rejects(db.transaction(async tx => { await fn(tx); throw new Desfazer() }), Desfazer)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
-
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'EM488 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'EM488 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja EM488 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [loja2] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja 2 EM488 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const usuario = { papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string }
-  return { lojaId: loja.id as string, loja2Id: loja2.id as string, usuario }
+  const base = await semearContaBase(tx, { prefixo: 'EM488', nome, cnpj })
+  const loja2Id = await semearLoja(tx, base.grupoId, nomeDeTeste('EM488', nome, 'Loja 2'))
+  const usuario = { papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId }
+  return { lojaId: base.lojaId, loja2Id, usuario }
 }
 
 test('aux_adm usa loja da própria Conta; loja da Conta A para o aux_adm da Conta B é igual a loja inexistente', async () => {

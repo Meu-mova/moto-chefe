@@ -1,5 +1,6 @@
 // Regras da tela do log (#198): pura, sem banco, para testar sem Postgres.
 import { periodoBr } from '@/lib/notas-emitidas'
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 
 export const ROTULO_TIPO: Record<string, string> = {
   login: 'Entrou', troca_grupo: 'Trocou de grupo', acesso_dia: '1º acesso do dia',
@@ -84,6 +85,20 @@ const brl = (v: unknown) => Number(v).toLocaleString('pt-BR', { style: 'currency
   // toLocaleString usa espaço sem quebra entre R$ e o valor.
   .replace(/\u00a0/g, ' ')
 
+// Mesmas palavras do formulário de /admin/usuarios. Só a exibição: o detalhe gravado guarda o
+// nome do campo, e linha antiga também aparece com o texto novo (#620).
+const ROTULO_CAMPO_PERMISSAO: Record<string, string> = {
+  papel: 'função', cargoId: 'cargo', lojaId: 'loja', gruposAcesso: 'empresas que enxerga',
+  gruposAprovacao: 'aprova venda em', aprovaPagamentoSensivel: 'aprova transferência bancária',
+  modulosExtras: 'módulos liberados a mais', modulosBloqueados: 'módulos bloqueados',
+}
+const ROTULO_ACAO_PERMISSAO: Record<string, string> = {
+  excluido: 'excluído', grupo_liberado: 'grupo de outra Conta liberado', grupo_revogado: 'grupo de outra Conta revogado',
+}
+
+// Papel gravado no detalhe vem de JSON: só texto vira rótulo, o resto fica como veio.
+const rotuloSeForPapel = (papel: unknown) => typeof papel === 'string' ? rotuloDoPapelGravado(papel) : papel
+
 export function resumoDoEvento(e: EventoLog): string {
   const d = e.detalhe ?? {}
   // Campo ausente (linha antiga) aparece como "?", nunca "undefined"; as condições leem d direto.
@@ -109,9 +124,13 @@ export function resumoDoEvento(e: EventoLog): string {
       return [`NF ${v('numeroNf')}`, `“${v('motivo')}”`, d.extemporaneo ? 'extemporâneo' : null, d.ambiente === 'Homologacao' ? 'homologação' : null]
         .filter(Boolean).join(' · ')
     case 'permissao_alterada': {
-      const campos = Array.isArray(d.campos) ? `: ${d.campos.join(', ')}` : ''
-      const papel = d.papelAntes ? ` (${d.papelAntes} → ${d.papel})` : ''
-      return `${v('alvoNome')} · ${v('acao')}${campos}${papel}`
+      const campos = Array.isArray(d.campos) ? `: ${d.campos.map(c => ROTULO_CAMPO_PERMISSAO[c] ?? c).join(', ')}` : ''
+      // Quem tem cargo aparece como "cargo X", não como o papel interno "cargo".
+      const de = d.cargoAntes ? `cargo ${d.cargoAntes}` : rotuloSeForPapel(d.papelAntes)
+      const para = d.cargo ? `cargo ${d.cargo}` : rotuloSeForPapel(d.papel)
+      const papel = d.papelAntes || d.cargoAntes ? ` (${de} → ${para})` : d.acao === 'criado' && d.cargo ? ` (cargo ${d.cargo})` : ''
+      const acao = d.acao == null ? '?' : ROTULO_ACAO_PERMISSAO[String(d.acao)] ?? d.acao
+      return `${v('alvoNome')} · ${acao}${campos}${papel}`
     }
     case 'certificado_aplicado': return `${v('titular')} · válido até ${v('validoAte')} · UF ${v('uf')} · da adesão`
     case 'portal_aplicado': return `${v('loja')} · ${v('email')} · da adesão`

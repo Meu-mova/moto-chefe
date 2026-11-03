@@ -48,7 +48,7 @@ export async function cadastroAtual(id: string, exec: Exec = db): Promise<(Cadas
     .select({
       id: usuarios.id, papel: usuarios.papel, grupoDaLoja: lojas.grupoId, ativo: usuarios.ativo,
       gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao, modulosExtras: usuarios.modulosExtras, modulosBloqueados: usuarios.modulosBloqueados,
-      aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
+      aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel, cargoId: usuarios.cargoId,
     })
     .from(usuarios).leftJoin(lojas, eq(usuarios.lojaId, lojas.id)).where(eq(usuarios.id, id)).limit(1)
   if (!u) return null
@@ -57,7 +57,7 @@ export async function cadastroAtual(id: string, exec: Exec = db): Promise<(Cadas
 
 // O que o formulário pede, com o grupo da loja escolhida resolvido no banco.
 export async function cadastroPedido(
-  dados: { papel: string; lojaId: string | null; gruposAcesso: string[]; gruposAprovacao: string[]; modulosExtras: string[]; modulosBloqueados: string[]; aprovaPagamentoSensivel: boolean },
+  dados: { papel: string; cargoId?: string | null; lojaId: string | null; gruposAcesso: string[]; gruposAprovacao: string[]; modulosExtras: string[]; modulosBloqueados: string[]; aprovaPagamentoSensivel: boolean },
   ativo: boolean,
   exec: Exec = db,
 ): Promise<CadastroGestao> {
@@ -65,7 +65,7 @@ export async function cadastroPedido(
     ? await exec.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, dados.lojaId)).limit(1)
     : []
   return {
-    papel: dados.papel, grupoDaLoja: loja?.grupoId ?? null, lojaPedida: !!dados.lojaId, ativo,
+    papel: dados.papel, cargoId: dados.cargoId ?? null, grupoDaLoja: loja?.grupoId ?? null, lojaPedida: !!dados.lojaId, ativo,
     gruposAcesso: dados.gruposAcesso, gruposAprovacao: dados.gruposAprovacao, modulosExtras: dados.modulosExtras, modulosBloqueados: dados.modulosBloqueados,
     aprovaPagamentoSensivel: dados.aprovaPagamentoSensivel,
   }

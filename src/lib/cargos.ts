@@ -1,17 +1,19 @@
 /**
- * Cargos da Conta (#449, adendo ao ADR-0018): o sócio dá nome e marca módulos. Outra Conta
- * não lê, não edita nem atribui; o admin_geral vê todas.
+ * Cargos da Conta (#449, #616, adendo ao ADR-0018): nome e papel base; quem tem o cargo faz o que
+ * a base faz. Outra Conta não lê, não edita nem atribui; o admin_geral vê todas.
  */
-import { and, asc, count, eq, ne, type SQL, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, ne, type SQL, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { cargos, grupos, lojas, usuarios } from '@/lib/db/schema'
+import { PAPEIS_BASE_DO_CARGO, type PapelBase } from '@/lib/gestao-usuarios'
+import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
 
-/** `contaId` é a Conta do grupo ativo da sessão. */
-export type QuemGerenciaCargos = { papel: string; contaId: string }
+/** `contaId` é a Conta do grupo ativo da sessão; `usuarioId` é quem fica no log. */
+export type QuemGerenciaCargos = { papel: string; contaId: string; usuarioId: string }
 
-export type DadosCargo = { nome: string; modulos: string[] }
+export type DadosCargo = { nome: string; papelBase: string }
 type Resultado = { ok: true } | { ok: false; erro: string }
 
 const NAO_ENCONTRADO = { ok: false, erro: 'Cargo não encontrado' } as const
@@ -32,18 +34,19 @@ function chaveDeNomeFixo(nome: string): string {
 
 const CHAVES_FIXAS = new Set(NOMES_FIXOS.map(chaveDeNomeFixo))
 
-function daConta(quem: QuemGerenciaCargos): SQL | undefined {
+function daConta(quem: Pick<QuemGerenciaCargos, 'papel' | 'contaId'>): SQL | undefined {
   return quem.papel === 'admin_geral' ? undefined : eq(cargos.contaId, quem.contaId)
 }
 
 async function validar(
-  exec: Executor, contaId: string, dados: DadosCargo, podeDar: string[], ignorarId?: string,
-): Promise<{ ok: false; erro: string } | { ok: true; nome: string; modulos: string[] }> {
+  exec: Executor, contaId: string, dados: DadosCargo, ignorarId?: string,
+): Promise<{ ok: false; erro: string } | { ok: true; nome: string; papelBase: PapelBase }> {
   // NFC: o cargo_nome_chave() do banco não reconhece acento decomposto (texto colado do Mac).
   const nome = dados.nome.normalize('NFC').replace(/\s+/g, ' ').trim()
   if (!nome) return { ok: false, erro: 'Informe o nome do cargo' }
   if (CHAVES_FIXAS.has(chaveDeNomeFixo(nome))) return { ok: false, erro: 'Esse nome é de um cargo fixo do MOVA' }
-  if (dados.modulos.some(m => !podeDar.includes(m))) return { ok: false, erro: 'Módulo não disponível para cargo' }
+  const papelBase = PAPEIS_BASE_DO_CARGO.find(p => p === dados.papelBase)
+  if (!papelBase) return { ok: false, erro: 'Escolha o papel base do cargo' }
   const [repetido] = await exec.select({ id: cargos.id }).from(cargos)
     .where(and(
       eq(cargos.contaId, contaId),
@@ -52,11 +55,23 @@ async function validar(
     ))
     .limit(1)
   if (repetido) return { ok: false, erro: 'Já existe um cargo com esse nome' }
-  return { ok: true, nome, modulos: [...new Set(dados.modulos)].sort() }
+  return { ok: true, nome, papelBase }
 }
 
-export async function listarCargos(exec: Executor, quem: QuemGerenciaCargos) {
+export async function listarCargos(exec: Executor, quem: Pick<QuemGerenciaCargos, 'papel' | 'contaId'>) {
   return exec.select().from(cargos).where(daConta(quem)).orderBy(asc(cargos.nome))
+}
+
+/** Nome por id, para o log dizer qual cargo. Só cargo das Contas informadas; o resto fica de fora. */
+export async function nomesDosCargos(
+  exec: Executor, contaIds: (string | null)[], ids: (string | null)[],
+): Promise<Record<string, string>> {
+  const validos = ids.filter((i): i is string => !!i)
+  const contas = contaIds.filter((c): c is string => !!c)
+  if (!validos.length || !contas.length) return {}
+  const linhas = await exec.select({ id: cargos.id, nome: cargos.nome }).from(cargos)
+    .where(and(inArray(cargos.id, validos), inArray(cargos.contaId, contas)))
+  return Object.fromEntries(linhas.map(l => [l.id, l.nome]))
 }
 
 /** Cargo pelo id só se for da Conta; `null` também para id inexistente. */
@@ -68,27 +83,35 @@ export async function cargoDaConta(exec: Executor, contaId: string, id: string) 
 }
 
 export async function criarCargo(
-  exec: Executor, quem: QuemGerenciaCargos, dados: DadosCargo, podeDar: string[],
+  exec: Executor, quem: QuemGerenciaCargos, dados: DadosCargo,
 ): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
-  const valido = await validar(exec, quem.contaId, dados, podeDar)
+  const valido = await validar(exec, quem.contaId, dados)
   if (!valido.ok) return valido
   const [novo] = await exec.insert(cargos)
-    .values({ contaId: quem.contaId, nome: valido.nome, modulos: valido.modulos })
+    .values({ contaId: quem.contaId, nome: valido.nome, papelBase: valido.papelBase })
     .returning({ id: cargos.id })
   return { ok: true, id: novo.id }
 }
 
 export async function editarCargo(
-  exec: Executor, quem: QuemGerenciaCargos, id: string, dados: DadosCargo, podeDar: string[],
+  exec: Executor, quem: QuemGerenciaCargos, id: string, dados: DadosCargo,
 ): Promise<Resultado> {
-  const [cargo] = await exec.select({ contaId: cargos.contaId }).from(cargos)
+  const [cargo] = await exec.select({ contaId: cargos.contaId, papelBase: cargos.papelBase }).from(cargos)
     .where(and(eq(cargos.id, id), daConta(quem))).limit(1)
   if (!cargo) return NAO_ENCONTRADO
-  const valido = await validar(exec, cargo.contaId, dados, podeDar, id)
+  const valido = await validar(exec, cargo.contaId, dados, id)
   if (!valido.ok) return valido
   await exec.update(cargos)
-    .set({ nome: valido.nome, modulos: valido.modulos, atualizadoEm: new Date() })
+    .set({ nome: valido.nome, papelBase: valido.papelBase, atualizadoEm: new Date() })
     .where(and(eq(cargos.id, id), eq(cargos.contaId, cargo.contaId)))
+  // Trocar a base muda o que todos que têm o cargo podem fazer: entra no mesmo log da edição de
+  // permissão de usuário (lido por resumoDoEvento, 'permissao_alterada').
+  if (cargo.papelBase !== valido.papelBase) {
+    await registrarAcaoSensivelSemFalhar({
+      tipo: 'permissao_alterada', usuarioId: quem.usuarioId, contaId: cargo.contaId,
+      detalhe: { alvoId: id, alvoNome: `Cargo ${valido.nome}`, acao: 'alterado', campos: ['papel base'], papelAntes: cargo.papelBase, papel: valido.papelBase },
+    }, exec)
+  }
   return { ok: true }
 }
 
@@ -104,26 +127,27 @@ export async function apagarCargo(exec: Executor, quem: QuemGerenciaCargos, id: 
 
 /**
  * cargo_id a gravar no usuário. `contaId` é a Conta do usuário-alvo (da loja dele), não a
- * de quem edita. Cargo de outra Conta e id inexistente recebem a mesma frase.
+ * de quem edita. Cargo de outra Conta e id inexistente recebem a mesma frase. `papelBase` é
+ * o papel que governa o cadastro de quem tem o cargo (aprovação e acesso, #617).
  */
 export async function cargoParaGravar(
   exec: Executor, alvo: { papel: string; contaId: string | null; cargoId: string | null },
-): Promise<{ ok: true; cargoId: string | null } | { ok: false; erro: string }> {
-  if (alvo.papel !== 'cargo') return { ok: true, cargoId: null }
+): Promise<{ ok: true; cargoId: string | null; papelBase: PapelBase | null } | { ok: false; erro: string }> {
+  if (alvo.papel !== 'cargo') return { ok: true, cargoId: null, papelBase: null }
   if (!alvo.cargoId || !alvo.contaId) return NAO_ENCONTRADO
   const cargo = await cargoDaConta(exec, alvo.contaId, alvo.cargoId)
-  return cargo ? { ok: true, cargoId: cargo.id } : NAO_ENCONTRADO
+  return cargo ? { ok: true, cargoId: cargo.id, papelBase: cargo.papelBase as PapelBase } : NAO_ENCONTRADO
 }
 
-/** Módulos do cargo, só se o cargo for da Conta da loja do usuário. */
-export async function modulosDoCargoDoUsuario(
+/** Nome e papel base do cargo, só se o cargo for da Conta da loja do usuário. */
+export async function cargoDoUsuario(
   exec: Executor, usuario: { papel: string; lojaId: string | null; cargoId: string | null },
-): Promise<string[]> {
-  if (usuario.papel !== 'cargo' || !usuario.cargoId || !usuario.lojaId) return []
-  const [linha] = await exec.select({ modulos: cargos.modulos }).from(cargos)
+): Promise<{ nome: string; papelBase: PapelBase } | null> {
+  if (usuario.papel !== 'cargo' || !usuario.cargoId || !usuario.lojaId) return null
+  const [linha] = await exec.select({ nome: cargos.nome, papelBase: cargos.papelBase }).from(cargos)
     .innerJoin(grupos, eq(grupos.contaId, cargos.contaId))
     .innerJoin(lojas, and(eq(lojas.grupoId, grupos.id), eq(lojas.id, usuario.lojaId)))
     .where(eq(cargos.id, usuario.cargoId))
     .limit(1)
-  return linha?.modulos ?? []
+  return linha ?? null
 }

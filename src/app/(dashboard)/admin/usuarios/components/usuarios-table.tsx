@@ -11,9 +11,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { criarUsuarioAction, editarUsuarioAction, excluirUsuarioAction, alternarAtivoUsuarioAction } from '../actions'
 import { ModulosPicker } from './modulos-picker'
-import { CargosDialog, type Cargo } from './cargos-dialog'
-import { CARGOS_VISIVEIS, cargosDoAlvo } from '@/lib/cargos-opcoes'
+import { CargosDialog, type CargoDaConta } from './cargos-dialog'
+import { cargosDoAlvo } from '@/lib/cargos-opcoes'
+import { OPCOES_DE_PAPEL, rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
+import { guardaAcessoAGrupos, guardaAprovacao, papelDasListas } from '@/lib/listas-do-cadastro'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
 import { contaDoFormulario, gruposDaConta } from '@/lib/grupos-do-formulario'
@@ -61,20 +63,6 @@ type DadosForm = {
   cargoId: string | null
   gruposLiberados: string[]
 }
-
-// Aprovação de venda é coisa de admin — para os demais papéis o bloco nem aparece.
-const PAPEIS_APROVADORES = ['admin_geral', 'admin_rede', 'admin_socio']
-
-const PAPEIS: { value: string; label: string }[] = [
-  { value: 'admin_geral',  label: 'Admin Geral' },
-  { value: 'admin_rede',   label: 'Admin de Rede' },
-  { value: 'admin_socio',  label: 'Admin Sócio' },
-  { value: 'aux_adm',      label: 'Aux. Administrativo' },
-  { value: 'vendedor',     label: 'Vendedor' },
-  { value: 'mecanico',     label: 'Mecânico' },
-  { value: 'motorista',    label: 'Motorista' },
-  { value: 'cargo',        label: 'Cargo da Conta' },
-]
 
 type Limites = LimitesDaTela
 
@@ -131,7 +119,7 @@ function FormUsuario({
   liberaveis: GrupoLiberavel[] | null
   liberadosIniciais: string[]
   inicial?: Partial<Usuario>
-  cargos: Cargo[]
+  cargos: CargoDaConta[]
   contaAtiva: string
   lojas: Loja[]
   grupos: Grupo[]
@@ -171,10 +159,12 @@ function FormUsuario({
     setGruposAcesso(a => a.filter(g => doNovo.has(g)))
   }
 
-  const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
+  // Quem tem cargo faz o que a base faz (#617): a base do cargo escolhido decide Aprovação e Acesso.
+  const papelEfetivo = papelDasListas(papel, cargos.find(c => c.id === cargoId)?.papelBase ?? null)
+  const mostrarAprovacao = guardaAprovacao(papelEfetivo)
   // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
   // ele sugeriria, errado, que ela é que manda. Só admin_socio usa isto.
-  const mostrarAcessoGrupos = papel === 'admin_socio' || papel === 'admin_rede'
+  const mostrarAcessoGrupos = guardaAcessoAGrupos(papelEfetivo)
   // Grupos da Conta do próprio usuário vão pelos grupos de acesso acima (ADR-0019).
   const outrasContas = (liberaveis ?? []).filter(g => g.contaId !== inicial?.contaId)
   const mostrarLiberados = papel === 'admin_rede' && liberaveis !== null
@@ -259,12 +249,12 @@ function FormUsuario({
             <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && limites.travaASiMesmo}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a função">
-                  {(v: string | null) => v ? (PAPEIS.find(p => p.value === v)?.label ?? v) : 'Selecione a função'}
+                  {(v: string | null) => v ? rotuloDoPapelGravado(v) : 'Selecione a função'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {/* O papel atual sempre na lista: sem item para o valor, o Select mostraria o valor cru. */}
-                {PAPEIS.filter(p => limites.papeis.includes(p.value) || p.value === inicial?.papel).map(p => (
+                {OPCOES_DE_PAPEL.filter(p => limites.papeis.includes(p.value) || p.value === inicial?.papel).map(p => (
                   <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -356,6 +346,7 @@ function FormUsuario({
           </p>
           <ModulosPicker
             liberaveis={limites.itensLiberaveis}
+            travados={limites.itensTravados}
             papel={papel}
             papeisExtras={inicial?.papeisExtras ?? []}
             extras={modulosExtras}
@@ -374,8 +365,8 @@ function FormUsuario({
   )
 }
 
-export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, podeDarAoCargo, liberaveis, liberadosPorUsuario, contasNomes = {} }: {
-  usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: Cargo[]; contaAtiva: string; podeDarAoCargo: string[]
+export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaAtiva, liberaveis, liberadosPorUsuario, contasNomes = {} }: {
+  usuarios: Usuario[]; lojas: Loja[]; grupos: Grupo[]; limites: Limites; cargos: CargoDaConta[]; contaAtiva: string
   liberaveis: GrupoLiberavel[] | null; liberadosPorUsuario: Record<string, string[]>
   /** Nomes das Contas dos usuários da lista (só delas). */
   contasNomes?: Record<string, string>
@@ -427,6 +418,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           gruposAcesso:            dados.gruposAcesso,
           modulosExtras:           dados.modulosExtras,
           modulosBloqueados:       dados.modulosBloqueados,
+          cargoId:                 dados.cargoId,
         })
         if (!r.ok) { toast.error(r.erro); return }
         toast.success('Usuário atualizado')
@@ -470,9 +462,15 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
   const [filtros, setFiltros] = useState<FiltrosUsuarios>({ busca: '', papel: '', contaId: '', situacao: 'ativos' })
   const lista = filtrarUsuarios(usuarios, filtros)
   const contasDaLista = [...new Set(usuarios.map(u => u.contaId).filter((c): c is string => !!c))]
-  const nomePapel = (u: Usuario) => u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : (PAPEIS.find(p => p.value === u.papel)?.label ?? u.papel)
+  const nomePapel = (u: Usuario) => u.papel === 'cargo' ? (cargos.find(c => c.id === u.cargoId)?.nome ?? 'Cargo') : rotuloDoPapelGravado(u.papel)
+  // Quem tem cargo mostra o selo do cargo e, embaixo, de onde ele vem.
+  const detalhePapel = (u: Usuario) => {
+    const cargo = u.papel === 'cargo' ? cargos.find(c => c.id === u.cargoId) : null
+    return cargo ? `Cargo da Conta, base ${rotuloDoPapelGravado(cargo.papelBase)}` : null
+  }
   const ondeAprova = (u: Usuario) => {
-    if (!PAPEIS_APROVADORES.includes(u.papel)) return 'Não aprova'
+    const base = u.papel === 'cargo' ? cargos.find(c => c.id === u.cargoId)?.papelBase ?? null : null
+    if (!guardaAprovacao(papelDasListas(u.papel, base))) return 'Não aprova'
     // O grupo da loja já aprova por padrão e às vezes também está marcado: conta uma vez só.
     const n = new Set([...u.gruposAprovacao, ...(u.grupoDaLojaId ? [u.grupoDaLojaId] : [])]).size
     return `${n} ${n === 1 ? 'grupo' : 'grupos'}${u.aprovaPagamentoSensivel ? ', transferência' : ''}`
@@ -499,7 +497,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
         {/* selects nativos: o Select do design system mostraria o id no lugar do nome */}
         <select aria-label="Função" value={filtros.papel} onChange={e => setFiltros(f => ({ ...f, papel: e.target.value }))} className="h-8 flex-1 rounded-md border border-input bg-card px-2 text-sm sm:flex-none">
           <option value="">Todas as funções</option>
-          {PAPEIS.filter(p => usuarios.some(u => u.papel === p.value)).map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          {OPCOES_DE_PAPEL.filter(p => usuarios.some(u => u.papel === p.value)).map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
         {contasDaLista.length > 1 && (
           <select aria-label="Conta" value={filtros.contaId} onChange={e => setFiltros(f => ({ ...f, contaId: e.target.value }))} className="h-8 flex-1 rounded-md border border-input bg-card px-2 text-sm sm:flex-none">
@@ -516,7 +514,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
           ))}
         </div>
         <span className="hidden flex-1 sm:block" />
-        {CARGOS_VISIVEIS && <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2"><BadgeCheck size={16} /> Cargos</Button>}
+        {limites.podeCargos && <Button variant="outline" onClick={() => setVendoCargos(true)} className="gap-2"><BadgeCheck size={16} /> Cargos</Button>}
         <Button onClick={() => setCriando(true)} className="gap-2"><UserPlus size={16} /> Novo usuário</Button>
       </div>
 
@@ -542,7 +540,10 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
                     <span className="min-w-0"><span className="block font-medium">{u.nome}</span><span className="block text-xs text-muted-foreground">{u.email}</span></span>
                   </button>
                 </td>
-                <td className="px-3 py-2"><span className="whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-xs text-muted-foreground">{nomePapel(u)}</span></td>
+                <td className="px-3 py-2">
+                  <span className="whitespace-nowrap rounded-sm border px-1.5 py-0.5 text-xs text-muted-foreground">{nomePapel(u)}</span>
+                  {detalhePapel(u) && <span className="mt-0.5 block text-xs text-muted-foreground">{detalhePapel(u)}</span>}
+                </td>
                 <td className="px-3 py-2">{u.lojaNome ?? <span className="text-muted-foreground">Sem loja</span>}</td>
                 {contasDaLista.length > 1 && <td className="px-3 py-2 text-muted-foreground">{u.contaId ? contasNomes[u.contaId] : 'Plataforma'}</td>}
                 <td className="px-3 py-2 text-muted-foreground tabular-nums">{ondeAprova(u)}</td>
@@ -565,6 +566,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
               <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="rounded-sm border px-1.5 py-0.5">{nomePapel(u)}</span>{u.lojaNome ?? 'Sem loja'}
               </span>
+              {detalhePapel(u) && <span className="block text-xs text-muted-foreground">{detalhePapel(u)}</span>}
             </span>
             <Situacao ativo={u.ativo} />
           </button>
@@ -572,7 +574,7 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
       </div>
       {lista.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário com esses filtros.</p>}
 
-      {CARGOS_VISIVEIS && <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargosDoAlvo(cargos, null, contaAtiva)} podeDar={podeDarAoCargo} />}
+      {limites.podeCargos && <CargosDialog open={vendoCargos} onOpenChange={setVendoCargos} cargos={cargosDoAlvo(cargos, null, contaAtiva).map(c => ({ ...c, usuarios: usuarios.filter(u => u.cargoId === c.id).length }))} />}
 
       {/* Painel lateral de criar e editar; no celular ocupa a tela. */}
       <Sheet open={painel} onOpenChange={o => { if (!o && !pending) { setCriando(false); setEditando(null) } }}>

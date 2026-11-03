@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { salvarConfigFuncionarioAction } from '../actions'
 import { labelDaBase } from '@/lib/folha'
 import { parseNumeroBR, formatarNumeroBR } from '@/lib/numero-br'
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 
 export type RegraResumo = {
   tipo: string
@@ -26,15 +27,6 @@ export type FuncionarioRow = {
   ativo: boolean
   /** Só leitura aqui — quem cadastra é a aba Comissões. */
   regras: RegraResumo[]
-}
-
-const PAPEL_LABEL: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  admin_socio: 'Admin Sócio',
-  aux_adm:     'Auxiliar Adm.',
-  vendedor:    'Vendedor',
-  mecanico:    'Mecânico',
-  motorista:   'Motorista',
 }
 
 function fmtPercent(v: string) {
@@ -83,7 +75,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
     <tr className="hover:bg-muted align-top">
       <td className="px-4 py-2">
         <p className="font-medium">{f.nome}</p>
-        <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
+        <p className="text-xs text-muted-foreground">{rotuloDoPapelGravado(f.papel)} · {f.lojaNome}</p>
       </td>
       <td className="px-4 py-2">
         <Input value={salario} onChange={e => setSalario(e.target.value)} className="h-8 text-xs w-28" placeholder="0,00" />

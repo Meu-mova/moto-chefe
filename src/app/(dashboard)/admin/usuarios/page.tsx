@@ -9,7 +9,6 @@ import { UsuariosTable } from './components/usuarios-table'
 import { db } from '@/lib/db'
 import { listarCargos } from '@/lib/cargos'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
-import { modulosQuePodeDar } from '@/lib/navegacao'
 import { acessosDeFora, gruposLiberaveis, liberacoesPorUsuario } from '@/lib/grupos-liberados-admin'
 import { nomesDasContas } from '@/lib/conta'
 
@@ -55,9 +54,8 @@ export default async function UsuariosPage() {
           lojas={lojasOpts}
           grupos={gruposOpts.map(g => ({ id: g.id, nome: g.nome, contaId: g.contaId }))}
           limites={limitesDaTela(gestor)}
-          cargos={cargos.map(c => ({ id: c.id, nome: c.nome, modulos: c.modulos, contaId: c.contaId }))}
+          cargos={cargos.map(c => ({ id: c.id, nome: c.nome, papelBase: c.papelBase, contaId: c.contaId }))}
           contaAtiva={contaAtiva}
-          podeDarAoCargo={modulosQuePodeDar(usuario, {})}
           liberaveis={liberaveis}
           liberadosPorUsuario={liberadosPorUsuario}
           contasNomes={contasNomes}

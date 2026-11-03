@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { grupoIdDaPropriaLoja, listarGruposVisiveis } from '@/lib/grupo'
 import { itensVisiveis } from '@/lib/navegacao'
-import { ehGestorDeUsuarios, type Gestor } from '@/lib/gestao-usuarios'
+import { ehGestorDeUsuarios, podeGerenciarCargos, type Gestor } from '@/lib/gestao-usuarios'
 
 // Quem está logado, visto como gestor de usuários (#322): grupos que vê e telas que tem.
 // A página de /admin/usuarios e as actions usam o mesmo, para a tela não oferecer o que
@@ -15,6 +15,10 @@ export async function gestorDaSessao(): Promise<Gestor> {
   const grupoDaLoja = geral ? null : await grupoIdDaPropriaLoja(u.lojaId)
   const gruposAprovacao = [...(grupoDaLoja ? [grupoDaLoja] : []), ...(u.gruposAprovacao ?? [])]
   // Sem as regras próprias: tela que depende delas não se libera pelo sócio.
-  const itensLiberaveis = itensVisiveis(u, {}).map(i => i.id)
-  return { id: u.id, papel: u.papel, gruposVisiveis, gruposAprovacao, itensLiberaveis, aprovaPagamentoSensivel: u.aprovaPagamentoSensivel === true }
+  // O que só o admin_geral liga (Gerenciar cargos) não se repassa, nem por quem o tem.
+  const itensLiberaveis = itensVisiveis(u, {}).filter(i => !i.soAdminGeralLibera).map(i => i.id)
+  return {
+    id: u.id, papel: u.papel, gruposVisiveis, gruposAprovacao, itensLiberaveis,
+    aprovaPagamentoSensivel: u.aprovaPagamentoSensivel === true, podeCargos: podeGerenciarCargos(u),
+  }
 }

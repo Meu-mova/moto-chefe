@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -48,15 +49,12 @@ const DADOS = {
 }
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'CG ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'CG ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja CG ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [aux] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id)
-    values (gen_random_uuid(), 'Aux', ${'aux-cg' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}, ${conta.id}) returning id`)
+  const base = await semearContaBase(tx, { prefixo: 'CG', nome, cnpj })
+  const auxId = await semearUsuario(tx, base, { papel: 'aux_adm', rotulo: 'aux', comConta: true })
   return {
-    contaId: conta.id as string, grupoId: grupo.id as string, lojaId: loja.id as string, auxId: aux.id as string,
-    socio: { papel: 'admin_socio', contaId: conta.id as string },
-    aux: { id: aux.id as string, papel: 'aux_adm', contaId: conta.id as string },
+    contaId: base.contaId, grupoId: base.grupoId, lojaId: base.lojaId, auxId,
+    socio: { papel: 'admin_socio', contaId: base.contaId },
+    aux: { id: auxId, papel: 'aux_adm', contaId: base.contaId },
   }
 }
 

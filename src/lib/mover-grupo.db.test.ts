@@ -41,7 +41,7 @@ async function cenario(tx: Tx) {
   }
   const [go, gd, gt] = [await grupo(o, 'Movido', '00000000000191'), await grupo(d, 'Da destino', '00000000000272'), await grupo(t, 'Da terceira', '00000000000353')]
   const geral = await linha(tx, sql`insert into usuarios (id, nome, email, papel) values (gen_random_uuid(), 'Geral', 'geral-554@teste.invalid', 'admin_geral') returning id`)
-  const cargo = await linha(tx, sql`insert into cargos (conta_id, nome) values (${o.id}, 'Caixa') returning id`)
+  const cargo = await linha(tx, sql`insert into cargos (conta_id, nome, papel_base) values (${o.id}, 'Caixa', 'aux_adm') returning id`)
   const vendedor = await linha(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id, cargo_id)
     values (gen_random_uuid(), 'Vendedor', 'vend-554@teste.invalid', 'cargo', ${go.loja}, ${o.id}, ${cargo.id}) returning id`)
   const rede = await linha(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id)
@@ -130,7 +130,7 @@ test('conflito: CPF ou apelido repetido na destino lista os casos e não grava n
     await tx.execute(sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Já na destino', '52998224725', ${c.d})`)
     const outro = await linha(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('D', 'D554', 'autopropelido', '1', 'h', '1', ${c.d}) returning id`)
     await tx.execute(sql`insert into modelo_apelidos (apelido, modelo_id, conta_id) values ('XIS', ${outro.id}, ${c.d})`)
-    await tx.execute(sql`insert into cargos (conta_id, nome) values (${c.d}, 'caixa ')`)
+    await tx.execute(sql`insert into cargos (conta_id, nome, papel_base) values (${c.d}, 'caixa ', 'aux_adm')`)
     const [antesO, antesD] = [await fotografia(tx, c.o), await fotografia(tx, c.d)]
 
     const previa = await previaMoverGrupo(tx, c.go.id, c.d)

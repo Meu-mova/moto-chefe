@@ -12,6 +12,11 @@ aqui fica a lista curta de conferência.
   comentário; a prévia lê a empresa na NG. Conferir: abrir a função e seguir cada `await` até
   um `fetch`/cliente externo.
 
+- **Função, helper ou constante nova: o revisor procura pelo comportamento** (#628, #629: as
+  revisões acharam `diaCurtoBrt` reescrito e `mesAdjacente` repetido só porque buscaram o que a
+  função faz). Conferir: para cada `function`/`const` novo exportado ou repetido em mais de um
+  arquivo, `git grep` pelo trecho típico do código; cópia achada é "deveria".
+
 ## Interface
 
 - **`<Select>` cujo valor é id mostra o UUID depois de escolher** (#574). Conferir: todo
@@ -58,9 +63,15 @@ aqui fica a lista curta de conferência.
 - **Correção vem com teste que falhou antes dela.** Mostre a saída vermelha; refatoração sem mudança
   de comportamento diz "sem vermelho" (#607: o vermelho da correção do 4xx mostrou o `empresaId`
   ecoado). Vermelho por import ou arquivo ausente não conta.
+- **Teste de banco não conta tabela inteira** (#640: `select count(*) from contas` antes e depois falhava
+  às vezes, 3 !== 2). Os arquivos do `test:db` rodam em paralelo no mesmo banco e alguns gravam fora de
+  transação. Conferir: contagem com filtro do que o próprio teste criou (nome, id), nunca o total.
 - **Mock só na fronteira de fora** (Nota Gateway, rede, `next/navigation`). O que lê o banco roda no
   banco do `test:db` (#607: o cenário "grupo sem configuração" simulava a leitura da config e
   provava o mock, não o código).
+- **Formulário com a Server Action mockada: confira o que cada caminho envia** (criar e editar),
+  não só que a action foi chamada (#616: o editar não mandava `cargoId`; dar cargo a usuário
+  existente dava "Cargo não encontrado", e só o navegador pegou).
 - **Mudou quem pode? Teste de banco com a persona real** (#607: admin_rede só chega ao servidor em
   grupo liberado; o teste prova que pede no liberado e não pede no não liberado).
 - **Ação sem volta tem teste da trava enquanto envia**: botões desabilitados e Escape não fecha. O
@@ -73,6 +84,9 @@ aqui fica a lista curta de conferência.
   ou navegação**: `npm run e2e:acesso:local`, com a cópia da produção de pé e o app em
   `localhost:3600` (passo a passo no topo de `scripts/e2e-acesso-rotas-local.ts`). Saiu do CI
   porque a fila do staging cancelava a matriz do PR ao lado (#594).
+- **Teste de tela monta o DOM com `montarDom()` de `src/test/montar-dom.ts`** (`const { dom, desmontar } = montarDom()` e
+  `after(desmontar)`), nunca com `new JSDOM` e globais copiados à mão. A cópia foi parar em 8 arquivos e voltou
+  em cada PR da folha (#628, #629) porque não havia helper para reusar. Cópia nova do boilerplate é achado "deveria" na revisão.
 - **`psql -c` não troca variável `:'x'`**: passe o SQL pela entrada padrão (`psql -v x=... <<EOF`).
 
 ## Rodadas de implementação e revisão

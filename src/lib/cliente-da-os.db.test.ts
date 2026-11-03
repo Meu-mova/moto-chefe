@@ -65,7 +65,7 @@ test('Conta B não lê o cliente da Conta A pela OS; mesma resposta de id inexis
 test('sem o módulo OS, não lê cliente pela OS (#450)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semear(tx, 'A')
-    for (const u of [{ papel: 'motorista' }, { papel: 'cargo', modulosDoCargo: ['clientes'] },
+    for (const u of [{ papel: 'motorista' }, { papel: 'cargo' },
       { papel: 'vendedor', modulosBloqueados: ['ordens-servico'] }]) {
       assert.equal(await mod.clienteDaOs(tx, { ...u, contaId: a.contaId }, a.clienteId), null, u.papel)
     }
@@ -83,7 +83,7 @@ test('busca por CPF na OS: só com o módulo OS, só da Conta, CPF inteiro (#450
     assert.equal(await mod.clientePorCpfDaOs(tx, daA, '05299822472'), null)
     // B tem cliente com o mesmo CPF: cada Conta só acha o seu.
     assert.equal((await mod.clientePorCpfDaOs(tx, { papel: 'aux_adm', contaId: b.contaId }, '52998224725'))?.id, b.clienteId)
-    for (const u of [{ papel: 'motorista' }, { papel: 'cargo', modulosDoCargo: ['clientes'] }]) {
+    for (const u of [{ papel: 'motorista' }, { papel: 'cargo' }]) {
       assert.equal(await mod.clientePorCpfDaOs(tx, { ...u, contaId: a.contaId }, '52998224725'), null, u.papel)
     }
   })

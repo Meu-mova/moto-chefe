@@ -181,6 +181,35 @@ acessa. Os papéis fixos não mudam. Decisões do Luis:
 - A tela é um diálogo aberto por um botão na lista de `/admin/usuarios`, no mesmo padrão dos
   diálogos de usuário. O cargo aparece na escolha de papel do usuário.
 
+## Adendo de 2026-11-02: o cargo tem papel base (#615, #616)
+
+Substitui, no adendo de 2026-10-27, o ponto "o cargo não tem papel base" e a regra de quem
+gerencia. Decisões do Luis no grilling de 02/11 (#449):
+
+- O cargo tem um **papel base** obrigatório (`cargos.papel_base`): sócio, adm. da loja, vendedor,
+  mecânico ou motorista, os papéis que um gestor já dá a um usuário. Nunca admin geral, admin de
+  rede ou o próprio `cargo`; o banco confere (`cargos_papel_base_check`).
+- Quem tem o cargo é, para toda regra de papel (aprovar, cancelar venda, caixa, NF, alcance dos
+  dados), o papel base. A sessão faz a troca por uma função pura (`usuarioComCargo`), depois da
+  troca do admin de rede. O papel gravado continua `cargo` (`papelReal`), com o nome do cargo para
+  exibição. Cargo que a consulta não achou deixa o usuário só com o básico.
+- Editar a base vale na próxima requisição de todos que têm o cargo.
+- Na primeira entrega (#616) só o `admin_geral` cria, edita, apaga e atribui cargo; a permissão
+  por pessoa veio na #617 (abaixo).
+- **Permissão por pessoa (#617):** gerenciar cargos (criar, editar, apagar e atribuir) é o item
+  "Gerenciar cargos" de `navegacao.ts`, liberado por pessoa em `usuarios.modulos_extras`. Só o
+  `admin_geral` liga, desliga ou bloqueia; nem quem a tem a repassa. Vale para sócio e admin de
+  rede, e o `admin_geral` sempre gerencia. O `admin_rede` com a permissão gerencia os cargos da
+  própria Conta, e na persona de um grupo liberado de outra Conta o item some e o servidor recusa
+  (`FORA_DA_PERSONA`). Qualquer gestor com a permissão edita e apaga todos os cargos da Conta.
+- Cargo com base Sócio ganha as abas Aprovação e Acesso a grupos no cadastro do usuário, e o
+  servidor guarda e confere essas listas pelo papel da base.
+- A lista de módulos do cargo (`cargos.modulos`) deixa de valer: o cargo vê o que a base vê. O
+  ajuste de módulos (tirar e acrescentar) volta na #618, no formato de `modulos_extras` e
+  `modulos_bloqueados`.
+- Continuam valendo: cargo da Conta, nome único e sem nome de papel fixo, "Cargo em uso por N
+  usuários", exceção por pessoa por cima.
+
 ## Quando revisar
 
 Se um cliente exigir isolamento físico por contrato ou lei, ou pedir acesso recortado por módulo.

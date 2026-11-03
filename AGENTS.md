@@ -72,7 +72,16 @@ Toda mudança nasce de issue e de um plano aprovado antes do código. Além diss
   repetir: extraia para `src/lib` e troque as cópias no mesmo PR, se for pequeno; senão abra
   issue. Lista de valores (regime, status) nasce num lugar só e o resto deriva dela. No #590,
   o IP do pedido chegou à 5ª cópia (`x-forwarded-for`) e `soDigitos` foi reescrito com outro
-  nome.
+  nome. Como procurar, porque buscar só pelo nome que você daria não acha:
+  - Antes de mexer numa pasta, leia os arquivos dela e dos vizinhos e o que eles já importam
+    de `src/lib`: o helper que você precisa costuma estar ali.
+  - Busque pelo **comportamento**, não só pelo nome: 2 ou 3 sinônimos (em português e em
+    inglês) e o trecho típico do código (ex.: data em Brasília: `git grep -n "Sao_Paulo"`;
+    mês seguinte: `git grep -n "getMonth() + 1\|mesAnterior\|proximoMes"`).
+  - O plano (seção Reuso) diz o que reusa, com arquivo:linha; "não existe" diz o que buscou.
+  - Na folha responsiva (#628, #629), a Fase 0 afirmou "nenhuma data DD/MM em Brasília" e
+    reescreveu `diaCurtoBrt`; `mesAdjacente` repetiu `mesAnterior`/`proximoMes`; o filtro de
+    URL chegou a 15 cópias e o boilerplate de JSDOM a 8 (#632).
 
 ## Stack
 
@@ -99,12 +108,15 @@ recriar tabelas que já existem.
 O fluxo real:
 1. Edite `src/lib/db/schema.ts`.
 2. Escreva SQL à mão em `src/lib/db/migrations/NNNN_nome.sql` — **confira o
-   próximo número livre** (`ls src/lib/db/migrations/*.sql | tail`).
+   próximo número livre** na `dev` (`ls src/lib/db/migrations/*.sql | tail`), nos PRs abertos
+   e no staging (`migrate.ts --status`): no #616 o plano pegou a 0169, já de um PR aberto.
 3. Abra o PR: o workflow `Migrações` aplica baseline + migrações num Postgres descartável
    e barra SQL quebrado. Depois do merge na `dev`, ele mesmo aplica no **staging**.
    Para testar no staging antes do merge, aplique à mão (o CI vê que já está aplicada).
    Depois disso, não edite o arquivo nem abandone o PR sem desfazer no staging: o
-   `migrate.ts` acusa checksum diferente ou registro sem arquivo, e o job do staging trava:
+   `migrate.ts` acusa checksum diferente ou registro sem arquivo, e o job do staging trava.
+   PR que vai ficar parado também se desfaz no staging: a 0169/0170 do #590/#591, sem
+   arquivo na `dev`, fizeram o job falhar em todo merge e deixaram a 0171 do #623 de fora:
    `npx dotenv-cli -e .env.local -- node --import tsx scripts/migrate.ts --aplicar`
    (`--status` mostra o que está pendente sem aplicar nada).
 4. Confira lá: `npx dotenv-cli -e .env.local -- node --import tsx scripts/sql.ts --query "select ..."`.

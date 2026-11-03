@@ -9,10 +9,12 @@ type Props = {
   papeisExtras: string[]
   extras: string[]
   bloqueados: string[]
+  /** Telas que quem edita não liga nem desliga (#617): aparecem só se o usuário já as tem, travadas. */
+  travados?: string[]
   onChange: (v: { extras: string[]; bloqueados: string[] }) => void
 }
 
-export function ModulosPicker({ liberaveis, papel, papeisExtras, extras, bloqueados, onChange }: Props) {
+export function ModulosPicker({ liberaveis, papel, papeisExtras, extras, bloqueados, travados = [], onChange }: Props) {
   function alternar(id: string) {
     onChange(alternarModulo(papel, papeisExtras, extras, bloqueados, id))
   }
@@ -34,7 +36,8 @@ export function ModulosPicker({ liberaveis, papel, papeisExtras, extras, bloquea
       {CATEGORIAS.map(({ slug, nome }) => ({
         slug, nome,
         itens: ITENS.filter(i => i.categoria === slug && !i.regraPropria && !i.soAdminGeral && !i.soPeloPapel && (liberavelPara(i, papel) || estado(i.id) !== 'sem'))
-          .filter(i => liberaveis === null || liberaveis.includes(i.id) || estado(i.id) !== 'sem'),
+          .filter(i => liberaveis === null || liberaveis.includes(i.id) || estado(i.id) !== 'sem')
+          .filter(i => !travados.includes(i.id) || estado(i.id) !== 'sem'),
       })).filter(c => c.itens.length > 0).map(({ slug, nome, itens }) => (
         <div key={slug}>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{nome}</p>
@@ -46,6 +49,7 @@ export function ModulosPicker({ liberaveis, papel, papeisExtras, extras, bloquea
                   <input
                     type="checkbox"
                     checked={e === 'papel' || e === 'liberado'}
+                    disabled={travados.includes(i.id)}
                     onChange={() => alternar(i.id)}
                     className="rounded border-input"
                   />

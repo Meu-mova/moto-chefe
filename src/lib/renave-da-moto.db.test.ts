@@ -4,6 +4,7 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
 import type { DadosRenave } from '@/lib/notagateway/veiculo'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -56,22 +57,19 @@ async function modeloCiclomotor(tx: Tx) {
 }
 
 async function semearConta(tx: Tx, nome: string, cnpj: string, modeloId: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'RV241 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'RV241 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja RV241 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [aux] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Aux', ${'aux-rv241' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}) returning id`)
+  const base = await semearContaBase(tx, { prefixo: 'RV241', nome, cnpj })
+  const auxId = await semearUsuario(tx, base, { papel: 'aux_adm', rotulo: 'aux' })
   const [moto] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status)
-    values (${'RV241-' + nome}, ${modeloId}, ${loja.id}, 'PRETA', '1', 'vendida') returning id`)
-  const [pedido] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${moto.id}, ${loja.id}, ${aux.id}, 'efetivado') returning id`)
+    values (${'RV241-' + nome}, ${modeloId}, ${base.lojaId}, 'PRETA', '1', 'vendida') returning id`)
+  const [pedido] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${moto.id}, ${base.lojaId}, ${auxId}, 'efetivado') returning id`)
   await linhas(tx, sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
-    values (${pedido.id}, ${moto.id}, ${loja.id}, ${aux.id}, ${aux.id}, 'Cliente', '52998224725', 1000, 'pix')`)
+    values (${pedido.id}, ${moto.id}, ${base.lojaId}, ${auxId}, ${auxId}, 'Cliente', '52998224725', 1000, 'pix')`)
   return {
     motoId: moto.id as string,
-    grupoId: grupo.id as string,
-    auxId: aux.id as string,
-    aux: { papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string },
-    socio: { papel: 'admin_socio', lojaId: null, gruposAcesso: [grupo.id as string], contaId: conta.id as string },
+    grupoId: base.grupoId,
+    auxId,
+    aux: { papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId },
+    socio: { papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId },
   }
 }
 

@@ -7,9 +7,10 @@ import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
 import { COM_HISTORICO, podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
 import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
-import { cargoParaGravar } from '@/lib/cargos'
+import { cargoParaGravar, nomesDosCargos } from '@/lib/cargos'
+import { guardaAcessoAGrupos, guardaAprovacao, papelDasListas } from '@/lib/listas-do-cadastro'
 import { aprovacoesForaDoAlcance, sincronizarGruposLiberados, type MudancaLiberacao } from '@/lib/grupos-liberados-admin'
-import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
+import { camposDePermissaoAlterados, detalheDaMudancaDePermissao, permissoesDe, registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
 
@@ -71,13 +72,7 @@ const colunasPermissao = {
   papel: usuarios.papel, gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao,
   aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
   modulosExtras: usuarios.modulosExtras, modulosBloqueados: usuarios.modulosBloqueados,
-}
-
-function permissoesDe(u: Permissoes): Permissoes {
-  return {
-    papel: u.papel, lojaId: u.lojaId, gruposAcesso: u.gruposAcesso, gruposAprovacao: u.gruposAprovacao,
-    aprovaPagamentoSensivel: u.aprovaPagamentoSensivel, modulosExtras: u.modulosExtras, modulosBloqueados: u.modulosBloqueados,
-  }
+  cargoId: usuarios.cargoId,
 }
 
 // Garante que o link Conecta é http/https (evita esquemas perigosos como javascript:)
@@ -99,7 +94,7 @@ function validarConecta(conecta: string | null): string | null {
 // vendedor seria permissão fantasma, que não faz nada mas confunde a auditoria.
 // Também não aceita id de grupo inexistente/inativo vindo do cliente.
 async function validarAprovacao(papel: string, gruposAprovacao: string[], aprovaPagamentoSensivel: boolean) {
-  if (!['admin_geral', 'admin_rede', 'admin_socio'].includes(papel)) {
+  if (!guardaAprovacao(papel)) {
     return { gruposAprovacao: [] as string[], aprovaPagamentoSensivel: false }
   }
   const ids = [...new Set(gruposAprovacao)]
@@ -121,7 +116,7 @@ async function validarAprovacao(papel: string, gruposAprovacao: string[], aprova
 // trocam de grupo (vendedor, mecânico, aux_adm, motorista), a lista não faz
 // nada — zera para não guardar lixo no cadastro.
 async function validarAcesso(papel: string, gruposAcesso: string[]) {
-  if (papel !== 'admin_socio' && papel !== 'admin_rede') return { gruposAcesso: [] as string[] }
+  if (!guardaAcessoAGrupos(papel)) return { gruposAcesso: [] as string[] }
 
   const ids = [...new Set(gruposAcesso)]
   if (ids.length === 0) return { gruposAcesso: [] }
@@ -145,6 +140,16 @@ async function contaDoUsuario(papel: string, lojaId: string | null, gruposAcesso
   if (!grupoId) return null
   const [g] = await db.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
   return g?.contaId ?? null
+}
+
+// Cargo a gravar e o papel que governa as listas de aprovação e de acesso: quem tem cargo faz o
+// que a base faz (#617). Para papel `cargo` a loja é obrigatória (recusaDaGravacao), então a Conta
+// sai dela, sem depender dos grupos de acesso que ainda vão ser validados.
+async function cargoDoCadastro(dados: { papel: string; lojaId: string | null; cargoId?: string | null }) {
+  const contaId = dados.papel === 'cargo' ? await contaDoUsuario(dados.papel, dados.lojaId, []) : null
+  const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
+  if (!cargo.ok) throw new Recusa(cargo.erro)
+  return { cargoId: cargo.cargoId, contaId, papelDasListas: papelDasListas(dados.papel, cargo.papelBase) }
 }
 
 // Grupo marcado (de acesso ou de aprovação) tem de ser da Conta do usuário: grupo de
@@ -177,14 +182,13 @@ export async function criarUsuarioAction(dados: {
     // Valida ANTES de criar no Auth para não deixar usuário órfão em auth.users
     exigir(recusaDaGravacao(admin, null, await cadastroPedido(dados, true)))
     const conecta = validarConecta(dados.conecta)
-    const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
-    const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
-    const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
+    const cargo = await cargoDoCadastro(dados)
+    const aprovacao = await validarAprovacao(cargo.papelDasListas, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
+    const acesso = await validarAcesso(cargo.papelDasListas, dados.gruposAcesso)
+    const contaId = cargo.contaId ?? await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
     await exigirGruposDaConta(dados.papel, contaId, acesso.gruposAcesso)
     // Usuário novo ainda não tem grupo liberado: aprovação só na própria Conta.
     if ((await aprovacoesForaDoAlcance(db, { id: null, papel: dados.papel, contaId }, aprovacao.gruposAprovacao)).length) throw new Recusa(GRUPO_INVALIDO)
-    const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
-    if (!cargo.ok) throw new Recusa(cargo.erro)
     const supabase = getAdminClient()
 
     const { data, error } = await supabase.auth.admin.createUser({
@@ -212,7 +216,11 @@ export async function criarUsuarioAction(dados: {
       modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
       cargoId: cargo.cargoId,
     })
-    await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, { acao: 'criado', papel: dados.papel })
+    await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, {
+      acao: 'criado', papel: dados.papel,
+      // O nome sai só das Contas do usuário criado (cargoParaGravar já exigiu que o cargo é dela).
+      ...(cargo.cargoId ? { cargo: (await nomesDosCargos(db, [contaId], [cargo.cargoId]))[cargo.cargoId] } : {}),
+    })
     id = data.user.id
 
     revalidatePath('/admin/usuarios')
@@ -242,12 +250,11 @@ export async function editarUsuarioAction(id: string, dados: {
     if (!atual) throw new Recusa('Usuário não encontrado')
     exigir(recusaDaGravacao(admin, atual, await cadastroPedido(dados, atual.ativo)))
     const [antes] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
-    const aprovacao = await validarAprovacao(dados.papel, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
-    const acesso = await validarAcesso(dados.papel, dados.gruposAcesso)
-    const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
+    const cargo = await cargoDoCadastro(dados)
+    const aprovacao = await validarAprovacao(cargo.papelDasListas, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
+    const acesso = await validarAcesso(cargo.papelDasListas, dados.gruposAcesso)
+    const contaId = cargo.contaId ?? await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
     await exigirGruposDaConta(dados.papel, contaId, acesso.gruposAcesso)
-    const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
-    if (!cargo.ok) throw new Recusa(cargo.erro)
 
     // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login. Na
     // mesma transação da senha, para não sobrar senha nova sem a troca obrigatória.
@@ -304,7 +311,7 @@ export async function editarUsuarioAction(id: string, dados: {
     const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
     const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
     if (campos.length) {
-      const detalhe = { acao: 'alterado', campos, ...(campos.includes('papel') ? { papelAntes: antes.papel, papel: depois.papel } : {}) }
+      const detalhe = detalheDaMudancaDePermissao(permissoesDe(antes), permissoesDe(depois), campos, await nomesDosCargos(db, [antes.contaId, depois.contaId], [antes.cargoId, depois.cargoId]))
       await registrarPermissao(admin.id, depois, detalhe)
       // Saiu de uma Conta para outra: o admin da Conta antiga também precisa ver.
       if (antes.contaId !== depois.contaId) await registrarPermissao(admin.id, antes, detalhe)

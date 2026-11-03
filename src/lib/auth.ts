@@ -5,7 +5,8 @@ import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
 import { cookies } from 'next/headers'
-import { modulosDoCargoDoUsuario } from '@/lib/cargos'
+import { cargoDoUsuario } from '@/lib/cargos'
+import { usuarioComCargo } from '@/lib/usuario-com-cargo'
 import { gruposLiberadosVivos, usuarioDaRede } from '@/lib/grupos-liberados'
 
 // getUsuarioLogado roda PRIMEIRO em toda página (layout e página). Se a query de
@@ -69,13 +70,13 @@ export const getUsuarioLogado = cache(async () => {
   if (!usuario.ativo) redirect('/conta-desativada')
 
   // Lido a cada requisição: editar o cargo vale na hora para todos os usuários dele.
-  const modulosDoCargo = await withTimeout(modulosDoCargoDoUsuario(db, usuario), 8000, 'cargo do usuário no banco')
+  const cargo = await withTimeout(cargoDoUsuario(db, usuario), 8000, 'cargo do usuário no banco')
   // Lido a cada requisição: liberar ou revogar um grupo para o admin_rede vale na hora (#517).
   const liberados = usuario.papel === 'admin_rede'
     ? await withTimeout(gruposLiberadosVivos(usuario.id), 8000, 'grupos liberados do usuário no banco')
     : []
   const grupoAtivoId = liberados.length ? (await cookies()).get('grupoAtivo')?.value ?? null : null
-  return { ...usuarioDaRede(usuario, liberados, grupoAtivoId), modulosDoCargo }
+  return usuarioComCargo(usuarioDaRede(usuario, liberados, grupoAtivoId), cargo)
 })
 
 export function isAdmin(papel: string) {

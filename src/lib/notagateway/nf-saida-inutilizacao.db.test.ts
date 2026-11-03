@@ -3,6 +3,7 @@
 import { after, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -45,16 +46,11 @@ const configurarNg = (tx: Tx, grupoId: string, ambiente: string, empresaId: stri
   tx.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id, ambiente) values (${grupoId}, 'token-de-teste', ${empresaId}, ${ambiente})`)
 
 async function semearConta(tx: Tx, nome: string, cnpj: string, ambienteDaNg: string | null = 'Homologacao') {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'IN504 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'IN504 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  if (ambienteDaNg) await configurarNg(tx, grupo.id, ambienteDaNg)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja IN504 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const usuario = async (papel: string) => {
-    const [u] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-      values (gen_random_uuid(), ${papel}, ${`${papel}-in504${nome}@teste.invalid`}, ${papel}, ${loja.id}) returning id`)
-    return { id: u.id as string, papel, lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string }
-  }
-  return { grupoId: grupo.id as string, socio: await usuario('admin_socio'), aux: await usuario('aux_adm') }
+  const base = await semearContaBase(tx, { prefixo: 'IN504', nome, cnpj })
+  if (ambienteDaNg) await configurarNg(tx, base.grupoId, ambienteDaNg)
+  const usuario = async (papel: string) =>
+    ({ id: await semearUsuario(tx, base, { papel }), papel, lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId })
+  return { grupoId: base.grupoId, socio: await usuario('admin_socio'), aux: await usuario('aux_adm') }
 }
 
 const inutilizacoes = (tx: Tx, notaId: string) => linhas(tx, sql`select * from notas_fiscais_saida_inutilizacoes where nota_id = ${notaId}`)

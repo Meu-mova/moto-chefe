@@ -4,15 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Clock } from 'lucide-react'
 import { toggleAtivoAction, excluirComunicadoAction } from '../actions'
-
-const PAPEIS_LABEL: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  admin_socio: 'Admin/Sócio',
-  aux_adm: 'Aux. Adm.',
-  vendedor: 'Vendedor',
-  mecanico: 'Mecânico',
-  motorista: 'Motorista',
-}
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 
 type Comunicado = {
   id: string
@@ -80,7 +72,7 @@ export function ComunicadosTable({ comunicados }: { comunicados: Comunicado[] })
                 </span>
                 {c.papeis && c.papeis.length > 0 && (
                   <span className="text-xs text-info font-medium">
-                    · {c.papeis.map(p => PAPEIS_LABEL[p] ?? p).join(', ')}
+                    · {c.papeis.map(p => rotuloDoPapelGravado(p)).join(', ')}
                   </span>
                 )}
               </div>

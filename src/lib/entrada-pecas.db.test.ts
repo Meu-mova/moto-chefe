@@ -5,6 +5,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -41,14 +42,11 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'EP426 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'EP426 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja EP426 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [aux] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Aux', ${'aux-ep426' + nome + '@teste.invalid'}, 'aux_adm', ${loja.id}) returning id`)
-  const peca = await catalogo.inserirPeca(tx, conta.id, { nome: 'Capacete ' + nome, valor: 90 })
-  const usuario = { id: aux.id as string, papel: 'aux_adm', lojaId: loja.id as string, gruposAcesso: null, contaId: conta.id as string }
-  return { contaId: conta.id as string, grupoId: grupo.id as string, lojaId: loja.id as string, usuario, pecaId: peca.id }
+  const base = await semearContaBase(tx, { prefixo: 'EP426', nome, cnpj })
+  const auxId = await semearUsuario(tx, base, { papel: 'aux_adm', rotulo: 'aux', nomeDoUsuario: 'Aux' })
+  const peca = await catalogo.inserirPeca(tx, base.contaId, { nome: 'Capacete ' + nome, valor: 90 })
+  const usuario = { id: auxId, papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId }
+  return { contaId: base.contaId, grupoId: base.grupoId, lojaId: base.lojaId, usuario, pecaId: peca.id }
 }
 
 const NOTA = { chaveAcesso: '5'.repeat(44), numero: '43837', fornecedorCnpj: '12345678000199' }
