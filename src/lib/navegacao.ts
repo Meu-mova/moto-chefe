@@ -196,7 +196,7 @@ function temPapelNav(usuario: UsuarioNav, papel: string): boolean {
 
 /** A liberação individual deste item vale para o papel? (Sem restrição, vale para todos.) */
 export function liberavelPara(item: Pick<ItemNav, 'liberavelPara'>, papel: string): boolean {
-  return !item.liberavelPara || item.liberavelPara.includes(papel as Papel)
+  return !item.liberavelPara || item.liberavelPara.some(p => p === papel)
 }
 
 function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): boolean {
