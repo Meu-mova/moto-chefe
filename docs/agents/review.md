@@ -81,6 +81,9 @@ aqui fica a lista curta de conferência.
   ou navegação**: `npm run e2e:acesso:local`, com a cópia da produção de pé e o app em
   `localhost:3600` (passo a passo no topo de `scripts/e2e-acesso-rotas-local.ts`). Saiu do CI
   porque a fila do staging cancelava a matriz do PR ao lado (#594).
+- **Teste de tela monta o DOM com `montarDom()` de `src/test/montar-dom.ts`** (`const { dom, desmontar } = montarDom()` e
+  `after(desmontar)`), nunca com `new JSDOM` e globais copiados à mão. A cópia foi parar em 8 arquivos e voltou
+  em cada PR da folha (#628, #629) porque não havia helper para reusar. Cópia nova do boilerplate é achado "deveria" na revisão.
 - **`psql -c` não troca variável `:'x'`**: passe o SQL pela entrada padrão (`psql -v x=... <<EOF`).
 
 ## Rodadas de implementação e revisão

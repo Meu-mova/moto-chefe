@@ -1,22 +1,17 @@
 // As ações da nota ficam no menu da linha; o diálogo da inutilização fica no nível da tabela e
 // mostra o resultado dentro dele: a linha pode mudar com o refresh e o diálogo continua na tela
 // com a mensagem (C6, #597).
-import { JSDOM } from 'jsdom'
 import { createElement, type ReactNode } from 'react'
-import test, { afterEach, mock } from 'node:test'
+import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
 import type { ResultadoAction } from '@/lib/resultado-action'
 import type { FiltroDownload } from './notas-tabela'
+import { montarDom } from '@/test/montar-dom'
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true })
+const { dom, desmontar } = montarDom()
+after(desmontar)
 const g = globalThis as Record<string, unknown>
-g.window = dom.window; g.document = dom.window.document
-Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
-for (const k of ['HTMLElement', 'HTMLButtonElement', 'HTMLTextAreaElement', 'HTMLInputElement', 'HTMLAnchorElement', 'Element', 'Node', 'Event', 'MouseEvent', 'KeyboardEvent', 'FocusEvent', 'NodeList', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame']) {
-  g[k] = (dom.window as unknown as Record<string, unknown>)[k]
-}
-g.IS_REACT_ACT_ENVIRONMENT = true
 
 const NOTA: NotaEmitidaComInutilizacao = {
   id: 'nota-1', grupoId: 'grupo-1', numero: '974', serie: '1', status: 'Negada', categoria: 'recusada', motivoStatus: '225 - Falha no schema',

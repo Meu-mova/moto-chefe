@@ -1,21 +1,15 @@
 // Em produção, cancelar a NF tira o número da venda e o revalidatePath redesenha
 // a tabela. Aqui a tabela é redesenhada com a venda sem o número (ou fora da
 // lista), e o diálogo aberto pelo número tem de continuar na tela.
-import { JSDOM } from 'jsdom'
 import { createElement, useState } from 'react'
-import test, { afterEach, mock } from 'node:test'
+import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import type { NotaResumo } from '../nfe-propria-actions'
+import { montarDom } from '@/test/montar-dom'
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true })
-const g = globalThis as Record<string, unknown>
-g.window = dom.window; g.document = dom.window.document
-Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
-for (const k of ['HTMLElement', 'HTMLButtonElement', 'Element', 'Node', 'Event', 'MouseEvent', 'KeyboardEvent', 'FocusEvent', 'NodeList', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame']) {
-  g[k] = (dom.window as unknown as Record<string, unknown>)[k]
-}
-g.IS_REACT_ACT_ENVIRONMENT = true
+const { dom, desmontar } = montarDom()
+after(desmontar)
 
 const TRES_HORAS_ATRAS = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
 
