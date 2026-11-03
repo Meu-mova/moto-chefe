@@ -35,15 +35,16 @@ test('grupo na Conta existente: nasce nela, sem Conta nova nem marcas novas, e a
   await assert.rejects(db.transaction(async tx => {
     const a = await linha(tx, sql`insert into contas (nome) values ('Rede A') returning id`)
     const b = await linha(tx, sql`insert into contas (nome) values ('Rede B') returning id`)
-    // Pelo nome do grupo, não pelo banco todo: outros arquivos do test:db gravam Contas ao mesmo tempo.
-    const contasDoGrupo = async () => Number((await linha(tx, sql`select count(*)::int n from contas where nome = 'Filial A2'`)).n)
+    // Contas criadas por esta transação (now() é o mesmo do início dela), de qualquer nome: outros arquivos
+    // do test:db gravam Contas ao mesmo tempo e o total do banco muda entre as duas leituras.
+    const contasNovas = async () => Number((await linha(tx, sql`select count(*)::int n from contas where criado_em = now() and id not in (${a.id}, ${b.id})`)).n)
     const marcasA = async () => Number((await linha(tx, sql`select count(*)::int n from conta_marcas where conta_id = ${a.id}`)).n)
     const antesMarcas = await marcasA()
 
     const r = await criarGrupo(tx, dados('Filial A2', '00000000000191'), String(a.id))
     assert.equal(r.contaId, a.id)
     assert.equal((await linha(tx, sql`select conta_id from grupos where id = ${r.grupoId}`)).conta_id, a.id)
-    assert.equal(await contasDoGrupo(), 0, 'nenhuma Conta nova')
+    assert.equal(await contasNovas(), 0, 'nenhuma Conta nova')
     assert.equal(await marcasA(), antesMarcas, 'marcas da Conta A intactas')
 
     const novo = { id: r.grupoId, contaId: String(a.id) }
