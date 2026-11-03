@@ -196,6 +196,7 @@ test('os botões do envio ficam desabilitados enquanto ele não termina', async 
   assert.ok(enviar.length > 0 && enviar.every(b => b.hasAttribute('disabled')))
   const { act } = await import('react')
   await act(async () => { liberar() })
+  await renderizar([holerite('a', 'adiantamento')], [pessoas[0]])
   assert.ok(![...document.querySelectorAll('button')].some(b => b.textContent?.includes('Enviando')))
 })
 
@@ -332,4 +333,53 @@ test('tocar na linha abre o detalhe e tocar de novo fecha', async () => {
   assert.match(texto(), /O PDF deste mês ainda não foi enviado\./)
   await clicar(linha.querySelector('[role=rowheader]')!)
   assert.doesNotMatch(texto(), /O PDF deste mês ainda não foi enviado\./)
+})
+
+const desabilitados = () => [...document.querySelectorAll('[role=row] button')].filter(b => b.hasAttribute('disabled'))
+
+test('depois de enviar, o tipo continua ocupado até a lista nova chegar, e o outro tipo fica livre', async () => {
+  await montar([holerite('a', 'salario')], [pessoas[0]])
+  await clicar(botao('Ver detalhes de Vendedor A'))
+  await clicar([...document.querySelectorAll('section')].find(x => x.querySelector('h3')?.textContent === 'Adiantamento')!.querySelector('button') ?? undefined)
+  await escolherArquivo()
+  assert.deepEqual(chamadas.map(c => c[0]), ['upload'])
+  assert.ok(botao('Enviando…')?.hasAttribute('disabled'), 'segue ocupado com a action já resolvida')
+  assert.ok(!botao('Remover holerite de pagamento do salário de Vendedor A')?.hasAttribute('disabled'), 'o salário não trava')
+  await renderizar([holerite('a', 'salario'), holerite('a', 'adiantamento')], [pessoas[0]])
+  assert.equal(desabilitados().length, 0)
+  assert.ok(botao('Remover holerite de adiantamento de Vendedor A'))
+})
+
+test('depois de remover, o tipo continua ocupado até a lista nova chegar', async () => {
+  window.confirm = () => true
+  await montar([holerite('a', 'salario')], [pessoas[0]])
+  await clicar(botao('Remover holerite de pagamento do salário de Vendedor A'))
+  assert.deepEqual(chamadas, [['remover', 'h-a-salario']])
+  assert.ok(desabilitados().length > 0, 'Abrir/Substituir/Remover velhos seguem desabilitados')
+  await renderizar([], [pessoas[0]])
+  assert.equal(desabilitados().length, 0)
+})
+
+test('substituir: o tipo só destrava quando a lista traz o envio novo', async () => {
+  await montar([holerite('a', 'salario')], [pessoas[0]])
+  await clicar(botao('Substituir'))
+  await escolherArquivo()
+  assert.ok(desabilitados().length > 0)
+  await renderizar([holerite('a', 'salario', { enviadoEm: new Date('2026-10-20T15:00:00Z'), arquivoNome: 'novo.pdf' })], [pessoas[0]])
+  assert.equal(desabilitados().length, 0)
+})
+
+test('se a lista nova não chega, o tipo destrava sozinho depois de um tempo', async () => {
+  const { act } = await import('react')
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    window.confirm = () => true
+    await montar([holerite('a', 'salario')], [pessoas[0]])
+    await clicar(botao('Remover holerite de pagamento do salário de Vendedor A'))
+    assert.ok(desabilitados().length > 0)
+    await act(async () => { mock.timers.tick(20000) })
+    assert.equal(desabilitados().length, 0)
+  } finally {
+    mock.timers.reset()
+  }
 })

@@ -72,7 +72,7 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
 }) {
   const [aberta, setAberta] = useState(false)
   const chevron = useRef<HTMLDivElement>(null)
-  const envio = useEnvioHolerite(f.id, mes)
+  const envio = useEnvioHolerite(f.id, mes, holeritesDaPessoa)
   const doTipo = (valor: string) => holeritesDaPessoa.find(h => h.tipo === valor)
   const descricaoPessoa = `${rotuloDoPapel({ papel: f.papel })} · ${f.lojaNome}`
   const dica = (h?: HoleriteRow) => (h ? `${h.arquivoNome}. ${descricaoEnvio(h)}` : undefined)

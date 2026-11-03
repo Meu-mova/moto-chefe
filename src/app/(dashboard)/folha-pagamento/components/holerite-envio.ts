@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   uploadHoleriteAction, removerHoleriteAction, getHoleriteUrlAction, type HoleriteRow,
@@ -29,17 +29,49 @@ function avisarEnvio(base: string, r: Resultado) {
 
 const mensagemDe = (e: unknown, padrao: string) => (e instanceof Error ? e.message : padrao)
 
+// Se a lista nova não chegar (revalidação que falhou), o tipo destrava sozinho depois disto.
+const ESPERA_DA_LISTA_MS = 15000
+
+// O que muda quando o envio de um tipo muda (novo, substituído ou removido). Comparar isto, e não
+// só a existência, é o que faz o "Substituir" destravar: o id da linha continua o mesmo.
+const assinatura = (h: HoleriteRow | undefined) =>
+  h ? `${h.id}|${h.arquivoNome}|${new Date(h.enviadoEm).getTime()}` : ''
+
 /**
  * Enviar, abrir e remover os holerites de UMA pessoa. Um só estado e um só `input` por pessoa,
  * para a tela mostrar as mesmas ações na linha (desktop) e no detalhe (celular) sem que uma
  * cópia fique velha. Só a tela mudou: cada passo chama a mesma Server Action de antes.
+ *
+ * O tipo fica ocupado até a lista nova chegar (a `assinatura` do envio mudar), não só até a action
+ * voltar: sem isso, a etiqueta e os botões velhos reaparecem por uns 100 ms (o `useTransition` do
+ * Slot antigo segurava esse intervalo). O outro tipo da pessoa continua livre.
  */
-export function useEnvioHolerite(funcionarioId: string, mes: string) {
+export function useEnvioHolerite(funcionarioId: string, mes: string, holeritesDaPessoa: HoleriteRow[]) {
   const inputRef = useRef<HTMLInputElement>(null)
   const alvo = useRef<{ tipo: string; substitui: boolean } | null>(null)
-  const [ocupados, setOcupados] = useState<string[]>([])
-  const ocupar = (tipo: string, sim: boolean) =>
-    setOcupados(atual => (sim ? [...atual, tipo] : atual.filter(t => t !== tipo)))
+  const [emAndamento, setEmAndamento] = useState<string[]>([])
+  // tipo -> assinatura do envio quando a action voltou; enquanto for a mesma, a lista não chegou.
+  const [aguardando, setAguardando] = useState<Record<string, string>>({})
+  const doTipo = (tipo: string) => holeritesDaPessoa.find(h => h.tipo === tipo)
+
+  useEffect(() => {
+    if (Object.keys(aguardando).length === 0) return
+    const timer = setTimeout(() => setAguardando({}), ESPERA_DA_LISTA_MS)
+    return () => clearTimeout(timer)
+  }, [aguardando])
+
+  /** `acao` devolve true quando gravou algo e a lista vai mudar. */
+  async function executar(tipo: string, acao: () => Promise<boolean>) {
+    const antes = assinatura(doTipo(tipo))
+    setEmAndamento(atual => [...atual, tipo])
+    let esperaLista = false
+    try {
+      esperaLista = await acao()
+    } finally {
+      setEmAndamento(atual => atual.filter(t => t !== tipo))
+      if (esperaLista) setAguardando(atual => ({ ...atual, [tipo]: antes }))
+    }
+  }
 
   function escolherArquivo(tipo: string, substitui: boolean) {
     alvo.current = { tipo, substitui }
@@ -54,50 +86,56 @@ export function useEnvioHolerite(funcionarioId: string, mes: string) {
     dados.set('mes', mes)
     dados.set('tipo', tipo)
     dados.set('file', file)
-    ocupar(tipo, true)
-    try {
-      avisarEnvio(substitui ? 'Holerite substituído' : 'Holerite enviado', await uploadHoleriteAction(dados))
-    } catch (e: unknown) {
-      toast.error(mensagemDe(e, 'Erro ao enviar o holerite'))
-    } finally {
-      // Limpa o input: sem isso, reenviar o MESMO arquivo depois de um erro não dispara onChange
-      // e parece que o botão morreu.
-      if (inputRef.current) inputRef.current.value = ''
-      ocupar(tipo, false)
-    }
+    await executar(tipo, async () => {
+      try {
+        avisarEnvio(substitui ? 'Holerite substituído' : 'Holerite enviado', await uploadHoleriteAction(dados))
+        return true
+      } catch (e: unknown) {
+        toast.error(mensagemDe(e, 'Erro ao enviar o holerite'))
+        return false
+      } finally {
+        // Limpa o input: sem isso, reenviar o MESMO arquivo depois de um erro não dispara onChange
+        // e parece que o botão morreu.
+        if (inputRef.current) inputRef.current.value = ''
+      }
+    })
   }
 
   async function abrir(h: HoleriteRow) {
-    ocupar(h.tipo, true)
-    let aba: Window | null = null
-    try {
-      // A janela é aberta ANTES do await: navegador bloqueia window.open que acontece depois de
-      // uma promise, por não ser mais gesto do usuário. Dentro do try para que, se o open
-      // lançar, o `finally` ainda destrave os botões.
-      aba = window.open('', '_blank')
-      const url = await getHoleriteUrlAction(h.id)
-      if (aba) aba.location.href = url
-      else window.location.href = url
-    } catch (e: unknown) {
-      aba?.close()
-      toast.error(mensagemDe(e, 'Erro ao abrir o holerite'))
-    } finally {
-      ocupar(h.tipo, false)
-    }
+    await executar(h.tipo, async () => {
+      let aba: Window | null = null
+      try {
+        // A janela é aberta ANTES do await: navegador bloqueia window.open que acontece depois de
+        // uma promise, por não ser mais gesto do usuário. Dentro do try para que, se o open
+        // lançar, o erro vire toast e os botões destravem.
+        aba = window.open('', '_blank')
+        const url = await getHoleriteUrlAction(h.id)
+        if (aba) aba.location.href = url
+        else window.location.href = url
+      } catch (e: unknown) {
+        aba?.close()
+        toast.error(mensagemDe(e, 'Erro ao abrir o holerite'))
+      }
+      return false
+    })
   }
 
   async function remover(h: HoleriteRow) {
     if (!window.confirm(`Remover o holerite "${h.arquivoNome}"?\n\nO arquivo é apagado do sistema.`)) return
-    ocupar(h.tipo, true)
-    try {
-      await removerHoleriteAction(h.id)
-      toast.success('Holerite removido')
-    } catch (e: unknown) {
-      toast.error(mensagemDe(e, 'Erro ao remover'))
-    } finally {
-      ocupar(h.tipo, false)
-    }
+    await executar(h.tipo, async () => {
+      try {
+        await removerHoleriteAction(h.id)
+        toast.success('Holerite removido')
+        return true
+      } catch (e: unknown) {
+        toast.error(mensagemDe(e, 'Erro ao remover'))
+        return false
+      }
+    })
   }
 
-  return { inputRef, ocupado: (tipo: string) => ocupados.includes(tipo), escolherArquivo, enviar, abrir, remover }
+  const ocupado = (tipo: string) =>
+    emAndamento.includes(tipo) || (tipo in aguardando && aguardando[tipo] === assinatura(doTipo(tipo)))
+
+  return { inputRef, ocupado, escolherArquivo, enviar, abrir, remover }
 }
