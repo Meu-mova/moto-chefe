@@ -1,6 +1,10 @@
 // A tabela da Folha do Mês é uma grade CSS, e não um <table>, para o campo do valor real ser UM
 // elemento só: na célula da coluna (>= 680 px de conteúdo) ou dentro do detalhe aberto (celular).
 // Cabeçalho, linhas e total usam o mesmo molde, para as colunas alinharem.
+// Os limites de largura do CONTEÚDO (680, 720 e 960 px) precisam estar escritos por extenso em cada
+// classe `@[..]/folha:` (o Tailwind só enxerga classe literal), então moram em: aqui, na linha, no
+// detalhe, no resumo (720), no ValorRealInput e na FolhaCasca (680, 820, 900, 960). Mudar uma faixa
+// é buscar o número em `components/` e em `docs`: não há uma constante para trocar.
 // Celular: nome, total, seta. Tablet: + salário, comissão, valor real. Desktop: todas.
 export const GRADE = [
   'grid grid-cols-[minmax(0,1fr)_auto_44px]',
