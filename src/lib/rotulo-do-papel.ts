@@ -23,6 +23,9 @@ export const ORDEM_DOS_PAPEIS: readonly PapelDoBanco[] = [
 export const OPCOES_DE_PAPEL: { value: PapelDoBanco; label: string }[] =
   ORDEM_DOS_PAPEIS.map(value => ({ value, label: ROTULO_DO_PAPEL[value] }))
 
+/** Papéis que um comunicado aceita como destinatário; typo vira erro de tipo. */
+export const PAPEIS_DE_COMUNICADO: readonly PapelDoBanco[] = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista']
+
 /** Rótulo do papel gravado; valor que não é papel (dado velho, entrada inválida) volta como veio. */
 export function rotuloDoPapelGravado(papel: string): string {
   return Object.hasOwn(ROTULO_DO_PAPEL, papel) ? ROTULO_DO_PAPEL[papel as PapelDoBanco] : papel

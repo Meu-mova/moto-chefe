@@ -5,10 +5,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { criarComunicadoAction } from '../actions'
-import { OPCOES_DE_PAPEL } from '@/lib/rotulo-do-papel'
+import { OPCOES_DE_PAPEL, PAPEIS_DE_COMUNICADO } from '@/lib/rotulo-do-papel'
 
-// Papéis que um comunicado aceita como destinatário (o rótulo vem do mapa único).
-const PAPEIS = OPCOES_DE_PAPEL.filter(p => ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista'].includes(p.value))
+const PAPEIS = OPCOES_DE_PAPEL.filter(p => PAPEIS_DE_COMUNICADO.includes(p.value))
 
 export function ComunicadoForm() {
   const [titulo, setTitulo] = useState('')
