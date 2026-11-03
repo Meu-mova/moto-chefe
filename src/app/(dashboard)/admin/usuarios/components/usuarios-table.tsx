@@ -249,7 +249,7 @@ function FormUsuario({
             <Select value={papel} onValueChange={v => { if (v) setPapel(v) }} disabled={inicial?.id === limites.meuId && limites.travaASiMesmo}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a função">
-                  {(v: string | null) => v ? (rotuloDoPapelGravado(v)) : 'Selecione a função'}
+                  {(v: string | null) => v ? rotuloDoPapelGravado(v) : 'Selecione a função'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
