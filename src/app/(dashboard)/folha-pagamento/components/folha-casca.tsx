@@ -24,13 +24,17 @@ export function FolhaCasca({ lojas, lojaAtual, mesAtual, children }: {
   const rotulo = 'text-xs text-muted-foreground'
 
   return (
-    <div className="@container/folha min-w-0 space-y-4">
-      <div className="flex flex-col gap-3 @[900px]/folha:flex-row @[900px]/folha:items-end @[900px]/folha:justify-between @[900px]/folha:gap-6">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold @[900px]/folha:text-2xl">Folha de Pagamento</h1>
-          <p className="text-sm text-muted-foreground">Salários, comissões, premiação e ajuda de custo</p>
-        </div>
-        <div className="grid grid-cols-[1fr_auto] items-end gap-2 @[680px]/folha:grid-cols-[minmax(160px,240px)_auto_auto] @[680px]/folha:justify-start">
+    <div className="space-y-4">
+      {/* Fora do container de propósito: o botão Voltar do layout flutua à esquerda, e um elemento
+          com container-type não passa por baixo do float (fica ao lado e perde ~34 px de largura).
+          O título contorna o float como nas outras telas; o container limpa o float e começa abaixo,
+          na largura cheia, que é a base das faixas 680/820/900/960. */}
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold lg:text-2xl">Folha de Pagamento</h1>
+        <p className="text-sm text-muted-foreground">Salários, comissões, premiação e ajuda de custo</p>
+      </div>
+      <div className="@container/folha clear-both min-w-0 space-y-4">
+        <div className="grid grid-cols-[1fr_auto] items-end gap-2 @[680px]/folha:grid-cols-[minmax(160px,240px)_auto_auto] @[680px]/folha:justify-start @[900px]/folha:ml-auto @[900px]/folha:w-fit">
           <div className="col-span-full flex flex-col gap-1 @[680px]/folha:col-auto">
             <span className={rotulo}>Loja</span>
             <LojaSelectorFolha lojas={lojas} lojaAtual={lojaAtual} />
@@ -48,35 +52,35 @@ export function FolhaCasca({ lojas, lojaAtual, mesAtual, children }: {
             />
           )}
         </div>
+
+        <Tabs value={aba} onValueChange={v => setAba(String(v))} className="gap-4">
+          {/* Abaixo de 820 px as 7 abas não cabem: vira um seletor. O mesmo estado alimenta os dois. */}
+          <label className="flex flex-col gap-1 @[820px]/folha:hidden">
+            <span className={rotulo}>Seção</span>
+            <select
+              aria-label="Seção"
+              value={aba}
+              onChange={e => setAba(e.target.value)}
+              className="h-11 w-full rounded-md border border-input bg-transparent px-3 text-sm font-semibold"
+            >
+              {ABAS_FOLHA.map(a => <option key={a.id} value={a.id}>{a.rotulo}</option>)}
+            </select>
+          </label>
+          <TabsList variant="line" className="hidden w-full justify-start border-b @[820px]/folha:inline-flex group-data-horizontal/tabs:h-11">
+            {ABAS_FOLHA.map(a => (
+              <TabsTrigger key={a.id} value={a.id} className="flex-none px-3.5">{a.rotulo}</TabsTrigger>
+            ))}
+          </TabsList>
+
+          {aviso && (
+            <p className="flex max-w-[72ch] gap-2 rounded-lg bg-muted px-3 py-2 text-[13px] text-muted-foreground">
+              <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-info" />
+              <span>{aviso}</span>
+            </p>
+          )}
+          {children}
+        </Tabs>
       </div>
-
-      <Tabs value={aba} onValueChange={v => setAba(String(v))} className="gap-4">
-        {/* Abaixo de 820 px as 7 abas não cabem: vira um seletor. O mesmo estado alimenta os dois. */}
-        <label className="flex flex-col gap-1 @[820px]/folha:hidden">
-          <span className={rotulo}>Seção</span>
-          <select
-            aria-label="Seção"
-            value={aba}
-            onChange={e => setAba(e.target.value)}
-            className="h-11 w-full rounded-md border border-input bg-transparent px-3 text-sm font-semibold"
-          >
-            {ABAS_FOLHA.map(a => <option key={a.id} value={a.id}>{a.rotulo}</option>)}
-          </select>
-        </label>
-        <TabsList variant="line" className="hidden w-full justify-start border-b @[820px]/folha:inline-flex group-data-horizontal/tabs:h-11">
-          {ABAS_FOLHA.map(a => (
-            <TabsTrigger key={a.id} value={a.id} className="flex-none px-3.5">{a.rotulo}</TabsTrigger>
-          ))}
-        </TabsList>
-
-        {aviso && (
-          <p className="flex max-w-[72ch] gap-2 rounded-lg bg-muted px-3 py-2 text-[13px] text-muted-foreground">
-            <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-info" />
-            <span>{aviso}</span>
-          </p>
-        )}
-        {children}
-      </Tabs>
     </div>
   )
 }
