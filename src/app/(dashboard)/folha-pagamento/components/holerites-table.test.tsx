@@ -18,14 +18,19 @@ type Chamada = [string, ...unknown[]]
 const chamadas: Chamada[] = []
 const toasts: string[] = []
 let envioPendente: Promise<void> = Promise.resolve()
+const padraoUpload = { valorPreenchido: null as number | null, leituraFalhou: false, avisos: [] as string[] }
+let resultadoUpload = padraoUpload
+// Falha de cada Server Action, para o cenário do erro que vira toast.
+const falhas: { upload?: Error; url?: Error; remover?: Error } = {}
 const actionsMock = mock.module('../holerites-actions', { namedExports: {
   uploadHoleriteAction: async (dados: FormData) => {
     chamadas.push(['upload', dados.get('usuarioId'), dados.get('mes'), dados.get('tipo'), (dados.get('file') as File).name])
     await envioPendente
-    return { valorPreenchido: null, leituraFalhou: false, avisos: [] }
+    if (falhas.upload) throw falhas.upload
+    return resultadoUpload
   },
-  removerHoleriteAction: async (id: string) => { chamadas.push(['remover', id]) },
-  getHoleriteUrlAction: async (id: string) => { chamadas.push(['url', id]); return 'https://arquivo.exemplo/x.pdf' },
+  removerHoleriteAction: async (id: string) => { chamadas.push(['remover', id]); if (falhas.remover) throw falhas.remover },
+  getHoleriteUrlAction: async (id: string) => { chamadas.push(['url', id]); if (falhas.url) throw falhas.url; return 'https://arquivo.exemplo/x.pdf' },
 } })
 const toastMock = mock.module('sonner', { namedExports: { toast: Object.assign(() => {}, {
   success: (m: string) => { toasts.push(m) }, warning: (m: string) => { toasts.push(m) }, error: (m: string) => { toasts.push(m) },
@@ -41,6 +46,8 @@ afterEach(async () => {
   document.body.innerHTML = ''
   chamadas.length = 0; toasts.length = 0
   envioPendente = Promise.resolve()
+  resultadoUpload = padraoUpload
+  delete falhas.upload; delete falhas.url; delete falhas.remover
   window.open = abrirOriginal; window.confirm = confirmOriginal
 })
 
@@ -76,8 +83,8 @@ async function montar(holerites = base, funcionarios = pessoas) {
 
 const texto = () => document.body.textContent ?? ''
 const botao = (nome: string) => [...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === nome || b.textContent?.replace(/\s+/g, ' ').trim() === nome)
-const linhas = () => [...document.querySelectorAll('[role=row]')].filter(r => r.querySelector('[data-nome]'))
-const nomes = () => linhas().map(l => l.querySelector('[data-nome]')!.textContent)
+const linhas = () => [...document.querySelectorAll('[role=row]')].filter(r => r.querySelector('[role=rowheader]'))
+const nomes = () => linhas().map(l => l.querySelector('[role=rowheader]')!.textContent)
 
 async function clicar(el: Element | undefined) {
   const { act } = await import('react')
@@ -137,7 +144,7 @@ test('com o filtro ligado e ninguém pendente, avisa em vez de mostrar tabela va
   assert.match(texto(), /Ninguém com envio pendente/)
 })
 
-test('cada envio é uma etiqueta com texto: "Enviado DD/MM" ou "Falta enviar"; o arquivo não aparece na linha', async () => {
+test('cada envio é uma etiqueta com texto: "Enviado DD/MM" ou "Falta enviar"; a linha não mostra o nome do arquivo no texto', async () => {
   await montar()
   const a = linhas()[0].textContent ?? ''
   assert.match(a, /Enviado 05\/10/)
@@ -212,7 +219,102 @@ test('Remover só chama o servidor se a pessoa confirmar', async () => {
   assert.deepEqual(toasts, ['Holerite removido'])
 })
 
-test('o rótulo do papel vem da lib', async () => {
+test('papel aux_adm aparece como Aux. Administrativo', async () => {
   await montar()
   assert.match(texto(), /Aux\. Administrativo · Loja Centro/)
+})
+
+const aviso = (r: Partial<typeof padraoUpload>) => { resultadoUpload = { ...padraoUpload, ...r } }
+async function enviarUm() {
+  await montar([], [pessoas[0]])
+  await clicar(botao('Enviar PDF'))
+  await escolherArquivo()
+}
+
+test('toast do envio: aviso de divergência, sem travessão, e o valor não preenchido', async () => {
+  aviso({ avisos: ['o PDF está no nome de X', 'o PDF é da competência 2026-09, e não de 2026-10'] })
+  await enviarUm()
+  assert.deepEqual(toasts, ['Holerite enviado, mas o PDF está no nome de X e o PDF é da competência 2026-09, e não de 2026-10. O Valor Real Pago não foi preenchido, confira o PDF.'])
+})
+
+test('toast do envio: valor lido do PDF aparece em reais', async () => {
+  aviso({ valorPreenchido: 1234.5 })
+  await enviarUm()
+  assert.match(toasts[0], /^Holerite enviado · Valor Real Pago preenchido: R\$\s1\.234,50$/)
+})
+
+test('toast do envio: leitura do PDF falhou pede o valor na mão, sem erro', async () => {
+  aviso({ leituraFalhou: true })
+  await enviarUm()
+  assert.deepEqual(toasts, ['Holerite enviado · não deu para ler o valor no PDF, preencha na mão'])
+})
+
+test('falha do servidor ao enviar vira toast com a mensagem dela, e o botão volta', async () => {
+  falhas.upload = new Error('Arquivo muito grande. Máximo: 10MB.')
+  await enviarUm()
+  assert.deepEqual(toasts, ['Arquivo muito grande. Máximo: 10MB.'])
+  assert.ok(botao('Enviar PDF')?.hasAttribute('disabled') === false)
+})
+
+test('falha de algo que não é Error ao enviar usa a mensagem padrão', async () => {
+  falhas.upload = 'quebrou' as unknown as Error
+  await enviarUm()
+  assert.deepEqual(toasts, ['Erro ao enviar o holerite'])
+})
+
+test('falha ao abrir vira toast e fecha a aba em branco', async () => {
+  let fechou = false
+  window.open = (() => ({ location: { href: '' }, close: () => { fechou = true } })) as unknown as typeof window.open
+  falhas.url = new Error('Holerite não encontrado no grupo ativo')
+  await montar([holerite('a', 'salario')], [pessoas[0]])
+  await clicar(botao('Abrir'))
+  assert.deepEqual(toasts, ['Holerite não encontrado no grupo ativo'])
+  assert.equal(fechou, true)
+})
+
+test('falha ao remover vira toast', async () => {
+  window.confirm = () => true
+  falhas.remover = new Error('Holerite não encontrado no grupo ativo')
+  await montar([holerite('a', 'salario')], [pessoas[0]])
+  await clicar(botao('Remover holerite de pagamento do salário de Vendedor A'))
+  assert.deepEqual(toasts, ['Holerite não encontrado no grupo ativo'])
+})
+
+test('no detalhe do celular: Substituir reenvia o tipo certo e Abrir pede o link da linha', async () => {
+  window.open = (() => ({ location: { href: '' } })) as unknown as typeof window.open
+  await montar([holerite('a', 'adiantamento')], [pessoas[0]])
+  await clicar(botao('Ver detalhes de Vendedor A'))
+  const bloco = (titulo: string) => [...document.querySelectorAll('section')].find(x => x.querySelector('h3')?.textContent === titulo)!
+  const botaoDe = (titulo: string, nome: string) =>
+    [...bloco(titulo).querySelectorAll('button')].find(b => b.textContent?.replace(/\s+/g, ' ').trim() === nome)
+  await clicar(botaoDe('Adiantamento', 'Abrir'))
+  assert.deepEqual(chamadas, [['url', 'h-a-adiantamento']])
+  await clicar(botaoDe('Adiantamento', 'Substituir'))
+  await escolherArquivo('b.pdf')
+  await clicar(botaoDe('Pagamento do salário', 'Enviar PDF'))
+  await escolherArquivo('c.pdf')
+  assert.deepEqual(chamadas.slice(1), [['upload', 'a', '2026-10', 'adiantamento', 'b.pdf'], ['upload', 'a', '2026-10', 'salario', 'c.pdf']])
+})
+
+test('enviar um tipo não trava os botões do outro tipo da mesma pessoa', async () => {
+  let liberar!: () => void
+  envioPendente = new Promise<void>(r => { liberar = r })
+  await montar([holerite('a', 'salario')], [pessoas[0]])
+  await clicar(botao('Ver detalhes de Vendedor A'))
+  const doBloco = (titulo: string) => [...document.querySelectorAll('section')].find(x => x.querySelector('h3')?.textContent === titulo)!
+  await clicar([...doBloco('Adiantamento').querySelectorAll('button')].find(b => b.textContent?.includes('Enviar PDF')))
+  await escolherArquivo()
+  assert.ok([...doBloco('Adiantamento').querySelectorAll('button')].every(b => b.hasAttribute('disabled')), 'tipo enviado trava')
+  assert.ok([...doBloco('Pagamento do salário').querySelectorAll('button')].every(b => !b.hasAttribute('disabled')), 'outro tipo livre')
+  const { act } = await import('react')
+  await act(async () => { liberar() })
+})
+
+test('tocar na linha abre o detalhe e tocar de novo fecha', async () => {
+  await montar([], [pessoas[0]])
+  const linha = linhas()[0]
+  await clicar(linha.querySelector('[role=rowheader]')!)
+  assert.match(texto(), /O PDF deste mês ainda não foi enviado\./)
+  await clicar(linha.querySelector('[role=rowheader]')!)
+  assert.doesNotMatch(texto(), /O PDF deste mês ainda não foi enviado\./)
 })
