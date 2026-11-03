@@ -195,3 +195,13 @@ test('o detalhe não usa título de nível 3 sem um nível 2 antes (ordem de tí
   assert.equal(document.querySelectorAll('h3').length, 0)
   assert.match(texto(), /Premiação \(OTE\)/)
 })
+
+test('total a pagar zerado fica esmaecido; negativo continua em vermelho', async () => {
+  const zerado = { ...caio, id: 'z', nome: 'Zerado Z', salario: 0, comissao: 0, ajudaCusto: 0, totalPagar: 0, valorReal: null, valorEfetivo: 0 }
+  const negativo = { ...caio, id: 'n', nome: 'Negativo N', totalPagar: -50 }
+  await montar([zerado, negativo])
+  const total = (nome: string) => [...document.querySelectorAll('[role="row"]')].find(r => r.textContent?.includes(nome))!
+    .querySelector('.font-semibold > span')!
+  assert.match(total('Zerado Z').className, /text-muted-foreground/)
+  assert.match(total('Negativo N').className, /text-destructive/)
+})

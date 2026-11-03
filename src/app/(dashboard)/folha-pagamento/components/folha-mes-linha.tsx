@@ -41,7 +41,7 @@ export function LinhaFolha({ f, mes }: { f: LinhaFolhaDados; mes: string }) {
       <div role="cell" className={`${NUMERO} ${SO_DESKTOP}`}><ValorOuZero valor={f.ajudaCusto} /></div>
       <div role="cell" className={`${NUMERO} ${SO_DESKTOP}`}><ValorOuZero valor={f.adiantamento} negativo /></div>
       <div role="cell" className={`${NUMERO} font-semibold`}>
-        <span className={f.totalPagar < 0 ? 'text-destructive' : ''}>{fmtBRL(f.totalPagar)}</span>
+        <span className={f.totalPagar < 0 ? 'text-destructive' : f.totalPagar === 0 ? 'text-muted-foreground' : ''}>{fmtBRL(f.totalPagar)}</span>
         {/* No celular a coluna do valor real não cabe: a situação dela vai embaixo do total. */}
         <span className={`block text-xs font-medium @[680px]/folha:hidden ${COR_DA_SITUACAO[situacao.tipo]}`}>{situacao.texto}</span>
       </div>

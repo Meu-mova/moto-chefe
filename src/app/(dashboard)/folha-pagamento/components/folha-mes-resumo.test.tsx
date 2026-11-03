@@ -25,3 +25,11 @@ test('sem adiantamento o cartão mostra R$ 0,00, sem sinal', () => {
   const t = texto(html({ ...totais, adiantamentos: 0 }))
   assert.ok(t.includes('Adiantamentos|R$ 0,00'))
 })
+
+test('cartão de parte zerada fica esmaecido, como as células da tabela', () => {
+  const h = html({ ...totais, comissoes: 0, premiacoes: 0 })
+  const valor = (rotulo: string) => new RegExp(`${rotulo}</p><p class="([^"]*)">R\\$\\u00a00,00`).exec(h)?.[1] ?? ''
+  assert.match(valor('Comissões'), /text-muted-foreground/)
+  assert.match(valor('Premiações'), /text-muted-foreground/)
+  assert.doesNotMatch(h.match(/Salários<\/p><p class="([^"]*)"/)?.[1] ?? '', /text-muted-foreground/)
+})

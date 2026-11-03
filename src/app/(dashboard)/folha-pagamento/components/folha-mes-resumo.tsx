@@ -2,14 +2,17 @@ import { Card } from '@/components/ui/card'
 import { fmtBRL } from '@/lib/preco-minimo'
 import type { FolhaDoMes } from '@/lib/queries/folha'
 
+// Zero é R$ 0,00 esmaecido, igual às células da tabela (ValorOuZero).
+const esmaecidoSeZero = (valor: number) => (valor === 0 ? 'text-muted-foreground' : undefined)
+
 // Totais do mês: o destaque (Total geral e o que de fato saiu) e as 5 partes. As partes só ficam
 // lado a lado quando os valores cabem inteiros (>= 720 px de conteúdo); antes, 2 por linha.
 export function FolhaMesResumo({ totais, ativos }: { totais: FolhaDoMes['totais']; ativos: number }) {
   const partes: { rotulo: string; valor: string; classe?: string }[] = [
-    { rotulo: 'Salários', valor: fmtBRL(totais.salarios) },
-    { rotulo: 'Comissões', valor: fmtBRL(totais.comissoes) },
-    { rotulo: 'Premiações', valor: fmtBRL(totais.premiacoes) },
-    { rotulo: 'Ajuda de custo', valor: fmtBRL(totais.ajudaCusto) },
+    { rotulo: 'Salários', valor: fmtBRL(totais.salarios), classe: esmaecidoSeZero(totais.salarios) },
+    { rotulo: 'Comissões', valor: fmtBRL(totais.comissoes), classe: esmaecidoSeZero(totais.comissoes) },
+    { rotulo: 'Premiações', valor: fmtBRL(totais.premiacoes), classe: esmaecidoSeZero(totais.premiacoes) },
+    { rotulo: 'Ajuda de custo', valor: fmtBRL(totais.ajudaCusto), classe: esmaecidoSeZero(totais.ajudaCusto) },
     totais.adiantamentos > 0
       ? { rotulo: 'Adiantamentos', valor: `-${fmtBRL(totais.adiantamentos)}`, classe: 'text-warning' }
       : { rotulo: 'Adiantamentos', valor: fmtBRL(0), classe: 'text-muted-foreground' },
