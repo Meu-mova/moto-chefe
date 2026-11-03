@@ -14,6 +14,7 @@ import { listarLojasAtivasDaConta } from '@/lib/conta'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, podeAprovarPagamentoSensivelNoGrupoAtivo, getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
 import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { papelTransfereEntreGrupos } from '@/lib/transferencia-grupos'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { PrintButton } from '../relatorio-fabrica/print-button'
 import { motoVendidaSemVendaPorChassi } from '@/lib/motos-vendidas-sem-venda'
@@ -43,7 +44,7 @@ export default async function EstoquePage({
   const isAdmin = ADMINS.includes(usuario.papel)
 
   const lojaIdsGrupo = await withTimeout(listarLojaIdsDoGrupoAtivo(usuario), 20000)
-  const acessoMultiGrupo = isAdmin && await podeTransferirEntreGrupos(usuario)
+  const acessoMultiGrupo = (isAdmin || papelTransfereEntreGrupos(usuario.papel)) && await podeTransferirEntreGrupos(usuario)
   const podeAprovarSensivel = await podeAprovarPagamentoSensivelNoGrupoAtivo(usuario)
 
   const filtros = filtrosDoShowroom(params, usuario, lojaIdsGrupo)

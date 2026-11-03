@@ -135,6 +135,33 @@ test('decisão inteira do destino: nunca entre Contas, nos dois sentidos, nem pa
   })
 })
 
+test('aux_adm com a chave ligada: outro grupo da Conta sim, outra Conta nunca; desligada, não', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A')
+    const b = await semearConta(tx, 'B')
+    const aux = { papel: 'aux_adm', lojaId: a.g1.lojaId, contaId: a.contaId }
+    assert.equal(await mod.destinoDeTransferenciaPermitido(aux, a.g1.lojaId, a.g2.lojaId, tx), false)
+
+    const geral = await usuario(tx, 'admin_geral', null)
+    await mod.alterarTransferenciaEntreGrupos(geral, a.contaId, true, tx)
+    await mod.alterarTransferenciaEntreGrupos(geral, b.contaId, true, tx)
+    assert.equal(await mod.destinoDeTransferenciaPermitido(aux, a.g1.lojaId, a.g2.lojaId, tx), true)
+    assert.equal(await mod.destinoDeTransferenciaPermitido(aux, a.g1.lojaId, b.g1.lojaId, tx), false)
+    assert.equal(await mod.destinoDeTransferenciaPermitido(aux, b.g1.lojaId, b.g2.lojaId, tx), false)
+  })
+})
+
+test('vendedor e mecânico seguem sem destino em outro grupo, mesmo com a chave ligada', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A')
+    await mod.alterarTransferenciaEntreGrupos(await usuario(tx, 'admin_geral', null), a.contaId, true, tx)
+    for (const papel of ['vendedor', 'mecanico']) {
+      const u = { papel, lojaId: a.g1.lojaId, contaId: a.contaId }
+      assert.equal(await mod.destinoDeTransferenciaPermitido(u, a.g1.lojaId, a.g2.lojaId, tx), false)
+    }
+  })
+})
+
 test('decisão inteira do destino: chave desligada, sócio só nos grupos que vê', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A')

@@ -48,10 +48,19 @@ async function mesmaConta(lojaA: string, lojaB: string, exec: Leitor): Promise<b
 }
 
 /**
+ * Papéis que, com a chave da Conta ligada, mandam moto para loja de outro grupo dela.
+ * O aux_adm entra porque é quem opera a loja; continua mandando só moto da própria loja
+ * (`podeAgirNaLoja` na action). Tela e servidor decidem por aqui.
+ */
+export function papelTransfereEntreGrupos(papel: string): boolean {
+  return papel === 'admin_socio' || papel === 'aux_adm'
+}
+
+/**
  * Decisão inteira do destino da transferência. Em TODO caso a loja de destino é da
  * mesma Conta da loja da moto: nem o admin_geral nem sócio com grupo liberado de outra
  * Conta (#520) atravessam Conta. Dentro dela: loja que o usuário pode abrir, ou, para o
- * sócio com a chave da Conta da moto ligada, qualquer grupo dela (#552).
+ * sócio ou aux_adm com a chave da Conta da moto ligada, qualquer grupo dela (#552).
  */
 export async function destinoDeTransferenciaPermitido(
   usuario: Parameters<typeof podeAbrirRegistroDaLoja>[0],
@@ -61,7 +70,7 @@ export async function destinoDeTransferenciaPermitido(
 ): Promise<boolean> {
   if (!(await mesmaConta(motoLojaId, lojaDestinoId, exec))) return false
   if (await podeAbrirRegistroDaLoja(usuario, lojaDestinoId, exec as Parameters<typeof podeAbrirRegistroDaLoja>[2])) return true
-  return usuario.papel === 'admin_socio' && destinoEntreGruposPermitido(motoLojaId, lojaDestinoId, exec)
+  return papelTransfereEntreGrupos(usuario.papel) && destinoEntreGruposPermitido(motoLojaId, lojaDestinoId, exec)
 }
 
 export async function alterarTransferenciaEntreGrupos(

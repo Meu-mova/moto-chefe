@@ -8,6 +8,7 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojasAtivasDaConta } from '@/lib/conta'
 import { listarLojasDoGrupoAtivo, getGrupoIdDaLoja, podeAprovarVendaBaixoValor, podeAprovarPagamentoSensivelNaLoja, podeTransferirEntreGrupos, contaDoGrupoAtivo } from '@/lib/grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { papelTransfereEntreGrupos } from '@/lib/transferencia-grupos'
 import { db } from '@/lib/db'
 import { precificacao, configuracaoTaxas } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -47,7 +48,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
   const tipoAprovacaoPendente = (moto.aprovacaoPendenteTipo ?? 'valor_minimo') as 'valor_minimo' | 'pagamento_sensivel'
   const podeAprovarAprovacao = tipoAprovacaoPendente === 'pagamento_sensivel' ? podeAprovarSensivel : podeAprovarValorMinimo
   const isAdmin = ['admin_geral', 'admin_socio'].includes(usuario.papel)
-  const acessoMultiGrupo = isAdmin && await podeTransferirEntreGrupos(usuario)
+  const acessoMultiGrupo = (isAdmin || papelTransfereEntreGrupos(usuario.papel)) && await podeTransferirEntreGrupos(usuario)
 
   const [mecanicos, lojasOpts, lojasTransferencia, usuariosOpts, modelosOpts, precRow, taxasRow] = await Promise.all([
     listarUsuariosDoGrupo(grupoIdDaMoto, { papeis: ['mecanico'] }),

@@ -5,6 +5,7 @@ import { listarTransferencias, listarMotosTransferiveis } from '@/lib/queries/tr
 import { listarLojasAtivasDaConta, lojasDoEscopo } from '@/lib/conta'
 import { listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo, podeTransferirEntreGrupos, contaDoGrupoAtivo } from '@/lib/grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { papelTransfereEntreGrupos } from '@/lib/transferencia-grupos'
 import { TransferenciaCard } from './components/transferencia-card'
 import { SolicitarDialog } from './components/solicitar-dialog'
 import { TransferenciasFiltros } from './components/transferencias-filtros'
@@ -29,7 +30,8 @@ export default async function TransferenciasPage({
   // Todos os papéis enxergam a movimentação entre todas as lojas do grupo ativo —
   // permissão pra aceitar/recusar continua restrita à loja de destino (ver actions.ts).
   const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  const acessoMultiGrupo = isAdmin && await podeTransferirEntreGrupos(usuario)
+  // Destino em outro grupo da Conta: admins e aux_adm, com a chave ligada (#552).
+  const acessoMultiGrupo = (isAdmin || papelTransfereEntreGrupos(usuario.papel)) && await podeTransferirEntreGrupos(usuario)
 
   // Valida origem/destino informados na URL contra o grupo ativo — um id
   // fora do grupo (estranho ou de outro tenant) é descartado, nunca vaza como filtro.
@@ -50,9 +52,9 @@ export default async function TransferenciasPage({
     }),
     listarLojasDoGrupoAtivo(usuario),
     acessoMultiGrupo ? listarLojasAtivasDaConta(usuario) : listarLojasDoGrupoAtivo(usuario),
-    // Quem não é admin só solicita da própria loja; o admin, do grupo ativo; a
-    // exceção entre grupos, das lojas da Conta.
-    (acessoMultiGrupo
+    // Quem não é admin só solicita da própria loja (o aux_adm também, mesmo com destino
+    // em outro grupo); o admin, do grupo ativo; o admin com a chave, das lojas da Conta.
+    (isAdmin && acessoMultiGrupo
       ? contaDoGrupoAtivo(usuario).then(contaId => lojasDoEscopo({ contaId, grupoLiberado: usuario.grupoLiberado })).then(rs => rs.map(r => r.id))
       : Promise.resolve(isAdmin ? lojaIdsGrupo : usuario.lojaId ? [usuario.lojaId] : [])
     ).then(ids => listarMotosTransferiveis(ids)),
