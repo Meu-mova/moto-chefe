@@ -36,6 +36,9 @@ afterEach(async () => {
 
 const lojas = [{ id: 'L1', nome: 'Loja Centro' }, { id: 'L2', nome: 'Loja Norte' }]
 
+// Re-renderiza a mesma raiz com outros filtros, como o Next faz depois de um router.push.
+let renderizar: (lojaAtual: string, mesAtual: string) => Promise<void> = async () => {}
+
 async function montar(lojaAtual = '', mesAtual = '2026-10') {
   const React = (await import('react')).default
   const { act } = await import('react')
@@ -47,12 +50,13 @@ async function montar(lojaAtual = '', mesAtual = '2026-10') {
   document.body.appendChild(el)
   const raiz = createRoot(el)
   raizes.push(raiz)
-  await act(async () => {
+  renderizar = (loja, mes) => act(async () => {
     raiz.render(React.createElement(FolhaCasca, {
-      lojas, lojaAtual, mesAtual,
+      lojas, lojaAtual: loja, mesAtual: mes,
       children: ABAS_FOLHA.map(a => React.createElement(TabsContent, { key: a.id, value: a.id }, `conteudo ${a.id}`)),
     }))
   })
+  await renderizar(lojaAtual, mesAtual)
   return el
 }
 
@@ -145,4 +149,58 @@ test('enquanto navega, os botões do mês travam e o segundo clique não navega 
   assert.deepEqual(destinos, ['/folha-pagamento?loja=L1&mes=2026-11'])
   await act(async () => { terminar() })
   assert.equal((botao('Mês seguinte') as HTMLButtonElement).disabled, false)
+})
+
+test('a aba escolhida sobrevive a uma nova loja e a um novo mês', async () => {
+  await montar('L1', '2026-10')
+  await escolherSecao('ajustes')
+  await renderizar('L2', '2026-11')
+  assert.match(document.body.textContent ?? '', /conteudo ajustes/)
+  assert.equal(document.querySelector<HTMLSelectElement>('select[aria-label="Seção"]')?.value, 'ajustes')
+})
+
+test('mês seguinte sem mes na URL parte do mês que a tela mostra', async () => {
+  busca = ''
+  await montar('', '2026-10')
+  await clicar(botao('Mês seguinte'))
+  assert.deepEqual(destinos, ['/folha-pagamento?mes=2026-11'])
+})
+
+test('o mês vira o ano: dezembro vai a janeiro e janeiro volta a dezembro', async () => {
+  busca = 'mes=2026-12'
+  await montar('', '2026-12')
+  await clicar(botao('Mês seguinte'))
+  busca = 'mes=2026-01'
+  await renderizar('', '2026-01')
+  await clicar(botao('Mês anterior'))
+  assert.deepEqual(destinos, ['/folha-pagamento?mes=2027-01', '/folha-pagamento?mes=2025-12'])
+})
+
+test('clicar na aba troca o painel e o seletor Seção acompanha', async () => {
+  await montar()
+  await clicar(botao('Ajustes'))
+  assert.match(document.body.textContent ?? '', /conteudo ajustes/)
+  assert.doesNotMatch(document.body.textContent ?? '', /conteudo mes/)
+  assert.equal(document.querySelector<HTMLSelectElement>('select[aria-label="Seção"]')?.value, 'ajustes')
+})
+
+test('cada aba que ignora um filtro mostra o aviso dela', async () => {
+  await montar()
+  const avisos: [string, RegExp][] = [
+    ['funcionarios', /O mês não muda esta aba/],
+    ['comissoes', /o mês só define quais estão vigentes/],
+    ['premiacao', /os filtros de loja e de mês não mudam esta aba/],
+  ]
+  for (const [id, aviso] of avisos) {
+    await escolherSecao(id)
+    assert.match(document.body.textContent ?? '', aviso, id)
+  }
+})
+
+test('Imprimir com "Todas as lojas" leva loja vazia, que o servidor lê como todas', async () => {
+  const abertas: string[] = []
+  window.open = ((url: string) => { abertas.push(url); return null }) as typeof window.open
+  await montar('', '2026-10')
+  await clicar(botao('Imprimir folha'))
+  assert.deepEqual(abertas, ['/folha-pagamento/imprimir?mes=2026-10&loja='])
 })
