@@ -38,7 +38,7 @@ export function montarDom(html = '<!doctype html><html><body></body></html>') {
     instalar('IS_REACT_ACT_ENVIRONMENT', true),
   ]
   const desmontar = () => {
-    instalados.reverse().forEach(restaurar)
+    [...instalados].reverse().forEach(restaurar)
     dom.window.close()
   }
   return { dom, desmontar }
