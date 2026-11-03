@@ -60,3 +60,13 @@ test('telas fora do seletor (usuários, mensalidade) não contam o grupo liberad
   const persona = usuarioDaRede(usuario('admin_rede'), [LIBERADO], LIBERADO.grupoId)
   assert.deepEqual(gruposVisiveis({ ...persona, gruposLiberados: [] }, null, todos), [LIBERADO.grupoId])
 })
+
+// Gerenciar cargos (#617): o admin_rede com a permissão gerencia na própria Conta, nunca na persona.
+test('admin_rede com Gerenciar cargos: gerencia fora da persona e no cookie sem liberação; na persona, não', async () => {
+  const { podeGerenciarCargos } = await import('./gestao-usuarios')
+  const rede = { ...usuario('admin_rede'), modulosExtras: ['cargos'] }
+  assert.equal(podeGerenciarCargos(usuarioDaRede(rede, [LIBERADO], null)), true, 'grupo da própria Conta')
+  assert.equal(podeGerenciarCargos(usuarioDaRede(rede, [], LIBERADO.grupoId)), true, 'cookie de grupo sem liberação')
+  assert.equal(podeGerenciarCargos(usuarioDaRede(rede, [LIBERADO], LIBERADO.grupoId)), false, 'grupo liberado de outra Conta')
+  assert.equal(podeGerenciarCargos(usuarioDaRede({ ...usuario('admin_rede') }, [LIBERADO], null)), false, 'sem a permissão ligada')
+})

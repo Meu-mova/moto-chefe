@@ -130,10 +130,10 @@ test('limites da tela: sócio não vê o papel admin_geral nem o Excluir', () =>
   assert.equal(g.travaASiMesmo, false)
 })
 
-test('só o admin_geral atribui cargo; o sócio mantém o cargo de quem já tem, sem trocar (#616)', () => {
+test('sem a permissão de cargos, o sócio mantém o cargo de quem já tem, sem trocar (#616, #617)', () => {
   const geral = { id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
   assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'cargo', cargoId: 'c1' })), null)
-  const RECUSA = 'Só o Admin Geral atribui cargo'
+  const RECUSA = 'Só quem gerencia cargos atribui cargo'
   assert.equal(gravar(cadastro({ papel: 'cargo', cargoId: 'c1' })), RECUSA, 'usuário novo')
   assert.equal(gravar(cadastro({ papel: 'cargo', cargoId: 'c1' }), { id: 'u', ...cadastro() }), RECUSA, 'vendedor passando a cargo')
   const comCargo = { id: 'u', ...cadastro({ papel: 'cargo', cargoId: 'c1' }) }
@@ -172,4 +172,53 @@ test('Entrada (#488): o sócio libera para aux_adm do grupo dele; para outra fun
   const semEntrada = { ...socio, itensLiberaveis: [] }
   assert.match(recusaDaGravacao(semEntrada, null, cadastro({ papel: 'aux_adm', modulosExtras: ['entrada'] })) ?? '', /telas que você mesmo tem/, 'só libera o que ele tem')
   assert.match(recusaDaGravacao(socio, null, cadastro({ papel: 'aux_adm', grupoDaLoja: BH, modulosExtras: ['entrada'] })) ?? '', /lojas e grupos que você mesmo vê|Loja/, 'só em grupo dele')
+})
+
+// ─── Gerenciar cargos por pessoa (#617) ───────────────────────────────────────
+const FRASE_LIGAR = 'Só o Admin Geral liga ou desliga Gerenciar cargos'
+const sociaDeCargos = { ...socioDoVale, gruposAprovacao: [VALE], itensLiberaveis: ['estoque'], aprovaPagamentoSensivel: false, podeCargos: true }
+const sociaSemCargos = { ...sociaDeCargos, podeCargos: false }
+const comCargosLigado = (extra = {}) => ({ id: 'u', ...cadastro({ modulosExtras: ['cargos'], ...extra }) })
+
+test('só o admin_geral liga Gerenciar cargos, para sócio e para admin de rede (#617)', () => {
+  const geral = { id: 'g', papel: 'admin_geral', gruposVisiveis: [], gruposAprovacao: [], itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'admin_socio', modulosExtras: ['cargos'] })), null)
+  assert.equal(recusaDaGravacao(geral, null, cadastro({ papel: 'admin_rede', modulosExtras: ['cargos'] })), null)
+  for (const g of [sociaSemCargos, sociaDeCargos, { ...sociaDeCargos, itensLiberaveis: ['cargos'] }]) {
+    assert.equal(recusaDaGravacao(g, null, cadastro({ papel: 'admin_socio', modulosExtras: ['cargos'] })), FRASE_LIGAR, 'usuário novo')
+    assert.equal(recusaDaGravacao(g, { id: 'u', ...cadastro({ papel: 'admin_socio' }) }, cadastro({ papel: 'admin_socio', modulosExtras: ['cargos'] })), FRASE_LIGAR, 'outro sócio')
+  }
+})
+
+test('sócio não desliga nem bloqueia Gerenciar cargos de ninguém, mas salva os outros campos (#617)', () => {
+  const antes = comCargosLigado({ papel: 'admin_socio' })
+  assert.equal(recusaDaGravacao(sociaDeCargos, antes, cadastro({ papel: 'admin_socio', modulosExtras: [] })), FRASE_LIGAR, 'desligar')
+  assert.equal(recusaDaGravacao(sociaDeCargos, antes, cadastro({ papel: 'admin_socio', modulosExtras: ['cargos'], modulosBloqueados: ['cargos'] })), FRASE_LIGAR, 'bloquear')
+  assert.equal(recusaDaGravacao(sociaDeCargos, antes, cadastro({ papel: 'admin_socio', modulosExtras: ['cargos'], modulosBloqueados: ['estoque'] })), null, 'outro campo, permissão igual')
+})
+
+test('quem tem a permissão dá cargo ao usuário; sem ela, não (#617)', () => {
+  assert.equal(recusaDaGravacao(sociaDeCargos, null, cadastro({ papel: 'cargo', cargoId: 'c1' })), null)
+  assert.equal(recusaDaGravacao(sociaSemCargos, null, cadastro({ papel: 'cargo', cargoId: 'c1' })), 'Só quem gerencia cargos atribui cargo')
+  const comCargo = { id: 'u', ...cadastro({ papel: 'cargo', cargoId: 'c1' }) }
+  assert.equal(recusaDaGravacao(sociaSemCargos, comCargo, cadastro({ papel: 'cargo', cargoId: 'c1', modulosBloqueados: ['estoque'] })), null, 'sem a permissão, mantém o cargo')
+  assert.equal(recusaDaGravacao(sociaSemCargos, comCargo, cadastro({ papel: 'cargo', cargoId: 'c2' })), 'Só quem gerencia cargos atribui cargo', 'sem a permissão, não troca')
+  assert.equal(recusaDaGravacao(sociaDeCargos, comCargo, cadastro({ papel: 'cargo', cargoId: 'c2' })), null, 'com a permissão, troca')
+})
+
+test('a tela oferece Cargos e "Cargo da Conta" a quem gerencia cargos (#617)', () => {
+  const com = limitesDaTela(sociaDeCargos)
+  assert.equal(com.podeCargos, true)
+  assert.ok(com.papeis.includes('cargo'))
+  assert.ok(!com.papeis.includes('admin_geral') && !com.papeis.includes('admin_rede'), 'os limites de papel seguem os do sócio')
+  const sem = limitesDaTela(sociaSemCargos)
+  assert.equal(sem.podeCargos, false)
+  assert.ok(!sem.papeis.includes('cargo'))
+})
+
+test('a regra de gestão não recusa o cargo com base Sócio que edita a si mesmo e mantém o papel (#617)', () => {
+  const eu = { id: 'eu', papel: 'admin_socio', gruposVisiveis: [VALE], gruposAprovacao: [VALE], itensLiberaveis: [], aprovaPagamentoSensivel: false }
+  const antes = { id: 'eu', ...cadastro({ papel: 'cargo', cargoId: 'c1' }) }
+  assert.equal(recusaDaGravacao(eu, antes, cadastro({ papel: 'cargo', cargoId: 'c1', gruposAprovacao: [VALE] })), null)
+  assert.equal(recusaDaGravacao(eu, antes, cadastro({ papel: 'vendedor' })), 'Você não pode desativar nem trocar o papel de si mesmo')
 })

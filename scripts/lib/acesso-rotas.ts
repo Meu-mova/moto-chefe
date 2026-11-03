@@ -25,7 +25,7 @@ export function usuariosDaMatriz(json: string | undefined): UsuarioMatriz[] {
   return lista as UsuarioMatriz[]
 }
 
-export const ROTAS_MATRIZ: string[] =[...new Set(ITENS.map(i => i.href))]
+export const ROTAS_MATRIZ: string[] =[...new Set(ITENS.filter(i => !i.semTela).map(i => i.href))]
 
 export type Esperado = 'abre' | 'volta'
 

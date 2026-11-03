@@ -4,8 +4,14 @@ import { ITENS } from '../../src/lib/navegacao'
 import { ROTAS_MATRIZ, USUARIOS_MATRIZ, esperado, falhaDaVisita, usuariosDaMatriz } from './acesso-rotas'
 
 test('a matriz cobre toda rota da tabela de navegação e os 6 papéis do seed', () => {
-  for (const i of ITENS) assert.ok(ROTAS_MATRIZ.includes(i.href), i.href)
+  for (const i of ITENS.filter(i => !i.semTela)) assert.ok(ROTAS_MATRIZ.includes(i.href), i.href)
   assert.deepEqual(USUARIOS_MATRIZ.map(u => u.papel), ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista'])
+})
+
+test('permissão sem tela (Gerenciar cargos) não vira rota da matriz (#617)', () => {
+  const semTela = ITENS.filter(i => i.semTela)
+  assert.ok(semTela.length > 0)
+  for (const i of semTela) assert.ok(!ROTAS_MATRIZ.includes(i.href), i.href)
 })
 
 test('o esperado segue a regra do papel', () => {

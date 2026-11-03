@@ -14,6 +14,7 @@ import { ModulosPicker } from './modulos-picker'
 import { CargosDialog, type CargoDaConta } from './cargos-dialog'
 import { cargosDoAlvo, ROTULO_DA_BASE } from '@/lib/cargos-opcoes'
 import type { LimitesDaTela } from '@/lib/gestao-usuarios'
+import { guardaAcessoAGrupos, guardaAprovacao, papelDasListas } from '@/lib/listas-do-cadastro'
 import { diferencaDaFuncao } from '@/lib/modulos-picker-estado'
 import { ITENS } from '@/lib/navegacao'
 import { contaDoFormulario, gruposDaConta } from '@/lib/grupos-do-formulario'
@@ -61,9 +62,6 @@ type DadosForm = {
   cargoId: string | null
   gruposLiberados: string[]
 }
-
-// Aprovação de venda é coisa de admin — para os demais papéis o bloco nem aparece.
-const PAPEIS_APROVADORES = ['admin_geral', 'admin_rede', 'admin_socio']
 
 const PAPEIS: { value: string; label: string }[] = [
   { value: 'admin_geral',  label: 'Admin Geral' },
@@ -171,10 +169,12 @@ function FormUsuario({
     setGruposAcesso(a => a.filter(g => doNovo.has(g)))
   }
 
-  const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
+  // Quem tem cargo faz o que a base faz (#617): a base do cargo escolhido decide Aprovação e Acesso.
+  const papelEfetivo = papelDasListas(papel, cargos.find(c => c.id === cargoId)?.papelBase ?? null)
+  const mostrarAprovacao = guardaAprovacao(papelEfetivo)
   // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
   // ele sugeriria, errado, que ela é que manda. Só admin_socio usa isto.
-  const mostrarAcessoGrupos = papel === 'admin_socio' || papel === 'admin_rede'
+  const mostrarAcessoGrupos = guardaAcessoAGrupos(papelEfetivo)
   // Grupos da Conta do próprio usuário vão pelos grupos de acesso acima (ADR-0019).
   const outrasContas = (liberaveis ?? []).filter(g => g.contaId !== inicial?.contaId)
   const mostrarLiberados = papel === 'admin_rede' && liberaveis !== null
@@ -356,6 +356,7 @@ function FormUsuario({
           </p>
           <ModulosPicker
             liberaveis={limites.itensLiberaveis}
+            travados={limites.itensTravados}
             papel={papel}
             papeisExtras={inicial?.papeisExtras ?? []}
             extras={modulosExtras}
@@ -478,7 +479,8 @@ export function UsuariosTable({ usuarios, lojas, grupos, limites, cargos, contaA
     return cargo ? `Cargo da Conta, base ${ROTULO_DA_BASE[cargo.papelBase]}` : null
   }
   const ondeAprova = (u: Usuario) => {
-    if (!PAPEIS_APROVADORES.includes(u.papel)) return 'Não aprova'
+    const base = u.papel === 'cargo' ? cargos.find(c => c.id === u.cargoId)?.papelBase ?? null : null
+    if (!guardaAprovacao(papelDasListas(u.papel, base))) return 'Não aprova'
     // O grupo da loja já aprova por padrão e às vezes também está marcado: conta uma vez só.
     const n = new Set([...u.gruposAprovacao, ...(u.grupoDaLojaId ? [u.grupoDaLojaId] : [])]).size
     return `${n} ${n === 1 ? 'grupo' : 'grupos'}${u.aprovaPagamentoSensivel ? ', transferência' : ''}`

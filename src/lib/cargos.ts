@@ -127,15 +127,16 @@ export async function apagarCargo(exec: Executor, quem: QuemGerenciaCargos, id: 
 
 /**
  * cargo_id a gravar no usuário. `contaId` é a Conta do usuário-alvo (da loja dele), não a
- * de quem edita. Cargo de outra Conta e id inexistente recebem a mesma frase.
+ * de quem edita. Cargo de outra Conta e id inexistente recebem a mesma frase. `papelBase` é
+ * o papel que governa o cadastro de quem tem o cargo (aprovação e acesso, #617).
  */
 export async function cargoParaGravar(
   exec: Executor, alvo: { papel: string; contaId: string | null; cargoId: string | null },
-): Promise<{ ok: true; cargoId: string | null } | { ok: false; erro: string }> {
-  if (alvo.papel !== 'cargo') return { ok: true, cargoId: null }
+): Promise<{ ok: true; cargoId: string | null; papelBase: PapelBase | null } | { ok: false; erro: string }> {
+  if (alvo.papel !== 'cargo') return { ok: true, cargoId: null, papelBase: null }
   if (!alvo.cargoId || !alvo.contaId) return NAO_ENCONTRADO
   const cargo = await cargoDaConta(exec, alvo.contaId, alvo.cargoId)
-  return cargo ? { ok: true, cargoId: cargo.id } : NAO_ENCONTRADO
+  return cargo ? { ok: true, cargoId: cargo.id, papelBase: cargo.papelBase as PapelBase } : NAO_ENCONTRADO
 }
 
 /** Nome e papel base do cargo, só se o cargo for da Conta da loja do usuário. */

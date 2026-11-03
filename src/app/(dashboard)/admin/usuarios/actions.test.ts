@@ -10,8 +10,12 @@ function consulta() {
 }
 // Excluir: o delete do cadastro estoura a FK (23503) quando o usuário tem histórico.
 let erroNoDelete: unknown = null
-const tx = { delete: () => ({ where: () => ({ returning: async () => { if (erroNoDelete) throw erroNoDelete; return [{ id: 'u1', nome: 'U', lojaId: null, contaId: null }] } }) }) }
+const tx = {
+  update: () => ({ set: () => ({ where: async () => {} }) }),
+  execute: async () => {},
+  delete: () => ({ where: () => ({ returning: async () => { if (erroNoDelete) throw erroNoDelete; return [{ id: 'u1', nome: 'U', lojaId: null, contaId: null }] } }) }) }
 const db = {
+  insert: () => ({ values: async () => {} }),
   select: () => ({ from: () => ({ where: consulta }) }),
   transaction: async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx),
 }
@@ -27,7 +31,8 @@ mock.module('@/lib/gestor-da-sessao', { namedExports: { gestorDaSessao: async ()
 mock.module('@/lib/gestao-usuarios', { namedExports: { recusaDaGravacao: () => recusa, podeExcluir: () => geral, COM_HISTORICO: 'Este usuário tem histórico no sistema. Desative em vez de excluir.' } })
 mock.module('@/lib/usuarios-gerenciaveis', { namedExports: { cadastroPedido: async () => ({}), cadastroAtual: async () => atual } })
 mock.module('@/lib/grupo', { namedExports: { getGrupoIdDaLoja: async () => 'grupo-a' } })
-mock.module('@/lib/cargos', { namedExports: { cargoParaGravar: async () => ({ ok: true, cargoId: null }) } })
+let cargoDoCadastro: object = { ok: true, cargoId: null, papelBase: null }
+mock.module('@/lib/cargos', { namedExports: { cargoParaGravar: async () => cargoDoCadastro, nomesDosCargos: async () => ({}) } })
 mock.module('@/lib/log-acoes', { namedExports: { camposDePermissaoAlterados: () => [], registrarAcaoSensivelSemFalhar: async () => {} } })
 mock.module('@supabase/supabase-js', {
   namedExports: { createClient: () => ({ auth: { admin: { createUser: async () => { usuariosCriados++; return { data: { user: { id: 'novo' } }, error: null } }, deleteUser: async () => { loginsApagados++; return { error: null } } } } }) },
@@ -99,4 +104,32 @@ test('excluir sem ser admin_geral volta como recusa', async () => {
   const { excluirUsuarioAction } = await import('./actions')
   const r = await excluirUsuarioAction('u1')
   assert.equal(r.ok, false)
+})
+
+// Quem tem cargo faz o que a base faz (#617): o servidor confere as listas pelo papel da base, ao
+// criar e ao editar. As respostas seguem a ordem das consultas: [o usuário antes (só editar)], a Conta
+// da loja do cargo, e a conferência dos grupos marcados.
+const doCargo = { ...dados, papel: 'cargo', cargoId: 'c1', gruposAcesso: [], gruposAprovacao: ['grupo-b'] }
+const CONTA_DA_LOJA = [{ contaId: 'conta-a' }]
+
+test('criar: cargo com base Sócio confere os grupos de aprovação; base Adm. da loja não guarda a lista', async () => {
+  const { criarUsuarioAction } = await import('./actions')
+  cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'admin_socio' }
+  respostas = [CONTA_DA_LOJA, []] // nenhum dos grupos marcados existe
+  assert.deepEqual(await criarUsuarioAction(doCargo), RECUSA_GRUPO)
+  cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'aux_adm' }
+  respostas = [CONTA_DA_LOJA]
+  assert.deepEqual(await criarUsuarioAction(doCargo), { ok: true, id: 'novo' }, 'a lista não vale para essa base: nem é conferida')
+  cargoDoCadastro = { ok: true, cargoId: null, papelBase: null }
+})
+
+test('editar: cargo com base Sócio confere os grupos de aprovação; base Adm. da loja não guarda a lista', async () => {
+  const { editarUsuarioAction } = await import('./actions')
+  cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'admin_socio' }
+  respostas = [[], CONTA_DA_LOJA, []]
+  assert.deepEqual(await editarUsuarioAction('u1', doCargo), RECUSA_GRUPO)
+  cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'aux_adm' }
+  respostas = [[], CONTA_DA_LOJA, [], []]
+  assert.deepEqual(await editarUsuarioAction('u1', doCargo), { ok: true }, 'a lista não vale para essa base: nem é conferida')
+  cargoDoCadastro = { ok: true, cargoId: null, papelBase: null }
 })
