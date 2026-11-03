@@ -18,15 +18,7 @@ import { listarHoleritesAction } from './holerites-actions'
 import { labelDaBase } from '@/lib/folha'
 import { PrintButton } from '../relatorio-fabrica/print-button'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
-
-const PAPEL_LABEL: Record<string, string> = {
-  admin_geral: 'Admin Geral',
-  admin_socio: 'Admin Sócio',
-  aux_adm:     'Auxiliar Adm.',
-  vendedor:    'Vendedor',
-  mecanico:    'Mecânico',
-  motorista:   'Motorista',
-}
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 
 function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -218,7 +210,7 @@ export default async function FolhaPagamentoPage({
                   <tr key={f.id} className="hover:bg-muted">
                     <td className="px-4 py-2">
                       <p className="font-medium">{f.nome}</p>
-                      <p className="text-xs text-muted-foreground">{PAPEL_LABEL[f.papel] ?? f.papel} · {f.lojaNome}</p>
+                      <p className="text-xs text-muted-foreground">{rotuloDoPapelGravado(f.papel)} · {f.lojaNome}</p>
                     </td>
                     <td className="px-4 py-2 text-right">{fmt(f.salario)}</td>
                     {/* A base saiu de coluna própria: com N regras por pessoa, cada
