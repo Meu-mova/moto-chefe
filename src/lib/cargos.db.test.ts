@@ -4,6 +4,7 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
+import { semearContaBase } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -36,13 +37,11 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'CG449 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'CG449 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja CG449 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const quem = { papel: 'admin_socio', contaId: conta.id as string, usuarioId: randomUUID() }
+  const base = await semearContaBase(tx, { prefixo: 'CG449', nome, cnpj })
+  const quem = { papel: 'admin_socio', contaId: base.contaId, usuarioId: randomUUID() }
   const criado = await mod.criarCargo(tx, quem, { nome: 'Recepção', papelBase: 'aux_adm' })
   assert.ok(criado.ok)
-  return { quem, lojaId: loja.id as string, cargoId: criado.id }
+  return { quem, lojaId: base.lojaId, cargoId: criado.id }
 }
 
 test('Conta B não lista, não edita e não apaga cargo da Conta A; recusa igual a id inexistente (#449)', async () => {

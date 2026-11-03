@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -35,20 +36,17 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'RS404 ' + nome}) returning id`)
-  const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'RS404 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja RS404 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [vendedor] = await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Vendedor', ${'vend-rs404' + nome + '@teste.invalid'}, 'vendedor', ${loja.id}) returning id`)
+  const base = await semearContaBase(tx, { prefixo: 'RS404', nome, cnpj })
+  const vendedorId = await semearUsuario(tx, base, { papel: 'vendedor' })
   const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${'RS404 ' + nome}, 'autopropelido', '1000', 'hub', '32') returning id`)
   const [moto] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
-    values (${'RS404-' + nome}, ${modelo.id}, ${loja.id}, 'CINZA', '1', 'montada', 'reservada') returning id`)
+    values (${'RS404-' + nome}, ${modelo.id}, ${base.lojaId}, 'CINZA', '1', 'montada', 'reservada') returning id`)
   const [reserva] = await linhas(tx, sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status)
-    values (${moto.id}, ${loja.id}, ${vendedor.id}, 500, 'pix', current_date, 'cancelada') returning id`)
+    values (${moto.id}, ${base.lojaId}, ${vendedorId}, 500, 'pix', current_date, 'cancelada') returning id`)
   return {
     reservaId: reserva.id as string,
-    aux: { papel: 'aux_adm', contaId: conta.id as string },
-    socio: { papel: 'admin_socio', contaId: conta.id as string },
+    aux: { papel: 'aux_adm', contaId: base.contaId },
+    socio: { papel: 'admin_socio', contaId: base.contaId },
   }
 }
 

@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaVazia, semearGrupo } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -35,13 +36,10 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
 async function semearConta(tx: Tx, nome: string, ligada: boolean) {
-  const [conta] = await linhas(tx, sql`insert into contas (nome, transferencia_entre_grupos) values (${'GE552 ' + nome}, ${ligada}) returning id`)
-  const grupo = async (sufixo: string) => {
-    const [g] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'GE552 ' + nome + sufixo}, '00000000000000', ${conta.id}) returning id`)
-    const [l] = await linhas(tx, sql`insert into lojas (nome, endereco, cidade, grupo_id) values (${'Loja ' + nome + sufixo}, 'Rua 1', 'X', ${g.id}) returning id`)
-    return { grupoId: g.id as string, lojaId: l.id as string }
-  }
-  return { contaId: conta.id as string, g1: await grupo('1'), g2: await grupo('2') }
+  const contaId = await semearContaVazia(tx, { prefixo: 'GE552', nome })
+  await linhas(tx, sql`update contas set transferencia_entre_grupos = ${ligada} where id = ${contaId}`)
+  const grupo = (sufixo: string) => semearGrupo(tx, contaId, { prefixo: 'GE552', nome: nome + sufixo, cnpj: '00000000000000' })
+  return { contaId, g1: await grupo('1'), g2: await grupo('2') }
 }
 
 /** Moto que entrou na loja `entrada` e está agora na loja `atual`. */
