@@ -155,14 +155,14 @@ test('atribuir cargo só aceita cargo da Conta do usuário; o da outra Conta rec
     const b = await semearConta(tx, 'B', '22222222000191')
     const inexistente = '00000000-0000-0000-0000-000000000000'
     assert.deepEqual(await mod.cargoParaGravar(tx, { papel: 'cargo', contaId: b.quem.contaId, cargoId: b.cargoId }),
-      { ok: true, cargoId: b.cargoId })
+      { ok: true, cargoId: b.cargoId, papelBase: 'aux_adm' })
     for (const cargoId of [a.cargoId, inexistente, null]) {
       assert.deepEqual(await mod.cargoParaGravar(tx, { papel: 'cargo', contaId: b.quem.contaId, cargoId }),
         { ok: false, erro: 'Cargo não encontrado' })
     }
     // Outro papel não carrega cargo, nem se a tela mandar um.
     assert.deepEqual(await mod.cargoParaGravar(tx, { papel: 'vendedor', contaId: b.quem.contaId, cargoId: b.cargoId }),
-      { ok: true, cargoId: null })
+      { ok: true, cargoId: null, papelBase: null })
   })
 })
 
