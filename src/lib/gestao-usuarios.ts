@@ -116,15 +116,21 @@ export function recusaDaGravacao(
   return null
 }
 
-const PAPEIS = ['admin_geral', 'admin_rede', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']
+const PAPEIS = ['admin_geral', 'admin_rede', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo'] as const
+
+export type PapelBase = Exclude<(typeof PAPEIS)[number], 'admin_geral' | 'admin_rede' | 'cargo'>
+
+/** Os papéis que o sócio dá a um usuário. São também os que um cargo aceita como base (#616). */
+export const PAPEIS_BASE_DO_CARGO = PAPEIS.filter((p): p is PapelBase => p !== 'admin_geral' && p !== 'admin_rede' && p !== 'cargo')
 
 /** O que a tela de /admin/usuarios oferece: os mesmos limites que recusaDaGravacao confere. */
 export function limitesDaTela(gestor: Gestor) {
   const geral = gestor.papel === 'admin_geral'
+  const papeis: string[] = geral ? [...PAPEIS] : [...PAPEIS_BASE_DO_CARGO]
   return {
     meuId: gestor.id,
     podeExcluir: podeExcluir(gestor),
-    papeis: geral ? PAPEIS : PAPEIS.filter(p => p !== 'admin_geral' && p !== 'admin_rede' && p !== 'cargo'),
+    papeis,
     podeCargos: podeGerenciarCargos(gestor),
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,

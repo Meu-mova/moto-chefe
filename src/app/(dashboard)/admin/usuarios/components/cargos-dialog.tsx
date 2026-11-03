@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { oQueABaseFaz, type OQueABaseFaz } from '@/lib/base-do-cargo'
-import { PAPEIS_BASE_DO_CARGO, ROTULO_DA_BASE, type PapelBase } from '@/lib/cargos-opcoes'
+import { ROTULO_DA_BASE } from '@/lib/cargos-opcoes'
+import { PAPEIS_BASE_DO_CARGO, type PapelBase } from '@/lib/gestao-usuarios'
 import { apagarCargoAction, criarCargoAction, editarCargoAction } from '../cargos-actions'
 
 export type CargoDaConta = { id: string; nome: string; papelBase: PapelBase; contaId: string }

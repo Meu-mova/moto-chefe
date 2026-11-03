@@ -6,7 +6,7 @@ import {
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
-import type { PapelBase } from '@/lib/cargos-opcoes'
+import type { PapelBase } from '@/lib/gestao-usuarios'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
 

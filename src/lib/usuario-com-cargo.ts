@@ -1,4 +1,4 @@
-import type { PapelBase } from '@/lib/cargos-opcoes'
+import type { PapelBase } from '@/lib/gestao-usuarios'
 
 export type CargoDoUsuario = { nome: string; papelBase: PapelBase }
 

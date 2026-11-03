@@ -1,9 +1,4 @@
-/**
- * Papéis que um cargo pode ter como base (#616): os que um gestor já dá a um usuário. O banco
- * confere o mesmo conjunto em cargos_papel_base_check (migração 0171).
- */
-export const PAPEIS_BASE_DO_CARGO = ['admin_socio', 'aux_adm', 'vendedor', 'mecanico', 'motorista'] as const
-export type PapelBase = (typeof PAPEIS_BASE_DO_CARGO)[number]
+import type { PapelBase } from '@/lib/gestao-usuarios'
 
 /** Como a tela de cargos chama cada base (o rótulo do papel fixo, na tela de usuários, é outro). */
 export const ROTULO_DA_BASE: Record<PapelBase, string> = {

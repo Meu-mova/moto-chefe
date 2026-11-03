@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { oQueABaseFaz } from './base-do-cargo'
-import { PAPEIS_BASE_DO_CARGO } from './cargos-opcoes'
+import { PAPEIS_BASE_DO_CARGO } from './gestao-usuarios'
 
 // Valores escritos à mão a partir das regras de hoje (spec #615): se uma regra mudar, o teste
 // avisa que a tela de cargos mostraria a base errada.

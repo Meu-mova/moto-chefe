@@ -5,7 +5,7 @@
 import { and, asc, count, eq, ne, type SQL, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { cargos, grupos, lojas, usuarios } from '@/lib/db/schema'
-import { PAPEIS_BASE_DO_CARGO, type PapelBase } from '@/lib/cargos-opcoes'
+import { PAPEIS_BASE_DO_CARGO, type PapelBase } from '@/lib/gestao-usuarios'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
 

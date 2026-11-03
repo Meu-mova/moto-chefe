@@ -1,6 +1,6 @@
 import { papelAprova } from '@/lib/aprovacao-permissao'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
-import type { PapelBase } from '@/lib/cargos-opcoes'
+import type { PapelBase } from '@/lib/gestao-usuarios'
 import { acessaModulo, itensDoMenu } from '@/lib/navegacao'
 import { podeOperarNfSaida } from '../app/(dashboard)/vendas/papeis-nf-saida'
 
