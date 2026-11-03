@@ -2023,6 +2023,8 @@ export const avaliacoesGoogleConfig = pgTable('avaliacoes_google_config', {
   tentativaEm:   timestamp('tentativa_em', { withTimezone: true }),
   atualizadoEm:  timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoPor: uuid('atualizado_por'),
+  /** Quanto das vendas deve virar avaliação, em % (0174). */
+  metaPct:       integer('meta_pct').notNull().default(80),
 })
 
 /** Ficha da loja no Google (Place ID) e a última leitura. */
@@ -2059,6 +2061,20 @@ export const avaliacoesGoogleHistorico = pgTable('avaliacoes_google_historico', 
   nota:            numeric('nota', { precision: 2, scale: 1 }),
   totalAvaliacoes: integer('total_avaliacoes'),
 }, t => [primaryKey({ columns: [t.lojaId, t.dia] })])
+
+/**
+ * Total da loja na primeira e na última leitura do mês (0174): o histórico some em 30 dias e
+ * fechar o mês precisa da primeira foto. Só contagens; `mes` é 'YYYY-MM' de Brasília.
+ */
+export const avaliacoesGoogleTotalMes = pgTable('avaliacoes_google_total_mes', {
+  lojaId:       uuid('loja_id').notNull().references(() => lojas.id),
+  grupoId:      uuid('grupo_id').notNull().references(() => grupos.id),
+  mes:          text('mes').notNull(),
+  totalInicial: integer('total_inicial').notNull(),
+  totalFinal:   integer('total_final').notNull(),
+  primeiraEm:   timestamp('primeira_em', { withTimezone: true }).notNull(),
+  ultimaEm:     timestamp('ultima_em', { withTimezone: true }).notNull(),
+}, t => [primaryKey({ columns: [t.lojaId, t.mes] })])
 
 /**
  * Plaquinha física: de uma loja e, opcionalmente, de um vendedor. `codigo` vai no link da

@@ -11,6 +11,8 @@ import type { LojaPainel, PainelAvaliacoes, PlacaPainel } from '@/lib/avaliacoes
 import {
   atualizarAgoraAction, criarPlacaAction, editarPlacaAction, salvarChaveGoogleAction, salvarPlaceIdAction,
 } from '../actions'
+import type { Placar } from '@/lib/avaliacoes-google/placar'
+import { PlacarAvaliacoes } from './placar-avaliacoes'
 
 export type LinkPlaca = { link: string; qrSvg: string }
 
@@ -324,7 +326,7 @@ function PlaceIdLoja({ loja }: { loja: LojaPainel }) {
   )
 }
 
-export function AvaliacoesClient({ painel, links }: { painel: PainelAvaliacoes; links: Record<string, LinkPlaca> }) {
+export function AvaliacoesClient({ painel, placar, links }: { painel: PainelAvaliacoes; placar: Placar; links: Record<string, LinkPlaca> }) {
   const router = useRouter()
   const [pendente, iniciar] = useTransition()
   const atualizar = () => iniciar(async () => {
@@ -339,7 +341,7 @@ export function AvaliacoesClient({ painel, links }: { painel: PainelAvaliacoes; 
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="space-y-1">
-          <Label htmlFor="mes-toques" className="text-xs">Mês dos toques</Label>
+          <Label htmlFor="mes-toques" className="text-xs">Mês</Label>
           <select
             id="mes-toques" className={selectClass} value={painel.mes}
             onChange={e => router.push(`?mes=${e.target.value}`)}
@@ -355,6 +357,8 @@ export function AvaliacoesClient({ painel, links }: { painel: PainelAvaliacoes; 
       {painel.lojas.length === 0
         ? <p className="text-sm text-muted-foreground">Nenhuma loja ativa neste grupo.</p>
         : <div className="grid gap-4 md:grid-cols-2">{painel.lojas.map(l => <CardLoja key={l.lojaId} loja={l} />)}</div>}
+
+      <PlacarAvaliacoes placar={placar} />
 
       <ResultadoPorVendedor painel={painel} />
 

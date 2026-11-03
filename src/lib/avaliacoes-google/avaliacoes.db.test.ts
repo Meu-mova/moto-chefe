@@ -436,3 +436,129 @@ test('toques simultâneos na mesma placa contam 1 por janela de 60 s (gravados d
     await db.execute(sql`delete from contas where id = ${contaId}`)
   }
 })
+
+// ─── Placar do mês ────────────────────────────────────────────────────────────
+
+const EM_OUTUBRO = new Date('2026-10-10T15:00:00Z')
+
+/** Google com o total pedido, para simular avaliações novas entre duas leituras. */
+const googleComTotal = (total: number | null) => ({
+  buscarLugar: async () => ({ nota: 4.5, total, mapsUri: null, avaliacoes: [] }),
+})
+
+async function configurarSemLer(tx: Tx, c: Cenario) {
+  await m.salvarChaveGoogle(c.socioA, { grupoId: c.grupoA, chave: CHAVE }, tx)
+  await m.salvarPlaceIdLoja(c.socioA, { grupoId: c.grupoA, lojaId: c.lojaA, placeId: PLACE_A }, tx)
+}
+
+async function vender(tx: Tx, lojaId: string, vendedorId: string, dataVenda: string) {
+  const chassi = 'PLACAR' + Math.floor(Math.random() * 1e9)
+  const [modelo] = await linhas<{ id: string }>(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
+    values ('M', ${'PL ' + chassi}, 'autopropelido', '1000', 'hub', '32') returning id`)
+  const [moto] = await linhas<{ id: string }>(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status)
+    values (${chassi}, ${modelo.id}, ${lojaId}, 'AZUL', '1', 'vendida') returning id`)
+  const [pedido] = await linhas<{ id: string }>(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status)
+    values (${moto.id}, ${lojaId}, ${vendedorId}, 'efetivado') returning id`)
+  await tx.execute(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento, data_venda)
+    values (${pedido.id}, ${moto.id}, ${lojaId}, ${vendedorId}, ${vendedorId}, 'Cliente', '52998224725', 1000, 'pix', ${dataVenda})`)
+}
+
+test('total do mês: a primeira leitura fica, a última atualiza, e a limpeza dos 30 dias não apaga', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenario(tx)
+    await configurarSemLer(tx, c)
+    await m.sincronizarGrupo(c.grupoA, googleComTotal(120), tx, EM_OUTUBRO)
+    await m.sincronizarGrupo(c.grupoA, googleComTotal(125), tx, new Date('2026-10-20T15:00:00Z'))
+    await m.sincronizarGrupo(c.grupoA, googleComTotal(130), tx, new Date('2026-11-02T15:00:00Z'))
+    // Leitura sem total não zera o mês.
+    await m.sincronizarGrupo(c.grupoA, googleComTotal(null), tx, new Date('2026-11-03T15:00:00Z'))
+
+    const totais = () => linhas<{ mes: string; total_inicial: number; total_final: number }>(tx,
+      sql`select mes, total_inicial, total_final from avaliacoes_google_total_mes where loja_id = ${c.lojaA} order by mes`)
+    assert.deepEqual(await totais(), [
+      { mes: '2026-10', total_inicial: 120, total_final: 125 },
+      { mes: '2026-11', total_inicial: 130, total_final: 130 },
+    ])
+    await m.limparConteudoVencido(tx, new Date('2027-03-01T15:00:00Z'))
+    assert.equal((await totais()).length, 2)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('trocar o Place ID zera o total do mês: não compara o total de duas fichas', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const { placarAvaliacoes } = await import('@/lib/avaliacoes-google/placar')
+    const c = await cenario(tx)
+    await configurarSemLer(tx, c)
+    await m.sincronizarGrupo(c.grupoA, googleComTotal(10), tx, EM_OUTUBRO)
+    await m.salvarPlaceIdLoja(c.socioA, { grupoId: c.grupoA, lojaId: c.lojaA, placeId: PLACE_B }, tx)
+    await m.sincronizarGrupo(c.grupoA, googleComTotal(500), tx, new Date('2026-10-11T15:00:00Z'))
+    const p = (await placarAvaliacoes(c.socioA, c.grupoA, tx, { mes: '2026-10' }))!
+    assert.equal(p.lojas[0].novas, 0)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('placar: vendas e toques por vendedor, avaliações novas por loja, só do mês pedido', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const { placarAvaliacoes } = await import('@/lib/avaliacoes-google/placar')
+    const c = await cenario(tx)
+    await configurarSemLer(tx, c)
+    await m.sincronizarGrupo(c.grupoA, googleComTotal(120), tx, EM_OUTUBRO)
+    await m.sincronizarGrupo(c.grupoA, googleComTotal(122), tx, new Date('2026-10-30T15:00:00Z'))
+
+    const daAna = await novaPlaca(tx, c.socioA, c.grupoA, c.lojaA, c.ana)
+    const doBalcao = await novaPlaca(tx, c.socioA, c.grupoA, c.lojaA, null)
+    await m.registrarToque(daAna.codigo, 'nfc', tx, EM_OUTUBRO)
+    await m.registrarToque(daAna.codigo, 'qr', tx, new Date('2026-10-11T15:00:00Z'))
+    await m.registrarToque(daAna.codigo, 'nfc', tx, new Date('2026-10-12T15:00:00Z'))
+    await m.registrarToque(doBalcao.codigo, 'nfc', tx, EM_OUTUBRO)
+    // Fora do mês: não conta.
+    await m.registrarToque(daAna.codigo, 'nfc', tx, new Date('2026-11-01T15:00:00Z'))
+
+    await vender(tx, c.lojaA, c.ana, '2026-10-05T12:00:00Z')
+    await vender(tx, c.lojaA, c.ana, '2026-10-31T12:00:00Z')
+    await vender(tx, c.lojaA, c.bruno, '2026-10-06T12:00:00Z')
+    await vender(tx, c.lojaA, c.ana, '2026-09-30T12:00:00Z')
+    await vender(tx, c.lojaA, c.ana, '2026-11-01T12:00:00Z')
+
+    const p = (await placarAvaliacoes(c.socioA, c.grupoA, tx, { mes: '2026-10' }))!
+    assert.equal(p.metaPct, 80)
+    assert.deepEqual(p.vendedores.map(v => [v.nome, v.vendas, v.toques, v.temPlaca, v.pct, v.faltam]), [
+      ['Ana', 2, 3, true, 150, 0],
+      ['Bruno', 1, 0, false, 0, 1],
+    ])
+    assert.deepEqual(p.lojas.map(l => [l.nome, l.vendas, l.toques, l.novas, l.pct, l.faltam]), [
+      ['Loja A', 3, 4, 2, 67, 1],
+    ])
+
+    // Mês sem leitura do Google: avaliação desconhecida, não zero.
+    const set = (await placarAvaliacoes(c.socioA, c.grupoA, tx, { mes: '2026-09' }))!
+    assert.deepEqual(set.lojas.map(l => [l.vendas, l.novas, l.pct]), [[1, null, null]])
+
+    // A meta vem do grupo.
+    await tx.execute(sql`update avaliacoes_google_config set meta_pct = 50 where grupo_id = ${c.grupoA}`)
+    assert.equal((await placarAvaliacoes(c.socioA, c.grupoA, tx, { mes: '2026-10' }))!.metaPct, 50)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('placar: Conta B não lê a Conta A, e o aux_adm não abre', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const { placarAvaliacoes } = await import('@/lib/avaliacoes-google/placar')
+    const c = await cenario(tx)
+    await configurarSemLer(tx, c)
+    await vender(tx, c.lojaA, c.ana, '2026-10-05T12:00:00Z')
+    await vender(tx, c.lojaB, c.carlaB, '2026-10-05T12:00:00Z')
+
+    assert.equal(await placarAvaliacoes(c.socioB, c.grupoA, tx, { mes: '2026-10' }), null)
+    assert.equal(await placarAvaliacoes(c.auxA, c.grupoA, tx, { mes: '2026-10' }), null)
+
+    const daB = (await placarAvaliacoes(c.socioB, c.grupoB, tx, { mes: '2026-10' }))!
+    assert.deepEqual(daB.vendedores.map(v => v.nome), ['Carla'])
+    assert.deepEqual(daB.lojas.map(l => [l.nome, l.vendas]), [['Loja B', 1]])
+    const daA = (await placarAvaliacoes(c.socioA, c.grupoA, tx, { mes: '2026-10' }))!
+    assert.deepEqual(daA.vendedores.map(v => v.nome), ['Ana'])
+    throw new Desfazer()
+  }), Desfazer)
+})

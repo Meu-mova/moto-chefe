@@ -3,6 +3,7 @@ import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { painelAvaliacoes } from '@/lib/avaliacoes-google/avaliacoes'
+import { placarAvaliacoes } from '@/lib/avaliacoes-google/placar'
 import { urlBase } from '@/lib/assinatura/url'
 import { Star } from 'lucide-react'
 import { AvaliacoesClient, type LinkPlaca } from './components/avaliacoes-client'
@@ -16,7 +17,10 @@ export default async function AvaliacoesGooglePage({ searchParams }: { searchPar
   const { mes } = await searchParams
   const usuario = await getUsuarioLogado()
   const grupo = await grupoAtivoDaRequisicao(usuario)
-  const painel = await painelAvaliacoes(usuario, grupo.id, undefined, { mes })
+  const [painel, placar] = await Promise.all([
+    painelAvaliacoes(usuario, grupo.id, undefined, { mes }),
+    placarAvaliacoes(usuario, grupo.id, undefined, { mes }),
+  ])
 
   const base = urlBase()
   const links: Record<string, LinkPlaca> = {}
@@ -38,8 +42,8 @@ export default async function AvaliacoesGooglePage({ searchParams }: { searchPar
             Nota e avaliações de cada loja de {grupo.nome} no Google, e o uso de cada plaquinha NFC/QR por loja e por vendedor.
           </p>
         </div>
-        {painel
-          ? <AvaliacoesClient painel={painel} links={links} />
+        {painel && placar
+          ? <AvaliacoesClient painel={painel} placar={placar} links={links} />
           : <p className="text-sm text-muted-foreground">Sem acesso a este grupo.</p>}
       </div>
     </AdminGuard>

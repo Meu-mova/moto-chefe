@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lt, lte, or, sql } from
 import { db } from '@/lib/db'
 import {
   avaliacoesGoogle, avaliacoesGoogleConfig, avaliacoesGoogleHistorico, avaliacoesGoogleLojas,
-  avaliacoesGooglePlacas, avaliacoesGoogleToques, grupos, lojas, usuarios,
+  avaliacoesGooglePlacas, avaliacoesGoogleToques, avaliacoesGoogleTotalMes, grupos, lojas, usuarios,
 } from '@/lib/db/schema'
 import { cifrar, decifrar } from '@/lib/cripto'
 import { grupoNoEscopo } from '@/lib/conta'
@@ -20,7 +20,7 @@ import {
  */
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
-type Usuario = { id?: string; papel: string; contaId: string | null; grupoLiberado?: string | null }
+export type Usuario = { id?: string; papel: string; contaId: string | null; grupoLiberado?: string | null }
 type Resultado = { ok: true } | { ok: false; erro: string }
 
 /** Conteúdo do Google não fica mais que isso (termos da Google Maps Platform). */
@@ -28,7 +28,7 @@ export const DIAS_RETENCAO = 30
 
 export const podeGerirAvaliacoes = (papel: string) => papel === 'admin_geral' || papel === 'admin_socio'
 
-async function grupoDoUsuario(usuario: Usuario, grupoId: string, exec: Executor): Promise<boolean> {
+export async function grupoDoUsuario(usuario: Usuario, grupoId: string, exec: Executor): Promise<boolean> {
   if (!podeGerirAvaliacoes(usuario.papel)) return false
   if (usuario.papel === 'admin_geral') {
     const [g] = await exec.select({ id: grupos.id }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
@@ -103,9 +103,10 @@ export async function salvarPlaceIdLoja(
       setWhere: eq(avaliacoesGoogleLojas.grupoId, data.grupoId),
     })
   if (atual && trocouFicha) {
-    // Avaliações e histórico eram da ficha antiga.
+    // Avaliações, histórico e totais do mês eram da ficha antiga.
     await exec.delete(avaliacoesGoogle).where(and(eq(avaliacoesGoogle.lojaId, data.lojaId), eq(avaliacoesGoogle.grupoId, data.grupoId)))
     await exec.delete(avaliacoesGoogleHistorico).where(and(eq(avaliacoesGoogleHistorico.lojaId, data.lojaId), eq(avaliacoesGoogleHistorico.grupoId, data.grupoId)))
+    await exec.delete(avaliacoesGoogleTotalMes).where(and(eq(avaliacoesGoogleTotalMes.lojaId, data.lojaId), eq(avaliacoesGoogleTotalMes.grupoId, data.grupoId)))
   }
   return { ok: true }
 }
@@ -211,7 +212,7 @@ export type PainelAvaliacoes = {
 
 const num = (v: string | null) => (v === null ? null : Number(v))
 
-function proximoMes(mes: string): string {
+export function proximoMes(mes: string): string {
   const [a, m] = mes.split('-').map(Number)
   return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`
 }
@@ -222,6 +223,11 @@ function somar(linhas: { origem: 'nfc' | 'qr'; n: number }[]): Toques {
   return t
 }
 
+/** O mês pedido, se válido; senão o mês corrente em Brasília. */
+export function mesOuCorrente(mes: string | undefined, agora?: Date): string {
+  return mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? mes : mesBrt(agora)
+}
+
 export async function painelAvaliacoes(
   usuario: Usuario,
   grupoId: string,
@@ -230,7 +236,7 @@ export async function painelAvaliacoes(
 ): Promise<PainelAvaliacoes | null> {
   if (!(await grupoDoUsuario(usuario, grupoId, exec))) return null
 
-  const mes = opcoes.mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(opcoes.mes) ? opcoes.mes : mesBrt(opcoes.agora)
+  const mes = mesOuCorrente(opcoes.mes, opcoes.agora)
   const inicio = inicioDoDiaBrt(`${mes}-01`).toISOString()
   const fim = inicioDoDiaBrt(`${proximoMes(mes)}-01`).toISOString()
   const doMes = and(
@@ -477,6 +483,15 @@ export async function sincronizarGrupo(
         set: { nota, totalAvaliacoes: lugar.total },
         setWhere: eq(avaliacoesGoogleHistorico.grupoId, grupoId),
       })
+    if (lugar.total !== null) {
+      await exec.insert(avaliacoesGoogleTotalMes)
+        .values({ lojaId: f.lojaId, grupoId, mes: mesBrt(agora), totalInicial: lugar.total, totalFinal: lugar.total, primeiraEm: agora, ultimaEm: agora })
+        .onConflictDoUpdate({
+          target: [avaliacoesGoogleTotalMes.lojaId, avaliacoesGoogleTotalMes.mes],
+          set: { totalFinal: lugar.total, ultimaEm: agora },
+          setWhere: eq(avaliacoesGoogleTotalMes.grupoId, grupoId),
+        })
+    }
     for (const a of lugar.avaliacoes) {
       const campos = {
         autor: a.autor, autorUri: a.autorUri, nota: a.nota, texto: a.texto,

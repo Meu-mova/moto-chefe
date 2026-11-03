@@ -21,12 +21,31 @@ chave e as próprias lojas.
 - O Google não informa quem escreveu a avaliação a partir de qual placa: o MOVA mede o toque,
   não a avaliação. Para ver o resultado, compare os toques com o aumento do total da loja.
 
+## Placar do mês
+
+Na mesma tela, o **Placar do mês** cruza as vendas de moto com a meta do grupo (80% por padrão,
+coluna `avaliacoes_google_config.meta_pct`, ainda sem tela para editar):
+
+- **Por loja:** avaliações novas no mês ÷ vendas. É o resultado real no Google, mas pode incluir
+  quem não comprou moto. O total inicial é o da primeira leitura do mês; se ela não foi no dia 1,
+  a tela avisa "desde dd/mm".
+- **Por vendedor:** toques na placa ÷ vendas. Mostra se ele está oferecendo a avaliação. **Toque
+  não é avaliação**, e o próprio vendedor pode abrir a placa: não use este número sozinho para
+  pagar comissão.
+- Quem vendeu sem placa aparece como "Sem placa", sem meta. As vendas dele contam na loja.
+
+Para a meta real por vendedor seria preciso a Business Profile API (abaixo), ligando o autor da
+avaliação ao cliente da venda.
+
 Limites da Places API: ela não traz todas as avaliações nem permite responder. Para isso seria
 preciso a Business Profile API, que exige pedir acesso ao Google e entrar com a conta dona das
 fichas. Fica para uma segunda fase, se valer a pena.
 
 Termos do Google: conteúdo da Places API não pode ficar guardado por muito tempo. O MOVA apaga
-avaliações e histórico com mais de 30 dias; só o Place ID e a contagem de toques ficam.
+avaliações e histórico com mais de 30 dias; ficam o Place ID, a contagem de toques e, em
+`avaliacoes_google_total_mes`, o total da loja na primeira e na última leitura de cada mês, que o
+placar usa para fechar o mês. **A confirmar nos termos do Google:** se esse total pode passar de
+30 dias. Se não puder, a tabela precisa de limpeza e o placar só mostra os meses recentes.
 
 ## 1. Criar a chave da Places API (uma vez por grupo)
 
