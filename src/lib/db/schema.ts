@@ -6,6 +6,7 @@ import {
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
+import type { PapelBase } from '@/lib/cargos-opcoes'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
 
@@ -49,11 +50,13 @@ export const contas = pgTable('contas', {
 })
 
 // ─── cargos ──────────────────────────────────────────────────────────────────
-// Cargo da Conta (#449): nome e módulos de @/lib/navegacao. Ler e gravar via @/lib/cargos.
+// Cargo da Conta (#449, #616): nome e papel base (quem tem o cargo faz o que a base faz). `modulos`
+// ficou sem leitura até a #618. Ler e gravar via @/lib/cargos.
 export const cargos = pgTable('cargos', {
   id:           uuid('id').primaryKey().defaultRandom(),
   contaId:      uuid('conta_id').notNull().references(() => contas.id),
   nome:         text('nome').notNull(),
+  papelBase:    papelEnum('papel_base').$type<PapelBase>().notNull(),
   modulos:      text('modulos').array().notNull().default([]),
   criadoEm:     timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),

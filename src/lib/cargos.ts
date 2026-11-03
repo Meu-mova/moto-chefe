@@ -1,17 +1,18 @@
 /**
- * Cargos da Conta (#449, adendo ao ADR-0018): o sócio dá nome e marca módulos. Outra Conta
- * não lê, não edita nem atribui; o admin_geral vê todas.
+ * Cargos da Conta (#449, #616, adendo ao ADR-0018): nome e papel base; quem tem o cargo faz o que
+ * a base faz. Outra Conta não lê, não edita nem atribui; o admin_geral vê todas.
  */
 import { and, asc, count, eq, ne, type SQL, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { cargos, grupos, lojas, usuarios } from '@/lib/db/schema'
+import { PAPEIS_BASE_DO_CARGO, type PapelBase } from '@/lib/cargos-opcoes'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
 
 /** `contaId` é a Conta do grupo ativo da sessão. */
 export type QuemGerenciaCargos = { papel: string; contaId: string }
 
-export type DadosCargo = { nome: string; modulos: string[] }
+export type DadosCargo = { nome: string; papelBase: string }
 type Resultado = { ok: true } | { ok: false; erro: string }
 
 const NAO_ENCONTRADO = { ok: false, erro: 'Cargo não encontrado' } as const
@@ -37,13 +38,14 @@ function daConta(quem: QuemGerenciaCargos): SQL | undefined {
 }
 
 async function validar(
-  exec: Executor, contaId: string, dados: DadosCargo, podeDar: string[], ignorarId?: string,
-): Promise<{ ok: false; erro: string } | { ok: true; nome: string; modulos: string[] }> {
+  exec: Executor, contaId: string, dados: DadosCargo, ignorarId?: string,
+): Promise<{ ok: false; erro: string } | { ok: true; nome: string; papelBase: PapelBase }> {
   // NFC: o cargo_nome_chave() do banco não reconhece acento decomposto (texto colado do Mac).
   const nome = dados.nome.normalize('NFC').replace(/\s+/g, ' ').trim()
   if (!nome) return { ok: false, erro: 'Informe o nome do cargo' }
   if (CHAVES_FIXAS.has(chaveDeNomeFixo(nome))) return { ok: false, erro: 'Esse nome é de um cargo fixo do MOVA' }
-  if (dados.modulos.some(m => !podeDar.includes(m))) return { ok: false, erro: 'Módulo não disponível para cargo' }
+  const papelBase = PAPEIS_BASE_DO_CARGO.find(p => p === dados.papelBase)
+  if (!papelBase) return { ok: false, erro: 'Escolha o papel base do cargo' }
   const [repetido] = await exec.select({ id: cargos.id }).from(cargos)
     .where(and(
       eq(cargos.contaId, contaId),
@@ -52,7 +54,7 @@ async function validar(
     ))
     .limit(1)
   if (repetido) return { ok: false, erro: 'Já existe um cargo com esse nome' }
-  return { ok: true, nome, modulos: [...new Set(dados.modulos)].sort() }
+  return { ok: true, nome, papelBase }
 }
 
 export async function listarCargos(exec: Executor, quem: QuemGerenciaCargos) {
@@ -68,26 +70,26 @@ export async function cargoDaConta(exec: Executor, contaId: string, id: string) 
 }
 
 export async function criarCargo(
-  exec: Executor, quem: QuemGerenciaCargos, dados: DadosCargo, podeDar: string[],
+  exec: Executor, quem: QuemGerenciaCargos, dados: DadosCargo,
 ): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
-  const valido = await validar(exec, quem.contaId, dados, podeDar)
+  const valido = await validar(exec, quem.contaId, dados)
   if (!valido.ok) return valido
   const [novo] = await exec.insert(cargos)
-    .values({ contaId: quem.contaId, nome: valido.nome, modulos: valido.modulos })
+    .values({ contaId: quem.contaId, nome: valido.nome, papelBase: valido.papelBase })
     .returning({ id: cargos.id })
   return { ok: true, id: novo.id }
 }
 
 export async function editarCargo(
-  exec: Executor, quem: QuemGerenciaCargos, id: string, dados: DadosCargo, podeDar: string[],
+  exec: Executor, quem: QuemGerenciaCargos, id: string, dados: DadosCargo,
 ): Promise<Resultado> {
   const [cargo] = await exec.select({ contaId: cargos.contaId }).from(cargos)
     .where(and(eq(cargos.id, id), daConta(quem))).limit(1)
   if (!cargo) return NAO_ENCONTRADO
-  const valido = await validar(exec, cargo.contaId, dados, podeDar, id)
+  const valido = await validar(exec, cargo.contaId, dados, id)
   if (!valido.ok) return valido
   await exec.update(cargos)
-    .set({ nome: valido.nome, modulos: valido.modulos, atualizadoEm: new Date() })
+    .set({ nome: valido.nome, papelBase: valido.papelBase, atualizadoEm: new Date() })
     .where(and(eq(cargos.id, id), eq(cargos.contaId, cargo.contaId)))
   return { ok: true }
 }
@@ -115,15 +117,15 @@ export async function cargoParaGravar(
   return cargo ? { ok: true, cargoId: cargo.id } : NAO_ENCONTRADO
 }
 
-/** Módulos do cargo, só se o cargo for da Conta da loja do usuário. */
-export async function modulosDoCargoDoUsuario(
+/** Nome e papel base do cargo, só se o cargo for da Conta da loja do usuário. */
+export async function cargoDoUsuario(
   exec: Executor, usuario: { papel: string; lojaId: string | null; cargoId: string | null },
-): Promise<string[]> {
-  if (usuario.papel !== 'cargo' || !usuario.cargoId || !usuario.lojaId) return []
-  const [linha] = await exec.select({ modulos: cargos.modulos }).from(cargos)
+): Promise<{ nome: string; papelBase: PapelBase } | null> {
+  if (usuario.papel !== 'cargo' || !usuario.cargoId || !usuario.lojaId) return null
+  const [linha] = await exec.select({ nome: cargos.nome, papelBase: cargos.papelBase }).from(cargos)
     .innerJoin(grupos, eq(grupos.contaId, cargos.contaId))
     .innerJoin(lojas, and(eq(lojas.grupoId, grupos.id), eq(lojas.id, usuario.lojaId)))
     .where(eq(cargos.id, usuario.cargoId))
     .limit(1)
-  return linha?.modulos ?? []
+  return linha ?? null
 }

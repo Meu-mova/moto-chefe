@@ -7,7 +7,8 @@ import {
   ShoppingBag, ShoppingCart, Tag, Tags, Target, Ticket, TrendingDown, Users, Wallet, FolderOpen,
   Wrench, ListChecks, Calculator, Trophy, ReceiptText, FileSignature, BadgeDollarSign, History, Star, Network} from 'lucide-react'
 
-// 'cargo' é o papel interno de quem tem cargo da Conta (#449): sozinho não dá poder nenhum.
+// 'cargo' é o papel interno de quem tem cargo da Conta (#449): sozinho não dá poder nenhum. Com
+// cargo achado, a sessão troca 'cargo' pelo papel base (usuarioComCargo, #616).
 export type Papel = 'admin_geral' | 'admin_socio' | 'aux_adm' | 'vendedor' | 'mecanico' | 'motorista' | 'cargo'
 export type Slug = 'comercial' | 'oficina' | 'estoque' | 'financeiro' | 'gestao' | 'configuracao' | 'plataforma'
 
@@ -50,8 +51,6 @@ export type UsuarioNav = {
   papeisExtras?: string[] | null
   modulosExtras?: string[] | null
   modulosBloqueados?: string[] | null
-  /** Módulos do cargo da Conta, só para papel 'cargo' (#449). */
-  modulosDoCargo?: string[] | null
   /** Persona do admin_rede num grupo liberado de outra Conta (#517). */
   grupoLiberado?: string | null
 }
@@ -194,7 +193,6 @@ function visivel(item: ItemNav, usuario: UsuarioNav, regras: RegrasProprias): bo
   if (item.regraPropria) return regras[item.id] === true
   if (item.soAdminGeral) return usuario.papel === 'admin_geral'
   if (!item.soPeloPapel && liberavelPara(item, usuario.papel) && (usuario.modulosExtras ?? []).includes(item.id)) return true
-  if (!item.soPeloPapel && !item.liberavelPara && usuario.papel === 'cargo' && (usuario.modulosDoCargo ?? []).includes(item.id)) return true
   return item.papeis.some(p => temPapelNav(usuario, p))
 }
 
@@ -223,18 +221,4 @@ export function podeAcessar(usuario: UsuarioNav, href: string, regras: RegrasPro
 export function acessaModulo(usuario: UsuarioNav, id: string): boolean {
   const item = ITENS.find(i => i.id === id)
   return !!item && !item.regraPropria && visivel(item, usuario, {})
-}
-
-/**
- * Módulos que um cargo da Conta pode receber (#449). Só entra aqui o módulo cujas ações já
- * aceitam o papel 'cargo' pelo acesso ao módulo, com teste; a lista cresce PR a PR.
- */
-export const MODULOS_DE_CARGO: string[] = ['clientes']
-
-/** O que quem gerencia cargos pode marcar: os liberados para cargo que ele mesmo vê. */
-export function modulosQuePodeDar(usuario: UsuarioNav, regras: RegrasProprias, liberados = MODULOS_DE_CARGO): string[] {
-  return itensVisiveis(usuario, regras)
-    .filter(i => liberados.includes(i.id) && !i.soPeloPapel && !i.soAdminGeral && !i.regraPropria)
-    .map(i => i.id)
-    .sort()
 }

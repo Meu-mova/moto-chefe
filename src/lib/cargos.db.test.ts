@@ -34,14 +34,12 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const linhas = async (tx: Tx, q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: any[] }).rows
 
-const PODE_DAR = ['clientes', 'agenda']
-
 async function semearConta(tx: Tx, nome: string, cnpj: string) {
   const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'CG449 ' + nome}) returning id`)
   const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'CG449 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
   const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja CG449 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
   const quem = { papel: 'admin_socio', contaId: conta.id as string }
-  const criado = await mod.criarCargo(tx, quem, { nome: 'Recepção', modulos: ['clientes'] }, PODE_DAR)
+  const criado = await mod.criarCargo(tx, quem, { nome: 'Recepção', papelBase: 'aux_adm' })
   assert.ok(criado.ok)
   return { quem, lojaId: loja.id as string, cargoId: criado.id }
 }
@@ -56,13 +54,13 @@ test('Conta B não lista, não edita e não apaga cargo da Conta A; recusa igual
     assert.deepEqual(daB, [b.cargoId])
 
     for (const id of [a.cargoId, inexistente]) {
-      assert.deepEqual(await mod.editarCargo(tx, b.quem, id, { nome: 'X', modulos: [] }, PODE_DAR),
+      assert.deepEqual(await mod.editarCargo(tx, b.quem, id, { nome: 'X', papelBase: 'vendedor' }),
         { ok: false, erro: 'Cargo não encontrado' })
       assert.deepEqual(await mod.apagarCargo(tx, b.quem, id), { ok: false, erro: 'Cargo não encontrado' })
       assert.equal(await mod.cargoDaConta(tx, b.quem.contaId, id), null)
     }
-    const [cargoA] = await linhas(tx, sql`select nome, modulos from cargos where id = ${a.cargoId}`)
-    assert.deepEqual(cargoA, { nome: 'Recepção', modulos: ['clientes'] })
+    const [cargoA] = await linhas(tx, sql`select nome, papel_base from cargos where id = ${a.cargoId}`)
+    assert.deepEqual(cargoA, { nome: 'Recepção', papel_base: 'aux_adm' })
   })
 })
 
@@ -79,11 +77,11 @@ test('nome repetido só conta dentro da Conta; nome de papel fixo é recusado (#
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     await semearConta(tx, 'B', '22222222000191')
-    assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome: ' recepção ', modulos: [] }, PODE_DAR),
+    assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome: ' recepção ', papelBase: 'vendedor' }),
       { ok: false, erro: 'Já existe um cargo com esse nome' })
-    assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome: 'Vendedor', modulos: [] }, PODE_DAR),
+    assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome: 'Vendedor', papelBase: 'vendedor' }),
       { ok: false, erro: 'Esse nome é de um cargo fixo do MOVA' })
-    assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome: '  ', modulos: [] }, PODE_DAR),
+    assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome: '  ', papelBase: 'vendedor' }),
       { ok: false, erro: 'Informe o nome do cargo' })
   })
 })
@@ -92,7 +90,7 @@ test('nome repetido ignora acento, maiúscula e espaços (#450)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     for (const nome of ['Recepcao', 'RECEPÇÃO', 'Re cepção', 'Recepção'.normalize('NFD')]) {
-      assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome, modulos: [] }, PODE_DAR),
+      assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome, papelBase: 'vendedor' }),
         { ok: false, erro: 'Já existe um cargo com esse nome' }, nome)
     }
   })
@@ -105,7 +103,7 @@ test('o banco recusa cargo repetido sem acento na mesma Conta e aceita em outra 
     await semearConta(tx, 'B', '22222222000191')
     await assert.rejects(
       tx.transaction(async sp => {
-        await sp.execute(sql`insert into cargos (conta_id, nome) values (${a.quem.contaId}, 'RECEP CAO')`)
+        await sp.execute(sql`insert into cargos (conta_id, nome, papel_base) values (${a.quem.contaId}, 'RECEP CAO', 'vendedor')`)
       }),
       (e: { cause?: { code?: string } }) => e.cause?.code === '23505',
     )
@@ -118,21 +116,9 @@ test('nome de papel fixo é recusado também no feminino e com variações (#450
     for (const nome of ['Vendedora', 'Mecânica', 'Sócia', 'Admin Sócia', 'Auxiliar Administrativa',
       'Aux. Administrativa', 'aux_adm', 'Admin  Geral', 'AuxAdm', 'adminGeral', 'Aux-Adm',
       'Vendedor(a)', 'Mecânico(a)', 'Admin', 'ADMIN.', 'Administrador', 'Administradora', 'Administrador(a)']) {
-      assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome, modulos: [] }, PODE_DAR),
+      assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome, papelBase: 'vendedor' }),
         { ok: false, erro: 'Esse nome é de um cargo fixo do MOVA' }, nome)
     }
-  })
-})
-
-test('sócio não dá módulo fora do que pode dar (#449)', async () => {
-  await emTransacaoDesfeita(async tx => {
-    const a = await semearConta(tx, 'A', '11111111000191')
-    assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome: 'Caixa', modulos: ['caixa'] }, PODE_DAR),
-      { ok: false, erro: 'Módulo não disponível para cargo' })
-    assert.deepEqual(await mod.editarCargo(tx, a.quem, a.cargoId, { nome: 'Recepção', modulos: ['usuarios'] }, PODE_DAR),
-      { ok: false, erro: 'Módulo não disponível para cargo' })
-    assert.deepEqual(await mod.editarCargo(tx, a.quem, a.cargoId, { nome: 'Recepção', modulos: ['agenda'] }, PODE_DAR),
-      { ok: true })
   })
 })
 
@@ -143,7 +129,7 @@ test('cargo em uso não se apaga; sem usuário, apaga (#449)', async () => {
       values (gen_random_uuid(), 'Ana', 'ana-cg449@teste.invalid', 'cargo', ${a.lojaId}, ${a.cargoId})`)
     assert.deepEqual(await mod.apagarCargo(tx, a.quem, a.cargoId), { ok: false, erro: 'Cargo em uso por 1 usuário' })
 
-    const outro = await mod.criarCargo(tx, a.quem, { nome: 'Estoquista', modulos: [] }, PODE_DAR)
+    const outro = await mod.criarCargo(tx, a.quem, { nome: 'Estoquista', papelBase: 'vendedor' })
     assert.ok(outro.ok)
     assert.deepEqual(await mod.apagarCargo(tx, a.quem, outro.id), { ok: true })
   })
@@ -179,13 +165,53 @@ test('atribuir cargo só aceita cargo da Conta do usuário; o da outra Conta rec
   })
 })
 
-test('módulos do cargo do usuário: só de cargo da Conta da loja dele (#450)', async () => {
+test('cargo do usuário: nome e base só de cargo da Conta da loja dele (#616)', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     const b = await semearConta(tx, 'B', '22222222000191')
-    assert.deepEqual(await mod.modulosDoCargoDoUsuario(tx, { papel: 'cargo', lojaId: a.lojaId, cargoId: a.cargoId }), ['clientes'])
+    assert.deepEqual(await mod.cargoDoUsuario(tx, { papel: 'cargo', lojaId: a.lojaId, cargoId: a.cargoId }),
+      { nome: 'Recepção', papelBase: 'aux_adm' })
     // Cargo de A ligado a usuário da loja de B (só por fora do código): não vale nada.
-    assert.deepEqual(await mod.modulosDoCargoDoUsuario(tx, { papel: 'cargo', lojaId: b.lojaId, cargoId: a.cargoId }), [])
-    assert.deepEqual(await mod.modulosDoCargoDoUsuario(tx, { papel: 'vendedor', lojaId: a.lojaId, cargoId: null }), [])
+    assert.equal(await mod.cargoDoUsuario(tx, { papel: 'cargo', lojaId: b.lojaId, cargoId: a.cargoId }), null)
+    assert.equal(await mod.cargoDoUsuario(tx, { papel: 'vendedor', lojaId: a.lojaId, cargoId: null }), null)
+  })
+})
+
+test('o banco exige papel base no cargo e só aceita os papéis que o gestor pode dar (#616)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    await assert.rejects(tx.transaction(sp => sp.execute(sql`insert into cargos (conta_id, nome) values (${a.quem.contaId}, 'Sem base')`)),
+      (e: { cause?: { code?: string } }) => e.cause?.code === '23502')
+    for (const base of ['admin_geral', 'admin_rede', 'cargo']) {
+      await assert.rejects(tx.transaction(sp => sp.execute(sql`insert into cargos (conta_id, nome, papel_base) values (${a.quem.contaId}, ${'Base ' + base}, ${base})`)),
+        (e: { cause?: { code?: string } }) => e.cause?.code === '23514', base)
+    }
+    const [ok] = await linhas(tx, sql`insert into cargos (conta_id, nome, papel_base) values (${a.quem.contaId}, 'Com base', 'aux_adm') returning papel_base`)
+    assert.equal(ok.papel_base, 'aux_adm')
+  })
+})
+
+test('criar e editar cargo grava o papel base; base fora do limite é recusada e nada muda (#616)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const criado = await mod.criarCargo(tx, a.quem, { nome: 'Gerente', papelBase: 'aux_adm' })
+    assert.ok(criado.ok)
+    assert.deepEqual((await mod.listarCargos(tx, a.quem)).map(c => [c.nome, c.papelBase]),
+      [['Gerente', 'aux_adm'], ['Recepção', 'aux_adm']])
+
+    for (const papelBase of ['admin_geral', 'admin_rede', 'cargo', 'dono', '']) {
+      assert.deepEqual(await mod.criarCargo(tx, a.quem, { nome: 'Outro', papelBase }),
+        { ok: false, erro: 'Escolha o papel base do cargo' }, papelBase)
+      assert.deepEqual(await mod.editarCargo(tx, a.quem, criado.id, { nome: 'Gerente', papelBase }),
+        { ok: false, erro: 'Escolha o papel base do cargo' }, papelBase)
+    }
+    assert.equal((await mod.listarCargos(tx, a.quem)).length, 2)
+
+    assert.deepEqual(await mod.editarCargo(tx, a.quem, criado.id, { nome: 'Gerente', papelBase: 'vendedor' }), { ok: true })
+    await linhas(tx, sql`insert into usuarios (id, nome, email, papel, loja_id, cargo_id)
+      values (gen_random_uuid(), 'Gil', 'gil-cg616@teste.invalid', 'cargo', ${a.lojaId}, ${criado.id})`)
+    // Editar a base vale na próxima leitura do usuário (C4).
+    assert.deepEqual(await mod.cargoDoUsuario(tx, { papel: 'cargo', lojaId: a.lojaId, cargoId: criado.id }),
+      { nome: 'Gerente', papelBase: 'vendedor' })
   })
 })
