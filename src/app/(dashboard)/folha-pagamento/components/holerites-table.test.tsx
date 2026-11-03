@@ -1,17 +1,10 @@
 // Aba Holerites (#629): a situação primeiro, o filtro "Só o que falta" e as ações de cada envio.
 // jsdom não executa container query: o que aparece em cada largura é CSS e fica para o navegador.
-import { JSDOM } from 'jsdom'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
+import { montarDom } from '@/test/montar-dom'
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true })
-const g = globalThis as Record<string, unknown>
-g.window = dom.window; g.document = dom.window.document
-Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true })
-for (const k of ['HTMLElement', 'HTMLButtonElement', 'HTMLInputElement', 'Element', 'Node', 'Event', 'MouseEvent', 'KeyboardEvent', 'FocusEvent', 'File', 'FormData', 'NodeList', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame']) {
-  g[k] = (dom.window as unknown as Record<string, unknown>)[k]
-}
-g.IS_REACT_ACT_ENVIRONMENT = true
+const { desmontar } = montarDom()
 
 // Fronteiras de fora: as Server Actions (o servidor não muda neste ticket) e o toast.
 type Chamada = [string, ...unknown[]]
@@ -35,7 +28,7 @@ const actionsMock = mock.module('../holerites-actions', { namedExports: {
 const toastMock = mock.module('sonner', { namedExports: { toast: Object.assign(() => {}, {
   success: (m: string) => { toasts.push(m) }, warning: (m: string) => { toasts.push(m) }, error: (m: string) => { toasts.push(m) },
 }) } })
-after(() => { actionsMock.restore(); toastMock.restore() })
+after(() => { actionsMock.restore(); toastMock.restore(); desmontar() })
 
 const abrirOriginal = window.open
 const confirmOriginal = window.confirm
@@ -95,7 +88,7 @@ async function clicar(el: Element | undefined) {
 async function escolherArquivo(nome = 'novo.pdf') {
   const { act } = await import('react')
   const input = document.querySelector<HTMLInputElement>('input[type=file]')!
-  const arquivo = new window.File(['%PDF'], nome, { type: 'application/pdf' })
+  const arquivo = new File(['%PDF'], nome, { type: 'application/pdf' })
   Object.defineProperty(input, 'files', { value: [arquivo], configurable: true })
   await act(async () => { input.dispatchEvent(new window.Event('change', { bubbles: true })) })
 }
