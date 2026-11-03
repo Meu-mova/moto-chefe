@@ -1,4 +1,4 @@
-// Tela de usuários e diálogo de cargos (#616): só o admin_geral vê e usa os cargos.
+// Tela de usuários e diálogo de cargos (#616, #617): cargos só para quem gerencia cargos.
 import { JSDOM } from 'jsdom'
 import test, { afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
@@ -42,7 +42,9 @@ const base = { id: 'u', email: 'u@exemplo.com', papeisExtras: [], lojaId: null, 
 const marina = { ...base, id: 'u1', nome: 'Marina Costa', papel: 'cargo', cargoId: 'c1' }
 const bruno = { ...base, id: 'u2', nome: 'Bruno Alves', papel: 'vendedor', cargoId: null }
 
-async function montar(papel: string, usuarios: object[] = []) {
+type Opcoes = { gestor?: object; grupos?: object[]; lojas?: object[]; cargos?: object[] }
+
+async function montar(papel: string, usuarios: object[] = [], opcoes: Opcoes = {}) {
   const React = (await import('react')).default
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
@@ -54,8 +56,8 @@ async function montar(papel: string, usuarios: object[] = []) {
   raizes.push(raiz)
   await act(async () => {
     raiz.render(React.createElement(UsuariosTable, {
-      usuarios: usuarios as never, lojas: [], grupos: [], limites: limitesDaTela(gestor(papel)),
-      cargos: [cargoGerente, cargoCaixa] as never, contaAtiva: 'A', liberaveis: null, liberadosPorUsuario: {},
+      usuarios: usuarios as never, lojas: (opcoes.lojas ?? []) as never, grupos: (opcoes.grupos ?? []) as never, limites: limitesDaTela({ ...gestor(papel), ...opcoes.gestor }),
+      cargos: (opcoes.cargos ?? [cargoGerente, cargoCaixa]) as never, contaAtiva: 'A', liberaveis: null, liberadosPorUsuario: {},
     }))
   })
   return container
@@ -71,6 +73,49 @@ test('botão Cargos só para o admin_geral; sócio não o vê (#616)', async () 
   assert.ok(botao('Cargos'), 'admin_geral')
 })
 
+test('sócio com a permissão de cargos vê o botão Cargos (#617)', async () => {
+  await montar('admin_socio', [], { gestor: { podeCargos: true } })
+  assert.ok(botao('Cargos'))
+})
+
+const abaModulos = () => [...document.querySelectorAll('[role=tab]')].find(t => t.textContent?.trim() === 'Módulos')
+const caixaDe = (rotulo: string) => [...document.querySelectorAll('label')].find(l => l.textContent?.includes(rotulo))?.querySelector('input')
+const adminRede = { ...base, id: 'u3', nome: 'Paulo Rede', papel: 'admin_rede', cargoId: null }
+
+test('o admin_geral oferece Gerenciar cargos a sócio e a admin de rede, e a liga no payload (#617)', async () => {
+  await montar('admin_geral', [adminRede])
+  const dados = await salvarEdicaoDe('Paulo Rede', async () => {
+    await clicar(abaModulos())
+    await clicar(caixaDe('Gerenciar cargos'))
+  })
+  assert.deepEqual(dados.modulosExtras, ['cargos'])
+})
+
+test('o sócio não vê a caixa Gerenciar cargos ao editar outra pessoa (#617)', async () => {
+  await montar('admin_socio', [bruno], { gestor: { podeCargos: true, itensLiberaveis: ['vendas', 'entrada'] } })
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.includes('Bruno Alves')))
+  await clicar(abaModulos())
+  assert.ok(!caixaDe('Gerenciar cargos'))
+})
+
+test('cargo com base Sócio mostra Aprovação e Acesso a grupos, e manda as marcações no payload (#617)', async () => {
+  const gerenteAdmin = { id: 'c3', nome: 'Gerente_admin', papelBase: 'admin_socio', contaId: 'A' }
+  const grupos = [{ id: 'gA', nome: 'Grupo A', contaId: 'A' }, { id: 'gB', nome: 'Grupo B', contaId: 'A' }]
+  const lojas = [{ id: 'l1', nome: 'Loja Centro', grupoId: 'gA' }]
+  const ana = { ...base, id: 'u4', nome: 'Ana Gerente', papel: 'cargo', cargoId: 'c3', lojaId: 'l1', grupoDaLojaId: 'gA' }
+  const bia = { ...ana, id: 'u5', nome: 'Bia Gerente', cargoId: 'c1' }
+  await montar('admin_geral', [ana, bia], { grupos, lojas, cargos: [gerenteAdmin, cargoGerente] })
+  const abas = () => [...document.querySelectorAll('[role=tab]')].map(t => t.textContent?.trim())
+  const dados = await salvarEdicaoDe('Ana Gerente', async () => {
+    assert.ok(abas().includes('Aprovação'), 'aprovação aparece para cargo base Sócio')
+    await clicar([...document.querySelectorAll('[role=tab]')].find(t => t.textContent?.trim() === 'Aprovação'))
+    await clicar(caixaDe('Grupo B'))
+  })
+  assert.deepEqual(dados.gruposAprovacao, ['gB'])
+  // Base Adm. da loja não aprova: a aba não aparece e nada é enviado.
+  const semAprovacao = await salvarEdicaoDe('Bia Gerente', async () => assert.ok(!abas().includes('Aprovação')))
+  assert.deepEqual(semAprovacao.gruposAprovacao, [])
+})
 test('diálogo de cargos: a escolha da base mostra o que cada base faz e grava nome e base (#616)', async () => {
   await montar('admin_geral', [marina])
   await clicar(botao('Cargos'))

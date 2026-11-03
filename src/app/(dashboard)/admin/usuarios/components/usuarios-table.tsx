@@ -171,10 +171,12 @@ function FormUsuario({
     setGruposAcesso(a => a.filter(g => doNovo.has(g)))
   }
 
-  const mostrarAprovacao = PAPEIS_APROVADORES.includes(papel)
+  // Quem tem cargo faz o que a base faz (#617): a base do cargo escolhido decide Aprovação e Acesso.
+  const papelEfetivo = papel === 'cargo' ? cargos.find(c => c.id === cargoId)?.papelBase ?? '' : papel
+  const mostrarAprovacao = PAPEIS_APROVADORES.includes(papelEfetivo)
   // admin_geral já enxerga todos os grupos pelo papel — mostrar a lista para
   // ele sugeriria, errado, que ela é que manda. Só admin_socio usa isto.
-  const mostrarAcessoGrupos = papel === 'admin_socio' || papel === 'admin_rede'
+  const mostrarAcessoGrupos = papelEfetivo === 'admin_socio' || papelEfetivo === 'admin_rede'
   // Grupos da Conta do próprio usuário vão pelos grupos de acesso acima (ADR-0019).
   const outrasContas = (liberaveis ?? []).filter(g => g.contaId !== inicial?.contaId)
   const mostrarLiberados = papel === 'admin_rede' && liberaveis !== null
