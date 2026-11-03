@@ -10,7 +10,10 @@ function consulta() {
 }
 // Excluir: o delete do cadastro estoura a FK (23503) quando o usuário tem histórico.
 let erroNoDelete: unknown = null
-const tx = { delete: () => ({ where: () => ({ returning: async () => { if (erroNoDelete) throw erroNoDelete; return [{ id: 'u1', nome: 'U', lojaId: null, contaId: null }] } }) }) }
+const tx = {
+  update: () => ({ set: () => ({ where: async () => {} }) }),
+  execute: async () => {},
+  delete: () => ({ where: () => ({ returning: async () => { if (erroNoDelete) throw erroNoDelete; return [{ id: 'u1', nome: 'U', lojaId: null, contaId: null }] } }) }) }
 const db = {
   insert: () => ({ values: async () => {} }),
   select: () => ({ from: () => ({ where: consulta }) }),
@@ -103,15 +106,30 @@ test('excluir sem ser admin_geral volta como recusa', async () => {
   assert.equal(r.ok, false)
 })
 
-// Quem tem cargo faz o que a base faz (#617): o servidor confere as listas pelo papel da base.
-test('cargo com base Sócio guarda e confere os grupos de aprovação; base sem aprovação zera a lista', async () => {
+// Quem tem cargo faz o que a base faz (#617): o servidor confere as listas pelo papel da base, ao
+// criar e ao editar. As respostas seguem a ordem das consultas: [o usuário antes (só editar)], a Conta
+// da loja do cargo, e a conferência dos grupos marcados.
+const doCargo = { ...dados, papel: 'cargo', cargoId: 'c1', gruposAcesso: [], gruposAprovacao: ['grupo-b'] }
+const CONTA_DA_LOJA = [{ contaId: 'conta-a' }]
+
+test('criar: cargo com base Sócio confere os grupos de aprovação; base Adm. da loja não guarda a lista', async () => {
   const { criarUsuarioAction } = await import('./actions')
-  const doCargo = { ...dados, papel: 'cargo', cargoId: 'c1', gruposAcesso: [], gruposAprovacao: ['grupo-b'] }
   cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'admin_socio' }
-  respostas = [[]] // nenhum dos grupos marcados existe
+  respostas = [CONTA_DA_LOJA, []] // nenhum dos grupos marcados existe
   assert.deepEqual(await criarUsuarioAction(doCargo), RECUSA_GRUPO)
   cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'aux_adm' }
-  respostas = []
+  respostas = [CONTA_DA_LOJA]
   assert.deepEqual(await criarUsuarioAction(doCargo), { ok: true, id: 'novo' }, 'a lista não vale para essa base: nem é conferida')
+  cargoDoCadastro = { ok: true, cargoId: null, papelBase: null }
+})
+
+test('editar: cargo com base Sócio confere os grupos de aprovação; base Adm. da loja não guarda a lista', async () => {
+  const { editarUsuarioAction } = await import('./actions')
+  cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'admin_socio' }
+  respostas = [[], CONTA_DA_LOJA, []]
+  assert.deepEqual(await editarUsuarioAction('u1', doCargo), RECUSA_GRUPO)
+  cargoDoCadastro = { ok: true, cargoId: 'c1', papelBase: 'aux_adm' }
+  respostas = [[], CONTA_DA_LOJA, [], []]
+  assert.deepEqual(await editarUsuarioAction('u1', doCargo), { ok: true }, 'a lista não vale para essa base: nem é conferida')
   cargoDoCadastro = { ok: true, cargoId: null, papelBase: null }
 })
