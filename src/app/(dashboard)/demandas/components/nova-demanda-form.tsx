@@ -11,6 +11,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { criarDemandaAction } from '../actions'
 import { ClienteCampos, CLIENTE_VAZIO, clienteCompleto, type ClienteForm } from './cliente-campos'
 import { PagamentosFields, pgtoIncompleto, type Pgto } from '../../estoque/components/pagamentos-fields'
+import { ComprovanteSinalCampo, formDataDoComprovante } from './comprovante-sinal'
 
 type Loja = { id: string; nome: string }
 type Modelo = { id: string; marca: string; modelo: string }
@@ -26,6 +27,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   // O sinal pode ser dividido em mais de uma forma — mesmas linhas da venda.
   const [pgtosSinal, setPgtosSinal] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
   const [cliente, setCliente] = useState<ClienteForm>(CLIENTE_VAZIO)
+  const [comprovante, setComprovante] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [reciboId, setReciboId] = useState<string | null>(null)
 
@@ -36,13 +38,14 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
   const somaSinal = pgtosSinal.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somaSinalOk = valorSinalNum > 0 && Math.abs(somaSinal - valorSinalNum) < 0.01
   const pgtosSinalOk = pgtosSinal.every(p => p.tipo && p.valor && !pgtoIncompleto(p, null, maquininhas))
-  const sinalValido = !sinalRecebido || (clienteCompleto(cliente) && somaSinalOk && pgtosSinalOk)
+  const sinalValido = !sinalRecebido || (clienteCompleto(cliente) && somaSinalOk && pgtosSinalOk && !!comprovante)
   const formValido = !!modeloId && !!cor.trim() && !!lojaId && sinalValido
 
   function reset() {
     setModeloId(''); setCor(''); setSinalRecebido(false); setValorSinal('')
     setPgtosSinal([{ id: '1', tipo: '', valor: '' }])
     setCliente(CLIENTE_VAZIO)
+    setComprovante(null)
     if (!lojaIdFixa) setLojaId('')
   }
 
@@ -68,7 +71,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
               })),
             }
           : null,
-      })
+      }, sinalRecebido && comprovante ? formDataDoComprovante(comprovante) : undefined)
       if (sinalRecebido) {
         setReciboId(res.id)
       } else {
@@ -197,6 +200,7 @@ export function NovaDemandaForm({ lojas, lojaIdFixa, modelos, cores }: Props) {
               }
             </div>
           )}
+          <ComprovanteSinalCampo onChange={setComprovante} />
           <ClienteCampos value={cliente} onChange={setCliente} />
         </div>
       )}

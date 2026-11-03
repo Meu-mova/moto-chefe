@@ -7,6 +7,7 @@ import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { BUCKET_COMPROVANTES, conferirComprovante } from '@/lib/comprovante-arquivo'
 
 export async function criarLancamentoAction(dados: {
   lojaId: string
@@ -63,22 +64,10 @@ export async function uploadComprovanteAction(formData: FormData): Promise<strin
   }
 
   const file = formData.get('file') as File
-  if (!file || file.size === 0) throw new Error('Arquivo não enviado')
+  const conferido = conferirComprovante(file)
+  if (!conferido.ok) throw new Error(conferido.erro)
 
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error('Formato não suportado. Envie JPG, PNG, WebP ou PDF.')
-  }
-
-  if (file.size > 10 * 1024 * 1024) {
-    throw new Error('Arquivo muito grande. Máximo: 10MB.')
-  }
-
-  const extMap: Record<string, string> = {
-    'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf',
-  }
-  const ext = extMap[file.type] ?? 'bin'
-  const fileName = `${Date.now()}-${crypto.randomUUID()}.${ext}`
+  const fileName = `${Date.now()}-${crypto.randomUUID()}.${conferido.ext}`
   const filePath = `caixa/${fileName}`
 
   const supabaseAdmin = createSupabaseClient(
@@ -86,7 +75,7 @@ export async function uploadComprovanteAction(formData: FormData): Promise<strin
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
   const { error } = await supabaseAdmin.storage
-    .from('comprovantes')
+    .from(BUCKET_COMPROVANTES)
     .upload(filePath, file, { contentType: file.type })
 
   if (error) throw new Error(`Erro no upload: ${error.message}`)
@@ -124,7 +113,7 @@ export async function getComprovanteUrlAction(filePath: string): Promise<string>
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
   const { data, error } = await supabaseAdmin.storage
-    .from('comprovantes')
+    .from(BUCKET_COMPROVANTES)
     .createSignedUrl(filePath, 600)
 
   if (error || !data?.signedUrl) throw new Error('Erro ao gerar URL do comprovante')

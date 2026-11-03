@@ -10,33 +10,37 @@ import { Printer } from 'lucide-react'
 import { marcarSinalDemandaAction, desmarcarSinalDemandaAction } from '../actions'
 import { ClienteCampos, CLIENTE_VAZIO, clienteCompleto, type ClienteForm } from './cliente-campos'
 import { PagamentosFields, pgtoIncompleto, type Pgto } from '../../estoque/components/pagamentos-fields'
+import { AbrirComprovanteSinal, ComprovanteSinalCampo, formDataDoComprovante } from './comprovante-sinal'
 
 type Props = {
   demandaId: string
   sinalRecebido: boolean
   valorSinal: string | null
+  /** Ainda dá para abrir o comprovante (enviado e com menos de 90 dias). */
+  comprovanteDisponivel: boolean
   isAdmin: boolean
 }
 
 const fmt = (v: string) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmin }: Props) {
+export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, comprovanteDisponivel, isAdmin }: Props) {
   const maquininhas = useMaquininhas({ demanda: demandaId })
   const [open, setOpen] = useState(false)
   const [valor, setValor] = useState('')
   // O sinal pode ser dividido em mais de uma forma — mesmas linhas da venda.
   const [pgtos, setPgtos] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
   const [cliente, setCliente] = useState<ClienteForm>(CLIENTE_VAZIO)
+  const [comprovante, setComprovante] = useState<File | null>(null)
   const [pending, startTransition] = useTransition()
 
   const valorNum = parseFloat(valor) || 0
   const soma = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
   const somaOk = valorNum > 0 && Math.abs(soma - valorNum) < 0.01
   const pgtosOk = pgtos.every(p => p.tipo && p.valor && !pgtoIncompleto(p, null, maquininhas))
-  const valido = clienteCompleto(cliente) && somaOk && pgtosOk
+  const valido = clienteCompleto(cliente) && somaOk && pgtosOk && !!comprovante
 
   function marcar() {
-    if (!valido) return
+    if (!valido || !comprovante) return
     startTransition(async () => {
       try {
         await marcarSinalDemandaAction(demandaId, {
@@ -48,10 +52,10 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
             ...(p.operadora ? { operadora: p.operadora } : {}),
             ...(p.parcelas ? { parcelas: parseInt(p.parcelas) } : {}),
           })),
-        })
+        }, formDataDoComprovante(comprovante))
         toast.success('Sinal registrado — recibo disponível')
         setOpen(false)
-        setValor(''); setPgtos([{ id: '1', tipo: '', valor: '' }]); setCliente(CLIENTE_VAZIO)
+        setValor(''); setPgtos([{ id: '1', tipo: '', valor: '' }]); setCliente(CLIENTE_VAZIO); setComprovante(null)
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao registrar sinal')
       }
@@ -84,6 +88,7 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
         >
           <Printer size={12} /> Recibo
         </a>
+        {comprovanteDisponivel && <AbrirComprovanteSinal demandaId={demandaId} />}
         {isAdmin && (
           <button
             onClick={desmarcar}
@@ -141,6 +146,7 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
                 }
               </div>
             )}
+            <ComprovanteSinalCampo onChange={setComprovante} />
             <ClienteCampos value={cliente} onChange={setCliente} />
             <Button onClick={marcar} disabled={pending || !valido} className="w-full">
               {pending ? 'Salvando…' : 'Confirmar sinal + gerar recibo'}

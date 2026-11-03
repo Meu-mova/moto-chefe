@@ -14,6 +14,7 @@ type Demanda = {
   criadoEm: Date
   sinalRecebido: boolean
   valorSinal: string | null
+  comprovanteDisponivel: boolean
 }
 
 type Props = { demandas: Demanda[]; isAdmin: boolean }
@@ -70,6 +71,7 @@ export function DemandasTable({ demandas, isAdmin }: Props) {
                   demandaId={d.id}
                   sinalRecebido={d.sinalRecebido}
                   valorSinal={d.valorSinal}
+                  comprovanteDisponivel={d.comprovanteDisponivel}
                   isAdmin={isAdmin}
                 />
               </td>

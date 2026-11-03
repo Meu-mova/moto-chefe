@@ -9,6 +9,7 @@ import { listarModelosDaConta, nomeDoModeloNaLoja } from '@/lib/modelos-da-conta
 import { NovaDemandaForm } from './components/nova-demanda-form'
 import { DemandasTable } from './components/demandas-table'
 import { DemandasFiltros } from './components/demandas-filtros'
+import { comprovanteSinalVigente } from '@/lib/demanda-comprovante'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -75,6 +76,8 @@ export default async function DemandasPage({
         criadoEm: demandas.criadoEm,
         sinalRecebido: demandas.sinalRecebido,
         valorSinal: demandas.valorSinal,
+        comprovanteSinalPath: demandas.comprovanteSinalPath,
+        comprovanteSinalEm: demandas.comprovanteSinalEm,
       })
       .from(demandas)
       .innerJoin(lojas, eq(demandas.lojaId, lojas.id))
@@ -117,7 +120,14 @@ export default async function DemandasPage({
         mostrarLoja={isAdmin}
       />
 
-      <DemandasTable demandas={lista} isAdmin={isAdmin} />
+      <DemandasTable
+        demandas={lista.map(({ comprovanteSinalPath, comprovanteSinalEm, ...d }) => ({
+          ...d,
+          // Decidido no servidor, com o relógio dele: o cron apaga o arquivo aos 90 dias.
+          comprovanteDisponivel: !!comprovanteSinalPath && comprovanteSinalVigente(comprovanteSinalEm),
+        }))}
+        isAdmin={isAdmin}
+      />
     </div>
   )
 }

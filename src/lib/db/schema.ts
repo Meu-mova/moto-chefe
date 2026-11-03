@@ -1186,6 +1186,10 @@ export const demandas = pgTable('demandas', {
   pagamentos: jsonb('pagamentos').$type<{ tipo: string; valor: number; operadora?: string; parcelas?: number }[]>(),
   numero: integer('numero'),                       // nº do recibo — atribuído via nextval quando há sinal
   sinalRecebidoEm: timestamp('sinal_recebido_em', { withTimezone: true }),
+  // Comprovante do sinal (0173): caminho em 'comprovantes' e quando subiu; o cron apaga o
+  // arquivo depois de 90 dias. Ver @/lib/demanda-comprovante.
+  comprovanteSinalPath: text('comprovante_sinal_path'),
+  comprovanteSinalEm:   timestamp('comprovante_sinal_em', { withTimezone: true }),
   status: demandaStatusEnum('status').notNull().default('aberta'),
   vendaId: uuid('venda_id').references(() => vendas.id),
   // Snapshot do cliente (mirror da reservas) — preenchido só quando há sinal
