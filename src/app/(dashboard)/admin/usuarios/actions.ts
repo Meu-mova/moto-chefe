@@ -206,7 +206,11 @@ export async function criarUsuarioAction(dados: {
       modulosBloqueados: filtrarIdsValidos(dados.modulosBloqueados),
       cargoId: cargo.cargoId,
     })
-    await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, { acao: 'criado', papel: dados.papel })
+    await registrarPermissao(admin.id, { id: data.user.id, nome: dados.nome, lojaId: dados.lojaId, contaId }, {
+      acao: 'criado', papel: dados.papel,
+      // O nome sai só das Contas do usuário criado (cargoParaGravar já exigiu que o cargo é dela).
+      ...(cargo.cargoId ? { cargo: (await nomesDosCargos(db, [contaId], [cargo.cargoId]))[cargo.cargoId] } : {}),
+    })
     id = data.user.id
 
     revalidatePath('/admin/usuarios')

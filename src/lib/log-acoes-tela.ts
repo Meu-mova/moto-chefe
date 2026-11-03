@@ -113,7 +113,7 @@ export function resumoDoEvento(e: EventoLog): string {
       // Quem tem cargo aparece como "cargo X", não como o papel interno "cargo".
       const de = d.cargoAntes ? `cargo ${d.cargoAntes}` : d.papelAntes
       const para = d.cargo ? `cargo ${d.cargo}` : d.papel
-      const papel = d.papelAntes || d.cargoAntes ? ` (${de} → ${para})` : ''
+      const papel = d.papelAntes || d.cargoAntes ? ` (${de} → ${para})` : d.acao === 'criado' && d.cargo ? ` (cargo ${d.cargo})` : ''
       return `${v('alvoNome')} · ${v('acao')}${campos}${papel}`
     }
     case 'certificado_aplicado': return `${v('titular')} · válido até ${v('validoAte')} · UF ${v('uf')} · da adesão`

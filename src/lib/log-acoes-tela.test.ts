@@ -45,6 +45,9 @@ test('resumo de cada ação sensível', () => {
     'Marina · alterado: papel, cargoId (vendedor → cargo Gerente)', 'atribuir cargo diz qual')
   assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Marina', acao: 'alterado', campos: ['cargoId'], cargoAntes: 'Gerente', cargo: 'Caixa' } })),
     'Marina · alterado: cargoId (cargo Gerente → cargo Caixa)', 'trocar de cargo, com o papel igual')
+  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Marina', acao: 'criado', papel: 'cargo', cargo: 'Gerente' } })),
+    'Marina · criado (cargo Gerente)', 'usuário criado já com cargo diz qual')
+  assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'criado', papel: 'vendedor' } })), 'Bruno · criado', 'sem cargo, como sempre')
   assert.equal(resumoDoEvento(ev({ tipo: 'troca_grupo', detalhe: { de: 'g1' } })), 'Entrou em Sul')
   assert.equal(resumoDoEvento(ev({ tipo: 'permissao_alterada', detalhe: { alvoNome: 'Bruno', acao: 'alterado', campos: ['lojaId'] } })), 'Bruno · alterado: lojaId', 'sem mudança de papel, sem (→)')
   assert.equal(resumoDoEvento(ev({ tipo: 'nf_emitida', detalhe: { numeroVenda: 30041, origem: 'mova' } })), 'NF da venda #30041')
