@@ -5,6 +5,7 @@ import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { travarPrecificacaoDoGrupo } from '@/lib/tabela-preco-padrao'
 import { lerTotal12x, type PadraoSimulador } from '@/lib/simulador-padrao'
 import { RecusaUsuario } from '@/lib/resultado-action'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -22,7 +23,7 @@ export async function catalogoDePrecificacao(contaId: string, lojaIds: string[],
     lojaIds.length === 0 ? [] : exec
       .select({ modeloId: motos.modeloId, qtd: sql<number>`count(*)::int` })
       .from(motos)
-      .where(and(eq(motos.disponibilidade, 'disponivel'), inArray(motos.lojaId, lojaIds)))
+      .where(and(eq(motos.disponibilidade, 'disponivel'), motoNaoArquivada(), inArray(motos.lojaId, lojaIds)))
       .groupBy(motos.modeloId),
   ])
   const qtdPorModelo = new Map(estoque.map(e => [e.modeloId, e.qtd]))

@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, historicoEstoque, lojas, modelos, motos, vendas } from '@/lib/db/schema'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 type Exec = Pick<typeof db, 'select' | 'update' | 'insert'>
 
@@ -9,7 +10,8 @@ type Exec = Pick<typeof db, 'select' | 'update' | 'insert'>
 // some do Showroom, das Vendas e do Dashboard (#544). Venda cancelada apaga a linha, então
 // "sem venda" é não existir linha em vendas.
 const semVenda = () => sql`not exists (select 1 from vendas v where v.moto_id = ${sql.raw('"motos"."id"')})`
-const marcadaVendida = () => eq(motos.disponibilidade, 'vendida')
+// Arquivada (0172) sai do quadro e não volta ao estoque por ele: só o RADAR a acha.
+const marcadaVendida = () => and(eq(motos.disponibilidade, 'vendida'), motoNaoArquivada())!
 const daConta = (contaId: string) =>
   inArray(motos.lojaId, db.select({ id: lojas.id }).from(lojas).innerJoin(grupos, eq(grupos.id, lojas.grupoId)).where(eq(grupos.contaId, contaId)))
 
