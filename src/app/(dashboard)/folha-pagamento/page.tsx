@@ -235,6 +235,7 @@ export default async function FolhaPagamentoPage({
                   <td className="px-4 py-2">
                     <ValorRealInput
                       usuarioId={f.id}
+                      nome={f.nome}
                       mes={mesParam}
                       valorReal={f.valorReal}
                       totalPagar={f.totalPagar}
