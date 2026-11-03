@@ -73,7 +73,7 @@ function EscolhaDaBase({ base, onChange }: { base: PapelBase | ''; onChange: (b:
           </tbody>
         </table>
       </div>
-      <p className="text-sm text-muted-foreground">Escolha a linha. Quem tem o cargo faz o que a base faz, com as mesmas regras.</p>
+      <p className="text-sm text-muted-foreground">Escolha a linha. Quem tem o cargo faz o que a base faz, com as mesmas regras. Aprovar venda vale só nos grupos marcados no cadastro do usuário.</p>
       <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
         {resumoDasTelas(base)} Ajustar as telas do cargo (tirar e acrescentar) chega em breve.
       </p>

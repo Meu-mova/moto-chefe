@@ -5,6 +5,7 @@ import { acessaModulo, itensDoMenu } from '@/lib/navegacao'
 import { podeOperarNfSaida } from '../app/(dashboard)/vendas/papeis-nf-saida'
 
 export type OQueABaseFaz = {
+  /** O papel pode aprovar; onde aprova (grupos de aprovação) vem do cadastro do usuário. */
   aprovaVenda: boolean
   /** 'sem-nf': cancela, mas não a venda que já tem NF registrada. */
   cancelaVenda: 'sim' | 'sem-nf' | 'nao'
@@ -14,8 +15,9 @@ export type OQueABaseFaz = {
   telas: string[]
 }
 
-// Lido das mesmas funções que as telas e as actions usam, para a descrição do cargo nunca
-// divergir do que o papel base de fato faz.
+// Lido das listas de papel que as telas e as actions consultam (aprovar, cancelar venda, caixa,
+// NF), para a descrição acompanhar a regra de papel. Não substitui as conferências de grupo e de
+// loja que essas actions fazem depois.
 function cancelaVenda(papel: string): OQueABaseFaz['cancelaVenda'] {
   if (!PAPEIS_QUE_CANCELAM_VENDA.has(papel)) return 'nao'
   return travaDoPapel(papel, 'com-nf') ? 'sem-nf' : 'sim'

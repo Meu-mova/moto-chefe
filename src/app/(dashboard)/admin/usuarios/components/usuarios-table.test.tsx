@@ -76,6 +76,7 @@ test('diálogo de cargos: a escolha da base mostra o que cada base faz e grava n
   assert.ok(linha('Adm. da loja')?.textContent?.includes('sem NF'), 'adm. da loja cancela só venda sem NF')
   assert.equal(linha('Vendedor')?.textContent?.match(/não/g)?.length, 4, 'vendedor não faz nenhuma das quatro')
   assert.ok(document.body.textContent?.includes('Escolha uma base'))
+  assert.ok(document.body.textContent?.includes('Aprovar venda vale só nos grupos marcados'), 'aprovar depende dos grupos de aprovação do cadastro')
 
   const { act } = await import('react')
   await clicar(botao('Criar cargo'))
