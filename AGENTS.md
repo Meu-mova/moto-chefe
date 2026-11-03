@@ -72,7 +72,16 @@ Toda mudança nasce de issue e de um plano aprovado antes do código. Além diss
   repetir: extraia para `src/lib` e troque as cópias no mesmo PR, se for pequeno; senão abra
   issue. Lista de valores (regime, status) nasce num lugar só e o resto deriva dela. No #590,
   o IP do pedido chegou à 5ª cópia (`x-forwarded-for`) e `soDigitos` foi reescrito com outro
-  nome.
+  nome. Como procurar, porque buscar só pelo nome que você daria não acha:
+  - Antes de mexer numa pasta, leia os arquivos dela e dos vizinhos e o que eles já importam
+    de `src/lib`: o helper que você precisa costuma estar ali.
+  - Busque pelo **comportamento**, não só pelo nome: 2 ou 3 sinônimos (em português e em
+    inglês) e o trecho típico do código (ex.: data em Brasília: `git grep -n "Sao_Paulo"`;
+    mês seguinte: `git grep -n "getMonth() + 1\|mesAnterior\|proximoMes"`).
+  - O plano (seção Reuso) diz o que reusa, com arquivo:linha; "não existe" diz o que buscou.
+  - Na folha responsiva (#628, #629), a Fase 0 afirmou "nenhuma data DD/MM em Brasília" e
+    reescreveu `diaCurtoBrt`; `mesAdjacente` repetiu `mesAnterior`/`proximoMes`; o filtro de
+    URL chegou a 15 cópias e o boilerplate de JSDOM a 8 (#632).
 
 ## Stack
 
