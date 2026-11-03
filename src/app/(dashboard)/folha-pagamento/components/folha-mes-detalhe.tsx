@@ -14,8 +14,8 @@ function Bloco({ titulo, valor, valorClasse = '', className = '', children }: {
   return (
     <section className={`min-w-0 rounded-lg border bg-card px-3 py-2.5 ${className}`}>
       <div className="mb-1 flex items-baseline justify-between gap-2">
-        <p className="text-xs font-semibold text-muted-foreground">{titulo}</p>
-        {valor !== undefined && <b className={`whitespace-nowrap tabular-nums ${valorClasse}`}>{valor}</b>}
+        <p className="min-w-0 text-xs font-semibold text-muted-foreground">{titulo}</p>
+        {valor !== undefined && <b className={`shrink-0 whitespace-nowrap tabular-nums ${valorClasse}`}>{valor}</b>}
       </div>
       {children}
     </section>
@@ -28,16 +28,16 @@ const Par = ({ rotulo, valor }: { rotulo: string; valor: number }) => (
   <li className="flex justify-between gap-3"><span>{rotulo}</span><span className="whitespace-nowrap tabular-nums">{fmtBRL(valor)}</span></li>
 )
 
-// O que a linha não mostra: de onde saiu cada valor. Celular: Salário e Ajuda de custo (curtos, lado
-// a lado) e os outros em largura cheia; tablet: 2 colunas; desktop: 3 (Salário e Ajuda estão na linha).
+// O que a linha não mostra: de onde saiu cada valor. Celular: todos os blocos um embaixo do outro, em
+// largura cheia (lado a lado, o valor em reais não cabia em 360 px); tablet: 2 colunas; desktop: 3 (Salário e Ajuda estão na linha).
 export function FolhaMesDetalhe({ f }: { f: FuncionarioFolha }) {
   const comissao = f.regras.filter(r => r.tipo !== 'premiacao')
   const premiacao = f.regras.filter(r => r.tipo === 'premiacao')
   const cheio = 'col-span-full @[680px]/folha:col-auto'
   return (
     <div className="grid grid-cols-2 items-start gap-2 @[680px]/folha:items-stretch @[960px]/folha:grid-cols-3">
-      <Bloco titulo="Salário" valor={<ValorOuZero valor={f.salario} />} className="@[680px]/folha:hidden" />
-      <Bloco titulo="Ajuda de custo" valor={<ValorOuZero valor={f.ajudaCusto} />} className="@[680px]/folha:order-1 @[960px]/folha:hidden">
+      <Bloco titulo="Salário" valor={<ValorOuZero valor={f.salario} />} className="col-span-full @[680px]/folha:hidden" />
+      <Bloco titulo="Ajuda de custo" valor={<ValorOuZero valor={f.ajudaCusto} />} className="col-span-full @[680px]/folha:col-auto @[680px]/folha:order-1 @[960px]/folha:hidden">
         {f.ajudaCusto <= 0 && <Vazio texto="Sem ajuda de custo neste mês" />}
       </Bloco>
       <Bloco titulo="Comissão" valor={<ValorOuZero valor={f.comissao} />} valorClasse="@[680px]/folha:hidden" className={cheio}>

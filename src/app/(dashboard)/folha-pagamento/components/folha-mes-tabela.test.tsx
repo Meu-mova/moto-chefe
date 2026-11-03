@@ -205,3 +205,18 @@ test('total a pagar zerado fica esmaecido; negativo continua em vermelho', async
   assert.match(total('Zerado Z').className, /text-muted-foreground/)
   assert.match(total('Negativo N').className, /text-destructive/)
 })
+
+// jsdom não mede layout: provo as classes que impedem o vazamento em 360 px (bloco em largura cheia,
+// valor em reais sem quebrar nem encolher, rótulo livre para quebrar); a medida é do navegador.
+test('no celular Salário e Ajuda de custo ocupam a largura toda e o valor em reais não quebra nem encolhe', async () => {
+  await montar()
+  await clicar(seta('Vendedor A'))
+  const bloco = (titulo: string) => [...document.querySelectorAll('section')].find(s => s.querySelector('p')?.textContent === titulo)!
+  for (const titulo of ['Salário', 'Ajuda de custo']) {
+    assert.match(bloco(titulo).className, /\bcol-span-full\b/, titulo)
+    const valor = bloco(titulo).querySelector('b')!
+    assert.match(valor.className, /\bwhitespace-nowrap\b/, titulo)
+    assert.match(valor.className, /\bshrink-0\b/, titulo)
+    assert.match(bloco(titulo).querySelector('p')!.className, /\bmin-w-0\b/, titulo)
+  }
+})
