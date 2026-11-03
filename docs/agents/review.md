@@ -61,6 +61,9 @@ aqui fica a lista curta de conferência.
 - **Mock só na fronteira de fora** (Nota Gateway, rede, `next/navigation`). O que lê o banco roda no
   banco do `test:db` (#607: o cenário "grupo sem configuração" simulava a leitura da config e
   provava o mock, não o código).
+- **Formulário com a Server Action mockada: confira o que cada caminho envia** (criar e editar),
+  não só que a action foi chamada (#616: o editar não mandava `cargoId`; dar cargo a usuário
+  existente dava "Cargo não encontrado", e só o navegador pegou).
 - **Mudou quem pode? Teste de banco com a persona real** (#607: admin_rede só chega ao servidor em
   grupo liberado; o teste prova que pede no liberado e não pede no não liberado).
 - **Ação sem volta tem teste da trava enquanto envia**: botões desabilitados e Escape não fecha. O
