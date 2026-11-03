@@ -1,5 +1,6 @@
 // Regras da tela do log (#198): pura, sem banco, para testar sem Postgres.
 import { periodoBr } from '@/lib/notas-emitidas'
+import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 
 export const ROTULO_TIPO: Record<string, string> = {
   login: 'Entrou', troca_grupo: 'Trocou de grupo', acesso_dia: '1º acesso do dia',
@@ -122,8 +123,8 @@ export function resumoDoEvento(e: EventoLog): string {
     case 'permissao_alterada': {
       const campos = Array.isArray(d.campos) ? `: ${d.campos.map(c => ROTULO_CAMPO_PERMISSAO[c] ?? c).join(', ')}` : ''
       // Quem tem cargo aparece como "cargo X", não como o papel interno "cargo".
-      const de = d.cargoAntes ? `cargo ${d.cargoAntes}` : d.papelAntes
-      const para = d.cargo ? `cargo ${d.cargo}` : d.papel
+      const de = d.cargoAntes ? `cargo ${d.cargoAntes}` : rotuloDoPapelGravado(String(d.papelAntes))
+      const para = d.cargo ? `cargo ${d.cargo}` : rotuloDoPapelGravado(String(d.papel))
       const papel = d.papelAntes || d.cargoAntes ? ` (${de} → ${para})` : d.acao === 'criado' && d.cargo ? ` (cargo ${d.cargo})` : ''
       const acao = d.acao == null ? '?' : ROTULO_ACAO_PERMISSAO[String(d.acao)] ?? d.acao
       return `${v('alvoNome')} · ${acao}${campos}${papel}`
