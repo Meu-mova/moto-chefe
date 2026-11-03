@@ -194,8 +194,16 @@ gerencia. Decisões do Luis no grilling de 02/11 (#449):
   troca do admin de rede. O papel gravado continua `cargo` (`papelReal`), com o nome do cargo para
   exibição. Cargo que a consulta não achou deixa o usuário só com o básico.
 - Editar a base vale na próxima requisição de todos que têm o cargo.
-- Nesta primeira entrega só o `admin_geral` cria, edita, apaga e atribui cargo; sócio e admin de
-  rede não veem a função e o servidor recusa. A permissão por pessoa vem na #617.
+- Na primeira entrega (#616) só o `admin_geral` cria, edita, apaga e atribui cargo; a permissão
+  por pessoa veio na #617 (abaixo).
+- **Permissão por pessoa (#617):** gerenciar cargos (criar, editar, apagar e atribuir) é o item
+  "Gerenciar cargos" de `navegacao.ts`, liberado por pessoa em `usuarios.modulos_extras`. Só o
+  `admin_geral` liga, desliga ou bloqueia; nem quem a tem a repassa. Vale para sócio e admin de
+  rede, e o `admin_geral` sempre gerencia. O `admin_rede` com a permissão gerencia os cargos da
+  própria Conta, e na persona de um grupo liberado de outra Conta o item some e o servidor recusa
+  (`FORA_DA_PERSONA`). Qualquer gestor com a permissão edita e apaga todos os cargos da Conta.
+- Cargo com base Sócio ganha as abas Aprovação e Acesso a grupos no cadastro do usuário, e o
+  servidor guarda e confere essas listas pelo papel da base.
 - A lista de módulos do cargo (`cargos.modulos`) deixa de valer: o cargo vê o que a base vê. O
   ajuste de módulos (tirar e acrescentar) volta na #618, no formato de `modulos_extras` e
   `modulos_bloqueados`.
