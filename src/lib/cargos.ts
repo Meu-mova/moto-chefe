@@ -2,7 +2,7 @@
  * Cargos da Conta (#449, #616, adendo ao ADR-0018): nome e papel base; quem tem o cargo faz o que
  * a base faz. Outra Conta não lê, não edita nem atribui; o admin_geral vê todas.
  */
-import { and, asc, count, eq, ne, type SQL, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, ne, type SQL, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { cargos, grupos, lojas, usuarios } from '@/lib/db/schema'
 import { PAPEIS_BASE_DO_CARGO, type PapelBase } from '@/lib/gestao-usuarios'
@@ -60,6 +60,14 @@ async function validar(
 
 export async function listarCargos(exec: Executor, quem: Pick<QuemGerenciaCargos, 'papel' | 'contaId'>) {
   return exec.select().from(cargos).where(daConta(quem)).orderBy(asc(cargos.nome))
+}
+
+/** Nome por id, para o log dizer qual cargo; os ids vêm do cadastro do usuário, nunca de entrada da tela. */
+export async function nomesDosCargos(exec: Executor, ids: (string | null)[]): Promise<Record<string, string>> {
+  const validos = ids.filter((i): i is string => !!i)
+  if (!validos.length) return {}
+  const linhas = await exec.select({ id: cargos.id, nome: cargos.nome }).from(cargos).where(inArray(cargos.id, validos))
+  return Object.fromEntries(linhas.map(l => [l.id, l.nome]))
 }
 
 /** Cargo pelo id só se for da Conta; `null` também para id inexistente. */

@@ -7,9 +7,9 @@ import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
 import { COM_HISTORICO, podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
 import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
-import { cargoParaGravar } from '@/lib/cargos'
+import { cargoParaGravar, nomesDosCargos } from '@/lib/cargos'
 import { aprovacoesForaDoAlcance, sincronizarGruposLiberados, type MudancaLiberacao } from '@/lib/grupos-liberados-admin'
-import { camposDePermissaoAlterados, registrarAcaoSensivelSemFalhar, type Permissoes } from '@/lib/log-acoes'
+import { camposDePermissaoAlterados, detalheDaMudancaDePermissao, permissoesDe, registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
 import { revalidatePath } from 'next/cache'
 
@@ -71,13 +71,7 @@ const colunasPermissao = {
   papel: usuarios.papel, gruposAcesso: usuarios.gruposAcesso, gruposAprovacao: usuarios.gruposAprovacao,
   aprovaPagamentoSensivel: usuarios.aprovaPagamentoSensivel,
   modulosExtras: usuarios.modulosExtras, modulosBloqueados: usuarios.modulosBloqueados,
-}
-
-function permissoesDe(u: Permissoes): Permissoes {
-  return {
-    papel: u.papel, lojaId: u.lojaId, gruposAcesso: u.gruposAcesso, gruposAprovacao: u.gruposAprovacao,
-    aprovaPagamentoSensivel: u.aprovaPagamentoSensivel, modulosExtras: u.modulosExtras, modulosBloqueados: u.modulosBloqueados,
-  }
+  cargoId: usuarios.cargoId,
 }
 
 // Garante que o link Conecta é http/https (evita esquemas perigosos como javascript:)
@@ -304,7 +298,7 @@ export async function editarUsuarioAction(id: string, dados: {
     const [depois] = await db.select(colunasPermissao).from(usuarios).where(eq(usuarios.id, id)).limit(1)
     const campos = antes && depois ? camposDePermissaoAlterados(permissoesDe(antes), permissoesDe(depois)) : []
     if (campos.length) {
-      const detalhe = { acao: 'alterado', campos, ...(campos.includes('papel') ? { papelAntes: antes.papel, papel: depois.papel } : {}) }
+      const detalhe = detalheDaMudancaDePermissao(permissoesDe(antes), permissoesDe(depois), campos, await nomesDosCargos(db, [antes.cargoId, depois.cargoId]))
       await registrarPermissao(admin.id, depois, detalhe)
       // Saiu de uma Conta para outra: o admin da Conta antiga também precisa ver.
       if (antes.contaId !== depois.contaId) await registrarPermissao(admin.id, antes, detalhe)
