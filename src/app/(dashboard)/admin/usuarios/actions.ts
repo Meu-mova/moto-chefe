@@ -149,7 +149,7 @@ async function cargoDoCadastro(dados: { papel: string; lojaId: string | null; ca
   const contaId = dados.papel === 'cargo' ? await contaDoUsuario(dados.papel, dados.lojaId, []) : null
   const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
   if (!cargo.ok) throw new Recusa(cargo.erro)
-  return { cargoId: cargo.cargoId, papelDasListas: papelDasListas(dados.papel, cargo.papelBase) }
+  return { cargoId: cargo.cargoId, contaId, papelDasListas: papelDasListas(dados.papel, cargo.papelBase) }
 }
 
 // Grupo marcado (de acesso ou de aprovação) tem de ser da Conta do usuário: grupo de
@@ -185,7 +185,7 @@ export async function criarUsuarioAction(dados: {
     const cargo = await cargoDoCadastro(dados)
     const aprovacao = await validarAprovacao(cargo.papelDasListas, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
     const acesso = await validarAcesso(cargo.papelDasListas, dados.gruposAcesso)
-    const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
+    const contaId = cargo.contaId ?? await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
     await exigirGruposDaConta(dados.papel, contaId, acesso.gruposAcesso)
     // Usuário novo ainda não tem grupo liberado: aprovação só na própria Conta.
     if ((await aprovacoesForaDoAlcance(db, { id: null, papel: dados.papel, contaId }, aprovacao.gruposAprovacao)).length) throw new Recusa(GRUPO_INVALIDO)
@@ -253,7 +253,7 @@ export async function editarUsuarioAction(id: string, dados: {
     const cargo = await cargoDoCadastro(dados)
     const aprovacao = await validarAprovacao(cargo.papelDasListas, dados.gruposAprovacao, dados.aprovaPagamentoSensivel)
     const acesso = await validarAcesso(cargo.papelDasListas, dados.gruposAcesso)
-    const contaId = await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
+    const contaId = cargo.contaId ?? await contaDoUsuario(dados.papel, dados.lojaId, acesso.gruposAcesso)
     await exigirGruposDaConta(dados.papel, contaId, acesso.gruposAcesso)
 
     // Senha trocada pelo sócio vale como a inicial: o usuário troca no próximo login. Na
