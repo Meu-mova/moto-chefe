@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { extrairHolerite, nomeConfere } from '@/lib/holerite-pdf'
+import { TIPOS_HOLERITE } from '@/lib/holerites-tela'
 
 // Holerites que a contabilidade manda todo mês, em PDF (migração 0077).
 //
@@ -16,7 +17,7 @@ import { extrairHolerite, nomeConfere } from '@/lib/holerite-pdf'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const BUCKET = 'holerites'
-const TIPOS = ['adiantamento', 'salario']
+const TIPOS: string[] = TIPOS_HOLERITE.map(t => t.valor)
 const TAMANHO_MAXIMO = 10 * 1024 * 1024
 
 async function checarAdmin() {

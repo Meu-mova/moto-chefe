@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { FileText, ExternalLink } from 'lucide-react'
+import { fmtTamanho } from '@/lib/holerites-tela'
 import type { MeuHoleriteRow } from '../../folha-pagamento/holerites-actions'
 import { getMeuHoleriteUrlAction } from '../../folha-pagamento/holerites-actions'
 
@@ -16,12 +17,6 @@ function fmtMes(mes: string) {
   const [ano, m] = mes.split('-')
   const nome = new Date(Number(ano), Number(m) - 1, 15).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
   return nome.charAt(0).toUpperCase() + nome.slice(1)
-}
-
-function fmtTamanho(bytes: number | null) {
-  if (!bytes) return ''
-  const kb = bytes / 1024
-  return kb < 1024 ? `${Math.round(kb)} KB` : `${(kb / 1024).toFixed(1)} MB`
 }
 
 function Documento({ holerite }: { holerite: MeuHoleriteRow }) {
