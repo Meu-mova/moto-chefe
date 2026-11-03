@@ -272,6 +272,14 @@ test('falha ao abrir vira toast e fecha a aba em branco', async () => {
   assert.equal(fechou, true)
 })
 
+test('se a janela não abre, o erro vira toast e os botões não ficam travados', async () => {
+  window.open = (() => { throw new Error('Pop-up bloqueado') }) as unknown as typeof window.open
+  await montar([holerite('a', 'salario')], [pessoas[0]])
+  await clicar(botao('Abrir'))
+  assert.deepEqual(toasts, ['Pop-up bloqueado'])
+  assert.ok([...document.querySelectorAll('[role=row] button')].every(b => !b.hasAttribute('disabled')))
+})
+
 test('falha ao remover vira toast', async () => {
   window.confirm = () => true
   falhas.remover = new Error('Holerite não encontrado no grupo ativo')

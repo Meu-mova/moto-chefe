@@ -69,10 +69,12 @@ export function useEnvioHolerite(funcionarioId: string, mes: string) {
 
   async function abrir(h: HoleriteRow) {
     ocupar(h.tipo, true)
-    // A janela é aberta ANTES do await: navegador bloqueia window.open que acontece depois de
-    // uma promise, por não ser mais gesto do usuário.
-    const aba = window.open('', '_blank')
+    let aba: Window | null = null
     try {
+      // A janela é aberta ANTES do await: navegador bloqueia window.open que acontece depois de
+      // uma promise, por não ser mais gesto do usuário. Dentro do try para que, se o open
+      // lançar, o `finally` ainda destrave os botões.
+      aba = window.open('', '_blank')
       const url = await getHoleriteUrlAction(h.id)
       if (aba) aba.location.href = url
       else window.location.href = url
