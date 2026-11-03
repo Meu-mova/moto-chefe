@@ -163,3 +163,11 @@ test('a seta só aponta para o detalhe (aria-controls) quando ele existe', async
     assert.match(alvo.textContent ?? '', /Faixa OTE atingida/)
   }
 })
+
+test('a tabela só tem linhas como filhos, inclusive a mensagem de lista vazia', async () => {
+  await montar([])
+  const tabela = document.querySelector('[role="table"]')!
+  assert.ok(tabela.children.length > 0)
+  for (const filho of tabela.children) assert.equal(filho.getAttribute('role'), 'row')
+  assert.match(tabela.textContent ?? '', /Nenhum funcionário ativo configurado/)
+})

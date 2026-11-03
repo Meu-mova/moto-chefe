@@ -23,7 +23,9 @@ export function FolhaMesTabela({ ativos, totais, mes }: { ativos: LinhaFolhaDado
         <div role="columnheader" className="sr-only">Detalhes</div>
       </div>
       {ativos.map(f => <LinhaFolha key={f.id} f={f} mes={mes} />)}
-      {ativos.length === 0 && <p className="border-t py-8 text-center text-muted-foreground">Nenhum funcionário ativo configurado.</p>}
+      {ativos.length === 0 && (
+        <div role="row"><div role="cell" className="border-t py-8 text-center text-muted-foreground">Nenhum funcionário ativo configurado.</div></div>
+      )}
       {ativos.length > 0 && (
         <div role="row" className={`${GRADE} border-t bg-muted font-semibold`}>
           <div role="cell" className={CELULA}>Total ({ativos.length})</div>
