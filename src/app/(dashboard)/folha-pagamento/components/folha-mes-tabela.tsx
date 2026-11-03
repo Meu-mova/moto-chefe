@@ -20,7 +20,7 @@ export function FolhaMesTabela({ ativos, totais, mes }: { ativos: LinhaFolhaDado
         <div role="columnheader" className={`${NUMERO} ${SO_DESKTOP}`}>Adiantamento</div>
         <div role="columnheader" className={NUMERO}>Total a pagar</div>
         <div role="columnheader" className={`${NUMERO} ${SO_TABLET}`}>Valor real pago</div>
-        <div role="columnheader" className="sr-only @[680px]/folha:order-1">Detalhes</div>
+        <div role="columnheader" className="sr-only">Detalhes</div>
       </div>
       {ativos.map(f => <LinhaFolha key={f.id} f={f} mes={mes} />)}
       {ativos.length === 0 && <p className="border-t py-8 text-center text-muted-foreground">Nenhum funcionário ativo configurado.</p>}

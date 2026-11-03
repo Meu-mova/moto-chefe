@@ -140,3 +140,15 @@ test('salvar o valor real (nova leitura da página) mantém o detalhe aberto e o
   assert.equal(document.querySelector('input[aria-label="Valor real pago de Vendedor A"]'), campo)
   assert.match(texto(), /Real \+R\$\u00a019,60/)
 })
+
+// Sem CSS no jsdom, a posição de cada controle é lida pela classe que o esconde por faixa.
+test('a ordem do Tab é a ordem visual: celular seta → campo; tablet e desktop campo → seta', async () => {
+  await montar()
+  await clicar(seta('Vendedor A'))
+  const linha = [...document.querySelectorAll('[role="row"]')].find(r => r.textContent?.includes('Vendedor A'))!
+  const foco = [...linha.querySelectorAll('button, input')].map(el => {
+    if (el.tagName === 'INPUT') return 'campo'
+    return /@\[680px\]\/folha:hidden/.test(el.closest('[role="cell"]')!.className) ? 'seta-celular' : 'seta-tablet'
+  })
+  assert.deepEqual(foco, ['seta-celular', 'campo', 'seta-tablet'])
+})

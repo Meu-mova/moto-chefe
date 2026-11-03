@@ -16,6 +16,15 @@ const COR_DA_SITUACAO = { sem: 'text-muted-foreground', confere: 'text-success',
 
 // O estado "aberta" mora aqui: a linha tem `key` estável na tabela, então salvar o valor real
 // (revalidatePath) não fecha o detalhe.
+function SetaDetalhe({ f, aberta, alternar, idDetalhe }: { f: LinhaFolhaDados; aberta: boolean; alternar: () => void; idDetalhe: string }) {
+  return (
+    <Button variant="ghost" size="icon" className="size-11 text-muted-foreground @[960px]/folha:size-8" aria-expanded={aberta}
+      aria-controls={idDetalhe} aria-label={`Ver detalhes de ${f.nome}`} onClick={alternar}>
+      <ChevronDown className={aberta ? 'rotate-180' : ''} />
+    </Button>
+  )
+}
+
 export function LinhaFolha({ f, mes }: { f: LinhaFolhaDados; mes: string }) {
   const [aberta, setAberta] = useState(false)
   const situacao = situacaoValorReal(f.valorReal, f.totalPagar)
@@ -36,24 +45,27 @@ export function LinhaFolha({ f, mes }: { f: LinhaFolhaDados; mes: string }) {
         {/* No celular a coluna do valor real não cabe: a situação dela vai embaixo do total. */}
         <span className={`block text-xs font-medium @[680px]/folha:hidden ${COR_DA_SITUACAO[situacao.tipo]}`}>{situacao.texto}</span>
       </div>
-      <div role="cell" className="flex items-center justify-center @[680px]/folha:order-1">
-        <Button variant="ghost" size="icon" className="size-11 text-muted-foreground @[960px]/folha:size-8" aria-expanded={aberta}
-          aria-controls={idDetalhe} aria-label={`Ver detalhes de ${f.nome}`} onClick={() => setAberta(a => !a)}>
-          <ChevronDown className={aberta ? 'rotate-180' : ''} />
-        </Button>
+      {/* A seta aparece duas vezes, uma por posição, e a tela mostra só uma: no celular ela vem
+          antes do campo (que fica dentro do detalhe, embaixo) e do tablet em diante vem depois
+          dele, na ponta da linha. Assim a ordem do Tab é a ordem que o olho vê, sem `order`. */}
+      <div role="cell" className="flex items-center justify-center @[680px]/folha:hidden">
+        <SetaDetalhe f={f} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} />
       </div>
-      {aberta && (
-        <div role="cell" id={idDetalhe} className="col-span-full px-2.5 pb-3 @[680px]/folha:order-2">
-          <FolhaMesDetalhe f={f} />
-        </div>
-      )}
       {/* O MESMO campo nos dois lugares: na coluna a partir do tablet; no celular, só dentro do
           detalhe aberto, embaixo dos blocos. Em branco, a folha segue valendo o calculado
           (ver valorEfetivo em queries/folha). */}
-      <div role="cell" className={`${aberta ? 'col-span-full px-2.5 pb-3' : 'hidden'} @[680px]/folha:col-auto @[680px]/folha:block @[680px]/folha:px-2.5 @[680px]/folha:py-2.5`}>
+      <div role="cell" className={`${aberta ? 'order-2 col-span-full px-2.5 pb-3' : 'hidden'} @[680px]/folha:order-none @[680px]/folha:col-auto @[680px]/folha:block @[680px]/folha:px-2.5 @[680px]/folha:py-2.5`}>
         <p className="mb-1 text-xs text-muted-foreground @[680px]/folha:hidden">Valor real pago</p>
         <ValorRealInput usuarioId={f.id} nome={f.nome} mes={mes} valorReal={f.valorReal} totalPagar={f.totalPagar} />
       </div>
+      <div role="cell" className="hidden items-center justify-center @[680px]/folha:flex">
+        <SetaDetalhe f={f} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} />
+      </div>
+      {aberta && (
+        <div role="cell" id={idDetalhe} className="order-1 col-span-full px-2.5 pb-3 @[680px]/folha:order-none">
+          <FolhaMesDetalhe f={f} />
+        </div>
+      )}
     </div>
   )
 }
