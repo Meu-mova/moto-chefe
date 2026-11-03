@@ -207,3 +207,18 @@ test('Imprimir com "Todas as lojas" leva loja vazia, que o servidor lê como tod
   await clicar(botao('Imprimir folha'))
   assert.deepEqual(abertas, ['/folha-pagamento/imprimir?mes=2026-10&loja='])
 })
+
+// O botão Voltar do layout flutua à esquerda. Um elemento com container-type (BFC) não passa por
+// baixo do float: vai para o lado dele e perde largura. Por isso o título fica FORA do container
+// (texto contorna o float, como nas outras telas) e o container limpa o float e começa abaixo, na
+// largura cheia. jsdom não mede layout: a largura real é conferida no navegador.
+test('o título fica fora do container de largura e o container limpa o botão Voltar flutuante', async () => {
+  await montar()
+  const container = [...document.querySelectorAll('div')].find(d => d.className.includes('@container/folha'))
+  assert.ok(container, 'container da folha não encontrado')
+  assert.match(container.className, /\bclear-both\b/)
+  const titulo = document.querySelector('h1')!
+  assert.equal(titulo.textContent, 'Folha de Pagamento')
+  assert.ok(!container.contains(titulo), 'o título não pode estar dentro do container')
+  assert.ok(container.contains(document.querySelector('select[aria-label="Loja"]')), 'os controles ficam dentro do container')
+})
