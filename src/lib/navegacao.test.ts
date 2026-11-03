@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { ITENS, acessaModulo, itensDoMenu, itensVisiveis, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
+import { ITENS, acessaModulo, itensDoMenu, itensVisiveis, liberavelPara, podeAcessar, type Papel, type UsuarioNav } from './navegacao'
 import { podeOperarNfSaida } from '@/app/(dashboard)/vendas/papeis-nf-saida'
 
 const SEM_REGRA_PROPRIA = {}
@@ -215,4 +215,34 @@ test('Plataforma: papel só admin_geral', () => {
   const itens = ITENS.filter(i => i.categoria === 'plataforma')
   assert.ok(itens.length > 0)
   for (const i of itens) assert.deepStrictEqual(i.papeis, ['admin_geral'], i.id)
+})
+
+test('Gerenciar cargos: admin_geral sempre; sócio só com a liberação individual (#617)', () => {
+  assert.ok(acessaModulo(ADMIN_GERAL, 'cargos'))
+  assert.ok(!acessaModulo(SOCIO, 'cargos'))
+  assert.ok(acessaModulo({ papel: 'admin_socio', modulosExtras: ['cargos'] }, 'cargos'))
+  assert.ok(!acessaModulo({ papel: 'admin_socio', modulosExtras: ['cargos'], modulosBloqueados: ['cargos'] }, 'cargos'), 'bloqueio ganha')
+  for (const papel of ['aux_adm', 'vendedor', 'mecanico', 'motorista', 'cargo']) {
+    assert.ok(!acessaModulo({ papel, modulosExtras: ['cargos'] }, 'cargos'), `${papel}, nem liberado`)
+  }
+})
+
+test('Gerenciar cargos: o formulário grava o papel real, então vale para admin_socio e admin_rede (#617)', () => {
+  const item = ITENS.find(i => i.id === 'cargos')
+  assert.ok(item)
+  assert.ok(liberavelPara(item, 'admin_socio'))
+  assert.ok(liberavelPara(item, 'admin_rede'))
+  assert.ok(!liberavelPara(item, 'aux_adm'))
+})
+
+test('Gerenciar cargos: na persona do admin_rede (grupo liberado) nem liberado abre (#617)', () => {
+  const persona: UsuarioNav = { papel: 'admin_socio', modulosExtras: ['cargos'], grupoLiberado: 'g1' }
+  assert.ok(!acessaModulo(persona, 'cargos'))
+})
+
+test('Gerenciar cargos é permissão, não tela: fora do menu, dos hubs e da rota (#617)', () => {
+  for (const u of [ADMIN_GERAL, { papel: 'admin_socio', modulosExtras: ['cargos'] }]) {
+    assert.ok(!itensDoMenu(u, SEM_REGRA_PROPRIA).some(i => i.id === 'cargos'), u.papel)
+  }
+  assert.equal(podeAcessar(ADMIN_GERAL, ITENS.find(i => i.id === 'cargos')?.href ?? '', SEM_REGRA_PROPRIA), true)
 })
