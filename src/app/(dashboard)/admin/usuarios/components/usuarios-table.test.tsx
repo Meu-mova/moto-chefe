@@ -156,7 +156,7 @@ test('cargo com base Aux. Administrativo não mostra a aprovação e manda as li
   assert.deepEqual([dados.gruposAprovacao, dados.gruposAcesso, dados.aprovaPagamentoSensivel], [[], [], false])
 })
 
-test('trocar o cargo de base Admin Sócio para Adm. da loja zera as duas listas e a transferência (#617)', async () => {
+test('trocar o cargo de base Admin Sócio para Aux. Administrativo zera as duas listas e a transferência (#617)', async () => {
   const comListas = { ...usuarioComCargo, gruposAprovacao: ['gA'], gruposAcesso: ['gB'], aprovaPagamentoSensivel: true }
   await montar('admin_geral', [comListas], { grupos: gruposDoCargo, lojas: lojasDoCargo, cargos: [cargoSocio, cargoGerente] })
   const dados = await salvarEdicaoDe('Gerente A', async () => {
