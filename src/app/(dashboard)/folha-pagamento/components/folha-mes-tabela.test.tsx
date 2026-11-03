@@ -179,3 +179,12 @@ test('o nome quebra entre palavras e, se uma palavra sozinha não couber, quebra
   const nome = [...document.querySelectorAll('p')].find(p => p.textContent === 'Vendedor B Nascimento Albuquerque')!
   assert.match(nome.className, /\bwrap-anywhere\b/)
 })
+
+// Sem CSS no jsdom, o que dá para provar é a classe que alinha os blocos pelo topo no celular
+// (sem esticar o Salário até a altura do vizinho); o resultado visual é do navegador.
+test('no celular os blocos do detalhe se alinham pelo topo, sem esticar o bloco curto', async () => {
+  await montar()
+  await clicar(seta('Vendedor A'))
+  const grade = document.querySelector('[id^="detalhe-"] > div')!
+  assert.match(grade.className, /\bitems-start\b/)
+})

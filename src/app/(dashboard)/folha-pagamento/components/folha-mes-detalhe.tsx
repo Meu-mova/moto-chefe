@@ -35,7 +35,7 @@ export function FolhaMesDetalhe({ f }: { f: FuncionarioFolha }) {
   const premiacao = f.regras.filter(r => r.tipo === 'premiacao')
   const cheio = 'col-span-full @[680px]/folha:col-auto'
   return (
-    <div className="grid grid-cols-2 gap-2 @[960px]/folha:grid-cols-3">
+    <div className="grid grid-cols-2 items-start gap-2 @[680px]/folha:items-stretch @[960px]/folha:grid-cols-3">
       <Bloco titulo="Salário" valor={<ValorOuZero valor={f.salario} />} className="@[680px]/folha:hidden" />
       <Bloco titulo="Ajuda de custo" valor={<ValorOuZero valor={f.ajudaCusto} />} className="@[680px]/folha:order-1 @[960px]/folha:hidden">
         {f.ajudaCusto <= 0 && <Vazio texto="Sem ajuda de custo neste mês" />}
