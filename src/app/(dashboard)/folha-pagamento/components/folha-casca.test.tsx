@@ -1,7 +1,7 @@
 // Casca da folha (#628): cabeçalho único, seletor Seção, aviso por aba e Imprimir só na Folha do Mês.
 // jsdom não executa container query: quais controles aparecem em cada largura é CSS e fica para o navegador.
 import { JSDOM } from 'jsdom'
-import test, { afterEach, mock } from 'node:test'
+import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost', pretendToBeVisual: true })
@@ -18,12 +18,15 @@ const destinos: string[] = []
 let busca = ''
 // Quanto a navegação demora: o push devolve esta promessa, e a tela fica "navegando" até ela resolver.
 let navegacao: Promise<void> = Promise.resolve()
-mock.module('next/navigation', { namedExports: {
+const navegacaoMock = mock.module('next/navigation', { namedExports: {
   useRouter: () => ({ push: (url: string) => { destinos.push(url); return navegacao } }),
   usePathname: () => '/folha-pagamento',
   useSearchParams: () => new URLSearchParams(busca),
 } })
 
+after(() => navegacaoMock.restore())
+
+const abrirOriginal = window.open
 const raizes: { unmount(): void }[] = []
 afterEach(async () => {
   const { act } = await import('react')
@@ -32,6 +35,7 @@ afterEach(async () => {
   destinos.length = 0
   busca = ''
   navegacao = Promise.resolve()
+  window.open = abrirOriginal
 })
 
 const lojas = [{ id: 'L1', nome: 'Loja Centro' }, { id: 'L2', nome: 'Loja Norte' }]
@@ -103,8 +107,7 @@ test('trocar a loja mantém o mês da URL', async () => {
 
 test('Imprimir aparece só na Folha do Mês e leva o mês e a loja', async () => {
   const abertas: string[] = []
-  g.open = (url: string) => { abertas.push(url) }
-  ;(window as unknown as { open: unknown }).open = g.open
+  window.open = ((url: string) => { abertas.push(url); return null }) as typeof window.open
   await montar('L1')
   assert.ok(botao('Imprimir folha'))
   await clicar(botao('Imprimir folha'))
