@@ -12,6 +12,11 @@ aqui fica a lista curta de conferência.
   comentário; a prévia lê a empresa na NG. Conferir: abrir a função e seguir cada `await` até
   um `fetch`/cliente externo.
 
+- **Função, helper ou constante nova: o revisor procura pelo comportamento** (#628, #629: as
+  revisões acharam `diaCurtoBrt` reescrito e `mesAdjacente` repetido só porque buscaram o que a
+  função faz). Conferir: para cada `function`/`const` novo exportado ou repetido em mais de um
+  arquivo, `git grep` pelo trecho típico do código; cópia achada é "deveria".
+
 ## Interface
 
 - **`<Select>` cujo valor é id mostra o UUID depois de escolher** (#574). Conferir: todo
