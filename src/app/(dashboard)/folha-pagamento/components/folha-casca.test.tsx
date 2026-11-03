@@ -16,8 +16,10 @@ g.IS_REACT_ACT_ENVIRONMENT = true
 // Fronteira de fora: a navegação do Next. O que o teste olha é para onde a tela manda ir.
 const destinos: string[] = []
 let busca = ''
+// Quanto a navegação demora: o push devolve esta promessa, e a tela fica "navegando" até ela resolver.
+let navegacao: Promise<void> = Promise.resolve()
 mock.module('next/navigation', { namedExports: {
-  useRouter: () => ({ push: (url: string) => { destinos.push(url) } }),
+  useRouter: () => ({ push: (url: string) => { destinos.push(url); return navegacao } }),
   usePathname: () => '/folha-pagamento',
   useSearchParams: () => new URLSearchParams(busca),
 } })
@@ -29,6 +31,7 @@ afterEach(async () => {
   document.body.innerHTML = ''
   destinos.length = 0
   busca = ''
+  navegacao = Promise.resolve()
 })
 
 const lojas = [{ id: 'L1', nome: 'Loja Centro' }, { id: 'L2', nome: 'Loja Norte' }]
@@ -127,4 +130,19 @@ test('Imprimir no celular mantém o alvo de toque de 44 px de largura, mesmo só
   await montar()
   // jsdom não calcula layout: o que dá para provar aqui é a classe que reserva a largura; a medida real é do navegador.
   assert.match(botao('Imprimir folha')?.className ?? '', /(^| )min-w-11( |$)/)
+})
+
+test('enquanto navega, os botões do mês travam e o segundo clique não navega de novo', async () => {
+  const { act } = await import('react')
+  let terminar = () => {}
+  navegacao = new Promise<void>(resolve => { terminar = resolve })
+  busca = 'loja=L1&mes=2026-10'
+  await montar('L1')
+  await clicar(botao('Mês seguinte'))
+  assert.equal((botao('Mês seguinte') as HTMLButtonElement).disabled, true)
+  assert.equal((botao('Mês anterior') as HTMLButtonElement).disabled, true)
+  await clicar(botao('Mês seguinte'))
+  assert.deepEqual(destinos, ['/folha-pagamento?loja=L1&mes=2026-11'])
+  await act(async () => { terminar() })
+  assert.equal((botao('Mês seguinte') as HTMLButtonElement).disabled, false)
 })
