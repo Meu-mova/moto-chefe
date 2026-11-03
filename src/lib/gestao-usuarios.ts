@@ -7,7 +7,7 @@
 // grupo de fora para o usuário sair do alcance; senão o sócio trocaria a senha de um
 // par com mais grupos e entraria por ele.
 
-import { ITENS, liberavelPara } from '@/lib/navegacao'
+import { ITENS, acessaModulo, liberavelPara, type UsuarioNav } from '@/lib/navegacao'
 
 export type Gestor = {
   id: string
@@ -17,6 +17,8 @@ export type Gestor = {
   gruposAprovacao: string[]
   itensLiberaveis: string[]
   aprovaPagamentoSensivel: boolean
+  /** Tem a permissão Gerenciar cargos (#617); ausente = não. */
+  podeCargos?: boolean
 }
 
 export type AlvoGestao = {
@@ -43,9 +45,23 @@ export function ehGestorDeUsuarios(gestor: { papel: string }): boolean {
   return gestor.papel === 'admin_geral' || gestor.papel === 'admin_socio'
 }
 
-/** Cria, edita e apaga cargo e dá cargo a um usuário: só o admin_geral por ora (#616). */
-export function podeGerenciarCargos(usuario: { papel: string }): boolean {
-  return usuario.papel === 'admin_geral'
+/**
+ * Cria, edita e apaga cargo e dá cargo a um usuário (#617): admin_geral sempre; sócio e admin de
+ * rede com a permissão ligada pelo admin_geral, e nunca na persona de um grupo liberado.
+ */
+export function podeGerenciarCargos(usuario: UsuarioNav): boolean {
+  return acessaModulo(usuario, 'cargos')
+}
+
+const ITENS_SO_ADMIN_GERAL_LIBERA = ITENS.filter(i => i.soAdminGeralLibera).map(i => i.id)
+
+/** Ligar, desligar ou bloquear uma permissão que só o admin_geral controla. */
+function mudouPermissaoDoAdminGeral(
+  antes: Pick<CadastroGestao, 'modulosExtras' | 'modulosBloqueados'> | null, depois: Pick<CadastroGestao, 'modulosExtras' | 'modulosBloqueados'>,
+): boolean {
+  const muda = (a: string[] | undefined, d: string[], id: string) => (a ?? []).includes(id) !== d.includes(id)
+  return ITENS_SO_ADMIN_GERAL_LIBERA.some(id =>
+    muda(antes?.modulosExtras, depois.modulosExtras, id) || muda(antes?.modulosBloqueados, depois.modulosBloqueados, id))
 }
 
 function gruposDe(alvo: AlvoGestao): string[] {
@@ -81,9 +97,10 @@ export function recusaDaGravacao(
   if (antes?.id === gestor.id && (depois.papel !== antes.papel || !depois.ativo)) {
     return 'Você não pode desativar nem trocar o papel de si mesmo'
   }
+  if (mudouPermissaoDoAdminGeral(antes, depois)) return 'Só o Admin Geral liga ou desliga Gerenciar cargos'
   // Quem já tem o cargo mantém e edita o resto; mudar para cargo ou de cargo é atribuir.
-  if (depois.papel === 'cargo' && !(antes?.papel === 'cargo' && antes.cargoId === depois.cargoId)) {
-    return 'Só o Admin Geral atribui cargo'
+  if (depois.papel === 'cargo' && !gestor.podeCargos && !(antes?.papel === 'cargo' && antes.cargoId === depois.cargoId)) {
+    return 'Só quem gerencia cargos atribui cargo'
   }
   if (depois.papel === 'admin_geral') return 'Só o Admin Geral dá o papel Admin Geral'
   if (depois.papel === 'admin_rede') return 'Só o Admin Geral dá o papel Admin de Rede'
@@ -126,12 +143,13 @@ export const PAPEIS_BASE_DO_CARGO = PAPEIS.filter((p): p is PapelBase => p !== '
 /** O que a tela de /admin/usuarios oferece: os mesmos limites que recusaDaGravacao confere. */
 export function limitesDaTela(gestor: Gestor) {
   const geral = gestor.papel === 'admin_geral'
-  const papeis: string[] = geral ? [...PAPEIS] : [...PAPEIS_BASE_DO_CARGO]
+  const podeCargos = geral || gestor.podeCargos === true
+  const papeis: string[] = geral ? [...PAPEIS] : [...PAPEIS_BASE_DO_CARGO, ...(podeCargos ? ['cargo'] : [])]
   return {
     meuId: gestor.id,
     podeExcluir: podeExcluir(gestor),
     papeis,
-    podeCargos: podeGerenciarCargos(gestor),
+    podeCargos,
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,
     aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,
