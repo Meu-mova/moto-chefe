@@ -8,6 +8,7 @@ import { gestorDaSessao } from '@/lib/gestor-da-sessao'
 import { COM_HISTORICO, podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
 import { cadastroAtual, cadastroPedido } from '@/lib/usuarios-gerenciaveis'
 import { cargoParaGravar, nomesDosCargos } from '@/lib/cargos'
+import { guardaAcessoAGrupos, guardaAprovacao, papelDasListas } from '@/lib/listas-do-cadastro'
 import { aprovacoesForaDoAlcance, sincronizarGruposLiberados, type MudancaLiberacao } from '@/lib/grupos-liberados-admin'
 import { camposDePermissaoAlterados, detalheDaMudancaDePermissao, permissoesDe, registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { ITENS } from '@/lib/navegacao'
@@ -93,7 +94,7 @@ function validarConecta(conecta: string | null): string | null {
 // vendedor seria permissão fantasma, que não faz nada mas confunde a auditoria.
 // Também não aceita id de grupo inexistente/inativo vindo do cliente.
 async function validarAprovacao(papel: string, gruposAprovacao: string[], aprovaPagamentoSensivel: boolean) {
-  if (!['admin_geral', 'admin_rede', 'admin_socio'].includes(papel)) {
+  if (!guardaAprovacao(papel)) {
     return { gruposAprovacao: [] as string[], aprovaPagamentoSensivel: false }
   }
   const ids = [...new Set(gruposAprovacao)]
@@ -115,7 +116,7 @@ async function validarAprovacao(papel: string, gruposAprovacao: string[], aprova
 // trocam de grupo (vendedor, mecânico, aux_adm, motorista), a lista não faz
 // nada — zera para não guardar lixo no cadastro.
 async function validarAcesso(papel: string, gruposAcesso: string[]) {
-  if (papel !== 'admin_socio' && papel !== 'admin_rede') return { gruposAcesso: [] as string[] }
+  if (!guardaAcessoAGrupos(papel)) return { gruposAcesso: [] as string[] }
 
   const ids = [...new Set(gruposAcesso)]
   if (ids.length === 0) return { gruposAcesso: [] }
@@ -148,7 +149,7 @@ async function cargoDoCadastro(dados: { papel: string; lojaId: string | null; ca
   const contaId = dados.papel === 'cargo' ? await contaDoUsuario(dados.papel, dados.lojaId, []) : null
   const cargo = await cargoParaGravar(db, { papel: dados.papel, contaId, cargoId: dados.cargoId ?? null })
   if (!cargo.ok) throw new Recusa(cargo.erro)
-  return { cargoId: cargo.cargoId, papelDasListas: cargo.papelBase ?? dados.papel }
+  return { cargoId: cargo.cargoId, papelDasListas: papelDasListas(dados.papel, cargo.papelBase) }
 }
 
 // Grupo marcado (de acesso ou de aprovação) tem de ser da Conta do usuário: grupo de

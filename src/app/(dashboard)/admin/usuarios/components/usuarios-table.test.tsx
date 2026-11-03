@@ -227,6 +227,16 @@ test('só a tabela de bases rola na horizontal: o fieldset pode encolher abaixo 
   assert.ok(campos?.classList.contains('min-w-0'))
 })
 
+test('lista de usuários: cargo com base Sócio mostra onde aprova; base Adm. da loja, não (#617)', async () => {
+  const gerenteAdmin = { id: 'c3', nome: 'Gerente B', papelBase: 'admin_socio', contaId: 'A' }
+  const sociaDoCargo = { ...base, id: 'u4', nome: 'Usuário Cargo Sócio', papel: 'cargo', cargoId: 'c3', grupoDaLojaId: 'gA' }
+  const container = await montar('admin_geral', [sociaDoCargo, marina], { cargos: [gerenteAdmin, cargoGerente] })
+  const linhas = [...container.querySelectorAll('tbody tr')]
+  const da = (nome: string) => linhas.find(l => l.textContent?.includes(nome))?.textContent ?? ''
+  assert.ok(da('Usuário Cargo Sócio').includes('1 grupo'))
+  assert.ok(da('Marina Costa').includes('Não aprova'))
+})
+
 test('lista de usuários: quem tem cargo mostra o cargo e a base; papel fixo, não (#616)', async () => {
   const container = await montar('admin_geral', [marina, bruno])
   assert.ok(container.textContent?.includes('Cargo da Conta, base Adm. da loja'))
