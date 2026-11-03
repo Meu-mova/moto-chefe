@@ -1,3 +1,5 @@
+import { mesBrt } from './data-venda'
+
 // Regras de apresentação da /folha-pagamento que não dependem de React: as abas, o que cada uma
 // segue dos filtros do cabeçalho, e a conta de mês e de URL.
 
@@ -18,9 +20,16 @@ export const ABAS_FOLHA: readonly { id: string; rotulo: string; aviso: string | 
 
 export const avisoDaAba = (id: string): string | null => ABAS_FOLHA.find(a => a.id === id)?.aviso ?? null
 
-/** `mes` é 'YYYY-MM'. Soma `delta` meses e vira o ano quando precisa. */
-export function mesAdjacente(mes: string, delta: number): string {
-  const [ano, m] = mes.split('-').map(Number)
+const MES_VALIDO = /^\d{4}-(0[1-9]|1[0-2])$/
+
+/**
+ * `mes` é 'YYYY-MM'. Soma `delta` meses e vira o ano quando precisa. Um `?mes=` que não é mês
+ * (digitado à mão na URL) parte de `mesDeReferencia`, em vez de virar "NaN-NaN".
+ * Não reusa `mesAnterior` (contas-pagar.ts) nem `proximoMes` (avaliacoes.ts): cada um anda um
+ * mês para um lado só e nenhum trata mês inválido.
+ */
+export function mesAdjacente(mes: string, delta: number, mesDeReferencia: string = mesBrt()): string {
+  const [ano, m] = (MES_VALIDO.test(mes) ? mes : mesDeReferencia).split('-').map(Number)
   const indice = ano * 12 + (m - 1) + delta
   return `${Math.floor(indice / 12)}-${String((indice % 12) + 1).padStart(2, '0')}`
 }

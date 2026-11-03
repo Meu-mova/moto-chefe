@@ -38,3 +38,9 @@ test('ABAS_FOLHA: as 7 abas na ordem da tela, só a Folha do Mês imprime', () =
   assert.deepEqual(ABAS_FOLHA.map(a => a.id), ['mes', 'funcionarios', 'comissoes', 'premiacao', 'adiantamentos', 'holerites', 'ajustes'])
   assert.deepEqual(ABAS_FOLHA.filter(a => a.imprime).map(a => a.id), ['mes'])
 })
+
+test('mesAdjacente: mês inválido na URL cai no mês de referência, sem NaN', () => {
+  assert.equal(mesAdjacente('abc', 1, '2026-11'), '2026-12')
+  assert.equal(mesAdjacente('2026-13', -1, '2026-11'), '2026-10')
+  assert.equal(mesAdjacente('', 1, '2026-12'), '2027-01')
+})
