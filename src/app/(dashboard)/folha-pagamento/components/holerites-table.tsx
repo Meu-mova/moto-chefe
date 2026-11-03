@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { AlertCircle, Check, ChevronDown, ExternalLink, Filter, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { rotuloDoPapel } from '@/lib/rotulo-do-papel'
@@ -71,15 +71,20 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
   holeritesDaPessoa: HoleriteRow[]
 }) {
   const [aberta, setAberta] = useState(false)
+  const chevron = useRef<HTMLDivElement>(null)
   const envio = useEnvioHolerite(f.id, mes)
   const doTipo = (valor: string) => holeritesDaPessoa.find(h => h.tipo === valor)
   const dica = (h?: HoleriteRow) => (h ? `${h.arquivoNome}. ${descricaoEnvio(h)}` : undefined)
 
   return (
     <div role="row" className={`grid ${COLUNAS} items-center border-t @[960px]/folha:min-h-[4.5rem] ${aberta ? 'bg-muted' : 'hover:bg-muted'}`}
-      onClick={e => { if (!(e.target as HTMLElement).closest('button, a, input')) setAberta(v => !v) }}>
+      onClick={e => {
+        // Só abre onde há detalhe: a partir de 960 px o chevron some e as ações já estão na linha.
+        const semDetalhe = chevron.current && getComputedStyle(chevron.current).display === 'none'
+        if (!semDetalhe && !(e.target as HTMLElement).closest('button, a, input')) setAberta(v => !v)
+      }}>
       <div role="cell" className="min-w-0 px-4 py-3">
-        <p data-nome className="font-medium">{f.nome}</p>
+        <p role="rowheader" className="font-medium">{f.nome}</p>
         <input ref={envio.inputRef} type="file" accept="application/pdf" className="hidden"
           onChange={e => { const arquivo = e.target.files?.[0]; if (arquivo) void envio.enviar(arquivo) }} />
         <p className="text-xs text-muted-foreground">{rotuloDoPapel({ papel: f.papel })} · {f.lojaNome}</p>
@@ -91,34 +96,40 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
           ))}
         </div>
       </div>
-      {TIPOS_HOLERITE.map(t => (
-        <div key={t.valor} role="cell" className="hidden items-center gap-2.5 py-3 @[680px]/folha:flex">
-          <span className="w-[7.5rem] shrink-0" title={dica(doTipo(t.valor))}>
-            <Etiqueta enviado={!!doTipo(t.valor)}>{doTipo(t.valor) ? rotuloEnviado(doTipo(t.valor)!.enviadoEm) : 'Falta enviar'}</Etiqueta>
-          </span>
-          <Acoes envio={envio} tipo={t} holerite={doTipo(t.valor)} pessoa={f.nome} className="hidden gap-1.5 @[960px]/folha:flex" />
-        </div>
-      ))}
-      <div role="cell" className="@[960px]/folha:hidden">
+      {TIPOS_HOLERITE.map(t => {
+        const h = doTipo(t.valor)
+        return (
+          <div key={t.valor} role="cell" className="hidden items-center gap-2.5 py-3 @[680px]/folha:flex">
+            <span className="w-[7.5rem] shrink-0" title={dica(h)}>
+              <Etiqueta enviado={!!h}>{h ? rotuloEnviado(h.enviadoEm) : 'Falta enviar'}</Etiqueta>
+            </span>
+            <Acoes envio={envio} tipo={t} holerite={h} pessoa={f.nome} className="hidden gap-1.5 @[960px]/folha:flex" />
+          </div>
+        )
+      })}
+      <div ref={chevron} role="cell" className="@[960px]/folha:hidden">
         <button type="button" aria-expanded={aberta} aria-label={`Ver detalhes de ${f.nome}`} onClick={() => setAberta(v => !v)}
           className="flex size-11 items-center justify-center text-muted-foreground">
           <ChevronDown aria-hidden className={aberta ? 'rotate-180' : ''} />
         </button>
       </div>
       {aberta && (
-        <div className="col-span-full grid gap-2 px-4 pb-3 @[680px]/folha:grid-cols-2 @[960px]/folha:hidden">
-          {TIPOS_HOLERITE.map(t => (
-            <section key={t.valor} className="rounded-lg border bg-card p-3">
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <h3 className="text-[13px] font-semibold">{t.nome}</h3>
-                <Etiqueta enviado={!!doTipo(t.valor)}>{doTipo(t.valor) ? rotuloEnviado(doTipo(t.valor)!.enviadoEm) : 'Falta enviar'}</Etiqueta>
-              </div>
-              <p className="mb-2.5 text-[13px] text-muted-foreground">
-                {doTipo(t.valor) ? descricaoEnvio(doTipo(t.valor)!) : 'O PDF deste mês ainda não foi enviado.'}
-              </p>
-              <Acoes envio={envio} tipo={t} holerite={doTipo(t.valor)} pessoa={f.nome} className="grid grid-cols-[1fr_1fr_2.75rem] gap-2" />
-            </section>
-          ))}
+        <div role="cell" className="col-span-full grid gap-2 px-4 pb-3 @[680px]/folha:grid-cols-2 @[960px]/folha:hidden">
+          {TIPOS_HOLERITE.map(t => {
+            const h = doTipo(t.valor)
+            return (
+              <section key={t.valor} className="rounded-lg border bg-card p-3">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <h3 className="text-[13px] font-semibold">{t.nome}</h3>
+                  <Etiqueta enviado={!!h}>{h ? rotuloEnviado(h.enviadoEm) : 'Falta enviar'}</Etiqueta>
+                </div>
+                <p className="mb-2.5 text-[13px] text-muted-foreground">
+                  {h ? descricaoEnvio(h) : 'O PDF deste mês ainda não foi enviado.'}
+                </p>
+                <Acoes envio={envio} tipo={t} holerite={h} pessoa={f.nome} className="grid grid-cols-[1fr_1fr_2.75rem] gap-2" />
+              </section>
+            )
+          })}
         </div>
       )}
     </div>
