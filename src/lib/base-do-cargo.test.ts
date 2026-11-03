@@ -1,7 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { oQueABaseFaz } from './base-do-cargo'
-import { PAPEIS_BASE_DO_CARGO } from './gestao-usuarios'
 
 // Valores escritos à mão a partir das regras de hoje (spec #615): se uma regra mudar, o teste
 // avisa que a tela de cargos mostraria a base errada.
@@ -20,6 +19,7 @@ test('telas da base: o motorista vê só o básico; o adm. da loja vê o caixa',
   assert.equal(oQueABaseFaz('vendedor').telas.includes('Caixa'), false)
 })
 
-test('toda base que o cargo aceita tem descrição', () => {
-  for (const base of PAPEIS_BASE_DO_CARGO) assert.ok(oQueABaseFaz(base).telas.length > 0, base)
+test('só o motorista vê apenas o que todos veem', () => {
+  assert.equal(oQueABaseFaz('motorista').soOBasico, true)
+  for (const base of ['admin_socio', 'aux_adm', 'vendedor', 'mecanico'] as const) assert.equal(oQueABaseFaz(base).soOBasico, false, base)
 })

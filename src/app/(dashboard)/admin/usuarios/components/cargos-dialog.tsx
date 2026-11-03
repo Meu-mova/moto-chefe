@@ -15,12 +15,11 @@ export type CargoDaConta = { id: string; nome: string; papelBase: PapelBase; con
 export type Cargo = CargoDaConta & { usuarios: number }
 
 const COLUNAS = ['Aprova venda', 'Cancela venda', 'Opera caixa', 'Emite NF']
-const TELAS_POR_EXTENSO = 5
 
 function resumoDasTelas(base: PapelBase | ''): string {
   if (!base) return 'Escolha uma base para ver as telas.'
-  const { telas } = oQueABaseFaz(base)
-  return telas.length <= TELAS_POR_EXTENSO ? `Telas: só o básico (${telas.join(', ')}).` : `Telas: as ${telas.length} telas do papel ${ROTULO_DA_BASE[base]}.`
+  const { telas, soOBasico } = oQueABaseFaz(base)
+  return soOBasico ? `Telas: só o básico (${telas.join(', ')}).` : `Telas: as ${telas.length} telas do papel ${ROTULO_DA_BASE[base]}.`
 }
 
 const textoUsuarios = (n: number) => n === 0 ? 'nenhum usuário' : `${n} ${n === 1 ? 'usuário' : 'usuários'}`

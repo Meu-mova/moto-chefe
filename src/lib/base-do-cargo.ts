@@ -13,6 +13,8 @@ export type OQueABaseFaz = {
   emiteNF: boolean
   /** Rótulos dos módulos que o menu mostra para a base. */
   telas: string[]
+  /** A base vê só o que todos veem (Dashboard, Meus Documentos, Calendário). */
+  soOBasico: boolean
 }
 
 // Lido das listas de papel que as telas e as actions consultam (aprovar, cancelar venda, caixa,
@@ -23,12 +25,19 @@ function cancelaVenda(papel: string): OQueABaseFaz['cancelaVenda'] {
   return travaDoPapel(papel, 'com-nf') ? 'sem-nf' : 'sim'
 }
 
+const rotulosDoMenu = (papel: string) => itensDoMenu({ papel }, {}).map(i => i.label)
+
+// 'cargo' sem base vê só o que todos veem.
+const TELAS_DE_TODOS = rotulosDoMenu('cargo')
+
 export function oQueABaseFaz(papel: PapelBase): OQueABaseFaz {
+  const telas = rotulosDoMenu(papel)
   return {
     aprovaVenda: papelAprova(papel),
     cancelaVenda: cancelaVenda(papel),
     operaCaixa: acessaModulo({ papel }, 'caixa'),
     emiteNF: podeOperarNfSaida(papel),
-    telas: itensDoMenu({ papel }, {}).map(i => i.label),
+    telas,
+    soOBasico: telas.length === TELAS_DE_TODOS.length && telas.every(t => TELAS_DE_TODOS.includes(t)),
   }
 }
