@@ -6,11 +6,12 @@ import { and, asc, count, eq, ne, type SQL, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { cargos, grupos, lojas, usuarios } from '@/lib/db/schema'
 import { PAPEIS_BASE_DO_CARGO, type PapelBase } from '@/lib/gestao-usuarios'
+import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
 
-/** `contaId` é a Conta do grupo ativo da sessão. */
-export type QuemGerenciaCargos = { papel: string; contaId: string }
+/** `contaId` é a Conta do grupo ativo da sessão; `usuarioId` é quem fica no log. */
+export type QuemGerenciaCargos = { papel: string; contaId: string; usuarioId: string }
 
 export type DadosCargo = { nome: string; papelBase: string }
 type Resultado = { ok: true } | { ok: false; erro: string }
@@ -33,7 +34,7 @@ function chaveDeNomeFixo(nome: string): string {
 
 const CHAVES_FIXAS = new Set(NOMES_FIXOS.map(chaveDeNomeFixo))
 
-function daConta(quem: QuemGerenciaCargos): SQL | undefined {
+function daConta(quem: Pick<QuemGerenciaCargos, 'papel' | 'contaId'>): SQL | undefined {
   return quem.papel === 'admin_geral' ? undefined : eq(cargos.contaId, quem.contaId)
 }
 
@@ -57,7 +58,7 @@ async function validar(
   return { ok: true, nome, papelBase }
 }
 
-export async function listarCargos(exec: Executor, quem: QuemGerenciaCargos) {
+export async function listarCargos(exec: Executor, quem: Pick<QuemGerenciaCargos, 'papel' | 'contaId'>) {
   return exec.select().from(cargos).where(daConta(quem)).orderBy(asc(cargos.nome))
 }
 
@@ -83,7 +84,7 @@ export async function criarCargo(
 export async function editarCargo(
   exec: Executor, quem: QuemGerenciaCargos, id: string, dados: DadosCargo,
 ): Promise<Resultado> {
-  const [cargo] = await exec.select({ contaId: cargos.contaId }).from(cargos)
+  const [cargo] = await exec.select({ contaId: cargos.contaId, papelBase: cargos.papelBase }).from(cargos)
     .where(and(eq(cargos.id, id), daConta(quem))).limit(1)
   if (!cargo) return NAO_ENCONTRADO
   const valido = await validar(exec, cargo.contaId, dados, id)
@@ -91,6 +92,14 @@ export async function editarCargo(
   await exec.update(cargos)
     .set({ nome: valido.nome, papelBase: valido.papelBase, atualizadoEm: new Date() })
     .where(and(eq(cargos.id, id), eq(cargos.contaId, cargo.contaId)))
+  // Trocar a base muda o que todos que têm o cargo podem fazer: entra no mesmo log da edição de
+  // permissão de usuário (lido por resumoDoEvento, 'permissao_alterada').
+  if (cargo.papelBase !== valido.papelBase) {
+    await registrarAcaoSensivelSemFalhar({
+      tipo: 'permissao_alterada', usuarioId: quem.usuarioId, contaId: cargo.contaId,
+      detalhe: { alvoNome: `Cargo ${valido.nome}`, acao: 'alterado', campos: ['papel base'], papelAntes: cargo.papelBase, papel: valido.papelBase },
+    }, exec)
+  }
   return { ok: true }
 }
 

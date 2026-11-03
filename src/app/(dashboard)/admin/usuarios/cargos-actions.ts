@@ -12,7 +12,7 @@ type Resultado = { ok: true } | { ok: false; erro: string }
 async function sessao() {
   const usuario = await getUsuarioLogado()
   if (!podeGerenciarCargos(usuario)) return null
-  return { papel: usuario.papel, contaId: await contaDoGrupoAtivo(usuario) }
+  return { papel: usuario.papel, contaId: await contaDoGrupoAtivo(usuario), usuarioId: usuario.id }
 }
 
 const SEM_PERMISSAO = { ok: false, erro: 'Sem permissão para gerenciar cargos' } as const

@@ -2,6 +2,7 @@
 // Cargos da Conta (#449): a Conta B não lê, não edita, não apaga nem atribui cargo da A.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 
 const url = process.env.TEST_DATABASE_URL
@@ -38,7 +39,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   const [conta] = await linhas(tx, sql`insert into contas (nome) values (${'CG449 ' + nome}) returning id`)
   const [grupo] = await linhas(tx, sql`insert into grupos (nome, cnpj, conta_id) values (${'CG449 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
   const [loja] = await linhas(tx, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Loja CG449 ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const quem = { papel: 'admin_socio', contaId: conta.id as string }
+  const quem = { papel: 'admin_socio', contaId: conta.id as string, usuarioId: randomUUID() }
   const criado = await mod.criarCargo(tx, quem, { nome: 'Recepção', papelBase: 'aux_adm' })
   assert.ok(criado.ok)
   return { quem, lojaId: loja.id as string, cargoId: criado.id }
@@ -213,5 +214,25 @@ test('criar e editar cargo grava o papel base; base fora do limite é recusada e
     // Editar a base vale na próxima leitura do usuário (C4).
     assert.deepEqual(await mod.cargoDoUsuario(tx, { papel: 'cargo', lojaId: a.lojaId, cargoId: criado.id }),
       { nome: 'Gerente', papelBase: 'vendedor' })
+  })
+})
+
+test('editar a base grava no log de permissões, na Conta do cargo; editar só o nome não grava (#616)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const log = () => linhas(tx, sql`select tipo, conta_id, detalhe from log_acoes where usuario_id = ${a.quem.usuarioId} order by criado_em`)
+
+    assert.deepEqual(await mod.editarCargo(tx, a.quem, a.cargoId, { nome: 'Recepção 2', papelBase: 'aux_adm' }), { ok: true })
+    assert.deepEqual(await log(), [], 'só o nome mudou')
+
+    assert.deepEqual(await mod.editarCargo(tx, a.quem, a.cargoId, { nome: 'Recepção 2', papelBase: 'vendedor' }), { ok: true })
+    assert.deepEqual(await log(), [{
+      tipo: 'permissao_alterada', conta_id: a.quem.contaId,
+      detalhe: { alvoNome: 'Cargo Recepção 2', acao: 'alterado', campos: ['papel base'], papelAntes: 'aux_adm', papel: 'vendedor' },
+    }])
+
+    // Edição recusada não deixa rastro.
+    assert.equal((await mod.editarCargo(tx, a.quem, a.cargoId, { nome: 'Recepção 2', papelBase: 'admin_geral' })).ok, false)
+    assert.equal((await log()).length, 1)
   })
 })
