@@ -14,7 +14,7 @@ function Bloco({ titulo, valor, valorClasse = '', className = '', children }: {
   return (
     <section className={`min-w-0 rounded-lg border bg-card px-3 py-2.5 ${className}`}>
       <div className="mb-1 flex items-baseline justify-between gap-2">
-        <h3 className="text-xs font-semibold text-muted-foreground">{titulo}</h3>
+        <p className="text-xs font-semibold text-muted-foreground">{titulo}</p>
         {valor !== undefined && <b className={`whitespace-nowrap tabular-nums ${valorClasse}`}>{valor}</b>}
       </div>
       {children}

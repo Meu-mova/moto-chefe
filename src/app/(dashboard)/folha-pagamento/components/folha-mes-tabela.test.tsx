@@ -188,3 +188,10 @@ test('no celular os blocos do detalhe se alinham pelo topo, sem esticar o bloco 
   const grade = document.querySelector('[id^="detalhe-"] > div')!
   assert.match(grade.className, /\bitems-start\b/)
 })
+
+test('o detalhe não usa título de nível 3 sem um nível 2 antes (ordem de títulos)', async () => {
+  await montar()
+  await clicar(seta('Vendedor A'))
+  assert.equal(document.querySelectorAll('h3').length, 0)
+  assert.match(texto(), /Premiação \(OTE\)/)
+})
