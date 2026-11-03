@@ -86,11 +86,14 @@ test('admin_rede com a permissão, sem cookie ou com cookie de grupo sem libera�
   }
 })
 
-test('sem a permissão ligada, nem na Conta própria o admin_rede cria cargo (#617)', async () => {
+test('sem a permissão ligada no cadastro, nem na Conta própria o admin_rede cria cargo (#617)', async () => {
   await emTransacaoDesfeita(async tx => {
     const c = await cenario(tx)
     await tx.execute(sql`update usuarios set modulos_extras = '{}' where id = ${c.usuarioId}`)
-    assert.equal(await tentarCriar(tx, { ...c, cadastro: { ...c.cadastro, modulosExtras: [] } }, null), null)
+    // O cadastro vem do banco, como a sessão real o lê.
+    const { rows: [lido] } = (await tx.execute(sql`select modulos_extras from usuarios where id = ${c.usuarioId}`)) as unknown as { rows: { modulos_extras: string[] }[] }
+    assert.deepEqual(lido.modulos_extras, [])
+    assert.equal(await tentarCriar(tx, { ...c, cadastro: { ...c.cadastro, modulosExtras: lido.modulos_extras } }, null), null)
     assert.deepEqual(await cargosPorConta(tx), [])
   })
 })
