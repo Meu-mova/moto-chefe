@@ -7,6 +7,7 @@ import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { asc, eq, and, inArray, sql } from 'drizzle-orm'
 import { PrecificacaoClient } from './components/precificacao-client'
 import { redirect } from 'next/navigation'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 export default async function PrecificacaoPage() {
   const usuario = await getUsuarioLogado()
@@ -23,7 +24,7 @@ export default async function PrecificacaoPage() {
       .select({ nome: modelosTable.modelo, qtd: sql<number>`count(*)::int` })
       .from(motos)
       .innerJoin(modelosTable, eq(motos.modeloId, modelosTable.id))
-      .where(and(eq(motos.disponibilidade, 'disponivel'), inArray(motos.lojaId, lojaIdsGrupo)))
+      .where(and(eq(motos.disponibilidade, 'disponivel'), motoNaoArquivada(), inArray(motos.lojaId, lojaIdsGrupo)))
       .groupBy(modelosTable.modelo),
   ])
 

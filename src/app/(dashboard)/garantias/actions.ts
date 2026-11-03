@@ -14,6 +14,7 @@ import { escolherMotoPorChassi, garantiaEmAndamento, normalizarNumeroPedido, MIN
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
 import { listarContasFabrica, lojaDaContaDaGarantia } from '@/lib/fabrica-contas'
 import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 export async function exportarRelatorioGarantiasAction(filtros: {
   lojaId?: string
@@ -215,7 +216,7 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
         const candidatas = exatas.length || !podeBuscarPeloFinal
           ? exatas
           : await db.select(colunas).from(motos)
-            .where(and(inArray(motos.lojaId, lojaIdsDoGrupo), ilike(motos.chassi, `%${alvo}`)))
+            .where(and(inArray(motos.lojaId, lojaIdsDoGrupo), ilike(motos.chassi, `%${alvo}`), motoNaoArquivada()))
             .limit(20)
         const moto = escolherMotoPorChassi(chassi, candidatas)
         if (!moto) {

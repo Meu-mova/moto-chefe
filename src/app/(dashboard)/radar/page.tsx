@@ -23,7 +23,7 @@ export default async function RadarPage({
   // Cada Conta acha só as próprias motos (#320); o admin_geral, da plataforma, acha todas.
   const contaId = usuario.papel === 'admin_geral' ? undefined : await contaDoGrupoAtivo(usuario)
   const motos = busca
-    ? await listarMotos({ chassiBusca: busca, contaId, grupoLiberado: usuario.grupoLiberado })
+    ? await listarMotos({ chassiBusca: busca, contaId, grupoLiberado: usuario.grupoLiberado, incluirArquivadas: true })
     : []
 
   return (
@@ -88,12 +88,14 @@ export default async function RadarPage({
                       {statusLabel_legado[moto.status] ?? moto.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="space-x-1">
                     {moto.disponibilidade && (
                       <Badge variant="secondary">
                         {disponibilidadeLabel[moto.disponibilidade] ?? moto.disponibilidade}
                       </Badge>
                     )}
+                    {/* Arquivada (0172): só o RADAR mostra; some do resto do MOVA. */}
+                    {moto.arquivadaEm && <Badge variant="outline">Arquivada</Badge>}
                   </TableCell>
                   <TableCell>
                     <Link

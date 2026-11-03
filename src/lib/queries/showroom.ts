@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { motos } from '@/lib/db/schema'
 
 // Regra única de "moto no showroom" (#310): a tela Showroom e o dashboard divergiam
@@ -6,4 +6,7 @@ import { motos } from '@/lib/db/schema'
 // diferente de vendida); moto só de garantia de veículo externo nunca é estoque.
 export const motoNaoVendida = () => sql`${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto`
 
-export const motoNoShowroom = () => and(eq(motos.somenteGarantia, false), motoNaoVendida())!
+// Moto arquivada (0172) não aparece em tela nenhuma; só o RADAR a acha.
+export const motoNaoArquivada = () => isNull(motos.arquivadaEm)
+
+export const motoNoShowroom = () => and(eq(motos.somenteGarantia, false), motoNaoVendida(), motoNaoArquivada())!
