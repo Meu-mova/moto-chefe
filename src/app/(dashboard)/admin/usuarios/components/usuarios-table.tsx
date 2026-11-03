@@ -358,6 +358,7 @@ function FormUsuario({
           </p>
           <ModulosPicker
             liberaveis={limites.itensLiberaveis}
+            travados={limites.itensTravados}
             papel={papel}
             papeisExtras={inicial?.papeisExtras ?? []}
             extras={modulosExtras}

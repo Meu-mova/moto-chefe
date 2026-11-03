@@ -91,11 +91,31 @@ test('o admin_geral oferece Gerenciar cargos a sócio e a admin de rede, e a lig
   assert.deepEqual(dados.modulosExtras, ['cargos'])
 })
 
-test('o sócio não vê a caixa Gerenciar cargos ao editar outra pessoa (#617)', async () => {
-  await montar('admin_socio', [bruno], { gestor: { podeCargos: true, itensLiberaveis: ['vendas', 'entrada'] } })
-  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.includes('Bruno Alves')))
+const socioAlvo = { ...base, id: 'u6', nome: 'Usuário Sócio', papel: 'admin_socio', cargoId: null }
+const socioComPermissao = { ...socioAlvo, id: 'u7', nome: 'Usuário Sócio Liberado', modulosExtras: ['cargos'] }
+// Mesmo com 'cargos' entre as telas que o gestor vê, a tela não o oferece: só o admin_geral liga.
+const gestorSocio = { itensLiberaveis: ['vendas', 'entrada', 'cargos'] }
+
+test('o sócio não vê a caixa Gerenciar cargos de um sócio que não a tem (#617)', async () => {
+  await montar('admin_socio', [socioAlvo], { gestor: gestorSocio })
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.includes('Usuário Sócio')))
   await clicar(abaModulos())
   assert.ok(!caixaDe('Gerenciar cargos'))
+})
+
+test('o sócio vê a caixa de quem já tem a permissão, marcada e travada (#617)', async () => {
+  await montar('admin_socio', [socioComPermissao], { gestor: gestorSocio })
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.includes('Usuário Sócio Liberado')))
+  await clicar(abaModulos())
+  assert.equal(caixaDe('Gerenciar cargos')?.checked, true)
+  assert.equal(caixaDe('Gerenciar cargos')?.disabled, true, 'sócio não desliga')
+})
+
+test('o admin_geral liga e desliga a caixa Gerenciar cargos (#617)', async () => {
+  await montar('admin_geral', [socioComPermissao])
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.includes('Usuário Sócio Liberado')))
+  await clicar(abaModulos())
+  assert.equal(caixaDe('Gerenciar cargos')?.disabled, false)
 })
 
 test('cargo com base Sócio mostra Aprovação e Acesso a grupos, e manda as marcações no payload (#617)', async () => {

@@ -152,6 +152,8 @@ export function limitesDaTela(gestor: Gestor) {
     podeCargos,
     /** null = todas as telas. */
     itensLiberaveis: geral ? null : gestor.itensLiberaveis,
+    /** Telas que só o admin_geral liga ou desliga: o sócio vê as que o usuário já tem, travadas. */
+    itensTravados: geral ? [] : ITENS_SO_ADMIN_GERAL_LIBERA,
     aprovaPagamentoSensivel: geral || gestor.aprovaPagamentoSensivel,
     /** null = todos os grupos. */
     gruposAprovacao: geral ? null : gestor.gruposAprovacao,
