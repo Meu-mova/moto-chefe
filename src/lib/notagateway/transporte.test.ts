@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DADOS_TRANSPORTE_VAZIOS, MODALIDADES_FRETE, validarDadosTransporte } from './transporte'
+import { DADOS_TRANSPORTE_VAZIOS, MODALIDADES_FRETE, transporteDoPayload, validarDadosTransporte } from './transporte'
 
 test('mantém a lista inicial do suporte, com token 0 ainda pendente de confirmação', () => {
   assert.deepEqual(MODALIDADES_FRETE.map(([token]) => token), [
@@ -77,4 +77,20 @@ test('recusa modalidade desconhecida recebida fora das opções da tela', () => 
   assert.deepEqual(validarDadosTransporte(dados, false), {
     ok: false, erro: 'Modalidade do frete inválida.',
   })
+})
+
+test('transporteDoPayload devolve a modalidade e a entrega que foram enviadas, sem o país', () => {
+  const entrega = { tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG' }
+  const payload = { transporte: { frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' }, enderecoEntrega: { ...entrega, pais: null } } }
+  assert.deepEqual(transporteDoPayload(payload), { modalidade: 'TransporteProprioPorContaDoDestinatario', enderecoEntrega: entrega })
+})
+
+test('transporteDoPayload não presume nada de payload antigo, vazio ou com modalidade desconhecida', () => {
+  assert.equal(transporteDoPayload({}), null)
+  assert.equal(transporteDoPayload(null), null)
+  assert.equal(transporteDoPayload({ transporte: { frete: { modalidade: 'Inventada' } } }), null)
+})
+
+test('transporteDoPayload sem endereço de entrega devolve só a modalidade', () => {
+  assert.deepEqual(transporteDoPayload({ transporte: { frete: { modalidade: 'SemTransporte' } } }), { modalidade: 'SemTransporte' })
 })

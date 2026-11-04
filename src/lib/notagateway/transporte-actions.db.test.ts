@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { semearContaBase, semearUsuario } from '@/test/semear-conta'
-import type { DadosRenave } from './veiculo'
+import { RENAVE_COMPLETO_FATURAMENTO_DIRETO } from '@/test/renave-completo'
 import type { DadosTransporte } from './transporte'
 import type { montarNfeVendaMoto } from './payload'
 
@@ -30,14 +30,7 @@ after(async () => {
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
-const renave: DadosRenave = {
-  chassi: '9C2ABC12345678901', tipoOperacao: 'FaturamentoDiretoConsumidorFinal',
-  corCodigo: '11', corDescricao: 'PRETA', corDenatran: 'Preta', potenciaMotor: '1000', unidadePotencia: 'W',
-  cilindradas: '0', pesoLiquido: '0.0850', pesoBruto: '0.2350', numeroSerie: '45678901',
-  tipoCombustivel: '07', numeroMotor: 'TESTE650', capacidadeMaximaTracao: '0', distanciaEixos: '1300',
-  anoModelo: '2027', anoFabricacao: '2026', tipoPintura: 'S', tipoVeiculo: '02', especie: 'Passageiro',
-  condicaoVin: 'Normal', condicao: 'Acabado', codigoMarcaModelo: '012345', lotacao: '2', restricao: 'NaoHa',
-}
+const renave = RENAVE_COMPLETO_FATURAMENTO_DIRETO
 const transport: DadosTransporte = {
   modalidade: 'TransporteProprioPorContaDoDestinatario',
   enderecoEntrega: { tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043',
@@ -54,7 +47,7 @@ async function rows<T>(query: ReturnType<typeof sql>): Promise<T[]> {
 }
 const insertId = async (query: ReturnType<typeof sql>) => (await rows<{ id: string }>(query))[0].id
 
-async function fixture(rejected = false) {
+async function fixture(rejected = false, rejectedPayload: unknown = {}) {
   const suffix = randomUUID()
   const base = await semearContaBase(db, { prefixo: 'TR650', nome: suffix, cnpj: suffix })
   const id = await semearUsuario(db, base, { papel: 'aux_adm', comConta: true })
@@ -65,7 +58,7 @@ async function fixture(rejected = false) {
   await db.execute(sql`insert into regras_fiscais_saida (grupo_id, natureza_operacao, cfop_interno, cst_icms_interno,
     cfop_interestadual, cst_icms_interestadual, cst_pis, cst_cofins)
     values (${base.grupoId}, 'Venda', '5102', '00', '6102', '00', '49', '49')`)
-  const modelId = await insertId(sql`insert into modelos (marca, modelo, categoria) values ('Teste', ${suffix}, 'ciclomotor') returning id`)
+  const modelId = await insertId(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('Teste', ${suffix}, 'ciclomotor', '1000W', 'Brushless', '45') returning id`)
   const motoId = await insertId(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status)
     values (${suffix}, ${modelId}, ${base.lojaId}, 'PRETA', '1', 'vendida') returning id`)
   await db.execute(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, x_prod, origem)
@@ -82,7 +75,7 @@ async function fixture(rejected = false) {
   const noteId = rejected ? await insertId(sql`insert into notas_fiscais_saida
     (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, numero, serie, motivo_status, payload)
     values (${sale.id}, ${sale.numero}, ${base.grupoId}, ${externalId}, 'Homologacao', 'Negada', '650', '1',
-      '478 - UF de entrega ausente', '{}'::jsonb) returning id`) : null
+      '478 - UF de entrega ausente', ${JSON.stringify(rejectedPayload)}::jsonb) returning id`) : null
   return { ...base, user: accountUser, motoId, saleId: sale.id, externalId, noteId }
 }
 
@@ -133,4 +126,90 @@ test('action inicial persiste e serializa modalidade 4 e entrega; homologação 
   assert.equal(notes.length, 1)
   assert.deepEqual(notes[0].payload, net.payloads[0])
   assert.deepEqual((await snapshot(f)).sales, [{ cliente_nome: 'Comprador sintético', cliente_logradouro: 'Rua Comprador', nota_fiscal_saida: null }])
+})
+
+const semUf: DadosTransporte = { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, uf: '' } }
+const numeroDeNotas = async (f: Awaited<ReturnType<typeof fixture>>) => (await snapshot(f)).notes.length
+
+test('transmitir com entrega sem UF: recusa antes de gravar a RENAVE, de criar a nota e de chamar a NG', async () => {
+  const f = await fixture()
+  user = f.user
+  const net = network(f)
+  const antes = await snapshot(f)
+  const result = await actions.transmitirNfePropriaAction(f.motoId, renave, semUf)
+  assert.equal(result.ok, false)
+  assert.match(result.ok ? '' : result.error, /UF/)
+  assert.deepEqual(net.requests, [])
+  assert.deepEqual(await snapshot(f), antes)
+})
+
+test('transmitir ciclomotor sem nenhum transporte também não chega à NG', async () => {
+  const f = await fixture()
+  user = f.user
+  const net = network(f)
+  const result = await actions.transmitirNfePropriaAction(f.motoId, renave)
+  assert.deepEqual(result, { ok: false, error: 'Selecione a modalidade do frete.' })
+  assert.deepEqual(net.requests, [])
+  assert.equal(await numeroDeNotas(f), 0)
+})
+
+test('salvar e reenviar leva o transporte no mesmo id, na mesma linha e com o mesmo número', async () => {
+  const f = await fixture(true)
+  user = f.user
+  const net = network(f)
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87116000', cest: '' } }, renave, transport)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.deepEqual(net.payloads.map(p => p.transporte), [expectedTransport])
+  assert.equal(net.payloads[0].id, f.externalId)
+  const notes = (await snapshot(f)).notes as { id: string; id_externo: string; numero: string; payload: Payload }[]
+  assert.equal(notes.length, 1)
+  assert.equal(notes[0].id, f.noteId)
+  assert.equal(notes[0].id_externo, f.externalId)
+  assert.equal(notes[0].numero, '650')
+  assert.deepEqual(notes[0].payload.transporte, expectedTransport)
+})
+
+test('salvar e reenviar com entrega sem UF não grava a correção nem muda a nota recusada', async () => {
+  const f = await fixture(true)
+  user = f.user
+  const net = network(f)
+  await db.execute(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, x_prod, origem) values (${f.motoId}, 'X', '87116000', 'X', '0') on conflict (moto_id) do update set ncm = '87116000'`)
+  const antes = await snapshot(f)
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87119000', cest: '' } }, renave, semUf)
+  assert.equal(result.ok, false)
+  assert.deepEqual(net.requests, [])
+  assert.deepEqual(await snapshot(f), antes)
+})
+
+test('Conta B recebe a mesma resposta de moto inexistente e nada é gravado nem enviado para a Conta A', async () => {
+  const a = await fixture(true)
+  const b = await fixture()
+  user = b.user
+  const net = network(a)
+  const inexistente = randomUUID()
+  const antes = await snapshot(a)
+  const transmitir = await actions.transmitirNfePropriaAction(a.motoId, renave, transport)
+  const corrigir = await actions.corrigirEReenviarNfAction(a.motoId, { moto: { ncm: '87119000', cest: '' } }, renave, transport)
+  const previa = await actions.previsualizarNfePropriaAction(a.motoId)
+  assert.deepEqual(transmitir, await actions.transmitirNfePropriaAction(inexistente, renave, transport))
+  assert.deepEqual(corrigir, await actions.corrigirEReenviarNfAction(inexistente, { moto: { ncm: '87119000', cest: '' } }, renave, transport))
+  assert.deepEqual(previa, await actions.previsualizarNfePropriaAction(inexistente))
+  assert.equal(transmitir.ok, false)
+  assert.deepEqual(net.requests, [])
+  assert.deepEqual(await snapshot(a), antes)
+})
+
+test('reabrir a recusa devolve o transporte enviado; recusa antiga sem transporte não ganha padrão', async () => {
+  const comTransporte = await fixture(true, { transporte: expectedTransport })
+  user = comTransporte.user
+  network(comTransporte)
+  const previa = await actions.previsualizarNfePropriaAction(comTransporte.motoId)
+  assert.equal(previa.ok, true, JSON.stringify(previa))
+  assert.deepEqual(previa.ok ? previa.transporteAnterior : 'falhou', transport)
+
+  const antiga = await fixture(true)
+  user = antiga.user
+  network(antiga)
+  const antigaPrevia = await actions.previsualizarNfePropriaAction(antiga.motoId)
+  assert.equal(antigaPrevia.ok ? antigaPrevia.transporteAnterior : 'falhou', null)
 })
