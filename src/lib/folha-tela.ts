@@ -1,6 +1,6 @@
 import { mesBrt } from './data-venda'
 import { labelDaBase } from './folha'
-import { calcularPremiacao, ordenarFaixas } from './premiacao'
+import { calcularPremiacao, ordenarFaixas, type Faixa } from './premiacao'
 import { fmtBRL } from './preco-minimo'
 
 // Regras de apresentação da /folha-pagamento que não dependem de React: as abas, o que cada uma
@@ -83,7 +83,7 @@ const MARGEM_DO_EXEMPLO = 1.15
  * há uma). O prêmio e a posição vêm de `calcularPremiacao`, a mesma conta da folha, então o texto segue
  * verdadeiro mesmo que o exemplo ultrapasse a faixa seguinte.
  */
-export function exemploDaPremiacao(faixas: { valorMinimoVendas: string; premiacao: string }[]): { vendido: number; premiacao: number; ordinal: number } | null {
+export function exemploDaPremiacao(faixas: Faixa[]): { vendido: number; premiacao: number; ordinal: number } | null {
   const ordenadas = ordenarFaixas(faixas)
   const base = ordenadas[1] ?? ordenadas[0]
   if (!base) return null
