@@ -25,11 +25,12 @@ import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
 import { disponibilidadeDoGrupo, SEM_EMISSAO, type DisponibilidadeNf } from '@/lib/notagateway/disponibilidade'
 import { formatarCpfCnpj, isIndicadorIe } from '@/lib/documento'
-import { conferirRenave, exigeRenave, montarVeiculoNovo, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
+import { conferirRenave, exigeRenave, montarVeiculoNovo, TIPO_OPERACAO_FATURAMENTO_DIRETO, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { gravarRenaveDaMoto, renaveComOrigem, SEM_VENDA } from '@/lib/renave-da-moto'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
 import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
+import { validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -212,7 +213,7 @@ type Emissao = Awaited<ReturnType<typeof montarEmissao>>
 
 const cfgDaNota = (grupoId: string, e: Pick<Emissao, 'grupoId' | 'cfg'>) => configDaNotaExistente(grupoId, e, configNotaGateway)
 
-function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string): DadosVendaMoto {
+function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string, transporte?: DadosTransporte): DadosVendaMoto {
   const v = e.venda
   const f = e.ficha!
   return {
@@ -249,6 +250,7 @@ function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string): DadosV
     valor: e.valor,
     pagamentos: e.pagamentosMova.map(formaPagamentoNfe),
     informacoesAdicionais: e.observacao,
+    ...(transporte ? { transporte } : {}),
   }
 }
 
@@ -403,17 +405,21 @@ export async function salvarCestMotoAction(motoId: string, cestBruto: string): P
  * "Salvar e reenviar nº N" (#347): grava a correção no cadastro de origem e a nota é
  * remontada dele. Não há salvar sem enviar: deixaria a venda sem nota.
  */
-export async function corrigirEReenviarNfAction(motoId: string, correcao: CorrecaoNf, renave?: DadosRenave | null): Promise<ResultadoTransmissao> {
+export async function corrigirEReenviarNfAction(motoId: string, correcao: CorrecaoNf, renave?: DadosRenave | null, transporte?: DadosTransporte): Promise<ResultadoTransmissao> {
   try {
     const usuario = await exigirPapel('corrigir')
     const e = await montarEmissao(motoId, usuario)
     const r = conferirRenave(e.renaveExigido, renave)
     if (!r.ok) return r
+    const t = e.renaveExigido
+      ? validarDadosTransporte(transporte, r.dados?.tipoOperacao === TIPO_OPERACAO_FATURAMENTO_DIRETO)
+      : null
+    if (t && !t.ok) return { ok: false, error: t.erro }
     await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
+    return transmitirNfePropriaAction(motoId, r.dados, t?.ok ? t.dados : undefined)
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
-  return transmitirNfePropriaAction(motoId, renave)
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -491,7 +497,7 @@ async function resumoDaNota(id: string): Promise<NotaResumo> {
 }
 
 /** `renave`: o formulário do veículo como está na tela (só ciclomotor). */
-export async function transmitirNfePropriaAction(motoId: string, renave?: DadosRenave | null): Promise<ResultadoTransmissao> {
+export async function transmitirNfePropriaAction(motoId: string, renave?: DadosRenave | null, transporte?: DadosTransporte): Promise<ResultadoTransmissao> {
   let notaId: string | null = null
   try {
     const usuario = await exigirPapel()
@@ -503,7 +509,14 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     if (!e.ficha) return { ok: false, error: 'Moto sem ficha fiscal. Preencha a ficha antes de transmitir.' }
     const r = conferirRenave(e.renaveExigido, renave)
     if (!r.ok) return r
-    if (r.dados) e.renave = r.dados
+    const renaveValidado = r.dados
+    const eComRenave = { ...e, renave: renaveValidado }
+    let transporteValidado: DadosTransporte | undefined
+    if (e.renaveExigido) {
+      const t = validarDadosTransporte(transporte, renaveValidado?.tipoOperacao === TIPO_OPERACAO_FATURAMENTO_DIRETO)
+      if (!t.ok) return { ok: false, error: t.erro }
+      transporteValidado = t.dados
+    }
     if (!e.regra) return { ok: false, error: 'Regra fiscal do grupo não cadastrada' }
 
     if (e.cfg.ambiente === 'Producao') {
@@ -556,13 +569,13 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     const idExterno = escolha.idExterno
 
     // Grava só aqui, depois dos retornos antecipados: o que fica é o que vai na nota.
-    if (e.renaveExigido && e.renave) {
-      const g = await gravarRenaveDaMoto(usuario, motoId, e.renave, usuario.id)
+    if (e.renaveExigido && renaveValidado) {
+      const g = await gravarRenaveDaMoto(usuario, motoId, renaveValidado, usuario.id)
       if (!g.ok) return { ok: false, error: g.erro }
     }
 
     const uf = await ufDaEmpresa(e.cfg)
-    const payload = montarNfeVendaMoto(dadosDaVenda(e, uf, idExterno), e.regra)
+    const payload = montarNfeVendaMoto(dadosDaVenda(eComRenave, uf, idExterno, transporteValidado), e.regra)
 
     notaId = await gravarEnvio(db, escolha, {
       vendaId: e.venda.id, vendaNumero: e.venda.numero, grupoId: e.grupoId, ambiente: e.cfg.ambiente, payload, emitidaPor: usuario.id,
