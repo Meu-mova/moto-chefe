@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { ehFinal, recusaParaAbrir, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import { RenaveForm } from './renave-form'
-import { camposFaltando, faltandoPorParte, PARTES_RENAVE, TIPO_OPERACAO_FATURAMENTO_DIRETO, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
+import { camposFaltando, faltandoPorParte, PARTES_RENAVE, operacaoExigeEntrega, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { NfeRecusa } from './nfe-recusa'
 import { TransporteForm } from './transporte-form'
 import { DADOS_TRANSPORTE_VAZIOS, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
@@ -74,7 +74,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   const [passo, setPasso] = useState(0)
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
-  const exigeEntrega = renave?.tipoOperacao === TIPO_OPERACAO_FATURAMENTO_DIRETO
+  const exigeEntrega = operacaoExigeEntrega(renave?.tipoOperacao)
   useEffect(() => {
     onOcupado?.(pending || transmitindo)
     return () => onOcupado?.(false)
@@ -90,19 +90,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       setFicha(r.ficha ? null : r.sugestao)
       setRenave(r.exigeRenave ? r.renave : null)
       setRenaveOrigem(r.renaveOrigem)
-      setTransporte({
-        ...DADOS_TRANSPORTE_VAZIOS,
-        enderecoEntrega: {
-          ...DADOS_TRANSPORTE_VAZIOS.enderecoEntrega,
-          tipoPessoaDestinatario: tipoPessoa(r.correcao.comprador.clienteCpf ?? ''),
-          cpfCnpjDestinatario: r.correcao.comprador.clienteCpf ?? '',
-          logradouro: r.correcao.comprador.clienteLogradouro ?? '',
-          numero: r.correcao.comprador.clienteNumero ?? '',
-          bairro: r.correcao.comprador.clienteBairro ?? '',
-          cidade: /^\d{7}$/.test(r.correcao.comprador.clienteCidade ?? '') ? r.correcao.comprador.clienteCidade! : '',
-          uf: r.correcao.comprador.clienteEstado ?? '',
-        },
-      })
+      setTransporte(r.transporteAnterior ?? transporteDoComprador(r.correcao.comprador))
       setPasso(0)
       // "Reenviar" volta à conferência: ali não reabre a recusa.
       const recusa = abrirRecusa ? recusaParaAbrir(r.notas, r.ambiente) : null
@@ -466,6 +454,23 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       </div>
     </div>
   )
+}
+
+/** Ponto de partida da entrega: o endereço do comprador (Hermes: pode espelhá-lo). O município só entra se já for código IBGE. */
+function transporteDoComprador(c: Previa['correcao']['comprador']): DadosTransporte {
+  return {
+    ...DADOS_TRANSPORTE_VAZIOS,
+    enderecoEntrega: {
+      ...DADOS_TRANSPORTE_VAZIOS.enderecoEntrega,
+      tipoPessoaDestinatario: tipoPessoa(c.clienteCpf ?? ''),
+      cpfCnpjDestinatario: c.clienteCpf ?? '',
+      logradouro: c.clienteLogradouro ?? '',
+      numero: c.clienteNumero ?? '',
+      bairro: c.clienteBairro ?? '',
+      cidade: /^\d{7}$/.test(c.clienteCidade ?? '') ? c.clienteCidade! : '',
+      uf: c.clienteEstado ?? '',
+    },
+  }
 }
 
 /** As etapas do ciclomotor, com quantos campos faltam em cada uma. Clicar leva à etapa. */

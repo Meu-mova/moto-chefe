@@ -25,12 +25,12 @@ import { divergenciaDeAmbiente } from '@/lib/notagateway/ambiente'
 import { travaDoPapel } from '@/lib/cancelar-venda'
 import { disponibilidadeDoGrupo, SEM_EMISSAO, type DisponibilidadeNf } from '@/lib/notagateway/disponibilidade'
 import { formatarCpfCnpj, isIndicadorIe } from '@/lib/documento'
-import { conferirRenave, exigeRenave, montarVeiculoNovo, TIPO_OPERACAO_FATURAMENTO_DIRETO, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
+import { conferirRenave, exigeRenave, montarVeiculoNovo, operacaoExigeEntrega, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { gravarRenaveDaMoto, renaveComOrigem, SEM_VENDA } from '@/lib/renave-da-moto'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
 import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
-import { validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
+import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -86,6 +86,8 @@ export type PreviaNfe =
       exigeRenave: boolean
       renave: DadosRenave | null
       renaveOrigem: OrigemRenave
+      /** Frete e entrega da recusa em aberto, para corrigir sem digitar de novo. */
+      transporteAnterior: DadosTransporte | null
       resumo: {
         cliente: { nome: string; documento: string; endereco: string; email: string | null }
         produto: { descricao: string; ncm: string; cest: string; cfop: string; cst: string; origemEntrada: string; origemSaida: string }
@@ -273,6 +275,14 @@ async function resumos(filtro: SQL): Promise<NotaResumo[]> {
 
 const notasDaVenda = (vendaId: string) => resumos(eq(notasFiscaisSaida.vendaId, vendaId))
 
+/** Só a última tentativa, e só se ainda está recusada: é a que o reenvio reaproveita. */
+async function transporteDaRecusa(vendaId: string, grupoId: string, ambiente: 'Homologacao' | 'Producao'): Promise<DadosTransporte | null> {
+  const [ultima] = await db.select({ status: notasFiscaisSaida.status, payload: notasFiscaisSaida.payload }).from(notasFiscaisSaida)
+    .where(and(eq(notasFiscaisSaida.vendaId, vendaId), eq(notasFiscaisSaida.grupoId, grupoId), eq(notasFiscaisSaida.ambiente, ambiente)))
+    .orderBy(desc(notasFiscaisSaida.criadoEm)).limit(1)
+  return ultima && ehRecusada(ultima.status) ? transporteDoPayload(ultima.payload) : null
+}
+
 export async function previsualizarNfePropriaAction(motoId: string): Promise<PreviaNfe> {
   try {
     const usuario = await exigirPapel()
@@ -334,6 +344,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
       exigeRenave: e.renaveExigido,
       renave: e.renave,
       renaveOrigem: e.renaveOrigem,
+      transporteAnterior: e.renaveExigido ? await transporteDaRecusa(e.venda.id, e.grupoId, e.cfg.ambiente) : null,
       resumo,
       notas,
       correcao: {
@@ -412,7 +423,7 @@ export async function corrigirEReenviarNfAction(motoId: string, correcao: Correc
     const r = conferirRenave(e.renaveExigido, renave)
     if (!r.ok) return r
     const t = e.renaveExigido
-      ? validarDadosTransporte(transporte, r.dados?.tipoOperacao === TIPO_OPERACAO_FATURAMENTO_DIRETO)
+      ? validarDadosTransporte(transporte, operacaoExigeEntrega(r.dados?.tipoOperacao))
       : null
     if (t && !t.ok) return { ok: false, error: t.erro }
     await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
@@ -513,7 +524,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     const eComRenave = { ...e, renave: renaveValidado }
     let transporteValidado: DadosTransporte | undefined
     if (e.renaveExigido) {
-      const t = validarDadosTransporte(transporte, renaveValidado?.tipoOperacao === TIPO_OPERACAO_FATURAMENTO_DIRETO)
+      const t = validarDadosTransporte(transporte, operacaoExigeEntrega(renaveValidado?.tipoOperacao))
       if (!t.ok) return { ok: false, error: t.erro }
       transporteValidado = t.dados
     }

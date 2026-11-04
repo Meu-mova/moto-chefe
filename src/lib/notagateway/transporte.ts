@@ -74,3 +74,21 @@ export function validarDadosTransporte(
   if (!/^\d{7}$/.test(endereco.cidade)) return { ok: false, erro: 'Código IBGE do município deve ter 7 dígitos.' }
   return { ok: true, dados: normalizados }
 }
+
+/** Lê de volta o `transporte` de um payload já enviado (reabrir a recusa sem digitar de novo). */
+export function transporteDoPayload(payload: unknown): DadosTransporte | null {
+  const t = (payload as { transporte?: { frete?: { modalidade?: unknown }; enderecoEntrega?: Record<string, unknown> } } | null)?.transporte
+  const modalidade = MODALIDADES_FRETE.find(([token]) => token === t?.frete?.modalidade)?.[0]
+  if (!modalidade) return null
+  const e = t?.enderecoEntrega
+  if (!e) return { modalidade }
+  const texto = (campo: string) => String(e[campo] ?? '')
+  return {
+    modalidade,
+    enderecoEntrega: {
+      tipoPessoaDestinatario: e.tipoPessoaDestinatario === 'J' ? 'J' : 'F',
+      cpfCnpjDestinatario: texto('cpfCnpjDestinatario'), logradouro: texto('logradouro'), numero: texto('numero'),
+      bairro: texto('bairro'), cidade: texto('cidade'), uf: texto('uf'),
+    },
+  }
+}

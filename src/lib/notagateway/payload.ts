@@ -22,7 +22,7 @@
 
 import { ehCartao, type FormaPagamentoNfe } from './venda'
 import type { IndicadorIe } from '../documento'
-import { TIPO_OPERACAO_FATURAMENTO_DIRETO, type VeiculoNovo } from './veiculo'
+import { operacaoExigeEntrega, type VeiculoNovo } from './veiculo'
 import { validarDadosTransporte, type DadosTransporte } from './transporte'
 
 export type RegraSaida = {
@@ -187,7 +187,7 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     )
   }
 
-  const exigeEntrega = moto.veiculo?.tipoOperacao === TIPO_OPERACAO_FATURAMENTO_DIRETO
+  const exigeEntrega = operacaoExigeEntrega(moto.veiculo?.tipoOperacao)
   const transporteValidado = venda.transporte ? validarDadosTransporte(venda.transporte, exigeEntrega) : null
   if (exigeEntrega && !transporteValidado) throw new Error('Faturamento direto exige os dados de transporte e endereço de entrega.')
   if (transporteValidado && !transporteValidado.ok) throw new Error(transporteValidado.erro)
