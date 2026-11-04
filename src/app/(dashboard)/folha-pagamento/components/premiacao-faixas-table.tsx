@@ -87,8 +87,10 @@ export function PremiacaoFaixasTable({ faixas }: { faixas: FaixaRow[] }) {
 
   // Celular e tablet: Como funciona, tabela, Nova faixa, nessa ordem. Desktop (>= 960 px): tabela à
   // esquerda e os dois cartões na coluna da direita, por posição na grade (o DOM não muda de ordem).
+  // A 2ª linha é 1fr: com muitas faixas a tabela cresce e o excesso fica embaixo de "Nova faixa", sem abrir
+  // buraco entre os dois cartões.
   return (
-    <div className="grid items-start gap-4 @[960px]/folha:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid items-start gap-4 @[960px]/folha:grid-cols-[minmax(0,1fr)_22rem] @[960px]/folha:grid-rows-[auto_1fr]">
       <ComoFunciona faixas={faixas} />
 
       <div className="overflow-hidden rounded-lg border bg-card @[960px]/folha:col-start-1 @[960px]/folha:row-span-2 @[960px]/folha:row-start-1">
