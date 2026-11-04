@@ -40,7 +40,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   const funcionarioId = await semearUsuario(tx, base, { papel: 'mecanico', rotulo: 'func' })
   const [h] = await linhas(tx, sql`insert into holerites (usuario_id, mes, tipo, arquivo_path, arquivo_nome, tamanho)
     values (${funcionarioId}, '2026-10', 'salario', ${`${base.grupoId}/2026-10/f.pdf`}, 'f.pdf', 10) returning id`)
-  return { base, funcionarioId, holeriteId: h.id as string, lojaIds: [base.lojaId], arquivoPath: `${base.grupoId}/2026-10/f.pdf` }
+  return { base, funcionarioId, holeriteId: h.id as string, grupoId: base.grupoId, arquivoPath: `${base.grupoId}/2026-10/f.pdf` }
 }
 
 // Registra quantas linhas cada consulta devolveu: prova que a leitura já vem filtrada pela
@@ -67,8 +67,8 @@ function comLeituraRegistrada(tx: Tx) {
 test('a própria Conta acha o funcionário e o holerite', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000063401')
-    assert.equal((await helpers.funcionarioDoGrupo(a.lojaIds, a.funcionarioId, tx))?.lojaId, a.base.lojaId)
-    assert.equal((await helpers.holeriteDoGrupo(a.lojaIds, a.holeriteId, tx))?.arquivoPath, a.arquivoPath)
+    assert.equal((await helpers.funcionarioDoGrupo(a.grupoId, a.funcionarioId, tx))?.lojaId, a.base.lojaId)
+    assert.equal((await helpers.holeriteDoGrupo(a.grupoId, a.holeriteId, tx))?.arquivoPath, a.arquivoPath)
   })
 })
 
@@ -76,10 +76,10 @@ test('Conta B não acha funcionário nem holerite da A, igual a id inexistente',
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000063402')
     const b = await semearConta(tx, 'B', '00000000063403')
-    assert.equal(await helpers.funcionarioDoGrupo(b.lojaIds, a.funcionarioId, tx), null)
-    assert.equal(await helpers.funcionarioDoGrupo(b.lojaIds, crypto.randomUUID(), tx), null)
-    assert.equal(await helpers.holeriteDoGrupo(b.lojaIds, a.holeriteId, tx), null)
-    assert.equal(await helpers.holeriteDoGrupo(b.lojaIds, crypto.randomUUID(), tx), null)
+    assert.equal(await helpers.funcionarioDoGrupo(b.grupoId, a.funcionarioId, tx), null)
+    assert.equal(await helpers.funcionarioDoGrupo(b.grupoId, crypto.randomUUID(), tx), null)
+    assert.equal(await helpers.holeriteDoGrupo(b.grupoId, a.holeriteId, tx), null)
+    assert.equal(await helpers.holeriteDoGrupo(b.grupoId, crypto.randomUUID(), tx), null)
   })
 })
 
@@ -87,10 +87,10 @@ test('Conta B não remove holerite da A: a linha continua e nenhum caminho é de
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000063404')
     const b = await semearConta(tx, 'B', '00000000063405')
-    assert.equal(await helpers.removerHoleriteDoGrupo(b.lojaIds, a.holeriteId, tx), null)
+    assert.equal(await helpers.removerHoleriteDoGrupo(b.grupoId, a.holeriteId, tx), null)
     const [h] = await linhas(tx, sql`select arquivo_path, arquivo_nome, enviado_por from holerites where id = ${a.holeriteId}`)
     assert.deepEqual(h, { arquivo_path: a.arquivoPath, arquivo_nome: 'f.pdf', enviado_por: null })
-    assert.equal(await helpers.removerHoleriteDoGrupo(a.lojaIds, a.holeriteId, tx), a.arquivoPath)
+    assert.equal(await helpers.removerHoleriteDoGrupo(a.grupoId, a.holeriteId, tx), a.arquivoPath)
     assert.equal((await linhas(tx, sql`select 1 from holerites where id = ${a.holeriteId}`)).length, 0)
   })
 })
@@ -99,7 +99,7 @@ test('funcionário sem loja não pertence a nenhum grupo', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000063406')
     const semLoja = await semearUsuario(tx, a.base, { papel: 'mecanico', rotulo: 'semloja', semLoja: true })
-    assert.equal(await helpers.funcionarioDoGrupo(a.lojaIds, semLoja, tx), null)
+    assert.equal(await helpers.funcionarioDoGrupo(a.grupoId, semLoja, tx), null)
   })
 })
 
@@ -108,9 +108,9 @@ test('a leitura já vem filtrada: registro de outra Conta nem chega a ser lido',
     const a = await semearConta(tx, 'A', '00000000063407')
     const b = await semearConta(tx, 'B', '00000000063408')
     const { exec, lidas } = comLeituraRegistrada(tx)
-    await helpers.funcionarioDoGrupo(b.lojaIds, a.funcionarioId, exec)
-    await helpers.holeriteDoGrupo(b.lojaIds, a.holeriteId, exec)
-    await helpers.removerHoleriteDoGrupo(b.lojaIds, a.holeriteId, exec)
+    await helpers.funcionarioDoGrupo(b.grupoId, a.funcionarioId, exec)
+    await helpers.holeriteDoGrupo(b.grupoId, a.holeriteId, exec)
+    await helpers.removerHoleriteDoGrupo(b.grupoId, a.holeriteId, exec)
     assert.deepEqual(lidas, [0, 0, 0])
   })
 })

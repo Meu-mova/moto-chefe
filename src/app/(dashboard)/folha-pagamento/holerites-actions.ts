@@ -107,8 +107,8 @@ export async function uploadHoleriteAction(formData: FormData) {
   if (file.type !== 'application/pdf') throw new Error('Envie o holerite em PDF')
   if (file.size > TAMANHO_MAXIMO) throw new Error('Arquivo muito grande. Máximo: 10MB.')
 
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  const alvo = await funcionarioDoGrupo(lojaIdsGrupo, usuarioId)
+  const { id: grupoId } = await getGrupoAtivo(usuario)
+  const alvo = await funcionarioDoGrupo(grupoId, usuarioId)
   if (!alvo) throw new Error('Funcionário não pertence ao grupo ativo')
 
   // Lê o PDF para conferir de quem e de que mês ele é, e para pegar o líquido.
@@ -142,7 +142,6 @@ export async function uploadHoleriteAction(formData: FormData) {
   }
 
   const storage = storageAdmin()
-  const { id: grupoId } = await getGrupoAtivo(usuario)
   const filePath = caminhoDoHolerite({ grupoId, mes, usuarioId, tipo }, crypto.randomUUID())
 
   const { error } = await storage.storage
@@ -242,9 +241,9 @@ async function preencherValorReal(
 
 export async function removerHoleriteAction(id: string) {
   const usuario = await checarAdmin()
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const { id: grupoId } = await getGrupoAtivo(usuario)
 
-  const arquivoPath = await removerHoleriteDoGrupo(lojaIdsGrupo, id)
+  const arquivoPath = await removerHoleriteDoGrupo(grupoId, id)
   if (!arquivoPath) throw new Error('Holerite não encontrado no grupo ativo')
 
   await storageAdmin().storage.from(BUCKET).remove([arquivoPath])
@@ -261,9 +260,9 @@ export async function removerHoleriteAction(id: string) {
  */
 export async function getHoleriteUrlAction(id: string): Promise<string> {
   const usuario = await checarAdmin()
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const { id: grupoId } = await getGrupoAtivo(usuario)
 
-  const row = await holeriteDoGrupo(lojaIdsGrupo, id)
+  const row = await holeriteDoGrupo(grupoId, id)
   if (!row) throw new Error('Holerite não encontrado no grupo ativo')
 
   const { data, error } = await storageAdmin().storage
