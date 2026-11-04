@@ -79,7 +79,7 @@ test('sem faixa cadastrada: mensagem na tabela e nenhum exemplo', async () => {
   assert.doesNotMatch(texto(document.body), /Exemplo:/)
 })
 
-test('a ordem do documento é Como funciona, tabela, Nova faixa (a mesma do celular e do tablet)', async () => {
+test('a ordem do documento é Como funciona, tabela, Nova faixa', async () => {
   await montar()
   const como = [...document.querySelectorAll('section')].find(s => /Como funciona/.test(texto(s)))
   const tabela = document.querySelector('table')

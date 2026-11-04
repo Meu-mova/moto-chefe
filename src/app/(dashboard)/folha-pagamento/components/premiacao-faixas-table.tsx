@@ -21,9 +21,10 @@ const CAMPO = 'h-11 @[960px]/folha:h-8'
 
 function ComoFunciona({ faixas }: { faixas: FaixaRow[] }) {
   const exemplo = exemploDaPremiacao(faixas)
+  const idTitulo = useId()
   return (
-    <section aria-labelledby="como-funciona" className={`${CARTAO} space-y-3 @[960px]/folha:col-start-2 @[960px]/folha:row-start-1`}>
-      <h2 id="como-funciona" className="font-semibold">Como funciona</h2>
+    <section aria-labelledby={idTitulo} className={`${CARTAO} space-y-3 @[960px]/folha:col-start-2 @[960px]/folha:row-start-1`}>
+      <h2 id={idTitulo} className="font-semibold">Como funciona</h2>
       <AvisoFolha>{AVISO_PREMIACAO}</AvisoFolha>
       <p className="text-sm text-muted-foreground">
         Valor fixo por meta batida, só para vendedor e sobre as motos que a própria pessoa vendeu no mês. Vale a
@@ -46,6 +47,7 @@ export function PremiacaoFaixasTable({ faixas }: { faixas: FaixaRow[] }) {
   const [excluindoId, setExcluindoId] = useState<string | null>(null)
   const idMinimo = useId()
   const idPremio = useId()
+  const idNovaFaixa = useId()
 
   const ordenadas = ordenarFaixas(faixas)
 
@@ -122,15 +124,14 @@ export function PremiacaoFaixasTable({ faixas }: { faixas: FaixaRow[] }) {
                 </td>
               </tr>
             ))}
-            {ordenadas.length === 0 && (
-              <tr><td colSpan={4} className="py-6 text-center text-muted-foreground">Nenhuma faixa cadastrada.</td></tr>
-            )}
           </tbody>
         </table>
+        {/* Fora do <table>: o número de colunas visíveis muda com a largura (a "Faixa" some no celular), e um colSpan fixo criaria uma coluna fantasma. */}
+        {ordenadas.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma faixa cadastrada.</p>}
       </div>
 
-      <section aria-labelledby="nova-faixa" className={`${CARTAO} space-y-3 @[960px]/folha:col-start-2 @[960px]/folha:row-start-2`}>
-        <h2 id="nova-faixa" className="font-semibold">Nova faixa</h2>
+      <section aria-labelledby={idNovaFaixa} className={`${CARTAO} space-y-3 @[960px]/folha:col-start-2 @[960px]/folha:row-start-2`}>
+        <h2 id={idNovaFaixa} className="font-semibold">Nova faixa</h2>
         <div className="space-y-1">
           <label htmlFor={idMinimo} className="text-xs text-muted-foreground">Venda mínima (R$)</label>
           <Input id={idMinimo} value={novoMinimo} onChange={e => setNovoMinimo(e.target.value)} className={CAMPO} placeholder="0,00" />
