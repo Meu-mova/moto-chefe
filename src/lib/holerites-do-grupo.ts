@@ -1,7 +1,7 @@
 import { and, eq, inArray, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { holerites, lojas, usuarios } from '@/lib/db/schema'
-import { lojasDaConta } from '@/lib/conta'
+import { usuarioDaConta } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select' | 'delete'>
 
@@ -87,8 +87,7 @@ export async function listarHoleritesDoGrupo(grupo: { id: string; contaId: strin
       .where(and(
         inArray(usuarios.id, enviantes),
         or(
-          eq(usuarios.contaId, grupo.contaId),
-          inArray(usuarios.lojaId, lojasDaConta(grupo.contaId)),
+          usuarioDaConta(grupo.contaId),
           eq(usuarios.papel, 'admin_geral'),
         ),
       ))

@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { agendamentos, clientes, contas, grupos, lojas, ordensServico, vendas, vendasPecas } from '@/lib/db/schema'
+import { agendamentos, clientes, contas, grupos, lojas, ordensServico, usuarios, vendas, vendasPecas } from '@/lib/db/schema'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -39,6 +39,11 @@ export async function nomesDasContas(ids: string[], exec: Executor = db): Promis
 export function lojasDaConta(contaId: string) {
   return db.select({ id: lojas.id }).from(lojas)
     .innerJoin(grupos, eq(grupos.id, lojas.grupoId)).where(eq(grupos.contaId, contaId))
+}
+
+// Usuário da Conta: o `conta_id` bate. Marcação em grupos_acesso de outra Conta não vale (ADR-0018).
+export function usuarioDaConta(contaId: string): SQL {
+  return eq(usuarios.contaId, contaId)
 }
 
 // Escopo de lojas de quem consulta: as da Conta, ou só as do grupo liberado na persona do
