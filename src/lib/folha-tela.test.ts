@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ABAS_FOLHA, avisoDaAba, descreverRegra, diferencaValorReal, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
+import { ABAS_FOLHA, avisoDaAba, descreverRegra, diferencaValorReal, exemploDaPremiacao, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
 
 test('mesAdjacente: vira o ano em dezembro e em janeiro', () => {
   assert.equal(mesAdjacente('2026-12', 1), '2027-01')
@@ -75,4 +75,29 @@ test('descreverRegra: percentual, base em minúsculas e o valor sobre o qual inc
   const regra = { percentual: 1, base: 'proprias_motos', valorBase: 183040 }
   assert.equal(descreverRegra(regra), '1% motos vendidas por ele · R$\u00a0183.040,00')
   assert.equal(descreverRegra({ ...regra, percentual: 0.05, valorBase: 200000 }), '0,05% motos vendidas por ele · R$\u00a0200.000,00')
+})
+
+const FAIXAS = [
+  { valorMinimoVendas: '150000', premiacao: '500' },
+  { valorMinimoVendas: '200000', premiacao: '800' },
+  { valorMinimoVendas: '300000', premiacao: '1200' },
+]
+
+test('exemploDaPremiacao: parte da 2ª faixa e devolve o que a folha pagaria', () => {
+  assert.deepEqual(exemploDaPremiacao(FAIXAS), { vendido: 230000, premiacao: 800, ordinal: 2 })
+})
+
+test('exemploDaPremiacao: faixas fora de ordem dão o mesmo exemplo', () => {
+  assert.deepEqual(exemploDaPremiacao([FAIXAS[2], FAIXAS[0], FAIXAS[1]]), { vendido: 230000, premiacao: 800, ordinal: 2 })
+})
+
+test('exemploDaPremiacao: com uma faixa só, usa ela; sem faixa, não há exemplo', () => {
+  assert.deepEqual(exemploDaPremiacao([FAIXAS[0]]), { vendido: 172500, premiacao: 500, ordinal: 1 })
+  assert.equal(exemploDaPremiacao([]), null)
+})
+
+test('exemploDaPremiacao: se o exemplo passa da faixa seguinte, o texto segue a faixa que a folha aplicaria', () => {
+  const coladas = [{ valorMinimoVendas: '100000', premiacao: '300' }, { valorMinimoVendas: '110000', premiacao: '400' }, { valorMinimoVendas: '120000', premiacao: '900' }]
+  // 110.000 x 1,15 = 126.500: já passou da 3ª faixa.
+  assert.deepEqual(exemploDaPremiacao(coladas), { vendido: 126500, premiacao: 900, ordinal: 3 })
 })
