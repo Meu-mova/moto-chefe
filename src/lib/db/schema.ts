@@ -359,7 +359,8 @@ export const notasFiscaisSaidaCartas = pgTable('notas_fiscais_saida_cartas', {
 // Inutilização do número de NF rejeitada que não vai ser reenviada (#504). Negada fica como histórico.
 export const notasFiscaisSaidaInutilizacoes = pgTable('notas_fiscais_saida_inutilizacoes', {
   id:            uuid('id').primaryKey().defaultRandom(),
-  notaId:        uuid('nota_id').notNull().references(() => notasFiscaisSaida.id),
+  /** Nulo no pedido de faixa (#655), que não nasce de uma NF do MOVA. */
+  notaId:        uuid('nota_id').references(() => notasFiscaisSaida.id),
   grupoId:       uuid('grupo_id').notNull().references(() => grupos.id),
   idExterno:     text('id_externo').notNull().unique(),
   ambiente:      text('ambiente').notNull(),
