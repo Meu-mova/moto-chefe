@@ -2,9 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DADOS_TRANSPORTE_VAZIOS, MODALIDADES_FRETE, transporteDoPayload, validarDadosTransporte } from './transporte'
 
-test('mantém a lista inicial do suporte, com token 0 ainda pendente de confirmação', () => {
+test('oferece só as modalidades confirmadas; a 0 fica de fora até a NG confirmar token e XML', () => {
   assert.deepEqual(MODALIDADES_FRETE.map(([token]) => token), [
-    'PorContaDoRemetente', 'PorContaDoDestinatario', 'PorContaDeTerceiros',
+    'PorContaDoDestinatario', 'PorContaDeTerceiros',
     'TransporteProprioPorContaDoRemetente', 'TransporteProprioPorContaDoDestinatario', 'SemTransporte',
   ])
 })
@@ -51,7 +51,7 @@ test('revenda comum exige modalidade, mas não endereço de entrega', () => {
 test('código IBGE precisa ter sete dígitos', () => {
   const resultado = validarDadosTransporte({
     ...DADOS_TRANSPORTE_VAZIOS,
-    modalidade: 'PorContaDoRemetente',
+    modalidade: 'PorContaDoDestinatario',
     enderecoEntrega: {
       ...DADOS_TRANSPORTE_VAZIOS.enderecoEntrega,
       cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: 'Varginha', uf: 'MG',

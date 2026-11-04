@@ -23,7 +23,7 @@ O exemplo do Hermes mostra o código IBGE em `cidade` e um XML com as tags `cMun
 
 O MOC (Grupo X/X02) define os códigos DANFE 0, 1, 2, 3, 4 e 9. A resposta anterior do Hermes listou os tokens JSON `PorContaDoRemetente`, `PorContaDoDestinatario`, `PorContaDeTerceiros`, `TransporteProprioPorContaDoRemetente`, `TransporteProprioPorContaDoDestinatario` e `SemTransporte`, respectivamente, e disse que omitir modalidade resulta em 0. O token do código 4, utilizado no caso inicial, foi confirmado como `TransporteProprioPorContaDoDestinatario`.
 
-Há uma divergência não resolvida para o código 0: a resposta posterior do Hermes trouxe `ContratacaoPorContaDoRemetente` em um exemplo, diferente do token `PorContaDoRemetente` listado anteriormente; o exemplo público da NG usa ainda `PorContaDoEmitente`. Não há confirmação de suporte suficiente para escolher entre esses nomes para o código 0. Este hotfix conserva a modalidade escolhida para o caso de #650 e não usa o exemplo contraditório para alterar tokens.
+**Modalidade 0 fora deste hotfix (decisão do Luis, 04/11/2026).** Há três nomes conflitantes para o código 0: `PorContaDoRemetente` (primeira resposta do Hermes), `ContratacaoPorContaDoRemetente` (exemplo posterior do Hermes) e `PorContaDoEmitente` (exemplo público da NG). A 0 só volta com confirmação escrita da NG do token e do XML `modFrete=0` resultante. Até lá o MOVA oferece 1, 2, 3, 4 e 9, e a omissão de modalidade não é possível (a NG assume 0 quando omitida).
 
 ## Escopo no MOVA
 

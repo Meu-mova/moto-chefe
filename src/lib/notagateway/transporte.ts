@@ -2,7 +2,6 @@ import { ufValida } from '@/lib/sefaz/uf'
 import { cnpjValido, cpfValido } from '@/lib/documento'
 
 export const MODALIDADES_FRETE = [
-  ['PorContaDoRemetente', '0 · Por conta do remetente'],
   ['PorContaDoDestinatario', '1 · Por conta do destinatário'],
   ['PorContaDeTerceiros', '2 · Por conta de terceiros'],
   ['TransporteProprioPorContaDoRemetente', '3 · Transporte próprio por conta do remetente'],
