@@ -1,12 +1,12 @@
 'use server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { holerites, usuarios, folhaValoresReais } from '@/lib/db/schema'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { holerites, folhaValoresReais } from '@/lib/db/schema'
+import { and, desc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
-import { caminhoDoHolerite, funcionarioDoGrupo, holeriteDoGrupo, removerHoleriteDoGrupo } from '@/lib/holerites-do-grupo'
+import { getGrupoAtivo } from '@/lib/grupo'
+import { caminhoDoHolerite, funcionarioDoGrupo, holeriteDoGrupo, listarHoleritesDoGrupo, removerHoleriteDoGrupo } from '@/lib/holerites-do-grupo'
 import { extrairHolerite, nomeConfere } from '@/lib/holerite-pdf'
 import { TIPOS_HOLERITE } from '@/lib/holerites-tela'
 
@@ -47,48 +47,8 @@ export type HoleriteRow = {
 
 export async function listarHoleritesAction(mes: string): Promise<HoleriteRow[]> {
   const usuario = await checarAdmin()
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  if (lojaIdsGrupo.length === 0) return []
-
-  const rows = await db
-    .select({
-      id: holerites.id,
-      usuarioId: holerites.usuarioId,
-      mes: holerites.mes,
-      tipo: holerites.tipo,
-      arquivoNome: holerites.arquivoNome,
-      tamanho: holerites.tamanho,
-      enviadoEm: holerites.enviadoEm,
-      enviadoPorId: holerites.enviadoPor,
-      lojaId: usuarios.lojaId,
-    })
-    .from(holerites)
-    .innerJoin(usuarios, eq(holerites.usuarioId, usuarios.id))
-    .where(and(eq(holerites.mes, mes), inArray(usuarios.lojaId, lojaIdsGrupo)))
-
-  // Nome de quem enviou vem de uma segunda consulta em vez de um segundo join na
-  // mesma tabela: são poucas linhas por mês e o alias deixaria a query bem menos
-  // legível do que este de-para.
-  const enviantes = [...new Set(rows.map(r => r.enviadoPorId).filter((id): id is string => !!id))]
-  const nomePorId = new Map<string, string>()
-  if (enviantes.length > 0) {
-    const pessoas = await db
-      .select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios)
-      .where(inArray(usuarios.id, enviantes))
-    for (const p of pessoas) nomePorId.set(p.id, p.nome)
-  }
-
-  return rows.map(r => ({
-    id: r.id,
-    usuarioId: r.usuarioId,
-    mes: r.mes,
-    tipo: r.tipo,
-    arquivoNome: r.arquivoNome,
-    tamanho: r.tamanho,
-    enviadoEm: r.enviadoEm,
-    enviadoPorNome: r.enviadoPorId ? (nomePorId.get(r.enviadoPorId) ?? null) : null,
-  }))
+  const { id: grupoId } = await getGrupoAtivo(usuario)
+  return listarHoleritesDoGrupo(grupoId, mes)
 }
 
 export async function uploadHoleriteAction(formData: FormData) {

@@ -95,6 +95,16 @@ test('Conta B não remove holerite da A: a linha continua e nenhum caminho é de
   })
 })
 
+test('a lista da Conta B não traz o holerite da A; a da A traz o seu', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000063409')
+    const b = await semearConta(tx, 'B', '00000000063410')
+    assert.deepEqual((await helpers.listarHoleritesDoGrupo(a.grupoId, '2026-10', tx)).map(h => h.id), [a.holeriteId])
+    assert.deepEqual((await helpers.listarHoleritesDoGrupo(b.grupoId, '2026-10', tx)).map(h => h.id), [b.holeriteId])
+    assert.deepEqual(await helpers.listarHoleritesDoGrupo(b.grupoId, '2026-09', tx), [])
+  })
+})
+
 test('funcionário sem loja não pertence a nenhum grupo', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000063406')

@@ -54,3 +54,39 @@ export async function removerHoleriteDoGrupo(grupoId: string, id: string, exec: 
     .returning({ arquivoPath: holerites.arquivoPath })
   return row?.arquivoPath ?? null
 }
+
+/** Holerites do mês dos funcionários do grupo, com o nome de quem enviou. */
+export async function listarHoleritesDoGrupo(grupoId: string, mes: string, exec: Executor = db) {
+  const rows = await exec
+    .select({
+      id: holerites.id,
+      usuarioId: holerites.usuarioId,
+      mes: holerites.mes,
+      tipo: holerites.tipo,
+      arquivoNome: holerites.arquivoNome,
+      tamanho: holerites.tamanho,
+      enviadoEm: holerites.enviadoEm,
+      enviadoPorId: holerites.enviadoPor,
+    })
+    .from(holerites)
+    .innerJoin(usuarios, eq(holerites.usuarioId, usuarios.id))
+    .where(and(eq(holerites.mes, mes), inArray(usuarios.lojaId, lojasDoGrupo(grupoId, exec))))
+
+  // Nome de quem enviou vem de uma segunda consulta em vez de um segundo join na
+  // mesma tabela: são poucas linhas por mês e o alias deixaria a query bem menos
+  // legível do que este de-para.
+  const enviantes = [...new Set(rows.map(r => r.enviadoPorId).filter((id): id is string => !!id))]
+  const nomePorId = new Map<string, string>()
+  if (enviantes.length > 0) {
+    const pessoas = await exec
+      .select({ id: usuarios.id, nome: usuarios.nome })
+      .from(usuarios)
+      .where(inArray(usuarios.id, enviantes))
+    for (const p of pessoas) nomePorId.set(p.id, p.nome)
+  }
+
+  return rows.map(({ enviadoPorId, ...r }) => ({
+    ...r,
+    enviadoPorNome: enviadoPorId ? (nomePorId.get(enviadoPorId) ?? null) : null,
+  }))
+}
