@@ -49,9 +49,10 @@ async function montar(faixas = FAIXAS) {
 }
 
 // fmtBRL separa "R$" do número com espaço sem quebra.
-const texto = (el: Element | null | undefined) => (el?.textContent ?? '').replace(/ /g, ' ')
+const limpo = (s: string | null | undefined) => (s ?? '').replace(/\u00a0/g, ' ')
+const texto = (el: Element | null | undefined) => limpo(el?.textContent)
 const linhas = () => [...document.querySelectorAll('tbody tr')].map(texto)
-const botao = (nome: string) => [...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === nome || b.textContent?.trim() === nome)
+const botao = (nome: string) => [...document.querySelectorAll('button')].find(b => limpo(b.getAttribute('aria-label')) === nome || texto(b).trim() === nome)
 const campos = () => [...document.querySelectorAll<HTMLInputElement>('input')]
 
 test('as faixas aparecem por venda mínima, com a posição (1ª, 2ª, 3ª) e os valores em reais', async () => {
@@ -113,14 +114,14 @@ test('campo vazio ou inválido avisa e não chama a action', async () => {
   assert.deepEqual(criadas, [])
 })
 
-test('a lixeira tem nome por faixa e remove a faixa certa', async () => {
+test('a lixeira se chama pelo valor da faixa (não pela posição, que muda ao excluir) e remove a faixa certa', async () => {
   await montar()
-  await clicar(botao('Remover faixa 2ª'))
+  await clicar(botao('Remover faixa de R$ 200.000,00'))
   assert.deepEqual(excluidas, ['f2'])
 })
 
 test('só adiciona e remove: não há controle para editar uma faixa', async () => {
   await montar()
-  const nomes = [...document.querySelectorAll('button')].map(b => b.getAttribute('aria-label') ?? texto(b).trim())
-  assert.deepEqual(nomes, ['Remover faixa 1ª', 'Remover faixa 2ª', 'Remover faixa 3ª', 'Adicionar faixa'])
+  const nomes = [...document.querySelectorAll('button')].map(b => limpo(b.getAttribute('aria-label') ?? b.textContent).trim())
+  assert.deepEqual(nomes, ['Remover faixa de R$ 150.000,00', 'Remover faixa de R$ 200.000,00', 'Remover faixa de R$ 300.000,00', 'Adicionar faixa'])
 })

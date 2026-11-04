@@ -112,7 +112,7 @@ export function PremiacaoFaixasTable({ faixas }: { faixas: FaixaRow[] }) {
                 <td className="px-2 py-1 text-right">
                   <button
                     type="button"
-                    aria-label={`Remover faixa ${i + 1}ª`}
+                    aria-label={`Remover faixa de ${reais(f.valorMinimoVendas)}`}
                     onClick={() => excluir(f.id)}
                     disabled={pending && excluindoId === f.id}
                     className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground hover:text-destructive @[960px]/folha:size-8"
