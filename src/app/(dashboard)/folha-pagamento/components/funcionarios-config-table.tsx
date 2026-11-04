@@ -11,6 +11,7 @@ import { fmtPercentual } from '@/lib/folha-tela'
 import { parseNumeroBR, formatarNumeroBR } from '@/lib/numero-br'
 import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import { Bloco } from './folha-bloco'
+import { CELULA } from './folha-mes-grade'
 import { ValorOuZero } from './folha-mes-valor'
 
 export type RegraResumo = {
@@ -44,7 +45,6 @@ const GRADE = [
   '@[680px]/folha:grid-cols-[minmax(140px,2fr)_repeat(3,minmax(0,1fr))_minmax(5rem,auto)_44px]',
   '@[960px]/folha:grid-cols-[minmax(150px,1.6fr)_9rem_minmax(0,1.6fr)_8rem_8rem_4rem_6.5rem]',
 ].join(' ')
-const CELULA = 'min-w-0 px-2.5 py-2.5'
 const SO_TABLET = 'hidden @[680px]/folha:block @[960px]/folha:hidden'
 const ROTULO_DO_CAMPO = 'mb-1 block text-xs text-muted-foreground @[960px]/folha:hidden'
 const CAMPO = 'h-11 text-base @[960px]/folha:h-8 @[960px]/folha:text-xs'
