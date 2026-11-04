@@ -70,3 +70,7 @@ export function situacaoValorReal(valorReal: number | null, totalPagar: number):
 /** Uma regra de comissão ou premiação em uma linha: "1% motos vendidas por ele · R$ 183.040,00". */
 export const descreverRegra = (r: { percentual: number; base: string; valorBase: number }): string =>
   `${r.percentual.toLocaleString('pt-BR')}% ${labelDaBase(r.base).toLowerCase()} · ${fmtBRL(r.valorBase)}`
+
+/** Percentual de regra como o banco entrega ('0.30'): "0,3", "0,05", "1,0". De 1 a 3 casas. */
+export const fmtPercentual = (v: string): string =>
+  parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
