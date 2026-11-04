@@ -15,6 +15,8 @@ O MOC especifica o XML e a validação SEFAZ, não as chaves JSON da Nota Gatewa
 
 A referência pública localizada é a [página oficial de exemplos de NF-e Produto da NG](https://docs.notagateway.com.br/v2/docs/exemplos-de-emiss%C3%A3o-de-nf-e-produto-ou-conjugada). Ela exemplifica `transporte.enderecoEntrega` com `cidade`, UF, logradouro, número, bairro e documento. Os exemplos não são uma especificação pública completa dos campos mínimos ou do mapeamento XML.
 
+Os exemplos 1 e 4 dessa página também mostram `tipoPessoaDestinatario` e `pais` dentro de `enderecoEntrega`; por isso o MOVA envia `pais: null` e deriva `tipoPessoaDestinatario` do documento (11 dígitos = `F`, 14 = `J`).
+
 Em resposta escrita de suporte Hermes recebida em 04/11/2026, a NG orientou que o campo JSON aceito para o município é somente `cidade`. Ele aceita o nome da cidade ou o código IBGE de sete dígitos; a NG resolve o valor e preenche `cMun` e `xMun` no XML. Para evitar ambiguidade no caso fiscal, o MOVA coleta o código IBGE e o envia no campo `cidade`. Não envia `codigoMunicipio`, `codigoIbge` nem `cMun` como propriedades JSON.
 
 O exemplo do Hermes mostra o código IBGE em `cidade` e um XML com as tags `cMun` e `xMun`. Isso é orientação escrita de suporte, não uma especificação pública oficial da NG. Não foi transmitida NF para obter esse exemplo.
