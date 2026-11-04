@@ -410,6 +410,31 @@ END;
 $$;
 
 -- RPC: Encerrar garantia
+CREATE OR REPLACE FUNCTION moto_sai_da_garantia(p_moto_id uuid)
+RETURNS moto_status
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_status moto_status;
+BEGIN
+  IF EXISTS (SELECT 1 FROM vendas WHERE moto_id = p_moto_id) THEN
+    v_status := 'vendida';
+    UPDATE motos SET status = v_status WHERE id = p_moto_id;
+  ELSE
+    v_status := 'montada';
+    UPDATE motos
+    SET status = v_status,
+        disponibilidade = CASE
+          WHEN somente_garantia THEN disponibilidade
+          WHEN disponibilidade IN ('reservada', 'aguardando_aprovacao', 'vendida') THEN disponibilidade
+          ELSE 'disponivel'
+        END
+    WHERE id = p_moto_id;
+  END IF;
+  RETURN v_status;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION encerrar_garantia(
   p_garantia_id uuid,
   p_usuario_id uuid,
@@ -429,6 +454,8 @@ DECLARE
   v_os_status os_status;
   v_garantia_status garantia_status;
   v_data_real date;
+  v_status_anterior moto_status;
+  v_status_novo moto_status;
 BEGIN
   SELECT moto_id, loja_id, os_id, status
   INTO v_moto_id, v_loja_garantia_id, v_os_id, v_garantia_status
@@ -451,21 +478,26 @@ BEGIN
 
   v_data_real := COALESCE(p_data_encerramento, CURRENT_DATE);
 
-  PERFORM id FROM motos WHERE id = v_moto_id FOR UPDATE;
+  SELECT status INTO v_status_anterior FROM motos WHERE id = v_moto_id FOR UPDATE;
 
+  -- Guarda quem encerrou e a observação na própria garantia: é o que o comprovante
+  -- imprime, e historico_estoque só recebe a observação quando a moto sai da garantia.
   UPDATE garantias
-  SET status = 'encerrada', data_encerramento = v_data_real
+  SET status = 'encerrada',
+      data_encerramento = v_data_real,
+      observacao_encerramento = p_observacao,
+      encerrada_por = p_usuario_id,
+      encerrada_em = now()
   WHERE id = p_garantia_id;
 
-  -- Só volta para disponível se não houver outras garantias ativas nesta moto
   IF NOT EXISTS (
     SELECT 1 FROM garantias
     WHERE moto_id = v_moto_id AND status = 'ativa' AND id != p_garantia_id
   ) THEN
-    UPDATE motos SET status = 'disponivel' WHERE id = v_moto_id;
+    v_status_novo := moto_sai_da_garantia(v_moto_id);
 
     INSERT INTO historico_estoque (moto_id, usuario_id, tipo, status_anterior, status_novo, observacao)
-    VALUES (v_moto_id, p_usuario_id, 'mudanca_status', 'em_garantia', 'disponivel', p_observacao);
+    VALUES (v_moto_id, p_usuario_id, 'mudanca_status', v_status_anterior, v_status_novo, p_observacao);
   END IF;
 END;
 $$;
@@ -478,30 +510,31 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_garantia RECORD;
+  v_status_anterior moto_status;
+  v_status_novo moto_status;
 BEGIN
   FOR v_garantia IN
     SELECT g.id, g.moto_id
     FROM garantias g
     WHERE g.status = 'ativa' AND g.data_fim < CURRENT_DATE
   LOOP
-    PERFORM id FROM motos WHERE id = v_garantia.moto_id FOR UPDATE;
+    SELECT status INTO v_status_anterior FROM motos WHERE id = v_garantia.moto_id FOR UPDATE;
 
     UPDATE garantias
     SET status = 'encerrada', data_encerramento = CURRENT_DATE
     WHERE id = v_garantia.id;
 
-    -- Só volta para disponível se não houver outras garantias ativas
     IF NOT EXISTS (
       SELECT 1 FROM garantias
       WHERE moto_id = v_garantia.moto_id AND status = 'ativa' AND id != v_garantia.id
     ) THEN
-      UPDATE motos SET status = 'disponivel' WHERE id = v_garantia.moto_id;
-    END IF;
+      v_status_novo := moto_sai_da_garantia(v_garantia.moto_id);
 
-    INSERT INTO historico_estoque (moto_id, usuario_id, tipo, status_anterior, status_novo, observacao)
-    SELECT v_garantia.moto_id, u.id, 'mudanca_status', 'em_garantia', 'disponivel',
-           'Encerramento automático por expiração de data_fim'
-    FROM usuarios u WHERE u.papel = 'admin_geral' LIMIT 1;
+      INSERT INTO historico_estoque (moto_id, usuario_id, tipo, status_anterior, status_novo, observacao)
+      SELECT v_garantia.moto_id, u.id, 'mudanca_status', v_status_anterior, v_status_novo,
+             'Encerramento automático por expiração de data_fim'
+      FROM usuarios u WHERE u.papel = 'admin_geral' LIMIT 1;
+    END IF;
   END LOOP;
 END;
 $$;
