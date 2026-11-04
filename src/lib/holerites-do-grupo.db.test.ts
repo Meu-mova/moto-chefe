@@ -40,7 +40,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   const funcionarioId = await semearUsuario(tx, base, { papel: 'mecanico', rotulo: 'func' })
   const [h] = await linhas(tx, sql`insert into holerites (usuario_id, mes, tipo, arquivo_path, arquivo_nome, tamanho)
     values (${funcionarioId}, '2026-10', 'salario', ${`${base.grupoId}/2026-10/f.pdf`}, 'f.pdf', 10) returning id`)
-  return { base, funcionarioId, holeriteId: h.id as string, grupoId: base.grupoId, arquivoPath: `${base.grupoId}/2026-10/f.pdf` }
+  return { base, funcionarioId, holeriteId: h.id as string, grupoId: base.grupoId, grupo: { id: base.grupoId, contaId: base.contaId }, arquivoPath: `${base.grupoId}/2026-10/f.pdf` }
 }
 
 // Registra quantas linhas cada consulta devolveu: prova que a leitura já vem filtrada pela
@@ -99,9 +99,28 @@ test('a lista da Conta B não traz o holerite da A; a da A traz o seu', async ()
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000063409')
     const b = await semearConta(tx, 'B', '00000000063410')
-    assert.deepEqual((await helpers.listarHoleritesDoGrupo(a.grupoId, '2026-10', tx)).map(h => h.id), [a.holeriteId])
-    assert.deepEqual((await helpers.listarHoleritesDoGrupo(b.grupoId, '2026-10', tx)).map(h => h.id), [b.holeriteId])
-    assert.deepEqual(await helpers.listarHoleritesDoGrupo(b.grupoId, '2026-09', tx), [])
+    assert.deepEqual((await helpers.listarHoleritesDoGrupo(a.grupo, '2026-10', tx)).map(h => h.id), [a.holeriteId])
+    assert.deepEqual((await helpers.listarHoleritesDoGrupo(b.grupo, '2026-10', tx)).map(h => h.id), [b.holeriteId])
+    assert.deepEqual(await helpers.listarHoleritesDoGrupo(b.grupo, '2026-09', tx), [])
+  })
+})
+
+test('nome de quem enviou: só de usuário da Conta (inclui sócio sem loja e admin_geral); de outra Conta vem null', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000063411')
+    const b = await semearConta(tx, 'B', '00000000063412')
+    const socioA = await semearUsuario(tx, a.base, { papel: 'admin_socio', rotulo: 'socioA', nomeDoUsuario: 'Sócio A', semLoja: true, comConta: true })
+    const geral = await semearUsuario(tx, a.base, { papel: 'admin_geral', rotulo: 'geral', nomeDoUsuario: 'Geral', semLoja: true })
+    const doB = await semearUsuario(tx, b.base, { papel: 'aux_adm', rotulo: 'auxB', nomeDoUsuario: 'Aux B', comConta: true })
+    const enviar = async (tipo: string, por: string) => linhas(tx, sql`insert into holerites (usuario_id, mes, tipo, arquivo_path, arquivo_nome, enviado_por)
+      values (${a.funcionarioId}, '2026-11', ${tipo}, 'x', 'x.pdf', ${por})`)
+    await enviar('salario', socioA)
+    await enviar('adiantamento', doB)
+    const nomes = (await helpers.listarHoleritesDoGrupo(a.grupo, '2026-11', tx)).map(h => [h.tipo, h.enviadoPorNome])
+    assert.deepEqual(nomes.sort(), [['adiantamento', null], ['salario', 'Sócio A']])
+    await linhas(tx, sql`update holerites set enviado_por = ${geral} where tipo = 'adiantamento' and mes = '2026-11'`)
+    const comGeral = (await helpers.listarHoleritesDoGrupo(a.grupo, '2026-11', tx)).find(h => h.tipo === 'adiantamento')
+    assert.equal(comGeral?.enviadoPorNome, 'Geral')
   })
 })
 

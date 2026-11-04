@@ -47,8 +47,7 @@ export type HoleriteRow = {
 
 export async function listarHoleritesAction(mes: string): Promise<HoleriteRow[]> {
   const usuario = await checarAdmin()
-  const { id: grupoId } = await getGrupoAtivo(usuario)
-  return listarHoleritesDoGrupo(grupoId, mes)
+  return listarHoleritesDoGrupo(await getGrupoAtivo(usuario), mes)
 }
 
 export async function uploadHoleriteAction(formData: FormData) {

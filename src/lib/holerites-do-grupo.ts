@@ -1,6 +1,7 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { holerites, lojas, usuarios } from '@/lib/db/schema'
+import { lojasDaConta } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select' | 'delete'>
 
@@ -55,8 +56,10 @@ export async function removerHoleriteDoGrupo(grupoId: string, id: string, exec: 
   return row?.arquivoPath ?? null
 }
 
-/** Holerites do mês dos funcionários do grupo, com o nome de quem enviou. */
-export async function listarHoleritesDoGrupo(grupoId: string, mes: string, exec: Executor = db) {
+/** Holerites do mês dos funcionários do grupo, com o nome de quem enviou. O nome só vem de usuário
+ *  da Conta do grupo (ou admin_geral, da plataforma): quem enviou pode estar em outro grupo da Conta. */
+export async function listarHoleritesDoGrupo(grupo: { id: string; contaId: string }, mes: string, exec: Executor = db) {
+  const grupoId = grupo.id
   const rows = await exec
     .select({
       id: holerites.id,
@@ -81,7 +84,14 @@ export async function listarHoleritesDoGrupo(grupoId: string, mes: string, exec:
     const pessoas = await exec
       .select({ id: usuarios.id, nome: usuarios.nome })
       .from(usuarios)
-      .where(inArray(usuarios.id, enviantes))
+      .where(and(
+        inArray(usuarios.id, enviantes),
+        or(
+          eq(usuarios.contaId, grupo.contaId),
+          inArray(usuarios.lojaId, lojasDaConta(grupo.contaId)),
+          eq(usuarios.papel, 'admin_geral'),
+        ),
+      ))
     for (const p of pessoas) nomePorId.set(p.id, p.nome)
   }
 
