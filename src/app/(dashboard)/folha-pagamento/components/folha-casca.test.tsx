@@ -181,12 +181,11 @@ test('clicar na aba troca o painel e o seletor Seção acompanha', async () => {
   assert.equal(document.querySelector<HTMLSelectElement>('select[aria-label="Seção"]')?.value, 'ajustes')
 })
 
-test('cada aba que ignora um filtro mostra o aviso dela', async () => {
+test('cada aba que ignora um filtro mostra o aviso dela (a Premiação mostra o seu no cartão Como funciona)', async () => {
   await montar()
   const avisos: [string, RegExp][] = [
     ['funcionarios', /O mês não muda esta aba/],
     ['comissoes', /o mês só define quais estão vigentes/],
-    ['premiacao', /os filtros de loja e de mês não mudam esta aba/],
   ]
   for (const [id, aviso] of avisos) {
     await escolherSecao(id)

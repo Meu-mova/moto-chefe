@@ -8,6 +8,10 @@ import { fmtBRL } from './preco-minimo'
 
 const AVISO_SO_MES = 'Mostra todas as lojas do grupo: o filtro de loja não muda esta aba. Segue o mês escolhido.'
 
+// A Premiação ignora os dois filtros, e o aviso mora no cartão "Como funciona" da própria aba (protótipo
+// aprovado do #627), não acima das abas: por isso `aviso: null` nela em ABAS_FOLHA.
+export const AVISO_PREMIACAO = 'Vale para o grupo todo e para todo mês: os filtros de loja e de mês não mudam esta aba.'
+
 // Fonte única das abas: o seletor "Seção", a barra de abas e o aviso saem desta lista.
 // `aviso` só existe onde a aba ignora um dos filtros do cabeçalho; `imprime` marca a aba cujo
 // conteúdo o botão Imprimir do cabeçalho reproduz.
@@ -15,7 +19,7 @@ export const ABAS_FOLHA: readonly { id: string; rotulo: string; aviso: string | 
   { id: 'mes', rotulo: 'Folha do Mês', aviso: null, imprime: true },
   { id: 'funcionarios', rotulo: 'Funcionários', aviso: 'Mostra quem é da loja escolhida no filtro. O mês não muda esta aba: estes valores valem todo mês até alguém mudar.', imprime: false },
   { id: 'comissoes', rotulo: 'Comissões', aviso: 'Mostra as regras de todas as lojas do grupo; o mês só define quais estão vigentes.', imprime: false },
-  { id: 'premiacao', rotulo: 'Premiação (OTE)', aviso: 'Vale para o grupo todo e para todo mês: os filtros de loja e de mês não mudam esta aba.', imprime: false },
+  { id: 'premiacao', rotulo: 'Premiação (OTE)', aviso: null, imprime: false },
   { id: 'adiantamentos', rotulo: 'Adiantamentos', aviso: AVISO_SO_MES, imprime: false },
   { id: 'holerites', rotulo: 'Holerites', aviso: null, imprime: false },
   { id: 'ajustes', rotulo: 'Ajustes', aviso: AVISO_SO_MES, imprime: false },

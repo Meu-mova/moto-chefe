@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ABAS_FOLHA, avisoDaAba, descreverRegra, diferencaValorReal, exemploDaPremiacao, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
+import { ABAS_FOLHA, AVISO_PREMIACAO, avisoDaAba, descreverRegra, diferencaValorReal, exemploDaPremiacao, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
 
 test('mesAdjacente: vira o ano em dezembro e em janeiro', () => {
   assert.equal(mesAdjacente('2026-12', 1), '2027-01')
@@ -29,7 +29,8 @@ test('avisoDaAba: sem aviso nas abas que seguem loja e mês; aviso nas demais', 
   assert.equal(avisoDaAba('mes'), null)
   assert.equal(avisoDaAba('holerites'), null)
   assert.match(avisoDaAba('funcionarios') ?? '', /O mês não muda esta aba/)
-  assert.match(avisoDaAba('premiacao') ?? '', /os filtros de loja e de mês não mudam esta aba/)
+  assert.equal(avisoDaAba('premiacao'), null, 'o aviso da Premiação fica no cartão Como funciona')
+  assert.match(AVISO_PREMIACAO, /os filtros de loja e de mês não mudam esta aba/)
   assert.equal(avisoDaAba('comissoes'), 'Mostra as regras de todas as lojas do grupo; o mês só define quais estão vigentes.')
   for (const id of ['adiantamentos', 'ajustes']) {
     assert.match(avisoDaAba(id) ?? '', /o filtro de loja não muda esta aba\. Segue o mês escolhido/, id)
