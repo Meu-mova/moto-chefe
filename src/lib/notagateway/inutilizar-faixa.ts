@@ -71,7 +71,11 @@ export async function inutilizarFaixa(
   if ('erro' in lida) return { ok: false, erro: lida.erro }
   const { cfg } = lida
   if (!ambienteLiberado(cfg.ambiente, deps.vercelEnv)) return { ok: false, erro: `${FORA_DA_PRODUCAO}.` }
-  const empresa = await deps.empresa(cfg).catch(() => null)
+  const empresa = await deps.empresa(cfg).catch((e: unknown) => {
+    // Só as mensagens do próprio cliente (status HTTP ou campo ausente); o resto pode trazer URL com o empresaId.
+    console.error(`[inutilizacao-faixa] falha ao ler a empresa na NG (${e instanceof Error && e.message.startsWith('Consultar Empresa') ? e.message : 'erro'})`)
+    return null
+  })
   if (!empresa) return { ok: false, erro: ERRO_EMPRESA }
   if (!ufPermiteInutilizacao(empresa.uf)) return { ok: false, erro: ERRO_UF }
   const validacao = validarFaixaInutilizacao({ ...entrada, serie: empresa.serie })

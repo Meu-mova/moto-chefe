@@ -90,7 +90,7 @@ const ctxBase: ContextoInutilizacao = { nota: notaBase, outraNotaVivaDaVenda: nu
 const outra = (p: Partial<ContextoInutilizacao['outrasNotas'][number]> = {}) =>
   ({ id: 'n2', numero: '974', serie: '1', status: 'Autorizada', motivoStatus: null, ...p })
 const pedido = (p: Partial<ContextoInutilizacao['pedidos'][number]> = {}) =>
-  ({ situacao: 'pendente' as const, motivoStatus: null, serie: '1', numeroInicial: 974, criadoEm: '2026-10-29T12:00:00Z', ...p })
+  ({ situacao: 'pendente' as const, motivoStatus: null, serie: '1', numeroInicial: 974, numeroFinal: 974, criadoEm: '2026-10-29T12:00:00Z', ...p })
 const erroDe = (d: ReturnType<typeof decidirInutilizacao>) => (d as { erro: string }).erro
 
 test('decide: recusada elegível, sem pedido e sem outra nota com o número, pode ser inutilizada', () => {

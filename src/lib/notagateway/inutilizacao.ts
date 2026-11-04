@@ -38,7 +38,7 @@ export type ValidacaoFaixa = { ok: true; faixa: FaixaInutilizacao } | { ok: fals
 /** Uma faixa contínua por pedido: nunca se divide sozinha. A série vem da NG, não da tela. */
 export function validarFaixaInutilizacao(entrada: { serie: string; numeroInicial: string; numeroFinal: string; justificativa: string }): ValidacaoFaixa {
   const serie = entrada.serie.trim()
-  if (!/^\d{1,3}$/.test(serie) || Number(serie) < 1) return { ok: false, erro: 'A série da NF-e precisa ser um número de 1 a 999.' }
+  if (!/^\d{1,3}$/.test(serie) || Number(serie) < 1) return { ok: false, erro: 'A série de NF-e configurada na Nota Gateway precisa ser um número de 1 a 999.' }
   const inteiro = (texto: string) => (/^\d+$/.test(texto.trim()) ? Number(texto) : NaN)
   const [numeroInicial, numeroFinal] = [inteiro(entrada.numeroInicial), inteiro(entrada.numeroFinal)]
   if (!(numeroInicial >= 1 && numeroFinal >= numeroInicial && numeroFinal <= NUMERO_MAXIMO)) {
@@ -117,7 +117,7 @@ export function elegivelParaInutilizar(nota: NotaParaInutilizar, outraNotaVivaDa
 
 export type NotaDoNumero = { id: string; numero: string | null; serie: string | null; status: string; motivoStatus: string | null }
 
-export type PedidoDoNumero = { situacao: SituacaoInutilizacao; motivoStatus: string | null; serie: string; numeroInicial: number; numeroFinal?: number; criadoEm: Date | string }
+export type PedidoDoNumero = { situacao: SituacaoInutilizacao; motivoStatus: string | null; serie: string; numeroInicial: number; numeroFinal: number; criadoEm: Date | string }
 
 /**
  * Tudo o que a decisão precisa, carregado uma vez (inutilizar.ts) para o pedido e para a
@@ -174,7 +174,7 @@ export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutiliza
   if (!elegivel.ok) return { tipo: 'nenhuma', erro: elegivel.erro }
   // Pedido em faixa cobre o número se ele cai entre o inicial e o final (o individual tem os dois iguais).
   const pedidos = ctx.pedidos.filter(p => semZerosAEsquerda(p.serie) === semZerosAEsquerda(elegivel.serie)
-    && elegivel.numero >= p.numeroInicial && elegivel.numero <= (p.numeroFinal ?? p.numeroInicial))
+    && elegivel.numero >= p.numeroInicial && elegivel.numero <= p.numeroFinal)
   const vivo = pedidos.find(p => p.situacao !== 'negada')
   if (vivo?.situacao === 'autorizada') return { tipo: 'autorizada', erro: 'Este número já foi inutilizado.' }
   if (vivo) return { tipo: 'pendente', erro: ERRO_JA_PEDIDA }
