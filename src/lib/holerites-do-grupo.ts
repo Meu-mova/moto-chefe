@@ -44,8 +44,13 @@ export async function holeriteDoGrupo(grupoId: string, id: string, exec: Executo
 
 /** Apaga a linha do holerite do grupo e devolve o caminho do arquivo; null se não é do grupo. */
 export async function removerHoleriteDoGrupo(grupoId: string, id: string, exec: Executor = db) {
-  const row = await holeriteDoGrupo(grupoId, id, exec)
-  if (!row) return null
-  await exec.delete(holerites).where(eq(holerites.id, id))
-  return row.arquivoPath
+  const [row] = await exec
+    .delete(holerites)
+    .where(and(
+      eq(holerites.id, id),
+      inArray(holerites.usuarioId, exec.select({ id: usuarios.id }).from(usuarios)
+        .where(inArray(usuarios.lojaId, lojasDoGrupo(grupoId, exec)))),
+    ))
+    .returning({ arquivoPath: holerites.arquivoPath })
+  return row?.arquivoPath ?? null
 }

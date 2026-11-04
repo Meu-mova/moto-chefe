@@ -60,7 +60,7 @@ function comLeituraRegistrada(tx: Tx) {
       } : v
     },
   })
-  const exec = { select: (...a: unknown[]) => envolver((tx.select as (...x: unknown[]) => object)(...a)), delete: tx.delete.bind(tx) }
+  const exec = { select: (...a: unknown[]) => envolver((tx.select as (...x: unknown[]) => object)(...a)), delete: (...a: unknown[]) => envolver((tx.delete as (...x: unknown[]) => object)(...a)) }
   return { exec: exec as unknown as Tx, lidas }
 }
 
