@@ -89,3 +89,9 @@ test('transporteDoPayload não presume nada de payload antigo, vazio ou com moda
 test('transporteDoPayload sem endereço de entrega devolve só a modalidade', () => {
   assert.deepEqual(transporteDoPayload({ transporte: { frete: { modalidade: 'SemTransporte' } } }), { modalidade: 'SemTransporte' })
 })
+
+test('o tipo de pessoa do destinatário vem do documento, não do que a tela mandou', () => {
+  const entrega = { tipoPessoaDestinatario: 'J' as const, cpfCnpjDestinatario: '352.817.650-43', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG' }
+  const resultado = validarDadosTransporte({ modalidade: 'SemTransporte', enderecoEntrega: entrega })
+  assert.equal(resultado.ok && resultado.dados.enderecoEntrega?.tipoPessoaDestinatario, 'F')
+})

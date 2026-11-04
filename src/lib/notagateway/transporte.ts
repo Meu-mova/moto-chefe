@@ -1,5 +1,6 @@
 import { ufValida } from '@/lib/sefaz/uf'
-import { cnpjValido, cpfValido } from '@/lib/documento'
+import { cnpjValido, cpfValido, soDigitosDoc } from '@/lib/documento'
+import { tipoPessoa } from './venda'
 
 export const MODALIDADES_FRETE = [
   ['PorContaDoDestinatario', '1 · Por conta do destinatário'],
@@ -45,7 +46,8 @@ export function normalizarDadosTransporte(dados: DadosTransporte): DadosTranspor
     modalidade: dados.modalidade,
     ...(dados.enderecoEntrega ? { enderecoEntrega: {
       ...dados.enderecoEntrega,
-      cpfCnpjDestinatario: dados.enderecoEntrega.cpfCnpjDestinatario.replace(/\D/g, ''),
+      cpfCnpjDestinatario: soDigitosDoc(dados.enderecoEntrega.cpfCnpjDestinatario),
+      tipoPessoaDestinatario: tipoPessoa(dados.enderecoEntrega.cpfCnpjDestinatario),
       logradouro: dados.enderecoEntrega.logradouro.trim(), numero: dados.enderecoEntrega.numero.trim(),
       bairro: dados.enderecoEntrega.bairro.trim(), cidade: dados.enderecoEntrega.cidade.trim(),
       uf: dados.enderecoEntrega.uf.trim().toUpperCase(),
