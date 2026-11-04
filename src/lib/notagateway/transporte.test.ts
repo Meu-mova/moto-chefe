@@ -95,3 +95,13 @@ test('o tipo de pessoa do destinatário vem do documento, não do que a tela man
   const resultado = validarDadosTransporte({ modalidade: 'SemTransporte', enderecoEntrega: entrega })
   assert.equal(resultado.ok && resultado.dados.enderecoEntrega?.tipoPessoaDestinatario, 'F')
 })
+
+test('logradouro, número e bairro de entrega aceitam no máximo 60 caracteres (limite do XML)', () => {
+  const base = { tipoPessoaDestinatario: 'F' as const, cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG' }
+  const longo = 'x'.repeat(61)
+  for (const [campo, rotulo] of [['logradouro', 'logradouro'], ['numero', 'número'], ['bairro', 'bairro']] as const) {
+    assert.deepEqual(validarDadosTransporte({ modalidade: 'SemTransporte', enderecoEntrega: { ...base, [campo]: longo } }),
+      { ok: false, erro: `O ${rotulo} da entrega aceita no máximo 60 caracteres.` })
+  }
+  assert.equal(validarDadosTransporte({ modalidade: 'SemTransporte', enderecoEntrega: { ...base, logradouro: 'x'.repeat(60) } }).ok, true)
+})

@@ -36,6 +36,9 @@ export const DADOS_TRANSPORTE_VAZIOS = {
   },
 } satisfies DadosTransporte
 
+/** Tamanho máximo de xLgr, nro e xBairro no XML da NF-e (MOC 7.0). */
+const LIMITE_TEXTO_XML = 60
+
 const CAMPOS_ENDERECO: [keyof EnderecoEntrega, string][] = [
   ['cpfCnpjDestinatario', 'CPF ou CNPJ do destinatário'], ['logradouro', 'logradouro'],
   ['numero', 'número'], ['bairro', 'bairro'], ['cidade', 'código IBGE do município'], ['uf', 'UF'],
@@ -66,6 +69,8 @@ export function validarDadosTransporte(
   const endereco = normalizados.enderecoEntrega
   const faltantes = CAMPOS_ENDERECO.filter(([campo]) => !endereco[campo]).map(([, rotulo]) => rotulo)
   if (faltantes.length) return { ok: false, erro: `Preencha os dados de entrega: ${faltantes.join(', ')}.` }
+  const longo = (['logradouro', 'numero', 'bairro'] as const).find(c => endereco[c].length > LIMITE_TEXTO_XML)
+  if (longo) return { ok: false, erro: `O ${longo === 'numero' ? 'número' : longo} da entrega aceita no máximo ${LIMITE_TEXTO_XML} caracteres.` }
   if (!ufValida(endereco.uf)) return { ok: false, erro: 'UF de entrega inválida.' }
   if (endereco.cpfCnpjDestinatario.length === 11 && !cpfValido(endereco.cpfCnpjDestinatario)) return { ok: false, erro: 'CPF do destinatário inválido.' }
   if (endereco.cpfCnpjDestinatario.length === 14 && !cnpjValido(endereco.cpfCnpjDestinatario)) return { ok: false, erro: 'CNPJ do destinatário inválido.' }
