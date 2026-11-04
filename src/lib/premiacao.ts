@@ -1,4 +1,4 @@
-type Faixa = { valorMinimoVendas: string; premiacao: string }
+export type Faixa = { valorMinimoVendas: string; premiacao: string }
 
 export const ordenarFaixas = <F extends Faixa>(faixas: F[]): F[] =>
   [...faixas].sort((a, b) => parseFloat(a.valorMinimoVendas) - parseFloat(b.valorMinimoVendas))
