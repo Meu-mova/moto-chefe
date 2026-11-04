@@ -234,3 +234,57 @@ test('tpOp diferente de 2 ignora transporte que a tela mande por engano', async 
   assert.equal(result.ok, true, JSON.stringify(result))
   assert.equal('transporte' in net.payloads[0], false)
 })
+
+async function inserirNota(f: Awaited<ReturnType<typeof fixture>>, o: { idExterno: string; status: string; ambiente?: string; motivo?: string | null; depoisDeSegundos?: number }) {
+  const [venda] = await rows<{ numero: number }>(sql`select numero from vendas where id = ${f.saleId}`)
+  await db.execute(sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, motivo_status, payload, criado_em)
+    values (${f.saleId}, ${venda.numero}, ${f.grupoId}, ${o.idExterno}, ${o.ambiente ?? 'Homologacao'}, ${o.status}, ${o.motivo ?? null},
+      ${JSON.stringify({ transporte: expectedTransport })}::jsonb, now() + make_interval(secs => ${o.depoisDeSegundos ?? 10}))`)
+}
+const transporteRecuperado = async (f: Awaited<ReturnType<typeof fixture>>) => {
+  user = f.user
+  network(f)
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.equal(previa.ok, true, JSON.stringify(previa))
+  return previa.ok ? previa.transporteAnterior : 'falhou'
+}
+
+test('recuperar o transporte ignora recusa de outro ambiente', async () => {
+  const f = await fixture()
+  await inserirNota(f, { idExterno: 'mova-prod-1', status: 'Negada', ambiente: 'Producao', motivo: '478 - x' })
+  assert.equal(await transporteRecuperado(f), null)
+})
+
+test('recuperar o transporte ignora recusa antiga quando a última tentativa foi autorizada', async () => {
+  const f = await fixture(true, { transporte: expectedTransport })
+  await inserirNota(f, { idExterno: `${f.externalId}-b`, status: 'Autorizada' })
+  assert.equal(await transporteRecuperado(f), null)
+})
+
+test('recuperar o transporte também vale para nota denegada, que abre a mesma tela de recusa', async () => {
+  const f = await fixture()
+  await inserirNota(f, { idExterno: 'mova-homolog-den-1', status: 'Denegada', motivo: '302 - destinatário irregular' })
+  assert.deepEqual(await transporteRecuperado(f), transport)
+})
+
+test('código IBGE com 6 dígitos ou com letra bloqueia na action, sem NG e sem gravar', async () => {
+  for (const cidade of ['410690', '41069O2']) {
+    const f = await fixture()
+    user = f.user
+    const net = network(f)
+    const antes = await snapshot(f)
+    const result = await actions.transmitirNfePropriaAction(f.motoId, renave, { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, cidade } })
+    assert.deepEqual(result, { ok: false, error: 'Código IBGE do município deve ter 7 dígitos.' })
+    assert.deepEqual(net.requests, [])
+    assert.deepEqual(await snapshot(f), antes)
+  }
+})
+
+test('tipo de pessoa incoerente vindo da tela é corrigido pelo documento antes de ir à NG', async () => {
+  const f = await fixture()
+  user = f.user
+  const net = network(f)
+  const result = await actions.transmitirNfePropriaAction(f.motoId, renave, { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, tipoPessoaDestinatario: 'J' } })
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].transporte?.enderecoEntrega.tipoPessoaDestinatario, 'F')
+})
