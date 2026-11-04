@@ -5,6 +5,7 @@ import { decifrar } from '@/lib/cripto'
 import { ambienteDaNg, ambienteLiberado } from './ambiente'
 import type { EmitenteDanfe } from './emitente-danfe'
 import { credencialCompleta } from './credencial-tela'
+import { serieEUfDaEmpresa } from './inutilizacao'
 
 /**
  * Cliente HTTP da Nota Gateway (API v2). A credencial é do GRUPO, porque o MOVA
@@ -142,6 +143,15 @@ export async function ufDaEmpresa(cfg: ConfigNotaGateway): Promise<string> {
   const uf = (r.json as any)?.endereco?.uf
   if (!uf) throw new Error('A empresa na Nota Gateway está sem UF no endereço')
   return String(uf)
+}
+
+/** Série de NF-e do ambiente da credencial e UF do emitente (#655). Erro só com o status: a resposta traz o empresaId. */
+export async function serieEUfDaEmpresaNaNg(cfg: ConfigNotaGateway): Promise<{ serie: string; uf: string }> {
+  const r = await chamar(cfg, 'GET', `/empresas/${encodeURIComponent(cfg.empresaId)}`)
+  if (r.status >= 400) throw new Error(`Consultar Empresa respondeu HTTP ${r.status}`)
+  const dados = serieEUfDaEmpresa(r.json, cfg.ambiente)
+  if (!dados) throw new Error('Consultar Empresa sem a série de NF-e do ambiente ou sem UF')
+  return dados
 }
 
 /** CNPJ da empresa como a NG tem cadastrado (#446). Erro só com o status: a resposta pode trazer o empresaId. */
