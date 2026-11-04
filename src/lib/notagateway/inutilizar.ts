@@ -226,6 +226,18 @@ export async function enviarPedido(
   return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: null }
 }
 
+/** Banco ou chave de cifra falhando ao ler a configuração vira recusa, e não pedido pendente sem ter ido à NG (C6). */
+export async function lerConfigDoAmbiente(
+  deps: Pick<DependenciasInutilizacao, 'config' | 'exec'>, grupoId: string, ambiente: string,
+): Promise<{ cfg: ConfigNotaGateway } | { erro: string }> {
+  try {
+    return await deps.config(grupoId, ambiente, deps.exec)
+  } catch (e) {
+    console.error('[inutilizacao] falha ao ler a configuração da Nota Gateway:', e instanceof Error ? e.message : e)
+    return { erro: 'Não deu para ler a configuração da Nota Gateway desta empresa. Tente de novo.' }
+  }
+}
+
 /** Pede a inutilização à NG; o resultado chega depois, por consultarInutilizacao. */
 export async function inutilizarNumeroDaNota(
   usuario: UsuarioInutilizacao, notaId: string, justificativa: string, deps: DependenciasInutilizacao = DEPENDENCIAS,
@@ -236,16 +248,7 @@ export async function inutilizarNumeroDaNota(
   const { pedido } = preparo
   const recusar = (status: string, motivo: string) => recusarPedido(exec, usuario.id, pedido, status, motivo)
 
-  // Banco ou chave de cifra falhando ao ler a configuração: recusa, e não pedido pendente sem ter ido à NG (C6).
-  const lerConfig = async () => {
-    try {
-      return await deps.config(pedido.grupoId, pedido.ambiente, exec)
-    } catch (e) {
-      console.error('[inutilizacao] falha ao ler a configuração da Nota Gateway:', e instanceof Error ? e.message : e)
-      return { erro: 'Não deu para ler a configuração da Nota Gateway desta empresa. Tente de novo.' }
-    }
-  }
-  const c = await lerConfig()
+  const c = await lerConfigDoAmbiente(deps, pedido.grupoId, pedido.ambiente)
   if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
   // O cliente da NG também barra produção fora do deploy de produção, mas lançando; aqui vira recusa e o número fica livre (C6).
   if (!ambienteLiberado(c.cfg.ambiente, deps.vercelEnv)) {

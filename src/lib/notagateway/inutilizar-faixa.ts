@@ -3,13 +3,12 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { notasFiscaisSaidaInutilizacoes } from '@/lib/db/schema'
 import { ambienteLiberado, FORA_DA_PRODUCAO } from './ambiente'
-import { configNotaGateway, pedirInutilizacao, serieEUfDaEmpresaNaNg, type ConfigNotaGateway } from './client'
-import { ERRO_SEM_CONFIGURACAO, ufPermiteInutilizacao, validarFaixaInutilizacao } from './inutilizacao'
-import { enviarPedido, grupoVisivel, type PedidoInutilizacao, type Resultado, type UsuarioInutilizacao } from './inutilizar'
+import { pedirInutilizacao, serieEUfDaEmpresaNaNg } from './client'
+import { ufPermiteInutilizacao, validarFaixaInutilizacao } from './inutilizacao'
+import { configDoAmbiente, enviarPedido, grupoVisivel, lerConfigDoAmbiente, type DependenciasInutilizacao, type PedidoInutilizacao, type Resultado, type UsuarioInutilizacao } from './inutilizar'
 
 // Mesma frase para grupo de outra Conta, grupo inexistente e papel sem permissão: não revela que o grupo existe.
 const NAO_ENCONTRADO = 'Grupo não encontrado'
-const ERRO_AMBIENTE = 'O ambiente da página mudou. Atualize a página e confira a configuração da Nota Gateway.'
 const ERRO_EMPRESA = 'Não deu para ler a série e a UF da empresa na Nota Gateway.'
 const ERRO_UF = 'A inutilização não está disponível para empresas do Acre, Bahia ou São Paulo.'
 const ERRO_TENTATIVA = 'Tentativa inválida. Atualize a página e abra o diálogo de novo.'
@@ -21,14 +20,14 @@ const chaveValida = (chave: string) => chave.length >= 16 && chave.length <= 64
 /** O que a faixa pede de fora; o teste de banco troca a NG, a configuração e a transação. */
 export type DependenciasFaixa = {
   exec: Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
-  config: (grupoId: string, exec: DependenciasFaixa['exec']) => Promise<ConfigNotaGateway | null>
+  config: DependenciasInutilizacao['config']
   empresa: typeof serieEUfDaEmpresaNaNg
   enviar: typeof pedirInutilizacao
   vercelEnv: string | undefined
 }
 
 const DEPENDENCIAS: DependenciasFaixa = {
-  exec: db, config: configNotaGateway, empresa: serieEUfDaEmpresaNaNg, enviar: pedirInutilizacao, vercelEnv: process.env.VERCEL_ENV,
+  exec: db, config: configDoAmbiente, empresa: serieEUfDaEmpresaNaNg, enviar: pedirInutilizacao, vercelEnv: process.env.VERCEL_ENV,
 }
 
 export type EntradaFaixa = { chave: string; ambiente: string; numeroInicial: string; numeroFinal: string; justificativa: string }
@@ -67,9 +66,10 @@ export async function inutilizarFaixa(
   if (!(await grupoVisivel(exec, usuario, grupoId))) return { ok: false, erro: NAO_ENCONTRADO }
   if (!chaveValida(entrada.chave)) return { ok: false, erro: ERRO_TENTATIVA }
 
-  const cfg = await deps.config(grupoId, exec)
-  if (!cfg) return { ok: false, erro: ERRO_SEM_CONFIGURACAO }
-  if (cfg.ambiente !== entrada.ambiente) return { ok: false, erro: ERRO_AMBIENTE }
+  // O ambiente da página tem de ser o configurado no grupo: a credencial vai ao ambiente dele.
+  const lida = await lerConfigDoAmbiente(deps, grupoId, entrada.ambiente)
+  if ('erro' in lida) return { ok: false, erro: lida.erro }
+  const { cfg } = lida
   if (!ambienteLiberado(cfg.ambiente, deps.vercelEnv)) return { ok: false, erro: `${FORA_DA_PRODUCAO}.` }
   const empresa = await deps.empresa(cfg).catch(() => null)
   if (!empresa) return { ok: false, erro: ERRO_EMPRESA }
