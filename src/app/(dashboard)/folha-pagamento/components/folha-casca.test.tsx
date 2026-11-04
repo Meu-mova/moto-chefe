@@ -3,6 +3,7 @@
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
+import { clicar, escolher } from '@/test/eventos-dom'
 
 const { dom, desmontar } = montarDom()
 after(desmontar)
@@ -60,20 +61,11 @@ async function montar(lojaAtual = '', mesAtual = '2026-10') {
 
 const botao = (nome: string) => [...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === nome || b.textContent?.trim() === nome)
 
-async function clicar(el: Element | undefined) {
-  const { act } = await import('react')
-  await act(async () => { el?.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
-}
-
-// Troca o valor de um <select> nativo como o navegador faz, para o onChange do React disparar.
+// Troca o valor de um <select> nativo pelo rótulo dele.
 async function escolherNoSelect(rotulo: string, valor: string) {
-  const { act } = await import('react')
   const select = document.querySelector<HTMLSelectElement>(`select[aria-label="${rotulo}"]`)
   assert.ok(select, `select "${rotulo}" não encontrado`)
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, 'value')!.set!.call(select, valor)
-    select.dispatchEvent(new window.Event('change', { bubbles: true }))
-  })
+  await escolher(select, valor)
 }
 const escolherSecao = (id: string) => escolherNoSelect('Seção', id)
 
@@ -191,6 +183,8 @@ test('cada aba que ignora um filtro mostra o aviso dela (a Premiação mostra o 
     await escolherSecao(id)
     assert.match(document.body.textContent ?? '', aviso, id)
   }
+  await escolherSecao('premiacao')
+  assert.doesNotMatch(document.body.textContent ?? '', /não mudam esta aba/, 'a casca não repete o aviso: ele mora no cartão Como funciona')
 })
 
 test('Imprimir com "Todas as lojas" leva loja vazia, que o servidor lê como todas', async () => {
