@@ -24,6 +24,19 @@ Corpo (exemplo da página):
 
 Respostas documentadas: `200` com corpo vazio; `400` (`GW002`, payload que não foi interpretado); `401` (`AUT002`) e `403` (`AUT001`), API Key inválida.
 
+## Faixa (#655)
+
+O pedido da NG já aceita `numeroInicial` e `numeroFinal` (exemplo da [página oficial](https://docs.notagateway.com.br/v2/reference/inutilizar-numeracao): `16` a `24`). O MOVA pede **uma faixa contínua por vez**, sem nota de origem (`nota_id` nulo em `notas_fiscais_saida_inutilizacoes`); duas lacunas são dois pedidos.
+
+| Regra | Fonte oficial e trecho |
+|---|---|
+| Faixa crescente | [MOC NF-e v7](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-visao-geral.pdf), regra I03: "Número da Faixa Inicial maior do que o número Final" (rejeição 224: "A faixa inicial é maior que a faixa final"). |
+| No máximo 10.000 números por pedido | Mesmo MOC, regra I04: "Quantidade máxima de numeração a inutilizar ultrapassa o limite (10.000 números)" (rejeição 201). O banco repete o limite num CHECK. |
+| AC, BA e SP não têm o pedido | [Ajuste SINIEF 40/2026](https://app1.sefaz.mt.gov.br/Sistema/legislacao/legislacaotribut.nsf/173e6c0d2202fdcb03258b1700659f1e/b54277fb985485c203258e720071bd8c): acrescenta à cláusula décima quarta do Ajuste SINIEF 07/05 o "§ 6º O Pedido de Inutilização de Número da NF-e previsto no caput não se aplica aos Estados do Acre, Bahia e São Paulo". Cláusula terceira: efeitos "a partir do primeiro dia do segundo mês subsequente ao da publicação" (DOU de 14/09/2026, logo 01/11/2026). A UF vem de Consultar Empresa, nunca da tela. |
+| Série do ambiente | [Consultar Empresa](https://docs.notagateway.com.br/v2/reference/consultar-empresa) (`updatedAt` `2026-06-10T19:17:01.000Z`): `emissaoNFeProduto.ambienteProducao.serieNFe` e `ambienteHomologacao.serieNFe`, "Número da série para emissão de NF-e". O MOVA usa a do ambiente da credencial, sem seletor. |
+
+O que não é documentado e vale por decisão do Luis (#655): faixa repetida ou sobreposta a outro pedido ou nota do MOVA não bloqueia (a tela avisa); emissão feita fora do MOVA não é consultável; o 200 do POST segue sem resultado, que chega pela consulta. O duplo clique cai no `id_externo` (hash de grupo e chave da tentativa). Hoje o AC/BA/SP só barra a faixa; o pedido por nota segue em [#659](https://github.com/Meu-mova/moto-chefe/issues/659).
+
 ## Consulta e XML
 
 | O quê | Página | Caminho |
@@ -60,6 +73,7 @@ Cada item tem fonte escrita. Doc e item divergem? Vale o que foi testado; na dú
 
 - `src/lib/notagateway/client.ts`: `pedirInutilizacao` (POST; 5xx vira `NotaGatewayIndisponivel`, só com o status) e `consultarInutilizacaoNaNg` (GET).
 - `src/lib/notagateway/inutilizacao.ts`: regras puras (justificativa, nota elegível, pedido sem resposta, quem pode pedir, e `decidirInutilizacao`: a decisão única que a lista mostra e o pedido aceita, inclusive se o grupo está no ambiente da nota).
+- `src/lib/notagateway/inutilizar-faixa.ts`: `inutilizarFaixa`, o pedido de faixa (config, série e UF da NG, grava pendente, envia pelo `enviarPedido` de `inutilizar.ts`). Regras puras da faixa em `inutilizacao.ts` (`validarFaixaInutilizacao`, `ufPermiteInutilizacao`, `serieEUfDaEmpresa`).
 - `src/lib/notagateway/inutilizar.ts`: `contextoDeInutilizacao` (o que a decisão precisa, com o grupo no `where`), pedido e consulta, gravação e log com o resultado de cada pedido.
 - `src/lib/notagateway/status.ts`: `ehDenegada`, `ehDuplicidade`, `STATUS_MORTOS` e `numeroLivre`, que decidem se a nota pode ter o número inutilizado e se outra nota ainda o ocupa.
 - `src/lib/queries/notas-emitidas.ts`: `anexarSituacaoDeInutilizacao`, a situação por nota na tela Notas emitidas.

@@ -51,7 +51,7 @@ export function validarFaixaInutilizacao(entrada: { serie: string; numeroInicial
   return justificativa.ok ? { ok: true, faixa: { serie, numeroInicial, numeroFinal, justificativa: justificativa.justificativa } } : justificativa
 }
 
-// Ajuste SINIEF 40/2026, cláusula segunda, §6º: o pedido não se aplica a AC, BA e SP (vale desde 01/11/2026).
+// Ajuste SINIEF 40/2026 (§ 6º novo na cláusula décima quarta do 07/05): o pedido não se aplica a AC, BA e SP (vale desde 01/11/2026).
 const UFS_SEM_INUTILIZACAO = ['AC', 'BA', 'SP']
 export const ufPermiteInutilizacao = (uf: string): boolean => !UFS_SEM_INUTILIZACAO.includes(uf.trim().toUpperCase())
 
