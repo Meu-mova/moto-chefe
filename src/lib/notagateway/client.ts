@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { notagatewayConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { decifrar } from '@/lib/cripto'
-import { ambienteDaNg, ambienteLiberado } from './ambiente'
+import { ambienteDaNg, ambienteLiberado, FORA_DA_PRODUCAO } from './ambiente'
 import type { EmitenteDanfe } from './emitente-danfe'
 import { credencialCompleta } from './credencial-tela'
 import { serieEUfDaEmpresa } from './inutilizacao'
@@ -36,7 +36,7 @@ export async function configNotaGateway(grupoId: string, exec: Pick<typeof db, '
 
 async function chamar(cfg: ConfigNotaGateway, method: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown) {
   if (!ambienteLiberado(cfg.ambiente, process.env.VERCEL_ENV)) {
-    throw new Error('Fora da produção, a Nota Gateway só roda em homologação — troque o ambiente do grupo em Admin → Notas fiscais')
+    throw new Error(`${FORA_DA_PRODUCAO} — troque o ambiente do grupo em Admin → Notas fiscais`)
   }
   const res = await fetch(`${API}${caminho}`, {
     method,

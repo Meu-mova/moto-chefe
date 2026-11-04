@@ -1,4 +1,4 @@
-import { ambienteLiberado } from './ambiente'
+import { ambienteLiberado, FORA_DA_PRODUCAO } from './ambiente'
 import type { ConfigNotaGateway } from './client'
 
 /**
@@ -8,7 +8,7 @@ import type { ConfigNotaGateway } from './client'
  */
 export async function vincularLogoNaNg(cfg: ConfigNotaGateway, png: Buffer): Promise<void> {
   if (!ambienteLiberado(cfg.ambiente, process.env.VERCEL_ENV)) {
-    throw new Error('Fora da produção, a Nota Gateway só roda em homologação — troque o ambiente do grupo em Admin → Notas fiscais')
+    throw new Error(`${FORA_DA_PRODUCAO} — troque o ambiente do grupo em Admin → Notas fiscais`)
   }
   const corpo = new FormData()
   corpo.append('logotipo', new Blob([new Uint8Array(png)], { type: 'image/png' }), 'logo.png')

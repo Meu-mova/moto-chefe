@@ -5,7 +5,7 @@ import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { semZerosAEsquerda } from '@/lib/texto'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao, type InutilizacaoConsultada } from './client'
-import { ambienteLiberado, divergenciaDeAmbiente } from './ambiente'
+import { ambienteLiberado, divergenciaDeAmbiente, FORA_DA_PRODUCAO } from './ambiente'
 import { credencialCompleta } from './credencial-tela'
 import {
   ACAO_INUTILIZAR, type ContextoInutilizacao, decidirInutilizacao, ERRO_JA_PEDIDA, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu,
@@ -249,7 +249,7 @@ export async function inutilizarNumeroDaNota(
   if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
   // O cliente da NG também barra produção fora do deploy de produção, mas lançando; aqui vira recusa e o número fica livre (C6).
   if (!ambienteLiberado(c.cfg.ambiente, deps.vercelEnv)) {
-    return recusar(STATUS_NAO_ENVIADA, 'Fora da produção, a Nota Gateway só roda em homologação. O número continua livre.')
+    return recusar(STATUS_NAO_ENVIADA, `${FORA_DA_PRODUCAO}. O número continua livre.`)
   }
   return enviarPedido(deps, usuario, pedido, c.cfg)
 }

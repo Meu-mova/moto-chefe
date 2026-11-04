@@ -2,14 +2,13 @@ import { createHash } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { notasFiscaisSaidaInutilizacoes } from '@/lib/db/schema'
-import { ambienteLiberado } from './ambiente'
+import { ambienteLiberado, FORA_DA_PRODUCAO } from './ambiente'
 import { configNotaGateway, pedirInutilizacao, serieEUfDaEmpresaNaNg, type ConfigNotaGateway } from './client'
-import { ufPermiteInutilizacao, validarFaixaInutilizacao } from './inutilizacao'
+import { ERRO_SEM_CONFIGURACAO, ufPermiteInutilizacao, validarFaixaInutilizacao } from './inutilizacao'
 import { enviarPedido, grupoVisivel, type PedidoInutilizacao, type Resultado, type UsuarioInutilizacao } from './inutilizar'
 
 // Mesma frase para grupo de outra Conta, grupo inexistente e papel sem permissão: não revela que o grupo existe.
 const NAO_ENCONTRADO = 'Grupo não encontrado'
-const ERRO_SEM_CONFIGURACAO = 'Nota Gateway não configurada para esta empresa.'
 const ERRO_AMBIENTE = 'O ambiente da página mudou. Atualize a página e confira a configuração da Nota Gateway.'
 const ERRO_EMPRESA = 'Não deu para ler a série e a UF da empresa na Nota Gateway.'
 const ERRO_UF = 'A inutilização não está disponível para empresas do Acre, Bahia ou São Paulo.'
@@ -71,7 +70,7 @@ export async function inutilizarFaixa(
   const cfg = await deps.config(grupoId, exec)
   if (!cfg) return { ok: false, erro: ERRO_SEM_CONFIGURACAO }
   if (cfg.ambiente !== entrada.ambiente) return { ok: false, erro: ERRO_AMBIENTE }
-  if (!ambienteLiberado(cfg.ambiente, deps.vercelEnv)) return { ok: false, erro: 'Fora da produção, a Nota Gateway só roda em homologação.' }
+  if (!ambienteLiberado(cfg.ambiente, deps.vercelEnv)) return { ok: false, erro: `${FORA_DA_PRODUCAO}.` }
   const empresa = await deps.empresa(cfg).catch(() => null)
   if (!empresa) return { ok: false, erro: ERRO_EMPRESA }
   if (!ufPermiteInutilizacao(empresa.uf)) return { ok: false, erro: ERRO_UF }
