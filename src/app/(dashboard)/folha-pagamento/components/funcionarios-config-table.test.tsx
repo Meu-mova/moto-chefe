@@ -120,6 +120,15 @@ test('as regras aparecem só para leitura, com o caminho para mudá-las', async 
   assert.equal(document.querySelectorAll('[role="row"] input[aria-label*="gra"]').length, 0)
 })
 
+test('as colunas de texto da faixa tablet mostram o valor GRAVADO, não o que está sendo digitado', async () => {
+  await montar()
+  await digitar(campo('Salário', 'Vendedor A'), '9.999,00')
+  const linha = document.querySelector('[role="row"]:has([aria-label="Ver detalhes de Vendedor A"])')!.cloneNode(true) as Element
+  linha.querySelector('[id^="detalhe-config-"]')!.remove() // o detalhe tem os campos; sobram só as colunas de texto
+  assert.match(linha.textContent ?? '', /R\$\u00a02\.450,00/)
+  assert.doesNotMatch(linha.textContent ?? '', /9\.999/)
+})
+
 test('Ativo e Inativo mostram a situação e trocam o mesmo estado do checkbox', async () => {
   await montar()
   assert.equal(situacao('Vendedor A', 'Ativo').getAttribute('aria-pressed'), 'true')

@@ -1,10 +1,8 @@
 import { fmtBRL } from '@/lib/preco-minimo'
 import type { FolhaDoMes } from '@/lib/queries/folha'
-import { CELULA, GRADE, NUMERO, SO_DESKTOP, SO_TABLET } from './folha-mes-grade'
+import { CELULA, GRADE, NUMERO, SO_DESKTOP, SO_TABLET, TITULO } from './folha-mes-grade'
 import { ValorOuZero } from './folha-mes-valor'
 import { LinhaFolha, type LinhaFolhaDados } from './folha-mes-linha'
-
-const TITULO = 'text-xs font-medium text-muted-foreground'
 
 // Tabela da Folha do Mês: celular mostra nome e total; tablet acrescenta salário, comissão e valor
 // real; desktop mostra tudo. Faixas pela largura do conteúdo (container `folha`, ver FolhaCasca).

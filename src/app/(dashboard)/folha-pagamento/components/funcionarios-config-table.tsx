@@ -11,7 +11,7 @@ import { fmtPercentual } from '@/lib/folha-tela'
 import { parseNumeroBR, formatarNumeroBR } from '@/lib/numero-br'
 import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import { Bloco } from './folha-bloco'
-import { CELULA } from './folha-mes-grade'
+import { CELULA, TITULO } from './folha-mes-grade'
 import { ValorOuZero } from './folha-mes-valor'
 
 export type RegraResumo = {
@@ -160,10 +160,12 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
           </div>
           <input type="checkbox" aria-label={`${f.nome} ativo`} checked={ativo} onChange={e => setAtivo(e.target.checked)} className="hidden rounded border-input @[960px]/folha:block" />
         </div>
-        <Bloco titulo="Regras de comissão e premiação" className="col-span-full @[960px]/folha:hidden">
-          <RegrasLista regras={f.regras} />
-          <p className="mt-1.5 text-xs text-muted-foreground">Para mudar, use a aba Comissões.</p>
-        </Bloco>
+        <div role="cell" className="col-span-full @[960px]/folha:hidden">
+          <Bloco titulo="Regras de comissão e premiação">
+            <RegrasLista regras={f.regras} />
+            <p className="mt-1.5 text-xs text-muted-foreground">Para mudar, use a aba Comissões.</p>
+          </Bloco>
+        </div>
         <div role="cell" className="col-span-full flex @[680px]/folha:justify-end @[960px]/folha:col-auto @[960px]/folha:px-2.5 @[960px]/folha:py-2">
           <Button aria-label={`Salvar ${f.nome}`} className="h-11 w-full text-sm @[680px]/folha:w-40 @[960px]/folha:h-8 @[960px]/folha:w-auto @[960px]/folha:text-xs"
             disabled={pending} onClick={salvar}>
@@ -174,8 +176,6 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
     </div>
   )
 }
-
-const TITULO = 'text-xs font-medium text-muted-foreground'
 
 export function FuncionariosConfigTable({ funcionarios }: { funcionarios: FuncionarioRow[] }) {
   if (funcionarios.length === 0) {
