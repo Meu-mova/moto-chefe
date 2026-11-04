@@ -1,33 +1,41 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { holerites, usuarios } from '@/lib/db/schema'
 
 type Executor = Pick<typeof db, 'select' | 'delete'>
 
-// Leituras de holerite pelo id. Sem next/headers nem Storage, para rodar contra o banco.
-// `lojaIdsGrupo` são as lojas do grupo ativo; quem chama decide a frase de recusa.
+// Leituras de holerite pelo id, com as lojas do grupo ativo DENTRO da consulta: registro de
+// outro grupo nem é lido. Sem next/headers nem Storage, para rodar contra o banco.
+// Quem chama decide a frase de recusa, a mesma para inexistente e para outro grupo.
 
-/** Funcionário do grupo, ou null (inexistente e de outro grupo são iguais para quem chama). */
+/** Caminho no bucket de um envio novo, montado do grupo no servidor. Os antigos (sem o grupo) seguem
+ *  pelo `arquivo_path` gravado: abrir e remover nunca remontam o caminho. */
+export function caminhoDoHolerite(
+  { grupoId, mes, usuarioId, tipo }: { grupoId: string; mes: string; usuarioId: string; tipo: string },
+  sufixo: string,
+) {
+  return `${grupoId}/${mes}/${usuarioId}-${tipo}-${sufixo}.pdf`
+}
+
+/** Funcionário do grupo, ou null. */
 export async function funcionarioDoGrupo(lojaIdsGrupo: string[], usuarioId: string, exec: Executor = db) {
   const [alvo] = await exec
     .select({ lojaId: usuarios.lojaId, nome: usuarios.nome })
     .from(usuarios)
-    .where(eq(usuarios.id, usuarioId))
+    .where(and(eq(usuarios.id, usuarioId), inArray(usuarios.lojaId, lojaIdsGrupo)))
     .limit(1)
-  if (!alvo?.lojaId || !lojaIdsGrupo.includes(alvo.lojaId)) return null
-  return alvo
+  return alvo ?? null
 }
 
 /** Caminho do arquivo do holerite do grupo, ou null. */
 export async function holeriteDoGrupo(lojaIdsGrupo: string[], id: string, exec: Executor = db) {
   const [row] = await exec
-    .select({ arquivoPath: holerites.arquivoPath, lojaId: usuarios.lojaId })
+    .select({ arquivoPath: holerites.arquivoPath })
     .from(holerites)
     .innerJoin(usuarios, eq(holerites.usuarioId, usuarios.id))
-    .where(eq(holerites.id, id))
+    .where(and(eq(holerites.id, id), inArray(usuarios.lojaId, lojaIdsGrupo)))
     .limit(1)
-  if (!row?.lojaId || !lojaIdsGrupo.includes(row.lojaId)) return null
-  return { arquivoPath: row.arquivoPath }
+  return row ?? null
 }
 
 /** Apaga a linha do holerite do grupo e devolve o caminho do arquivo; null se não é do grupo. */
