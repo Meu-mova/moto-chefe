@@ -6,11 +6,10 @@ import { tipoPessoa } from '@/lib/notagateway/venda'
 
 type Props = {
   dados: DadosTransporte
-  exigeEntrega: boolean
   onChange: (atualizar: (anterior: DadosTransporte) => DadosTransporte) => void
 }
 
-export function TransporteForm({ dados, exigeEntrega, onChange }: Props) {
+export function TransporteForm({ dados, onChange }: Props) {
   const endereco = dados.enderecoEntrega ?? DADOS_TRANSPORTE_VAZIOS.enderecoEntrega
   const setFrete = (modalidade: DadosTransporte['modalidade']) => onChange(anterior => ({ ...anterior, modalidade }))
   const setEndereco = (campo: keyof EnderecoEntrega, valor: string) => onChange(anterior => ({
@@ -32,8 +31,8 @@ export function TransporteForm({ dados, exigeEntrega, onChange }: Props) {
   return (
     <section className="space-y-4 rounded-lg border border-border bg-card p-4">
       <div>
-        <h2 className="font-semibold">2. {exigeEntrega ? 'Transporte e entrega' : 'Transporte'}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Selecione a modalidade do frete.{exigeEntrega && ' No faturamento direto (tpOp 2), informe onde o veículo será entregue, mesmo com frete 9.'}</p>
+        <h2 className="font-semibold">Transporte e entrega</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Escolha o frete e informe onde o veículo será entregue, qualquer que seja o frete.</p>
       </div>
       <div className="space-y-1">
         <Label htmlFor="modalidade-frete">Modalidade do frete</Label>
@@ -42,7 +41,7 @@ export function TransporteForm({ dados, exigeEntrega, onChange }: Props) {
           {MODALIDADES_FRETE.map(([valor, rotulo]) => <option key={valor} value={valor}>{rotulo}</option>)}
         </select>
       </div>
-      {exigeEntrega && <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1 sm:col-span-2">
           <Label htmlFor="entrega-cpfCnpjDestinatario">CPF ou CNPJ do destinatário</Label>
           <Input id="entrega-cpfCnpjDestinatario" value={endereco.cpfCnpjDestinatario} onChange={e => setEndereco('cpfCnpjDestinatario', e.target.value)} inputMode="numeric" placeholder="CPF ou CNPJ" />
@@ -56,7 +55,7 @@ export function TransporteForm({ dados, exigeEntrega, onChange }: Props) {
           <p className="text-xs text-muted-foreground">A NG usa este código para preencher código e nome no XML.</p>
         </div>
         {texto('uf', 'UF')}
-      </div>}
+      </div>
     </section>
   )
 }

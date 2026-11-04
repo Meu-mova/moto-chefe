@@ -55,12 +55,10 @@ export function normalizarDadosTransporte(dados: DadosTransporte): DadosTranspor
 
 export function validarDadosTransporte(
   dados: DadosTransporte | null | undefined,
-  exigeEntrega: boolean,
 ): { ok: true; dados: DadosTransporte } | { ok: false; erro: string } {
   if (!dados?.modalidade) return { ok: false, erro: 'Selecione a modalidade do frete.' }
   if (!MODALIDADES_FRETE.some(([token]) => token === dados.modalidade)) return { ok: false, erro: 'Modalidade do frete inválida.' }
   const normalizados = normalizarDadosTransporte(dados)
-  if (!exigeEntrega) return { ok: true, dados: { modalidade: normalizados.modalidade } }
   if (!normalizados.enderecoEntrega) return { ok: false, erro: 'Preencha os dados do local de entrega.' }
 
   const endereco = normalizados.enderecoEntrega

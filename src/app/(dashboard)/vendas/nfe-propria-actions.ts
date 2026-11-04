@@ -422,9 +422,7 @@ export async function corrigirEReenviarNfAction(motoId: string, correcao: Correc
     const e = await montarEmissao(motoId, usuario)
     const r = conferirRenave(e.renaveExigido, renave)
     if (!r.ok) return r
-    const t = e.renaveExigido
-      ? validarDadosTransporte(transporte, operacaoExigeEntrega(r.dados?.tipoOperacao))
-      : null
+    const t = operacaoExigeEntrega(r.dados?.tipoOperacao) ? validarDadosTransporte(transporte) : null
     if (t && !t.ok) return { ok: false, error: t.erro }
     await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
     return transmitirNfePropriaAction(motoId, r.dados, t?.ok ? t.dados : undefined)
@@ -523,8 +521,8 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     const renaveValidado = r.dados
     const eComRenave = { ...e, renave: renaveValidado }
     let transporteValidado: DadosTransporte | undefined
-    if (e.renaveExigido) {
-      const t = validarDadosTransporte(transporte, operacaoExigeEntrega(renaveValidado?.tipoOperacao))
+    if (operacaoExigeEntrega(renaveValidado?.tipoOperacao)) {
+      const t = validarDadosTransporte(transporte)
       if (!t.ok) return { ok: false, error: t.erro }
       transporteValidado = t.dados
     }

@@ -236,7 +236,7 @@ test('faturamento direto envia código IBGE em cidade e não inventa chaves NG',
   assert.equal('codigoMunicipio' in p.transporte.enderecoEntrega, false)
 })
 
-test('tpOp de revenda preserva o tipo e não envia local de entrega sem necessidade', () => {
+test('tpOp de revenda preserva o tipo e não envia transporte: segue como antes', () => {
   const veiculo = { tipoOperacao: 'VendaConcessionaria', chassi: '9C2ABC12345678901' } as DadosVendaMoto['moto']['veiculo']
   const p = montarNfeVendaMoto({
     ...VENDA,
@@ -244,7 +244,7 @@ test('tpOp de revenda preserva o tipo e não envia local de entrega sem necessid
     transporte: { modalidade: 'PorContaDoDestinatario' },
   }, REGRA)
   assert.equal(p.itens[0].veiculoNovo?.tipoOperacao, 'VendaConcessionaria')
-  assert.deepEqual(p.transporte, { frete: { modalidade: 'PorContaDoDestinatario' } })
+  assert.equal('transporte' in p, false)
 })
 
 test('frete 9 mantém endereço no faturamento direto', () => {
@@ -266,5 +266,5 @@ test('frete 9 mantém endereço no faturamento direto', () => {
 
 test('faturamento direto não monta payload sem transporte e endereço de entrega', () => {
   const veiculo = { tipoOperacao: 'FaturamentoDiretoConsumidorFinal', chassi: '9C2ABC12345678901' } as DadosVendaMoto['moto']['veiculo']
-  assert.throws(() => montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, veiculo } }, REGRA), /dados de transporte e endereço de entrega/)
+  assert.throws(() => montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, veiculo } }, REGRA), /Selecione a modalidade do frete/)
 })

@@ -177,7 +177,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   }
 
   function avancarDoTransporte() {
-    const validacao = validarDadosTransporte(transporte, exigeEntrega)
+    const validacao = validarDadosTransporte(transporte)
     if (!validacao.ok) { setErro(validacao.erro); return }
     setErro('')
     setPasso(PARTES_RENAVE.length + 1)
@@ -219,8 +219,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   if (resultado) {
     return (
       <>
-      {ehRecusada(resultado.nota.status) && previa.exigeRenave && (
-        <TransporteForm dados={transporte} exigeEntrega={exigeEntrega} onChange={atualizar => setTransporte(prev => atualizar(prev))} />
+      {ehRecusada(resultado.nota.status) && exigeEntrega && (
+        <TransporteForm dados={transporte} onChange={atualizar => setTransporte(prev => atualizar(prev))} />
       )}
       <Resultado
         r={resultado} teste={teste} previa={previa} erroCorrecao={erroCorrecao} pending={pending}
@@ -234,13 +234,13 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
   const faltamRenave = renave ? camposFaltando(renave).length : 0
-  const faltamTransporte = !!renave && !validarDadosTransporte(transporte, exigeEntrega).ok
+  const faltamTransporte = exigeEntrega && !validarDadosTransporte(transporte).ok
   const porParte = renave ? faltandoPorParte(renave) : null
   const comEtapas = !!(r && renave && porParte && !bloqueadaProducao)
   const passos = comEtapas && porParte && (
     <Passos
-      nomes={[...PARTES_RENAVE.map(p => p.nome), exigeEntrega ? 'Entrega' : 'Transporte', 'Conferir']}
-      faltam={[...PARTES_RENAVE.map(p => porParte[p.id]), validarDadosTransporte(transporte, exigeEntrega).ok ? 0 : 1, faltamRenave]}
+      nomes={[...PARTES_RENAVE.map(p => p.nome), ...(exigeEntrega ? ['Entrega'] : []), 'Conferir']}
+      faltam={[...PARTES_RENAVE.map(p => porParte[p.id]), ...(exigeEntrega ? [faltamTransporte ? 1 : 0] : []), faltamRenave]}
       atual={passo}
       onIr={setPasso}
     />
@@ -263,11 +263,11 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     )
   }
 
-  if (comEtapas && renave && passo === PARTES_RENAVE.length) {
+  if (comEtapas && renave && exigeEntrega && passo === PARTES_RENAVE.length) {
     return (
       <div className="flex min-h-full flex-col gap-4">
         {passos}
-        <TransporteForm dados={transporte} exigeEntrega={exigeEntrega} onChange={atualizar => setTransporte(prev => atualizar(prev))} />
+        <TransporteForm dados={transporte} onChange={atualizar => setTransporte(prev => atualizar(prev))} />
         {erro && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
         <div className="sticky bottom-0 -mx-4 mt-auto flex gap-2 border-t border-border bg-background px-4 py-3">
           <Button variant="outline" onClick={() => setPasso(PARTES_RENAVE.length - 1)} className="h-11">Voltar</Button>
@@ -425,7 +425,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       )}
       {comEtapas && faltamTransporte && (
         <p className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">
-          Complete o frete{exigeEntrega ? ' e o endereço de entrega' : ''} na etapa Transporte antes de transmitir.
+          Complete o frete e o endereço de entrega na etapa Entrega antes de transmitir.
         </p>
       )}
 

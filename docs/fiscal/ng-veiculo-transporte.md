@@ -29,8 +29,8 @@ O MOC (Grupo X/X02) define os códigos DANFE 0, 1, 2, 3, 4 e 9. A resposta anter
 
 - O tipo RENAVE continua sendo uma escolha do operador. Este hotfix não sobrescreve `VendaConcessionaria`, `Outros` ou outros valores salvos com `FaturamentoDiretoConsumidorFinal`.
 - Para `FaturamentoDiretoConsumidorFinal` (2), a tela exige endereço de entrega e envia CPF/CNPJ, logradouro, número, bairro, código IBGE em `cidade` e UF. A NG completa o nome do município no XML conforme a orientação de suporte.
-- A modalidade de frete é obrigatória e escolhida sem valor pré-selecionado. `SemTransporte` não desativa o endereço quando `tpOp=2`.
-- Fora de `tpOp=2`, o payload mantém o frete e omite `enderecoEntrega`; o hotfix não define a regra comercial/fiscal da operação de revenda.
+- A modalidade de frete é obrigatória no faturamento direto e escolhida sem valor pré-selecionado. `SemTransporte` não desativa o endereço quando `tpOp=2`.
+- Fora de `tpOp=2` (decisão do Luis: não generalizar para outras revendas), nada muda: a tela não pede frete nem entrega e o payload não leva `transporte`. O hotfix não define a regra comercial/fiscal da operação de revenda.
 - O payload segue no JSON já armazenado por `notas_fiscais_saida`; não há migração. O reenvio reaproveita o fluxo existente de tentativa e recebe o payload corrigido.
 
 Arquivos principais: `src/lib/notagateway/transporte.ts`, `src/lib/notagateway/payload.ts`, `src/app/(dashboard)/vendas/nfe-propria-actions.ts` e `src/app/(dashboard)/estoque/components/nfe-propria-painel.tsx`.

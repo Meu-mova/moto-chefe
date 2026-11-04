@@ -165,3 +165,14 @@ test('reabrir a recusa mostra o transporte do envio anterior e o reenvio leva o 
   assert.deepEqual(renave, RENAVE_COMPLETO_FATURAMENTO_DIRETO)
   assert.deepEqual(transporte, { ...anterior, modalidade: 'SemTransporte' })
 })
+
+test('operação que não é faturamento direto vai da etapa da operação direto para a conferência, sem etapa de frete', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...preview, renave: { ...RENAVE_COMPLETO_FATURAMENTO_DIRETO, tipoOperacao: 'VendaConcessionaria' } }) }
+  const { container, click } = await abrirPainel()
+  await click(/^Avançar/); await click(/^Avançar/); await click(/^Avançar/)
+  assert.equal(container.querySelector('select#modalidade-frete'), null)
+  assert.match(container.textContent ?? '', /Ambiente de teste \(homologação\)/)
+  await act(async () => container.querySelector<HTMLInputElement>('input[type=checkbox]')!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  const transmitir = [...container.querySelectorAll('button')].find(b => /Transmitir teste/.test(b.textContent ?? ''))
+  assert.equal(transmitir?.disabled, false)
+})

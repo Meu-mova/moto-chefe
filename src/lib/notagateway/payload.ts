@@ -187,9 +187,8 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     )
   }
 
-  const exigeEntrega = operacaoExigeEntrega(moto.veiculo?.tipoOperacao)
-  const transporteValidado = venda.transporte ? validarDadosTransporte(venda.transporte, exigeEntrega) : null
-  if (exigeEntrega && !transporteValidado) throw new Error('Faturamento direto exige os dados de transporte e endereço de entrega.')
+  // Só o faturamento direto (tpOp 2) leva transporte: as outras operações seguem como antes (#650).
+  const transporteValidado = operacaoExigeEntrega(moto.veiculo?.tipoOperacao) ? validarDadosTransporte(venda.transporte) : null
   if (transporteValidado && !transporteValidado.ok) throw new Error(transporteValidado.erro)
 
   const interestadual = cliente.endereco.uf.toUpperCase() !== venda.ufEmitente.toUpperCase()
@@ -297,16 +296,16 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     itens: [item],
     ...(transporteValidado?.ok ? { transporte: {
       frete: { modalidade: transporteValidado.dados.modalidade },
-      ...(exigeEntrega && transporteValidado.dados.enderecoEntrega ? { enderecoEntrega: {
-        tipoPessoaDestinatario: transporteValidado.dados.enderecoEntrega.tipoPessoaDestinatario,
-        cpfCnpjDestinatario: transporteValidado.dados.enderecoEntrega.cpfCnpjDestinatario,
+      enderecoEntrega: {
+        tipoPessoaDestinatario: transporteValidado.dados.enderecoEntrega!.tipoPessoaDestinatario,
+        cpfCnpjDestinatario: transporteValidado.dados.enderecoEntrega!.cpfCnpjDestinatario,
         pais: null,
-        logradouro: transporteValidado.dados.enderecoEntrega.logradouro,
-        numero: transporteValidado.dados.enderecoEntrega.numero,
-        bairro: transporteValidado.dados.enderecoEntrega.bairro,
-        cidade: transporteValidado.dados.enderecoEntrega.cidade,
-        uf: transporteValidado.dados.enderecoEntrega.uf,
-      } } : {}),
+        logradouro: transporteValidado.dados.enderecoEntrega!.logradouro,
+        numero: transporteValidado.dados.enderecoEntrega!.numero,
+        bairro: transporteValidado.dados.enderecoEntrega!.bairro,
+        cidade: transporteValidado.dados.enderecoEntrega!.cidade,
+        uf: transporteValidado.dados.enderecoEntrega!.uf,
+      },
     } } : {}),
     informacoesAdicionais: venda.informacoesAdicionais ?? null,
   }

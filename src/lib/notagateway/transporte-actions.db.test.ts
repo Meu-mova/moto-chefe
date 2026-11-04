@@ -213,3 +213,24 @@ test('reabrir a recusa devolve o transporte enviado; recusa antiga sem transport
   const antigaPrevia = await actions.previsualizarNfePropriaAction(antiga.motoId)
   assert.equal(antigaPrevia.ok ? antigaPrevia.transporteAnterior : 'falhou', null)
 })
+
+test('tpOp diferente de 2 segue emitindo como antes: sem exigir frete e sem transporte no payload', async () => {
+  const f = await fixture()
+  user = f.user
+  const net = network(f)
+  const revenda = { ...renave, tipoOperacao: 'VendaConcessionaria' }
+  const result = await actions.transmitirNfePropriaAction(f.motoId, revenda)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads.length, 1)
+  assert.equal('transporte' in net.payloads[0], false)
+  assert.equal(net.payloads[0].itens[0].veiculoNovo?.tipoOperacao, 'VendaConcessionaria')
+})
+
+test('tpOp diferente de 2 ignora transporte que a tela mande por engano', async () => {
+  const f = await fixture()
+  user = f.user
+  const net = network(f)
+  const result = await actions.transmitirNfePropriaAction(f.motoId, { ...renave, tipoOperacao: 'VendaConcessionaria' }, transport)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal('transporte' in net.payloads[0], false)
+})
