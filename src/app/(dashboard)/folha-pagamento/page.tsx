@@ -135,12 +135,7 @@ export default async function FolhaPagamentoPage({
         <RegrasComissaoTable key={mesParam} regras={regrasParaUI} funcionarios={funcionariosParaAjuste} mes={mesParam} />
       </TabsContent>
 
-      <TabsContent value="premiacao" className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          Faixa OTE é premiação em <strong>valor fixo</strong> por meta batida, só para vendedor e sempre sobre as
-          motos que a própria pessoa vendeu. Ela <strong>soma</strong> com as regras de premiação em percentual
-          cadastradas na aba Comissões.
-        </p>
+      <TabsContent value="premiacao">
         <PremiacaoFaixasTable faixas={faixasParaUI} />
       </TabsContent>
 
