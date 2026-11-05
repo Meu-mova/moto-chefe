@@ -38,10 +38,11 @@ const cacheMock = mock.module('next/cache', { namedExports: { revalidatePath: ()
 
 type Db = typeof import('@/lib/db')
 let db: Db['db']
+let execRows: Db['execRows']
 let cancelarVendaCompletaAction: typeof import('@/app/(dashboard)/vendas/actions')['cancelarVendaCompletaAction']
 
 before(async () => {
-  ;({ db } = await import('@/lib/db'))
+  ;({ db, execRows } = await import('@/lib/db'))
   ;({ cancelarVendaCompletaAction } = await import('@/app/(dashboard)/vendas/actions'))
 })
 afterEach(() => {
@@ -55,9 +56,7 @@ after(async () => {
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const linhas = async (q: ReturnType<typeof sql>) => ((await db.execute(q)) as unknown as { rows: any[] }).rows
-const idDe = async (q: ReturnType<typeof sql>) => (await linhas(q))[0].id as string
+const idDe = async (q: ReturnType<typeof sql>) => (await execRows(q))[0].id as string
 
 async function semearConta() {
   const sufixo = randomUUID()
@@ -74,7 +73,7 @@ async function semearVenda(c: Conta) {
   const motoId = await idDe(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
     values (${randomUUID()}, ${c.modeloId}, ${c.lojaId}, 'CINZA', '1', 'vendida', 'vendida') returning id`)
   const pedidoId = await idDe(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${motoId}, ${c.lojaId}, ${c.aux.id}) returning id`)
-  const [venda] = await linhas(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
+  const [venda] = await execRows(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
     values (${pedidoId}, ${motoId}, ${c.lojaId}, ${c.aux.id}, ${c.aux.id}, 'Cliente sintético', '52998224725', 1000, 'pix') returning id, numero`)
   return { id: venda.id as string, numero: venda.numero as number, motoId, pedidoId }
 }
@@ -104,7 +103,7 @@ async function semearVendaCompleta(c: Conta) {
   return { ...v, lancamentoId, cartaoId, pixId, demandaId, arquivos, documentoIds: [assinadoId, pendenteId] }
 }
 
-const vendaExiste = async (id: string) => (await linhas(sql`select 1 from vendas where id = ${id}`)).length === 1
+const vendaExiste = async (id: string) => (await execRows(sql`select 1 from vendas where id = ${id}`)).length === 1
 
 test('cancelar venda completa: apaga venda, caixa e documentos, solta recebimentos e manda apagar selfie e assinatura', async () => {
   const c = await semearConta()
@@ -115,16 +114,16 @@ test('cancelar venda completa: apaga venda, caixa e documentos, solta recebiment
 
   assert.deepEqual(r, { ok: true, cartao: 1, pix: 1, demandas: 1, valor: 500.75, documentosAssinados: 1 })
   assert.equal(await vendaExiste(v.id), false)
-  assert.deepEqual(await linhas(sql`select id from lancamentos_caixa where id = ${v.lancamentoId}`), [])
-  assert.deepEqual(await linhas(sql`select id from documentos_assinatura where venda_id = ${v.id} or id in (${v.documentoIds[0]}, ${v.documentoIds[1]})`), [])
-  assert.deepEqual(await linhas(sql`select venda_id, conciliado, conciliado_em from conciliacoes_cartao where id = ${v.cartaoId}`),
+  assert.deepEqual(await execRows(sql`select id from lancamentos_caixa where id = ${v.lancamentoId}`), [])
+  assert.deepEqual(await execRows(sql`select id from documentos_assinatura where venda_id = ${v.id} or id in (${v.documentoIds[0]}, ${v.documentoIds[1]})`), [])
+  assert.deepEqual(await execRows(sql`select venda_id, conciliado, conciliado_em from conciliacoes_cartao where id = ${v.cartaoId}`),
     [{ venda_id: null, conciliado: false, conciliado_em: null }])
-  assert.deepEqual(await linhas(sql`select venda_id, tipo_correspondencia, lancado_por_id, lancado_em from pix_recebimentos_mcp where id = ${v.pixId}`),
+  assert.deepEqual(await execRows(sql`select venda_id, tipo_correspondencia, lancado_por_id, lancado_em from pix_recebimentos_mcp where id = ${v.pixId}`),
     [{ venda_id: null, tipo_correspondencia: null, lancado_por_id: null, lancado_em: null }])
-  assert.deepEqual(await linhas(sql`select venda_id from demandas where id = ${v.demandaId}`), [{ venda_id: null }])
-  assert.deepEqual(await linhas(sql`select status, disponibilidade from motos where id = ${v.motoId}`), [{ status: 'montada', disponibilidade: 'disponivel' }])
-  assert.deepEqual(await linhas(sql`select status from pedidos_venda where id = ${v.pedidoId}`), [{ status: 'cancelado' }])
-  assert.deepEqual(await linhas(sql`select status_anterior, status_novo, observacao from historico_estoque where moto_id = ${v.motoId}`), [{
+  assert.deepEqual(await execRows(sql`select venda_id from demandas where id = ${v.demandaId}`), [{ venda_id: null }])
+  assert.deepEqual(await execRows(sql`select status, disponibilidade from motos where id = ${v.motoId}`), [{ status: 'montada', disponibilidade: 'disponivel' }])
+  assert.deepEqual(await execRows(sql`select status from pedidos_venda where id = ${v.pedidoId}`), [{ status: 'cancelado' }])
+  assert.deepEqual(await execRows(sql`select status_anterior, status_novo, observacao from historico_estoque where moto_id = ${v.motoId}`), [{
     status_anterior: 'vendida', status_novo: 'montada',
     observacao: 'Venda cancelada — Cliente: Cliente sintético — Valor: R$ 1000.00 — Recebimentos desvinculados: 1 cartão + 1 PIX (R$ 500.75) — 1 documento(s) ASSINADO(S) removido(s) com a venda — Motivo: Cliente desistiu',
   }])
@@ -143,22 +142,23 @@ test('venda sem documento de assinatura: cancela sem chamar o Storage', async ()
   assert.deepEqual(chamadasStorage, [])
 })
 
-test('Storage com erro ou fora do ar não desfaz o cancelamento', async () => {
+test('Storage com erro ou fora do ar não desfaz o cancelamento', async (t) => {
+  const erros = mock.method(console, 'error', () => {})
+  t.after(() => erros.mock.restore())
   const falhas = [async () => ({ error: { message: 'bucket indisponível' } }), async () => { throw new Error('rede caiu') }]
   for (const falha of falhas) {
     const c = await semearConta()
     const v = await semearVendaCompleta(c)
     usuario = c.aux
     respostaStorage = falha
-    const erros = mock.method(console, 'error', () => {})
-
     const r = await cancelarVendaCompletaAction(v.id, 'Teste')
 
-    erros.mock.restore()
     assert.equal(r.ok, true)
     assert.equal(await vendaExiste(v.id), false)
     assert.equal(chamadasStorage.length, 1)
+    assert.equal(erros.mock.callCount(), 1)
     chamadasStorage = []
+    erros.mock.resetCalls()
   }
 })
 
@@ -174,15 +174,15 @@ test('Conta B não cancela venda da Conta A: mesma frase de id inexistente, nada
   assert.deepEqual(daOutraConta, { ok: false, error: 'Venda não encontrada' })
   assert.deepEqual(inexistente, daOutraConta)
   assert.equal(await vendaExiste(v.id), true)
-  assert.equal((await linhas(sql`select id from documentos_assinatura where venda_id = ${v.id}`)).length, 2)
-  assert.deepEqual(await linhas(sql`select venda_id from conciliacoes_cartao where id = ${v.cartaoId}`), [{ venda_id: v.id }])
+  assert.equal((await execRows(sql`select id from documentos_assinatura where venda_id = ${v.id}`)).length, 2)
+  assert.deepEqual(await execRows(sql`select venda_id from conciliacoes_cartao where id = ${v.cartaoId}`), [{ venda_id: v.id }])
   assert.deepEqual(chamadasStorage, [])
 })
 
 test('venda com NF de saída em emissão na produção: recusa travada, nada apagado nem enviado ao Storage', async () => {
   const c = await semearConta()
   const v = await semearVendaCompleta(c)
-  await linhas(sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, payload)
+  await execRows(sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, payload)
     values (${v.id}, ${v.numero}, ${c.grupoId}, ${randomUUID()}, 'Producao', 'Processando', '{}'::jsonb) returning id`)
   usuario = c.aux
 
@@ -191,6 +191,6 @@ test('venda com NF de saída em emissão na produção: recusa travada, nada apa
   assert.equal(r.ok, false)
   assert.equal('travada' in r && r.travada, true)
   assert.equal(await vendaExiste(v.id), true)
-  assert.equal((await linhas(sql`select id from documentos_assinatura where venda_id = ${v.id}`)).length, 2)
+  assert.equal((await execRows(sql`select id from documentos_assinatura where venda_id = ${v.id}`)).length, 2)
   assert.deepEqual(chamadasStorage, [])
 })
