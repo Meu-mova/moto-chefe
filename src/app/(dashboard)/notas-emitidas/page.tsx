@@ -3,16 +3,20 @@ import { redirect } from 'next/navigation'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
+import { db } from '@/lib/db'
 import { anexarSituacaoDeInutilizacao, contarPorCategoria, listarNotasEmitidas } from '@/lib/queries/notas-emitidas'
 import { naSituacao, periodoBr, periodoEmissao, type Situacao } from '@/lib/notas-emitidas'
 import { diaBrt } from '@/lib/data-venda'
 import { podePedirInutilizacao } from '@/lib/notagateway/inutilizacao'
+import { listarFaixas } from '@/lib/notagateway/inutilizar-faixa'
 import { tamanhoEstimado } from '@/lib/notas-contador'
 import { emailDoContador, ultimoEnvioAoContador } from '@/lib/queries/notas-contador'
 import { Secao } from '../dashboard/components/painel-secoes'
 import { NotasFiltros } from './components/notas-filtros'
 import { NotasTabela } from './components/notas-tabela'
 import { EnviarContador } from './components/enviar-contador'
+import { HistoricoFaixas } from './components/historico-faixas'
+import { InutilizarFaixaDialogo } from './components/inutilizar-faixa-dialogo'
 
 // Filtro explícito (#402): os indicadores da #348 pareciam resumo, não filtro. A Descartada nunca virou nota e fica fora.
 const SITUACOES: { valor: Situacao; rotulo: string }[] = [
@@ -37,11 +41,13 @@ export default async function NotasEmitidasPage({
 
   const filtro = { grupoId: grupo.id, contaId: usuario.papel === 'admin_geral' ? null : grupo.contaId, ambiente, ...periodo } as const
   const doGrupo = { grupoId: filtro.grupoId, contaId: filtro.contaId }
-  const [notas, contagem, contagemProducao, emailSalvo, ultimo] = await Promise.all([
+  const podeInutilizar = podePedirInutilizacao(usuario.papel)
+  const [notas, contagem, contagemProducao, emailSalvo, ultimo, faixas] = await Promise.all([
     listarNotasEmitidas(filtro), contarPorCategoria(filtro),
     // Ao contador vai só produção, mesmo com a tela em homologação.
     ambiente === 'Producao' ? null : contarPorCategoria({ ...filtro, ambiente: 'Producao' }),
     emailDoContador(doGrupo), ultimoEnvioAoContador(doGrupo),
+    podeInutilizar ? listarFaixas(db, { grupoId: filtro.grupoId, contaId: filtro.contaId, ambiente }) : [],
   ])
   const producao = contagemProducao ?? contagem
   const ultimoEnvio = ultimo && `${diaBrt(ultimo.em)}, para ${ultimo.para}, ${ultimo.notas} ${ultimo.notas === 1 ? 'nota' : 'notas'}`
@@ -59,7 +65,10 @@ export default async function NotasEmitidasPage({
           <h1 className="text-2xl font-bold">Notas Emitidas</h1>
           <p className="text-sm text-muted-foreground">NF-e de saída do grupo {grupo.nome}</p>
         </div>
-        <NotasFiltros de={periodo.de} ate={periodo.ate} ambiente={ambiente} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <NotasFiltros de={periodo.de} ate={periodo.ate} ambiente={ambiente} />
+          {podeInutilizar && <InutilizarFaixaDialogo ambiente={ambiente} grupoNome={grupo.nome} />}
+        </div>
       </div>
 
       {ambiente === 'Homologacao' && (
@@ -105,8 +114,9 @@ export default async function NotasEmitidasPage({
         )}
         {/* key: trocar de filtro limpa a seleção e volta à primeira página. */}
         <NotasTabela key={`${situacao}|${ambiente}|${periodo.de}|${periodo.ate}`} notas={visiveis} totalComDocumento={comDocumento}
-          filtro={{ situacao, ambiente, ...periodo }} podeInutilizar={podePedirInutilizacao(usuario.papel)} />
+          filtro={{ situacao, ambiente, ...periodo }} podeInutilizar={podeInutilizar} />
       </Secao>
+      <HistoricoFaixas faixas={faixas} />
     </div>
   )
 }

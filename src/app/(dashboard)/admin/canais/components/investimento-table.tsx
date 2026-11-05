@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { rotuloMesCurto as rotuloMes } from '@/lib/data-venda'
 import { salvarInvestimentoAction, excluirInvestimentoAction } from '../actions'
 
 type Investimento = {
@@ -22,11 +23,6 @@ type Funil = { pipelineId: string; funil: string }
 const PLATAFORMAS = ['Meta Ads', 'Google Ads', 'TikTok Ads', 'Impulsionamento', 'Outro']
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const rotuloMes = (mes: string) => {
-  const [ano, m] = mes.split('-')
-  const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-  return `${nomes[Number(m) - 1] ?? m}/${ano}`
-}
 
 function InvestimentoDialog({ inicial, funis, onClose }: {
   inicial?: Investimento; funis: Funil[]; onClose: () => void

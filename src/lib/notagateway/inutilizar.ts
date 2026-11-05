@@ -1,11 +1,11 @@
-import { and, count, eq, inArray, notInArray, sql } from 'drizzle-orm'
+import { and, count, eq, gte, inArray, lte, notInArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, lojas, notagatewayConfig, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from '@/lib/db/schema'
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
 import { semZerosAEsquerda } from '@/lib/texto'
 import { configNotaGateway, type ConfigNotaGateway, consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao, type InutilizacaoConsultada } from './client'
-import { ambienteLiberado, divergenciaDeAmbiente } from './ambiente'
+import { ambienteLiberado, divergenciaDeAmbiente, FORA_DA_PRODUCAO } from './ambiente'
 import { credencialCompleta } from './credencial-tela'
 import {
   ACAO_INUTILIZAR, type ContextoInutilizacao, decidirInutilizacao, ERRO_JA_PEDIDA, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu,
@@ -30,7 +30,7 @@ export type Resultado<T> = { ok: true } & T | { ok: false; erro: string }
 const NAO_ENCONTRADA = 'NF não encontrada'
 
 /** Quem pode pedir (podePedirInutilizacao), no grupo da nota. */
-async function grupoVisivel(tx: Executor, usuario: UsuarioInutilizacao, grupoId: string): Promise<boolean> {
+export async function grupoVisivel(tx: Executor, usuario: UsuarioInutilizacao, grupoId: string): Promise<boolean> {
   if (!podePedirInutilizacao(usuario.papel)) return false
   const [grupo] = await tx.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos)
     .where(and(eq(grupos.id, grupoId), usuario.papel === 'admin_geral' ? undefined : eq(grupos.contaId, usuario.contaId ?? '')))
@@ -44,7 +44,9 @@ async function grupoVisivel(tx: Executor, usuario: UsuarioInutilizacao, grupoId:
 
 export type PedidoInutilizacao = {
   inutilizacaoId: string; grupoId: string; idExterno: string; ambiente: string
-  serie: string; numeroInicial: number; numeroFinal: number; justificativa: string; numeroVenda: number
+  serie: string; numeroInicial: number; numeroFinal: number; justificativa: string
+  /** Só no pedido de uma NF; o de faixa (#655) não tem nota nem venda. */
+  notaId?: string; numeroVenda?: number
 }
 
 export type EscopoInutilizacao = { grupoId: string; ambiente: string }
@@ -74,12 +76,13 @@ export async function contextoDeInutilizacao(
   const vivasDasVendas = vendas.length === 0 ? [] : await tx.select({
     id: notasFiscaisSaida.id, vendaId: notasFiscaisSaida.vendaId, numero: notasFiscaisSaida.numero,
   }).from(notasFiscaisSaida).where(and(doEscopo, inArray(notasFiscaisSaida.vendaId, vendas), notInArray(notasFiscaisSaida.status, STATUS_MORTOS)))
+  // Pedido de faixa cobre vários números: traz o que cruza o intervalo das notas, e a regra pura escolhe.
   const pedidos = inteiros.length === 0 ? [] : await tx.select({
     situacao: notasFiscaisSaidaInutilizacoes.situacao, motivoStatus: notasFiscaisSaidaInutilizacoes.motivoStatus, serie: notasFiscaisSaidaInutilizacoes.serie,
-    numeroInicial: notasFiscaisSaidaInutilizacoes.numeroInicial, criadoEm: notasFiscaisSaidaInutilizacoes.criadoEm,
+    numeroInicial: notasFiscaisSaidaInutilizacoes.numeroInicial, numeroFinal: notasFiscaisSaidaInutilizacoes.numeroFinal, criadoEm: notasFiscaisSaidaInutilizacoes.criadoEm,
   }).from(notasFiscaisSaidaInutilizacoes).where(and(
     eq(notasFiscaisSaidaInutilizacoes.grupoId, escopo.grupoId), eq(notasFiscaisSaidaInutilizacoes.ambiente, escopo.ambiente),
-    inArray(notasFiscaisSaidaInutilizacoes.numeroInicial, inteiros),
+    lte(notasFiscaisSaidaInutilizacoes.numeroInicial, Math.max(...inteiros)), gte(notasFiscaisSaidaInutilizacoes.numeroFinal, Math.min(...inteiros)),
   ))
 
   const [config] = await tx.select({ ambiente: notagatewayConfig.ambiente, token: notagatewayConfig.token, empresaId: notagatewayConfig.empresaId })
@@ -125,7 +128,7 @@ export async function prepararInutilizacao(
   if (!linha) return { ok: false, erro: ERRO_JA_PEDIDA }
   return { ok: true, pedido: {
     inutilizacaoId: linha.id, grupoId: nota.grupoId, idExterno, ambiente: nota.ambiente, serie: decisao.serie,
-    numeroInicial: decisao.numero, numeroFinal: decisao.numero, justificativa: j.justificativa, numeroVenda: nota.vendaNumero,
+    numeroInicial: decisao.numero, numeroFinal: decisao.numero, justificativa: j.justificativa, notaId: nota.id, numeroVenda: nota.vendaNumero,
   } }
 }
 
@@ -176,6 +179,7 @@ const DEPENDENCIAS: DependenciasInutilizacao = { exec: db, config: configDoAmbie
 export const AVISO_SEM_RESPOSTA = 'A Nota Gateway não respondeu. O pedido ficou pendente: confira o resultado mais tarde.'
 
 type ResultadoDoEnvio = 'enviado' | 'sem_resposta' | 'recusado'
+type DepsDoEnvio = Pick<DependenciasInutilizacao, 'exec' | 'enviar'>
 
 /**
  * Todo pedido vai ao log com o resultado (C7): só o que o pedido tem, nunca token nem
@@ -183,15 +187,55 @@ type ResultadoDoEnvio = 'enviado' | 'sem_resposta' | 'recusado'
  * a resposta, vira só console.error.
  */
 function registrarPedido(
-  exec: DependenciasInutilizacao['exec'], usuarioId: string, notaId: string, pedido: PedidoInutilizacao, resultado: ResultadoDoEnvio, motivo?: string,
+  exec: DependenciasInutilizacao['exec'], usuarioId: string, pedido: PedidoInutilizacao, resultado: ResultadoDoEnvio, motivo?: string,
 ): Promise<void> {
   return registrarAcaoSensivelSemFalhar({
     tipo: 'nf_emitida', usuarioId, grupoId: pedido.grupoId,
     detalhe: {
-      origem: 'mova', etapa: 'inutilizacao', resultado, ...(motivo ? { motivo } : {}), notaId, inutilizacaoId: pedido.inutilizacaoId,
-      numeroVenda: pedido.numeroVenda, ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial,
+      origem: 'mova', etapa: 'inutilizacao', resultado, ...(motivo ? { motivo } : {}), inutilizacaoId: pedido.inutilizacaoId,
+      ...(pedido.notaId ? { notaId: pedido.notaId, numeroVenda: pedido.numeroVenda } : {}),
+      ambiente: pedido.ambiente, serie: pedido.serie, numero: pedido.numeroInicial, numeroInicial: pedido.numeroInicial, numeroFinal: pedido.numeroFinal,
     },
   }, exec)
+}
+
+/** Pedido gravado que não chegou à NG: fica negado (libera o número ou a faixa) e vai ao log como recusado. */
+export async function recusarPedido(
+  exec: DependenciasInutilizacao['exec'], usuarioId: string, pedido: PedidoInutilizacao, status: string, motivo: string,
+) {
+  await gravarResultadoDaInutilizacao(exec, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
+  await registrarPedido(exec, usuarioId, pedido, 'recusado', motivo)
+  return { ok: false as const, erro: motivo }
+}
+
+/** Manda o pedido já gravado à NG; o resultado chega depois, por consultarInutilizacao. Serve à nota e à faixa. */
+export async function enviarPedido(
+  deps: DepsDoEnvio, usuario: UsuarioInutilizacao, pedido: PedidoInutilizacao, cfg: ConfigNotaGateway,
+): Promise<Resultado<{ inutilizacaoId: string; aviso: string | null }>> {
+  try {
+    await deps.enviar(cfg, pedido)
+  } catch (e) {
+    // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: pode ter criado; segue pendente e a consulta decide.
+    if (e instanceof InutilizacaoRecusada) return recusarPedido(deps.exec, usuario.id, pedido, 'InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
+    // Só o status HTTP ou o nome do erro, nunca a mensagem (C7).
+    console.error(`[inutilizacao] Nota Gateway sem resposta (${e instanceof NotaGatewayIndisponivel ? `HTTP ${e.status}` : e instanceof Error ? e.name : 'erro'})`)
+    await registrarPedido(deps.exec, usuario.id, pedido, 'sem_resposta')
+    return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: AVISO_SEM_RESPOSTA }
+  }
+  await registrarPedido(deps.exec, usuario.id, pedido, 'enviado')
+  return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: null }
+}
+
+/** Banco ou chave de cifra falhando ao ler a configuração vira recusa, e não pedido pendente sem ter ido à NG (C6). */
+export async function lerConfigDoAmbiente(
+  deps: Pick<DependenciasInutilizacao, 'config' | 'exec'>, grupoId: string, ambiente: string,
+): Promise<{ cfg: ConfigNotaGateway } | { erro: string }> {
+  try {
+    return await deps.config(grupoId, ambiente, deps.exec)
+  } catch (e) {
+    console.error('[inutilizacao] falha ao ler a configuração da Nota Gateway:', e instanceof Error ? e.message : e)
+    return { erro: 'Não deu para ler a configuração da Nota Gateway desta empresa. Tente de novo.' }
+  }
 }
 
 /** Pede a inutilização à NG; o resultado chega depois, por consultarInutilizacao. */
@@ -202,40 +246,15 @@ export async function inutilizarNumeroDaNota(
   const preparo = await prepararInutilizacao(exec, usuario, notaId, justificativa)
   if (!preparo.ok) return preparo
   const { pedido } = preparo
-  const registrar = (resultado: ResultadoDoEnvio, motivo?: string) => registrarPedido(exec, usuario.id, notaId, pedido, resultado, motivo)
-  const recusar = async (status: string, motivo: string) => {
-    await gravarResultadoDaInutilizacao(exec, { id: pedido.inutilizacaoId, grupoId: pedido.grupoId }, { status, motivoStatus: motivo, protocolo: null })
-    await registrar('recusado', motivo)
-    return { ok: false as const, erro: motivo }
-  }
+  const recusar = (status: string, motivo: string) => recusarPedido(exec, usuario.id, pedido, status, motivo)
 
-  // Banco ou chave de cifra falhando ao ler a configuração: recusa, e não pedido pendente sem ter ido à NG (C6).
-  const lerConfig = async () => {
-    try {
-      return await deps.config(pedido.grupoId, pedido.ambiente, exec)
-    } catch (e) {
-      console.error('[inutilizacao] falha ao ler a configuração da Nota Gateway:', e instanceof Error ? e.message : e)
-      return { erro: 'Não deu para ler a configuração da Nota Gateway desta empresa. Tente de novo.' }
-    }
-  }
-  const c = await lerConfig()
+  const c = await lerConfigDoAmbiente(deps, pedido.grupoId, pedido.ambiente)
   if ('erro' in c) return recusar(STATUS_SEM_CONFIGURACAO, c.erro)
   // O cliente da NG também barra produção fora do deploy de produção, mas lançando; aqui vira recusa e o número fica livre (C6).
   if (!ambienteLiberado(c.cfg.ambiente, deps.vercelEnv)) {
-    return recusar(STATUS_NAO_ENVIADA, 'Fora da produção, a Nota Gateway só roda em homologação. O número continua livre.')
+    return recusar(STATUS_NAO_ENVIADA, `${FORA_DA_PRODUCAO}. O número continua livre.`)
   }
-  try {
-    await deps.enviar(c.cfg, pedido)
-  } catch (e) {
-    // 4xx: a NG não criou o pedido, então o número fica livre para outro. 5xx ou rede: pode ter criado; segue pendente e a consulta decide.
-    if (e instanceof InutilizacaoRecusada) return recusar('InutilizacaoNegada', `A Nota Gateway recusou o pedido: ${e.message}`)
-    // Só o status HTTP ou o nome do erro, nunca a mensagem (C7).
-    console.error(`[inutilizacao] Nota Gateway sem resposta (${e instanceof NotaGatewayIndisponivel ? `HTTP ${e.status}` : e instanceof Error ? e.name : 'erro'})`)
-    await registrar('sem_resposta')
-    return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: AVISO_SEM_RESPOSTA }
-  }
-  await registrar('enviado')
-  return { ok: true, inutilizacaoId: pedido.inutilizacaoId, aviso: null }
+  return enviarPedido(deps, usuario, pedido, c.cfg)
 }
 
 /** Consulta o resultado pelo id e grava status, motivo e protocolo. */

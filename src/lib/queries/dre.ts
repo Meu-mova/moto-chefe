@@ -5,6 +5,7 @@ import {
   lancamentosCaixa,
 } from '@/lib/db/schema'
 import { and, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm'
+import { rotuloMesCurtoAA } from '@/lib/data-venda'
 import { valorLiquidoExpr } from './valor-liquido'
 import { somaCustoMotoExpr } from './custo-moto'
 import { somarDespesas, type TotalDespesas } from '@/lib/despesas-operacionais'
@@ -446,8 +447,6 @@ async function despesasPorMes(grupoId: string, lojaIds: string[], inicio: Date, 
 // A tela de navegar e a de imprimir chamam estes dois: um demonstrativo que
 // muda de número conforme a página que o mostra não serve pra conferir nada.
 
-const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-
 /** Colunas da visão por loja: cada loja, o Geral (Empresa) e o TOTAL. */
 export async function colunasDoMes(opts: {
   grupoId: string; lojaIds: string[]; ano: number; mes: number
@@ -471,7 +470,7 @@ export async function colunasEvolucao(opts: {
   const linhas = await dreEvolucao(opts)
   return linhas.map(m => ({
     chave: `${m.ano}-${m.mes}`,
-    rotulo: `${MES_CURTO[m.mes - 1]}/${String(m.ano).slice(2)}`,
+    rotulo: rotuloMesCurtoAA(m.ano, m.mes),
     entrada: m.entrada,
   }))
 }

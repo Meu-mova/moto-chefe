@@ -2,9 +2,10 @@ import { db } from '@/lib/db'
 import { notagatewayConfig } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { decifrar } from '@/lib/cripto'
-import { ambienteDaNg, ambienteLiberado } from './ambiente'
+import { ambienteDaNg, ambienteLiberado, FORA_DA_PRODUCAO } from './ambiente'
 import type { EmitenteDanfe } from './emitente-danfe'
 import { credencialCompleta } from './credencial-tela'
+import { serieEUfDaEmpresa } from './inutilizacao'
 
 /**
  * Cliente HTTP da Nota Gateway (API v2). A credencial é do GRUPO, porque o MOVA
@@ -35,7 +36,7 @@ export async function configNotaGateway(grupoId: string, exec: Pick<typeof db, '
 
 async function chamar(cfg: ConfigNotaGateway, method: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown) {
   if (!ambienteLiberado(cfg.ambiente, process.env.VERCEL_ENV)) {
-    throw new Error('Fora da produção, a Nota Gateway só roda em homologação — troque o ambiente do grupo em Admin → Notas fiscais')
+    throw new Error(`${FORA_DA_PRODUCAO} — troque o ambiente do grupo em Admin → Notas fiscais`)
   }
   const res = await fetch(`${API}${caminho}`, {
     method,
@@ -135,20 +136,33 @@ export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string, { 
   }
 }
 
+/**
+ * Consultar Empresa: a única leitura do cadastro do emitente (https://docs.notagateway.com.br/v2/reference/consultar-empresa).
+ * Erro só com o status: a resposta traz o empresaId.
+ */
+async function consultarEmpresa(cfg: ConfigNotaGateway): Promise<unknown> {
+  const r = await chamar(cfg, 'GET', `/empresas/${encodeURIComponent(cfg.empresaId)}`)
+  if (r.status >= 400) throw new Error(`Consultar Empresa respondeu HTTP ${r.status}`)
+  return r.json
+}
+
 /** UF do emitente como a API tem cadastrada — decide operação interna x interestadual. */
 export async function ufDaEmpresa(cfg: ConfigNotaGateway): Promise<string> {
-  const r = await chamar(cfg, 'GET', `/empresas/${cfg.empresaId}`)
-  if (r.status >= 400) throw new Error(`Falha ao ler a empresa na Nota Gateway: ${mensagensDeErro(r.json, r.texto)}`)
-  const uf = (r.json as any)?.endereco?.uf
+  const uf = ((await consultarEmpresa(cfg)) as { endereco?: { uf?: unknown } } | null)?.endereco?.uf
   if (!uf) throw new Error('A empresa na Nota Gateway está sem UF no endereço')
   return String(uf)
 }
 
+/** Série de NF-e do ambiente da credencial e UF do emitente (#655), numa só consulta. */
+export async function serieEUfDaEmpresaNaNg(cfg: ConfigNotaGateway): Promise<{ serie: string; uf: string }> {
+  const dados = serieEUfDaEmpresa(await consultarEmpresa(cfg), cfg.ambiente)
+  if (!dados) throw new Error('Consultar Empresa sem a série de NF-e do ambiente ou sem UF')
+  return dados
+}
+
 /** CNPJ da empresa como a NG tem cadastrado (#446). Erro só com o status: a resposta pode trazer o empresaId. */
 export async function cnpjDaEmpresaNaNg(cfg: ConfigNotaGateway): Promise<string> {
-  const r = await chamar(cfg, 'GET', `/empresas/${encodeURIComponent(cfg.empresaId)}`)
-  if (r.status >= 400) throw new Error(`Consultar Empresa respondeu HTTP ${r.status}`)
-  const cnpj = (r.json as { cnpj?: unknown } | null)?.cnpj
+  const cnpj = ((await consultarEmpresa(cfg)) as { cnpj?: unknown } | null)?.cnpj
   if (typeof cnpj !== 'string' || !cnpj) throw new Error('Consultar Empresa sem CNPJ na resposta')
   return cnpj
 }
@@ -159,9 +173,7 @@ export async function cnpjDaEmpresaNaNg(cfg: ConfigNotaGateway): Promise<string>
  * https://docs.notagateway.com.br/v2/reference/consultar-empresa
  */
 export async function dadosDaEmpresaNaNg(cfg: ConfigNotaGateway): Promise<Omit<EmitenteDanfe, 'site'>> {
-  const r = await chamar(cfg, 'GET', `/empresas/${encodeURIComponent(cfg.empresaId)}`)
-  if (r.status >= 400) throw new Error(`Consultar Empresa respondeu HTTP ${r.status}`)
-  const j = (r.json ?? {}) as Record<string, any>
+  const j = ((await consultarEmpresa(cfg)) ?? {}) as Record<string, any>
   const e = (j.endereco ?? {}) as Record<string, any>
   const texto = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
   if (!texto(j.cnpj) || !texto(j.razaoSocial)) throw new Error('Consultar Empresa sem CNPJ ou razão social')

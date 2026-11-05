@@ -11,9 +11,10 @@ mais se erra:
 - **Spec antes do código** (`/to-spec` + `/to-tickets`) quando a entrega vira 2+ PRs dependentes,
   traz regra de negócio nova para o Cesar validar, toca fiscal, isolamento, venda/caixa/estoque ou
   migração, ou envolve mais de uma dupla. Detalhes no `AGENTS.md` ("Antes do código").
-- **Sem código duplicado**: antes de escrever helper, tipo ou lista, leia a pasta que vai mexer
-  e os vizinhos, e procure no `src/` pelo que a coisa **faz** (não só pelo nome que você daria);
-  reuse. Cópia achada vira extração em `src/lib`. Como procurar: `AGENTS.md` ("Antes do código").
+- **Sem código duplicado**: antes de escrever helper, tipo, lista ou **tabela**, leia a pasta que
+  vai mexer e os vizinhos, e procure no `src/` pelo que a coisa **faz** (não só pelo nome que você
+  daria); reuse. Cópia achada vira extração em `src/lib`; tabela que guarda a mesma coisa se reusa
+  afrouxando a coluna que atrapalha (#655). Como procurar: `AGENTS.md` ("Antes do código").
 - Tipo da issue é o **Issue Type**, não label. Só as labels da tabela do `CONTRIBUTING.md`; nova,
   só combinando com o Luis.
 - PR e commits citam **`Refs #N`, nunca `Closes #N`**: a issue só fecha no passo da release.
