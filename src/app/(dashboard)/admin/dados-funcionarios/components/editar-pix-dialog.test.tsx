@@ -27,6 +27,7 @@ const DEPOIS_DA_ANIMACAO_MS = 300
 const textoDaTela = () => document.body.textContent ?? ''
 const botao = (texto: string) => [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').trim() === texto)
 const dialogoAberto = () => document.querySelector('[data-slot="dialog-content"]') !== null
+const temBotaoX = () => document.querySelector('[data-slot="dialog-content"] [data-slot="dialog-close"]') !== null
 // Campo pelo rótulo visível, não pelo id: o id é detalhe do componente.
 const campo = <T extends HTMLElement>(rotulo: RegExp) => {
   const label = [...document.querySelectorAll('label')].find(l => rotulo.test((l.textContent ?? '').trim()))
@@ -93,16 +94,27 @@ test('trava enquanto envia: Escape não fecha, Salvar e Cancelar desabilitados, 
   salvar.mock.mockImplementation(() => new Promise(ok => { liberar = () => ok({ ok: true }) }))
   const t = await montar()
   await t.abrir()
+  assert.ok(temBotaoX(), 'livre, o X aparece')
   // Os dois cliques no mesmo act, antes do render que desabilita o botão: é o que só o ref barra.
   const cliqueCru = () => botao('Salvar')!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
   await t.act(async () => { cliqueCru(); cliqueCru(); await esperar(20) })
   assert.equal(salvar.mock.callCount(), 1)
   await t.escape()
   assert.ok(dialogoAberto(), 'Escape não fecha enquanto envia')
+  assert.ok(!temBotaoX(), 'o X some enquanto envia')
   assert.ok(botao('Salvando…')!.disabled, 'Salvar desabilitado')
   assert.ok(botao('Cancelar')!.disabled, 'Cancelar desabilitado')
   await t.act(async () => { liberar(); await esperar(DEPOIS_DA_ANIMACAO_MS) })
   assert.ok(!dialogoAberto())
+})
+
+test('livre, Escape fecha sem enviar', async () => {
+  // Controle do teste da trava: o Escape só fica parado enquanto envia.
+  const t = await montar()
+  await t.abrir()
+  await t.escape()
+  assert.ok(!dialogoAberto())
+  assert.equal(salvar.mock.callCount(), 0)
 })
 
 test('cancelar não envia, e reabrir parte do que está gravado', async () => {
