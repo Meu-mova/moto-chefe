@@ -37,6 +37,8 @@ const ADIANTAMENTOS = [
 ]
 const FUNCIONARIOS = [{ id: 'u1', nome: 'Vendedor A', lojaId: 'L1' }, { id: 'u2', nome: 'Mecânico D', lojaId: 'L1' }]
 
+let renderizar: (lista: typeof ADIANTAMENTOS) => Promise<void> = async () => {}
+
 async function montar(adiantamentos = ADIANTAMENTOS) {
   const React = (await import('react')).default
   const { act } = await import('react')
@@ -46,7 +48,8 @@ async function montar(adiantamentos = ADIANTAMENTOS) {
   document.body.appendChild(el)
   const raiz = createRoot(el)
   raizes.push(raiz)
-  await act(async () => { raiz.render(React.createElement(AdiantamentosTable, { adiantamentos, funcionarios: FUNCIONARIOS, mes: '2026-10' })) })
+  renderizar = async lista => { await act(async () => { raiz.render(React.createElement(AdiantamentosTable, { adiantamentos: lista, funcionarios: FUNCIONARIOS, mes: '2026-10' })) }) }
+  await renderizar(adiantamentos)
   return el
 }
 
@@ -55,7 +58,11 @@ const limpo = (s: string | null | undefined) => (s ?? '').replace(/ /g, ' ')
 const texto = (el: Element | null | undefined) => limpo(el?.textContent)
 const linha = (nome: string) => [...document.querySelectorAll('[role="row"]')].find(r => texto(r).includes(nome))
 const botao = (nome: string) => [...document.querySelectorAll('button')].find(b => limpo(b.getAttribute('aria-label')) === nome || texto(b).trim() === nome)
-const seta = (nome: string) => botao(`Ver detalhes de ${nome}`)
+// O nome da seta e da lixeira leva data e valor (duas linhas da mesma pessoa não podem soar iguais).
+const comPrefixo = (prefixo: string) => [...document.querySelectorAll('button')].find(b => limpo(b.getAttribute('aria-label')).startsWith(prefixo))
+const seta = (nome: string) => comPrefixo(`Ver detalhes de ${nome}`)
+const detalhe = (id: string) => document.getElementById(`detalhe-${id}`)
+const removerDoDetalhe = (id: string) => detalhe(id)?.querySelector('button')
 const campo = (rotulo: string) => document.getElementById([...document.querySelectorAll('label')].find(l => texto(l).startsWith(rotulo))?.htmlFor ?? '')
 
 test('a linha mostra funcionário, loja, data DD/MM/AAAA (sem virar o dia pelo fuso) e valor em reais', async () => {
@@ -76,13 +83,13 @@ test('sem data ou sem nome a linha diz "Sem data" e "Sem nome", nunca um travess
 test('a seta abre o detalhe com a observação e Remover, e fecha de novo', async () => {
   await montar()
   assert.equal(seta('Vendedor A')?.getAttribute('aria-expanded'), 'false')
-  assert.equal(botao('Remover'), undefined)
+  assert.equal(detalhe('a1'), null)
   await clicar(seta('Vendedor A'))
   assert.equal(seta('Vendedor A')?.getAttribute('aria-expanded'), 'true')
   assert.match(texto(linha('Vendedor A')), /Observação.*Vale do dia 05/)
-  assert.ok(botao('Remover'))
+  assert.ok(removerDoDetalhe('a1'))
   await clicar(seta('Vendedor A'))
-  assert.equal(botao('Remover'), undefined)
+  assert.equal(detalhe('a1'), null)
 })
 
 test('sem observação o detalhe diz "Sem observação"', async () => {
@@ -94,8 +101,8 @@ test('sem observação o detalhe diz "Sem observação"', async () => {
 test('Remover do detalhe e a lixeira da tabela apagam o adiantamento certo', async () => {
   await montar()
   await clicar(seta('Vendedor A'))
-  await clicar(botao('Remover'))
-  await clicar(botao('Remover adiantamento de Mecânico D'))
+  await clicar(removerDoDetalhe('a1'))
+  await clicar(comPrefixo('Remover adiantamento de Mecânico D'))
   assert.deepEqual(excluidos, ['a1', 'a2'])
 })
 
@@ -144,4 +151,23 @@ test('sem data, o formulário manda data nula; valor inválido avisa e não cham
 test('a introdução diz que o adiantamento fixo mora na aba Funcionários e não entra na lista', async () => {
   await montar()
   assert.match(texto(document.body), /O adiantamento fixo de cada pessoa fica na aba Funcionários e não entra nesta lista\./)
+})
+
+test('a seta aponta para o detalhe aberto pelo id', async () => {
+  await montar()
+  assert.equal(seta('Vendedor A')?.getAttribute('aria-controls'), null)
+  await clicar(seta('Vendedor A'))
+  const alvo = seta('Vendedor A')?.getAttribute('aria-controls')
+  assert.ok(alvo)
+  assert.equal(document.getElementById(alvo), detalhe('a1'))
+})
+
+test('a linha aberta continua aberta quando outra linha some no re-render (key estável)', async () => {
+  await montar()
+  await clicar(seta('Mecânico D'))
+  await renderizar(ADIANTAMENTOS.filter(a => a.id !== 'a1'))
+  assert.equal(seta('Mecânico D')?.getAttribute('aria-expanded'), 'true')
+  assert.ok(removerDoDetalhe('a2'))
+  assert.equal(seta('Vendedor A'), undefined)
+  assert.equal(seta('Sem nome')?.getAttribute('aria-expanded'), 'false')
 })

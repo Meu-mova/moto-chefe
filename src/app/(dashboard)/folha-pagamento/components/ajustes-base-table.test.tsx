@@ -35,6 +35,8 @@ const AJUSTES = [
 const LOJAS = [{ id: 'L1', nome: 'Loja Centro' }, { id: 'L2', nome: 'Loja Norte' }]
 const FUNCIONARIOS = [{ id: 'u1', nome: 'Vendedor A', lojaId: 'L1' }, { id: 'u2', nome: 'Mecânico D', lojaId: 'L2' }]
 
+let renderizar: (lista: typeof AJUSTES) => Promise<void> = async () => {}
+
 async function montar(ajustes = AJUSTES) {
   const React = (await import('react')).default
   const { act } = await import('react')
@@ -44,7 +46,8 @@ async function montar(ajustes = AJUSTES) {
   document.body.appendChild(el)
   const raiz = createRoot(el)
   raizes.push(raiz)
-  await act(async () => { raiz.render(React.createElement(AjustesBaseTable, { ajustes, lojas: LOJAS, funcionarios: FUNCIONARIOS, mes: '2026-10' })) })
+  renderizar = async lista => { await act(async () => { raiz.render(React.createElement(AjustesBaseTable, { ajustes: lista, lojas: LOJAS, funcionarios: FUNCIONARIOS, mes: '2026-10' })) }) }
+  await renderizar(ajustes)
   return el
 }
 
@@ -52,7 +55,11 @@ const limpo = (s: string | null | undefined) => (s ?? '').replace(/ /g, ' ')
 const texto = (el: Element | null | undefined) => limpo(el?.textContent)
 const linha = (loja: string) => [...document.querySelectorAll('[role="row"]')].find(r => texto(r).includes(loja) && !r.querySelector('[role="columnheader"]'))
 const botao = (nome: string) => [...document.querySelectorAll('button')].find(b => limpo(b.getAttribute('aria-label')) === nome || texto(b).trim() === nome)
-const seta = (nome: string) => botao(`Ver detalhes de ${nome}`)
+// O nome da seta e da lixeira leva tipo, funcionário e valor (dois ajustes da mesma loja não podem soar iguais).
+const comPrefixo = (prefixo: string) => [...document.querySelectorAll('button')].find(b => limpo(b.getAttribute('aria-label')).startsWith(prefixo))
+const seta = (nome: string) => comPrefixo(`Ver detalhes de ${nome}`)
+const detalhe = (id: string) => document.getElementById(`detalhe-${id}`)
+const removerDoDetalhe = (id: string) => detalhe(id)?.querySelector('button')
 const campo = (rotulo: string) => document.getElementById([...document.querySelectorAll('label')].find(l => texto(l).startsWith(rotulo))?.htmlFor ?? '')
 
 test('a linha mostra loja, tipo, funcionário (ou "só a loja") e valor, com sinal quando negativo', async () => {
@@ -69,11 +76,11 @@ test('a linha mostra loja, tipo, funcionário (ou "só a loja") e valor, com sin
 
 test('a seta abre o detalhe com o motivo e Remover; sem motivo diz "Sem motivo"', async () => {
   await montar()
-  assert.equal(botao('Remover'), undefined)
+  assert.equal(detalhe('j1'), null)
   await clicar(seta('Loja Centro'))
   assert.equal(seta('Loja Centro')?.getAttribute('aria-expanded'), 'true')
   assert.match(texto(linha('Loja Centro')), /Motivo.*Venda de capacete no balcão/)
-  assert.ok(botao('Remover'))
+  assert.ok(removerDoDetalhe('j1'))
   await clicar(seta('Loja Norte'))
   assert.match(texto(linha('Loja Norte')), /Sem motivo/)
 })
@@ -81,8 +88,8 @@ test('a seta abre o detalhe com o motivo e Remover; sem motivo diz "Sem motivo"'
 test('Remover do detalhe e a lixeira da tabela apagam o ajuste certo', async () => {
   await montar()
   await clicar(seta('Loja Centro'))
-  await clicar(botao('Remover'))
-  await clicar(botao('Remover ajuste de Loja Norte'))
+  await clicar(removerDoDetalhe('j1'))
+  await clicar(comPrefixo('Remover ajuste de Loja Norte'))
   assert.deepEqual(excluidos, ['j1', 'j2'])
 })
 
@@ -136,4 +143,22 @@ test('valor inválido avisa e não chama a action', async () => {
   await clicar(botao('Lançar ajuste'))
   assert.deepEqual(erros, ['Valor inválido'])
   assert.deepEqual(criados, [])
+})
+
+test('a seta aponta para o detalhe aberto pelo id', async () => {
+  await montar()
+  assert.equal(seta('Loja Centro')?.getAttribute('aria-controls'), null)
+  await clicar(seta('Loja Centro'))
+  const alvo = seta('Loja Centro')?.getAttribute('aria-controls')
+  assert.ok(alvo)
+  assert.equal(document.getElementById(alvo), detalhe('j1'))
+})
+
+test('a linha aberta continua aberta quando outra linha some no re-render (key estável)', async () => {
+  await montar()
+  await clicar(seta('Loja Norte'))
+  await renderizar(AJUSTES.filter(a => a.id !== 'j1'))
+  assert.equal(seta('Loja Norte')?.getAttribute('aria-expanded'), 'true')
+  assert.ok(removerDoDetalhe('j2'))
+  assert.equal(seta('Loja Centro'), undefined)
 })
