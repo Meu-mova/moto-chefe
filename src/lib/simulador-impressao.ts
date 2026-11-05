@@ -10,7 +10,8 @@ import type { DestaqueAvista12x } from '@/lib/simulador-padrao'
 export function htmlAvista12x(
   modelo: { nome: string; imagemUrl: string | null },
   d: DestaqueAvista12x,
-  frete: { kmIdaEVolta: number; custo: number } | null,
+  /** Distância do frete calculado; o valor do frete vem em `d.comFrete`. */
+  kmIdaEVolta: number | null,
   dataTexto: string,
 ): string {
   const nome = esc(modelo.nome)
@@ -23,9 +24,9 @@ export function htmlAvista12x(
         <div class="p">12x de ${fmtBRL(d.parcela12x)}</div>
         <div class="q">total ${fmtBRL(d.total12x)}</div>
       </div>` : ''
-  const blocoFrete = frete && d.comFrete ? `
+  const blocoFrete = d.comFrete ? `
     <div class="frete">
-      <div>Frete: ${frete.custo > 0 ? fmtBRL(frete.custo) : 'grátis'} (${frete.kmIdaEVolta.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km ida e volta)</div>
+      <div>Frete: ${d.comFrete.custo > 0 ? fmtBRL(d.comFrete.custo) : 'grátis'}${kmIdaEVolta !== null ? ` (${kmIdaEVolta.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km ida e volta)` : ''}</div>
       <b>PIX + frete: ${fmtBRL(d.comFrete.pix)}</b>
       ${d.comFrete.parcela12x !== null ? `<b>12x + frete: 12x de ${fmtBRL(d.comFrete.parcela12x)}</b>` : ''}
     </div>` : ''

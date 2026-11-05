@@ -43,8 +43,8 @@ export type DestaqueAvista12x = {
   economiaPix: number | null
   /** O 12x está igual ou abaixo do PIX: o cliente veria o parcelado mais barato. */
   pixAcimaDo12x: boolean
-  /** Totais com o frete somado; null sem frete calculado. */
-  comFrete: { pix: number; parcela12x: number | null } | null
+  /** Frete calculado e os totais com ele; null sem frete. */
+  comFrete: { custo: number; pix: number; parcela12x: number | null } | null
 }
 
 const centavos = (v: number) => Math.round(v * 100) / 100
@@ -65,6 +65,7 @@ export function destaqueAvista12x(valorMinimo: number, valor12x: number | null, 
     economiaPix: temEconomia ? economia : null,
     pixAcimaDo12x: total12x !== null && !temEconomia,
     comFrete: frete === null ? null : {
+      custo: frete,
       pix: centavos(valorMinimo + frete),
       parcela12x: total12x !== null ? parcelaDe12x(total12x + frete) : null,
     },

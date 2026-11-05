@@ -39,11 +39,11 @@ test('desconto que arredonda a 0% não aparece; a economia continua', () => {
 
 test('com frete: PIX + frete e 12x + frete em parcelas', () => {
   const r = destaqueAvista12x(13990, 15600, 168)
-  assert.deepEqual(r.comFrete, { pix: 14158, parcela12x: 1314 })
+  assert.deepEqual(r.comFrete, { custo: 168, pix: 14158, parcela12x: 1314 })
 })
 
 test('com frete e sem 12x: só o PIX + frete', () => {
-  assert.deepEqual(destaqueAvista12x(13990, null, 168).comFrete, { pix: 14158, parcela12x: null })
+  assert.deepEqual(destaqueAvista12x(13990, null, 168).comFrete, { custo: 168, pix: 14158, parcela12x: null })
   assert.equal(destaqueAvista12x(13990, 15600).comFrete, null)
 })
 

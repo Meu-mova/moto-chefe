@@ -25,7 +25,7 @@ test('impressão sem 12x: sai só o PIX, sem card vazio para o cliente', () => {
 })
 
 test('impressão com frete: PIX + frete e 12x + frete', () => {
-  const html = sem(htmlAvista12x(modelo, destaqueAvista12x(13990, 15600, 168), { kmIdaEVolta: 84.2, custo: 168 }, DATA))
+  const html = sem(htmlAvista12x(modelo, destaqueAvista12x(13990, 15600, 168), 84.2, DATA))
   assert.match(html, /84,2 km ida e volta/)
   assert.match(html, /PIX \+ frete: R\$ 14\.158,00/)
   assert.match(html, /12x \+ frete: 12x de R\$ 1\.314,00/)

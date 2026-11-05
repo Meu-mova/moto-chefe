@@ -43,7 +43,7 @@ function Resultado({ modelo, lojasFrete, isAdmin, lojaUsuarioId }: Omit<Props, '
 
   function imprimir() {
     const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-    abrirImpressao(htmlAvista12x(modelo, d, freteOk, hoje))
+    abrirImpressao(htmlAvista12x(modelo, d, freteOk ? freteOk.kmIdaEVolta : null, hoje))
   }
 
   return (
