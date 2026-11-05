@@ -239,7 +239,7 @@ Conta nova. Decisões do Luis:
 
 ## Adendo de 2026-11-05: Dados de Funcionários só do grupo ativo (#698)
 
-Exceção à regra "o sócio vê a Conta" nesta tela. Decisão do Cesar em 05/11/2026, aceita pelo Luis:
+Exceção à regra do #320 nesta tela. Decisão do Cesar em 05/11/2026, aceita pelo Luis:
 
 - `/admin/dados-funcionarios` lista e corrige o PIX só de quem é do **grupo ativo**, para todos os
   papéis, **inclusive o `admin_geral`**. Antes o sócio via a Conta inteira e o `admin_geral` todas
