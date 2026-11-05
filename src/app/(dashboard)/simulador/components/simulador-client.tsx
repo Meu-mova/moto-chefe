@@ -8,6 +8,7 @@ import { SimuladorCasco, BotaoImprimir, abrirImpressao } from './simulador-casco
 import type { ResultadoFrete } from '../actions'
 import { fmtBRL } from '@/lib/preco-minimo'
 import { esc } from '@/lib/html'
+import { folhaSimulacao } from '@/lib/simulador-impressao'
 
 // Financiamento oculto no simulador e no PDF, para todos, a pedido do Luis (#161,
 // 15/10/2026). É temporário: para voltar, troque para true. As taxas seguem na Precificação.
@@ -195,9 +196,7 @@ function gerarHtmlPrint(
   frete: { kmIdaEVolta: number; custo: number } | null,
 ) {
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  const nomeEsc = esc(modelo.nome)
   const base = parseFloat(modelo.valorMinimo)
-  const imgUrl = modelo.imagemUrl && /^https:\/\//i.test(modelo.imagemUrl) ? esc(modelo.imagemUrl) : null
 
   // Preços de referência sempre sem entrada (valores cheios)
   const cartao21 = linhasCartaoSemEntrada.find(l => l.parcelas === 21)
@@ -234,19 +233,12 @@ function gerarHtmlPrint(
       <div style="font-size:10px;color:var(--muted-foreground);margin-top:2px">${linha.parcelas}x de ${fmtBRL(linha.parcela)}</div>
     </div>` : ''
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <title>Simulação — ${nomeEsc}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;padding:40px;color:var(--foreground);font-size:14px;max-width:640px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid var(--border)}
-    .brand{font-size:11px;color:var(--muted-foreground);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
-    .model{font-size:26px;font-weight:700}
-    .date{font-size:11px;color:var(--muted-foreground);text-align:right;white-space:nowrap}
-    .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
+  return folhaSimulacao({
+    modelo,
+    dataTexto: data,
+    titulo: nome => `Simulação — ${nome}`,
+    marca: 'MOVA — Gestão em Mobilidade Elétrica',
+    estilos: `    .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
     .price-card{border-radius:12px;padding:16px 12px;text-align:center}
     .price-tabela{background:var(--muted);border:2px solid var(--border)}
     .price-desconto{background:color-mix(in srgb, var(--info) 10%, var(--card));border:2px solid color-mix(in srgb, var(--info) 30%, var(--card))}
@@ -266,23 +258,8 @@ function gerarHtmlPrint(
     .eco{font-size:10px;margin-top:3px}
     .price-desconto .eco{color:var(--info)}
     .price-pix .eco{color:var(--success)}
-    .entrada-tag{text-align:center;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:16px;font-size:13px;color:var(--muted-foreground)}
-    .footer{margin-top:32px;padding-top:12px;border-top:1px solid var(--border);font-size:10px;color:var(--muted-foreground);text-align:center}
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div style="display:flex;align-items:center;gap:16px">
-      ${imgUrl ? `<img src="${imgUrl}" alt="${nomeEsc}" style="height:72px;width:108px;object-fit:contain;border-radius:8px;background:var(--muted);border:1px solid var(--border);padding:4px">` : ''}
-      <div>
-        <div class="brand">MOVA — Gestão em Mobilidade Elétrica</div>
-        <div class="model">${nomeEsc}</div>
-      </div>
-    </div>
-    <div class="date">${data}</div>
-  </div>
-
-  ${entrada > 0 ? `<div class="entrada-tag">Entrada: <strong>${fmtBRL(entrada)}</strong></div>` : ''}
+    .entrada-tag{text-align:center;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:16px;font-size:13px;color:var(--muted-foreground)}`,
+    corpo: `${entrada > 0 ? `<div class="entrada-tag">Entrada: <strong>${fmtBRL(entrada)}</strong></div>` : ''}
 
   <div class="price-row">
     <div class="price-card price-tabela">
@@ -310,11 +287,9 @@ function gerarHtmlPrint(
 
   ${tabelasSelecionadas}
 
-  ${blocoFrete}
-
-  <div class="footer">MOVA · Simulação gerada em ${data} · Valores sujeitos a alteração sem aviso prévio${MOSTRAR_FINANCIAMENTO ? ' · Financiamento sujeito a aprovação de crédito' : ''}</div>
-</body>
-</html>`
+  ${blocoFrete}`,
+    rodape: `MOVA · Simulação gerada em ${data} · Valores sujeitos a alteração sem aviso prévio${MOSTRAR_FINANCIAMENTO ? ' · Financiamento sujeito a aprovação de crédito' : ''}`,
+  })
 }
 
 function DescontoBadge({ pct: pctStr, economia, corBadge, corEcon }: { pct: string | null; economia: number | null; corBadge: string; corEcon: string }) {
