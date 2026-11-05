@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { salvarTaxasAction } from '../actions'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { Save } from 'lucide-react'
+import { ChevronDown, Save } from 'lucide-react'
 
 const PARCELAS_CARTAO = Array.from({ length: 21 }, (_, i) => i + 1)
 const PARCELAS_DEBITO = [1]
@@ -106,7 +106,9 @@ function TaxaGrid({
   )
 }
 
-export function TaxasForm({ taxas }: { taxas: Taxas }) {
+/** `recolhida`: no padrão 'avista_12x' o simulador não usa as taxas de cartão; o card abre só se pedir. */
+export function TaxasForm({ taxas, recolhida = false }: { taxas: Taxas; recolhida?: boolean }) {
+  const [aberta, setAberta] = useState(!recolhida)
   const [cartao, setCartao] = useState<RateMap>(() => initMap(taxas.taxasCartao, PARCELAS_CARTAO))
   const [debito, setDebito] = useState<RateMap>(() => initMap(taxas.taxasDebito, PARCELAS_DEBITO))
   const [link, setLink] = useState<RateMap>(() => initMap(taxas.taxasLink, PARCELAS_LINK))
@@ -145,18 +147,32 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
 
   return (
     <div className="bg-card rounded-xl border shadow-sm">
-      <div className="px-6 py-4 border-b flex items-center justify-between">
+      <div className={`px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3 ${aberta ? 'border-b' : ''}`}>
         <div>
           <h2 className="font-semibold text-foreground">Configuração de Taxas Globais</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Aplicadas sobre o valor mínimo de cada modelo</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {recolhida
+              ? 'O simulador deste grupo não usa as taxas de cartão. Frete e imposto continuam valendo.'
+              : 'Aplicadas sobre o valor mínimo de cada modelo'}
+          </p>
         </div>
-        <Button onClick={handleSave} disabled={loading} className="gap-2">
-          <Save size={15} />
-          {loading ? 'Salvando...' : 'Salvar taxas'}
-        </Button>
+        <div className="flex gap-2">
+          {recolhida && (
+            <Button variant="outline" onClick={() => setAberta(a => !a)} aria-expanded={aberta} className="gap-2">
+              {aberta ? 'Recolher' : 'Ver taxas'}
+              <ChevronDown size={15} className={aberta ? 'rotate-180' : ''} />
+            </Button>
+          )}
+          {aberta && (
+            <Button onClick={handleSave} disabled={loading} className="gap-2">
+              <Save size={15} />
+              {loading ? 'Salvando...' : 'Salvar taxas'}
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="p-6">
+      {aberta && <div className="p-6">
         <Tabs defaultValue="cartao">
           <TabsList>
             <TabsTrigger value="cartao">Cartão de Crédito (1–21x)</TabsTrigger>
@@ -236,7 +252,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+      </div>}
     </div>
   )
 }

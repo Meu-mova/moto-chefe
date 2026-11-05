@@ -8,7 +8,7 @@ import { ModeloDialog } from './modelo-dialog'
 import { ImportarPrecos } from './importar-precos'
 import { PadraoSimuladorCard } from './padrao-simulador-card'
 import { toggleAtivoAction, excluirModeloAction } from '../actions'
-import type { PadraoSimulador } from '@/lib/simulador-padrao'
+import { parcelaDe12x, usaValor12x, type PadraoSimulador } from '@/lib/simulador-padrao'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, TrendingUp, AlertTriangle, Tag } from 'lucide-react'
 import { fmtBRL } from '@/lib/preco-minimo'
 
@@ -104,15 +104,15 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
 
   const temCusto = modelos.some(m => m.custo)
   const semPreco = modelos.filter(m => !m.precId)
-  const com12x = padraoSimulador === 'avista_12x'
+  const com12x = usaValor12x(padraoSimulador)
   const sem12x = com12x ? modelos.filter(m => m.precId && m.ativo && !m.valor12x) : []
 
   return (
     <div className="space-y-6">
-      <PadraoSimuladorCard padrao={padraoSimulador} />
+      <PadraoSimuladorCard padrao={padraoSimulador} sem12x={sem12x.length} />
 
       {/* Taxas globais no topo */}
-      <TaxasForm taxas={taxas} />
+      <TaxasForm taxas={taxas} recolhida={com12x} />
 
       {/* Lista de modelos */}
       <div className="bg-card rounded-xl border shadow-sm">
@@ -182,8 +182,8 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
                       {com12x && (
                         <td className="px-4 py-3 text-right font-mono text-foreground">
                           {m.valor12x
-                            ? <>{fmtBRL(parseFloat(m.valor12x))}<span className="block text-xs text-muted-foreground">12x de {fmtBRL(parseFloat(m.valor12x) / 12)}</span></>
-                            : <span className={precificado && m.ativo ? 'text-warning text-xs' : 'text-muted-foreground'}>{precificado && m.ativo ? 'Sem valor' : '—'}</span>}
+                            ? <>{fmtBRL(parseFloat(m.valor12x))}<span className="block text-xs text-muted-foreground">12x de {fmtBRL(parcelaDe12x(parseFloat(m.valor12x)))}</span></>
+                            : precificado && m.ativo && <span className="text-warning text-xs">Sem valor</span>}
                         </td>
                       )}
                       {temCusto && (

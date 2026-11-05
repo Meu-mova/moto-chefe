@@ -49,6 +49,9 @@ export type DestaqueAvista12x = {
 
 const centavos = (v: number) => Math.round(v * 100) / 100
 
+/** Parcela do total em 12x, em centavos. */
+export const parcelaDe12x = (total: number) => centavos(total / 12)
+
 export function destaqueAvista12x(valorMinimo: number, valor12x: number | null, frete: number | null = null): DestaqueAvista12x {
   const total12x = valor12x && valor12x > 0 ? valor12x : null
   const economia = total12x !== null ? centavos(total12x - valorMinimo) : null
@@ -57,13 +60,13 @@ export function destaqueAvista12x(valorMinimo: number, valor12x: number | null, 
   return {
     pix: valorMinimo,
     total12x,
-    parcela12x: total12x !== null ? centavos(total12x / 12) : null,
+    parcela12x: total12x !== null ? parcelaDe12x(total12x) : null,
     descontoPix: desconto > 0 ? desconto : null,
     economiaPix: temEconomia ? economia : null,
     pixAcimaDo12x: total12x !== null && !temEconomia,
     comFrete: frete === null ? null : {
       pix: centavos(valorMinimo + frete),
-      parcela12x: total12x !== null ? centavos((total12x + frete) / 12) : null,
+      parcela12x: total12x !== null ? parcelaDe12x(total12x + frete) : null,
     },
   }
 }
