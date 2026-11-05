@@ -108,7 +108,9 @@ function TaxaGrid({
 
 /** `recolhida`: no padrão 'avista_12x' o simulador não usa as taxas de cartão; o card abre só se pedir. */
 export function TaxasForm({ taxas, recolhida = false }: { taxas: Taxas; recolhida?: boolean }) {
-  const [aberta, setAberta] = useState(!recolhida)
+  const [abriu, setAbriu] = useState(false)
+  // Fora do padrão novo o card fica sempre aberto, mesmo se o padrão trocar com a tela aberta.
+  const aberta = !recolhida || abriu
   const [cartao, setCartao] = useState<RateMap>(() => initMap(taxas.taxasCartao, PARCELAS_CARTAO))
   const [debito, setDebito] = useState<RateMap>(() => initMap(taxas.taxasDebito, PARCELAS_DEBITO))
   const [link, setLink] = useState<RateMap>(() => initMap(taxas.taxasLink, PARCELAS_LINK))
@@ -158,7 +160,7 @@ export function TaxasForm({ taxas, recolhida = false }: { taxas: Taxas; recolhid
         </div>
         <div className="flex gap-2">
           {recolhida && (
-            <Button variant="outline" onClick={() => setAberta(a => !a)} aria-expanded={aberta} className="gap-2">
+            <Button variant="outline" onClick={() => setAbriu(a => !a)} aria-expanded={aberta} className="gap-2">
               {aberta ? 'Recolher' : 'Ver taxas'}
               <ChevronDown size={15} className={aberta ? 'rotate-180' : ''} />
             </Button>
