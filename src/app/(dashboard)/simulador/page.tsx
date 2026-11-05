@@ -6,6 +6,7 @@ import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { asc, eq, and } from 'drizzle-orm'
 import { SimuladorClient } from './components/simulador-client'
 import { SimuladorAvista12x } from './components/simulador-avista-12x'
+import { usaValor12x } from '@/lib/simulador-padrao'
 import { redirect } from 'next/navigation'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -38,7 +39,7 @@ export default async function SimuladorPage() {
         <h1 className="text-2xl font-bold">Simulador de Preços</h1>
         <p className="text-muted-foreground text-sm">Referência de valores e condições de pagamento</p>
       </div>
-      {taxas?.padraoSimulador === 'avista_12x' ? (
+      {usaValor12x(taxas?.padraoSimulador ?? 'taxas') ? (
         <SimuladorAvista12x
           modelos={modelos.map(m => ({
             id: m.id,
