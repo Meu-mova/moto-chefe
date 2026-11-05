@@ -6,18 +6,14 @@ import type { DestaqueAvista12x } from '@/lib/simulador-padrao'
  * Papel da simulação, comum aos dois padrões do simulador: página, estilos de base, cabeçalho
  * (foto, marca, nome e data) e rodapé. Cada padrão entrega os estilos e o corpo dele.
  * As cores são var(--x); quem abre a janela troca pelos valores do tema claro.
- * `titulo` e `marca` existem porque o papel do padrão taxas sai igual ao de antes (com travessão)
- * e o novo não leva travessão.
  */
-export function folhaSimulacao({ modelo, dataTexto, estilos, corpo, rodape, titulo, marca }: {
+export function folhaSimulacao({ modelo, dataTexto, estilos, corpo, rodape }: {
   modelo: { nome: string; imagemUrl: string | null }
   dataTexto: string
   /** Regras CSS do padrão, uma por linha, já com o recuo do bloco. */
   estilos: string
   corpo: string
   rodape: string
-  titulo: (nome: string) => string
-  marca: string
 }): string {
   const nome = esc(modelo.nome)
   const img = modelo.imagemUrl && /^https:\/\//i.test(modelo.imagemUrl) ? esc(modelo.imagemUrl) : null
@@ -25,7 +21,7 @@ export function folhaSimulacao({ modelo, dataTexto, estilos, corpo, rodape, titu
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <title>${titulo(nome)}</title>
+  <title>Simulação: ${nome}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,sans-serif;padding:40px;color:var(--foreground);font-size:14px;max-width:640px;margin:0 auto}
@@ -42,7 +38,7 @@ ${estilos}
     <div style="display:flex;align-items:center;gap:16px">
       ${img ? `<img src="${img}" alt="${nome}" style="height:72px;width:108px;object-fit:contain;border-radius:8px;background:var(--muted);border:1px solid var(--border);padding:4px">` : ''}
       <div>
-        <div class="brand">${marca}</div>
+        <div class="brand">MOVA, gestão em mobilidade elétrica</div>
         <div class="model">${nome}</div>
       </div>
     </div>
@@ -95,8 +91,6 @@ export function htmlAvista12x(
   return folhaSimulacao({
     modelo,
     dataTexto,
-    titulo: nome => `Simulação: ${nome}`,
-    marca: 'MOVA, gestão em mobilidade elétrica',
     estilos: ESTILOS_AVISTA_12X,
     corpo: `<div class="hero">
     <div>

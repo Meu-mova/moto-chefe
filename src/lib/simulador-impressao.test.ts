@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { destaqueAvista12x } from './simulador-padrao'
-import { htmlAvista12x } from './simulador-impressao'
+import { folhaSimulacao, htmlAvista12x } from './simulador-impressao'
 
 const modelo = { nome: 'Scooter <X> "3000"', imagemUrl: null }
 const DATA = '5 de novembro de 2026'
@@ -42,4 +42,11 @@ test('imagem só sai com https, escapada', () => {
   const comImg = (url: string) => htmlAvista12x({ nome: 'M', imagemUrl: url }, destaqueAvista12x(1, null), null, DATA)
   assert.match(comImg('https://x.test/a.png?b="c"'), /src="https:\/\/x\.test\/a\.png\?b=&quot;c&quot;"/)
   assert.doesNotMatch(comImg('javascript:alert(1)'), /<img/)
+})
+
+test('papel comum aos dois padrões: marca e título sem travessão, nome escapado', () => {
+  const html = folhaSimulacao({ modelo: { nome: 'M <1>', imagemUrl: null }, dataTexto: DATA, estilos: '', corpo: '<p>corpo</p>', rodape: 'rodapé' })
+  assert.match(html, /<title>Simulação: M &lt;1&gt;<\/title>/)
+  assert.match(html, /MOVA, gestão em mobilidade elétrica/)
+  assert.doesNotMatch(html, /—/)
 })

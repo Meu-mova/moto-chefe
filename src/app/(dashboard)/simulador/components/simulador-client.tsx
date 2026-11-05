@@ -236,8 +236,6 @@ function gerarHtmlPrint(
   return folhaSimulacao({
     modelo,
     dataTexto: data,
-    titulo: nome => `Simulação — ${nome}`,
-    marca: 'MOVA — Gestão em Mobilidade Elétrica',
     estilos: `    .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
     .price-card{border-radius:12px;padding:16px 12px;text-align:center}
     .price-tabela{background:var(--muted);border:2px solid var(--border)}
