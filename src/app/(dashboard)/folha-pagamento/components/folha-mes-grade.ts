@@ -12,6 +12,7 @@ export const GRADE = [
   '@[960px]/folha:grid-cols-[minmax(150px,1.8fr)_repeat(5,minmax(0,1fr))_minmax(0,1.1fr)_minmax(130px,1.1fr)_36px]',
 ].join(' ')
 
+export const TITULO = 'text-xs font-medium text-muted-foreground'
 export const CELULA = 'min-w-0 px-2.5 py-2.5'
 export const NUMERO = `${CELULA} text-right tabular-nums whitespace-nowrap`
 // Colunas que só entram quando cabem: p2 a partir do tablet, p3 só no desktop.

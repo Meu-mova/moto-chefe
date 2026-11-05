@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ABAS_FOLHA, avisoDaAba, descreverRegra, diferencaValorReal, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
+import { ABAS_FOLHA, avisoDaAba, descreverRegra, diferencaValorReal, fmtPercentual, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
 
 test('mesAdjacente: vira o ano em dezembro e em janeiro', () => {
   assert.equal(mesAdjacente('2026-12', 1), '2027-01')
@@ -75,4 +75,12 @@ test('descreverRegra: percentual, base em minúsculas e o valor sobre o qual inc
   const regra = { percentual: 1, base: 'proprias_motos', valorBase: 183040 }
   assert.equal(descreverRegra(regra), '1% motos vendidas por ele · R$\u00a0183.040,00')
   assert.equal(descreverRegra({ ...regra, percentual: 0.05, valorBase: 200000 }), '0,05% motos vendidas por ele · R$\u00a0200.000,00')
+})
+
+test('fmtPercentual: o numeric do banco em pt-BR, de 1 a 3 casas', () => {
+  assert.equal(fmtPercentual('0.30'), '0,3')
+  assert.equal(fmtPercentual('0.05'), '0,05')
+  assert.equal(fmtPercentual('1.00'), '1,0')
+  assert.equal(fmtPercentual('12.5'), '12,5')
+  assert.equal(fmtPercentual('0.0010'), '0,001')
 })
