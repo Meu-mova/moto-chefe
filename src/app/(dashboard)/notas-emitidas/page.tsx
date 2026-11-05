@@ -67,7 +67,7 @@ export default async function NotasEmitidasPage({
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <NotasFiltros de={periodo.de} ate={periodo.ate} ambiente={ambiente} />
-          {podeInutilizar && <InutilizarFaixaDialogo ambiente={ambiente} />}
+          {podeInutilizar && <InutilizarFaixaDialogo ambiente={ambiente} grupoNome={grupo.nome} />}
         </div>
       </div>
 

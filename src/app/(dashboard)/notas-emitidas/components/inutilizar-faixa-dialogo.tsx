@@ -27,7 +27,7 @@ const numeros = (lista: number[]) => lista.length <= MAX_NUMEROS_LISTADOS ? list
  * justificativa. Aviso de conflito não bloqueia. Como no pedido por nota, o resultado fica dentro do
  * diálogo e a lista só atualiza no Fechar.
  */
-export function InutilizarFaixaDialogo({ ambiente }: { ambiente: 'Producao' | 'Homologacao' }) {
+export function InutilizarFaixaDialogo({ ambiente, grupoNome }: { ambiente: 'Producao' | 'Homologacao'; grupoNome: string }) {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const [passo, setPasso] = useState<Passo>('faixa')
@@ -110,6 +110,7 @@ export function InutilizarFaixaDialogo({ ambiente }: { ambiente: 'Producao' | 'H
               <DialogTitle>Inutilizar faixa de numeração</DialogTitle>
               {contexto && <Badge className={producao ? 'bg-muted text-muted-foreground' : 'bg-warning/10 text-warning'}>{producao ? 'Produção' : 'Teste (homologação)'}</Badge>}
             </div>
+            <p className="text-sm text-muted-foreground">Notas emitidas · {grupoNome}</p>
             <DialogDescription>Informe uma única faixa contínua de números que não será mais usada.</DialogDescription>
           </DialogHeader>
 
@@ -141,7 +142,9 @@ export function InutilizarFaixaDialogo({ ambiente }: { ambiente: 'Producao' | 'H
                 </div>
               </div>
               <p className={`text-xs ${inicio && fim && !validacao.ok ? 'text-destructive' : 'text-muted-foreground'}`}>
-                {inicio && fim && !validacao.ok ? validacao.erro : `Um pedido por faixa, com no máximo ${MAX_NUMEROS_POR_INUTILIZACAO.toLocaleString('pt-BR')} números. Duas lacunas são dois pedidos.`}
+                {inicio && fim && !validacao.ok ? validacao.erro
+                  : validacao.ok ? `Será enviado um único pedido para a faixa ${validacao.faixa.numeroInicial} a ${validacao.faixa.numeroFinal}.`
+                  : `Um pedido por faixa, com no máximo ${MAX_NUMEROS_POR_INUTILIZACAO.toLocaleString('pt-BR')} números. Duas lacunas são dois pedidos.`}
               </p>
               {!contexto.permiteInutilizar && (
                 <p role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
@@ -158,7 +161,8 @@ export function InutilizarFaixaDialogo({ ambiente }: { ambiente: 'Producao' | 'H
           {passo === 'confirmar' && validacao.ok && conflitos && (
             <div className="space-y-3 text-sm" role="status">
               <p className="rounded-md bg-muted p-3">
-                Série {validacao.faixa.serie}, números {validacao.faixa.numeroInicial} a {validacao.faixa.numeroFinal} ({validacao.faixa.numeroFinal - validacao.faixa.numeroInicial + 1}).
+                {grupoNome}: série {validacao.faixa.serie}, números {validacao.faixa.numeroInicial} a {validacao.faixa.numeroFinal} ({validacao.faixa.numeroFinal - validacao.faixa.numeroInicial + 1}).
+                Se autorizados, esses números não poderão ser usados em uma NF-e.
               </p>
               {conflitos.numerosDeNotas.length > 0 && <p>Notas do MOVA que usam números desta faixa: {numeros(conflitos.numerosDeNotas)}.</p>}
               {conflitos.pedidos.map((p, i) => <p key={i}>Pedido de inutilização {p.situacao === 'autorizada' ? 'autorizado' : 'pendente'} de {p.numeroInicial} a {p.numeroFinal}.</p>)}

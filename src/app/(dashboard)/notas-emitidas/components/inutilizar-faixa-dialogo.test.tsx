@@ -43,6 +43,7 @@ const botao = (texto: string) => [...document.querySelectorAll('button')].find(b
 const clicar = (el: Element | undefined) => el!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 const dialogoAberto = () => document.querySelector('[data-slot="dialog-content"]') !== null
 
+const GRUPO = 'Grupo Sul de Teste'
 async function montar(ambiente: 'Producao' | 'Homologacao' = 'Homologacao') {
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
@@ -50,7 +51,7 @@ async function montar(ambiente: 'Producao' | 'Homologacao' = 'Homologacao') {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
-  await act(async () => { root.render(createElement(InutilizarFaixaDialogo, { ambiente })) })
+  await act(async () => { root.render(createElement(InutilizarFaixaDialogo, { ambiente, grupoNome: GRUPO })) })
   const preencher = (id: string, valor: string) => act(async () => {
     const campo = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement
     const proto = campo instanceof dom.window.HTMLTextAreaElement ? dom.window.HTMLTextAreaElement.prototype : dom.window.HTMLInputElement.prototype
@@ -155,6 +156,17 @@ test('depois da recusa a nova tentativa vai com outra chave; sem resposta, repet
   await t.clique('Fechar', DEPOIS_DA_ANIMACAO_MS)
   await t.abrir(); await t.faixaValida(); await t.clique('Continuar'); await t.marcarConferi(); await t.clique('Confirmar inutilização')
   assert.match(textoDaTela(), /Confira o histórico/)
+})
+
+test('mostra o grupo no cabeçalho e no resumo, a linha viva da faixa e o aviso de que o número não volta', async () => {
+  const t = await montar()
+  await t.abrir()
+  assert.match(textoDaTela(), new RegExp(`Notas emitidas · ${GRUPO}`))
+  await t.faixaValida()
+  assert.match(textoDaTela(), /Será enviado um único pedido para a faixa \d+ a \d+/)
+  await t.clique('Continuar')
+  assert.match(textoDaTela(), /não poderão ser usados em uma NF-e/)
+  assert.ok((textoDaTela().match(new RegExp(GRUPO, 'g')) ?? []).length >= 2, 'cabeçalho e resumo da confirmação')
 })
 
 test('UF excluída: explica e não deixa continuar; produção avisa que não tem volta', async () => {
