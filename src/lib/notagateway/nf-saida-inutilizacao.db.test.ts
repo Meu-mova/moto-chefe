@@ -590,6 +590,10 @@ test('faixa: 4xx da NG nega e deixa a faixa livre para novo pedido; sem resposta
       const negada = await mf.inutilizarFaixa(a.socio, a.grupoId, faixa(), depsDaFaixa(tx, a.grupoId, async () => { throw new InutilizacaoRecusada('faixa invalida') }))
       assert.deepEqual(negada, { ok: false, erro: 'A Nota Gateway recusou o pedido: faixa invalida' })
       let envios = 0
+      // A mesma chave depois da recusa não reenvia: por isso a tela gera outra chave após um ok:false.
+      const mesmaChave = await mf.inutilizarFaixa(a.socio, a.grupoId, faixa(), depsDaFaixa(tx, a.grupoId, async () => { envios++ }))
+      assert.ok(mesmaChave.ok && mesmaChave.aviso === 'Esta tentativa já foi registrada; nenhum novo pedido foi enviado.')
+      assert.equal(envios, 0)
       const semResposta = await mf.inutilizarFaixa(a.socio, a.grupoId, faixa({ chave: CHAVE_2 }), depsDaFaixa(tx, a.grupoId, async () => { envios++; throw new NotaGatewayIndisponivel(503) }))
       assert.ok(semResposta.ok && semResposta.aviso === m.AVISO_SEM_RESPOSTA)
       const [l1, l2] = await faixasDoGrupo(tx, a.grupoId)
@@ -676,5 +680,68 @@ test('banco: faixa de 10.000 números entra e de 10.001 não (MOC NF-e, regra I0
     await inserir(tx, 'limite-10000', 10000)
     await assert.rejects(tx.transaction(t => inserir(t, 'limite-10001', 10001)),
       (e: { cause?: { message?: string } }) => /notas_fiscais_saida_inutilizacoes_faixa_check/.test(e.cause?.message ?? ''))
+  })
+})
+
+// Tela da faixa (#655, PR B): contexto, conferência com avisos e histórico.
+const entradaDaTela = (extra = {}) => ({ ambiente: 'Homologacao', numeroInicial: '16', numeroFinal: '24', justificativa: 'Quebra na sequência da numeração', ...extra })
+
+test('faixa na tela: o contexto traz série e UF da NG; Conta B e aux_adm recebem a frase de grupo inexistente', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearContaFaixa(tx, 'A', '00000000065501')
+    const b = await semearContaFaixa(tx, 'B', '00000000065502')
+    const deps = depsDaFaixa(tx, a.grupoId, undefined, 'SP')
+    assert.deepEqual(await mf.contextoDaFaixa(a.socio, a.grupoId, 'Homologacao', deps), { ok: true, ambiente: 'Homologacao', serie: '1', uf: 'SP', permiteInutilizar: false })
+    const recusa = { ok: false, erro: 'Grupo não encontrado' }
+    assert.deepEqual(await mf.contextoDaFaixa(b.socio, a.grupoId, 'Homologacao', deps), recusa)
+    assert.deepEqual(await mf.contextoDaFaixa(a.aux, a.grupoId, 'Homologacao', deps), recusa)
+    assert.equal((await mf.contextoDaFaixa(a.socio, a.grupoId, 'Producao', deps)).ok, false, 'ambiente da página diferente do configurado')
+  })
+})
+
+test('faixa na tela: a conferência avisa de nota e pedido do próprio grupo e ambiente, nunca de outra Conta', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearContaFaixa(tx, 'A', '00000000065501')
+    const b = await semearContaFaixa(tx, 'B', '00000000065502')
+    await semearNota(tx, a.grupoId, 956001, { status: 'Autorizada', numero: '0017' })
+    await semearNota(tx, a.grupoId, 956002, { status: 'Negada', motivo: '225 - Falha no schema', numero: '18' })
+    await semearNota(tx, a.grupoId, 956003, { status: 'Autorizada', numero: '19', ambiente: 'Producao' })
+    await semearNota(tx, b.grupoId, 956004, { status: 'Autorizada', numero: '20' })
+    const existente = await mf.inutilizarFaixa(a.socio, a.grupoId, faixa({ numeroInicial: '22', numeroFinal: '40' }), depsDaFaixa(tx, a.grupoId))
+    assert.ok(existente.ok)
+    await mf.inutilizarFaixa(b.socio, b.grupoId, faixa(), depsDaFaixa(tx, b.grupoId))
+
+    const r = await mf.conferirFaixa(a.socio, a.grupoId, entradaDaTela(), depsDaFaixa(tx, a.grupoId))
+    assert.ok(r.ok)
+    assert.equal(r.serie, '1')
+    assert.deepEqual(r.conflitos.numerosDeNotas, [17], 'só a autorizada do grupo e ambiente; a negada livre, a de produção e a da B não')
+    assert.deepEqual(r.conflitos.pedidos.map(p => [p.numeroInicial, p.numeroFinal, p.situacao]), [[22, 40, 'pendente']])
+    assert.equal((await faixasDoGrupo(tx, a.grupoId)).length, 1, 'conferir não grava nada')
+  })
+})
+
+test('faixa na tela: a conferência recusa UF excluída, faixa inválida e quem não vê o grupo', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearContaFaixa(tx, 'A', '00000000065501')
+    const b = await semearContaFaixa(tx, 'B', '00000000065502')
+    assert.equal((await mf.conferirFaixa(a.socio, a.grupoId, entradaDaTela(), depsDaFaixa(tx, a.grupoId, undefined, 'BA'))).ok, false)
+    assert.equal((await mf.conferirFaixa(a.socio, a.grupoId, entradaDaTela({ numeroFinal: '10' }), depsDaFaixa(tx, a.grupoId))).ok, false)
+    assert.deepEqual(await mf.conferirFaixa(b.socio, a.grupoId, entradaDaTela(), depsDaFaixa(tx, a.grupoId)), { ok: false, erro: 'Grupo não encontrado' })
+  })
+})
+
+test('faixa na tela: o histórico lista só as faixas do grupo e ambiente; a Conta B não vê as da A', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearContaFaixa(tx, 'A', '00000000065501')
+    const b = await semearContaFaixa(tx, 'B', '00000000065502')
+    const nota = await semearNotaNegada(tx, a.grupoId, 956010, '60')
+    assert.ok((await m.prepararInutilizacao(tx, a.socio, nota, JUSTIFICATIVA)).ok)
+    await mf.inutilizarFaixa(a.socio, a.grupoId, faixa(), depsDaFaixa(tx, a.grupoId))
+    await mf.inutilizarFaixa(b.socio, b.grupoId, faixa(), depsDaFaixa(tx, b.grupoId))
+
+    const daA = await mf.listarFaixas(tx, { grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Homologacao' })
+    assert.deepEqual(daA.map(f => [f.numeroInicial, f.numeroFinal, f.situacao]), [[16, 24, 'pendente']], 'a inutilização da nota não é faixa')
+    assert.equal((await mf.listarFaixas(tx, { grupoId: a.grupoId, contaId: a.socio.contaId, ambiente: 'Producao' })).length, 0)
+    assert.equal((await mf.listarFaixas(tx, { grupoId: a.grupoId, contaId: b.socio.contaId, ambiente: 'Homologacao' })).length, 0, 'Conta B no where')
   })
 })
