@@ -1,6 +1,5 @@
 'use client'
 import { useState, useTransition } from 'react'
-import { ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +10,8 @@ import { fmtPercentual } from '@/lib/folha-tela'
 import { parseNumeroBR, formatarNumeroBR } from '@/lib/numero-br'
 import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import { Bloco } from './folha-bloco'
-import { CELULA, TITULO } from './folha-mes-grade'
+import { CAMPO, CELULA, TITULO } from './folha-mes-grade'
+import { SetaDetalhe } from './folha-seta-detalhe'
 import { ValorOuZero } from './folha-mes-valor'
 
 export type RegraResumo = {
@@ -47,7 +47,6 @@ const GRADE = [
 ].join(' ')
 const SO_TABLET = 'hidden @[680px]/folha:block @[960px]/folha:hidden'
 const ROTULO_DO_CAMPO = 'mb-1 block text-xs text-muted-foreground @[960px]/folha:hidden'
-const CAMPO = 'h-11 text-base @[960px]/folha:h-8 @[960px]/folha:text-xs'
 
 function RegrasLista({ regras }: { regras: RegraResumo[] }) {
   if (regras.length === 0) return <span className="text-xs text-muted-foreground">sem regra</span>
@@ -125,10 +124,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
         {f.ativo ? <Badge variant="outline" className="border-success/50 bg-success/10 text-success">Ativo</Badge> : <SeloInativo />}
       </div>
       <div role="cell" className="flex items-center justify-center @[960px]/folha:hidden">
-        <Button variant="ghost" size="icon" className="size-11 text-muted-foreground" aria-expanded={aberta} aria-controls={idDetalhe}
-          aria-label={`Ver detalhes de ${f.nome}`} onClick={() => setAberta(a => !a)}>
-          <ChevronDown aria-hidden className={aberta ? 'rotate-180' : ''} />
-        </Button>
+        <SetaDetalhe nome={f.nome} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} />
       </div>
 
       <div id={idDetalhe} className={`${aberta ? 'col-span-full grid gap-3 px-2.5 pb-3 @[680px]/folha:grid-cols-4' : 'hidden'} @[960px]/folha:contents`}>

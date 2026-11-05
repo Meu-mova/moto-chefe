@@ -13,6 +13,8 @@ export const GRADE = [
 ].join(' ')
 
 export const TITULO = 'text-xs font-medium text-muted-foreground'
+// Campo de formulário da folha: 44 px de altura abaixo de 960 px de conteúdo, compacto a partir dele.
+export const CAMPO = 'h-11 text-base @[960px]/folha:h-8 @[960px]/folha:text-xs'
 export const CELULA = 'min-w-0 px-2.5 py-2.5'
 export const NUMERO = `${CELULA} text-right tabular-nums whitespace-nowrap`
 // Colunas que só entram quando cabem: p2 a partir do tablet, p3 só no desktop.
