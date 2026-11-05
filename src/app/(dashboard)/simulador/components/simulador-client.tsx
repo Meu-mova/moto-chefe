@@ -1,11 +1,10 @@
 'use client'
 import { useState, useMemo, type Dispatch, type SetStateAction } from 'react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { CreditCard, Link2, Building2, Printer, ChevronDown, Wallet } from 'lucide-react'
+import { CreditCard, Link2, Building2, ChevronDown, Wallet } from 'lucide-react'
 import { FreteSimulador } from './frete-simulador'
+import { SimuladorCasco, BotaoImprimir, abrirImpressao } from './simulador-casco'
 import type { ResultadoFrete } from '../actions'
 import { fmtBRL } from '@/lib/preco-minimo'
 import { esc } from '@/lib/html'
@@ -179,19 +178,6 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
       </tbody>
     </table>
   </div>`
-}
-
-// A janela da simulação não carrega o globals.css: cada var(--x) usada na folha recebe o valor
-// lido de um .tema-claro, para o papel sair claro mesmo com o escuro ligado na tela.
-export function comPaletaClara(html: string) {
-  const nomes = [...new Set(Array.from(html.matchAll(/var\(--([\w-]+)\)/g), (m) => m[1]))]
-  const sonda = document.createElement('div')
-  sonda.className = 'tema-claro'
-  document.body.appendChild(sonda)
-  const estilo = getComputedStyle(sonda)
-  const declaracoes = nomes.map((nome) => `--${nome}: ${estilo.getPropertyValue(`--${nome}`).trim()};`).join(' ')
-  sonda.remove()
-  return html.replace('<style>', `<style>\n    :root { ${declaracoes} }`)
 }
 
 function gerarHtmlPrint(
@@ -419,8 +405,11 @@ function PrecosDestaque({
   )
 }
 
-export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuarioId }: Props) {
-  const [modeloId, setModeloId] = useState('')
+export function SimuladorClient({ modelos, ...resto }: Props) {
+  return <SimuladorCasco modelos={modelos}>{modelo => <ResultadoTaxas modelo={modelo} {...resto} />}</SimuladorCasco>
+}
+
+function ResultadoTaxas({ modelo, taxas, lojasFrete, isAdmin, lojaUsuarioId }: Omit<Props, 'modelos'> & { modelo: Modelo }) {
   const [entrada, setEntrada] = useState('')
   const [freteResultado, setFreteResultado] = useState<ResultadoFrete | null>(null)
   const [aberto, setAberto] = useState<Record<string, boolean>>({ cartao: false, debito: false, link: false, financiamento: false })
@@ -442,7 +431,6 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
   const toggleLink = makeToggle(setSelLink)
   const toggleFinanciamento = makeToggle(setSelFinanciamento)
 
-  const modelo = modelos.find(m => m.id === modeloId) ?? null
   const base = modelo ? parseFloat(modelo.valorMinimo) : 0
   const entradaNum = parseFloat(entrada || '0')
   const entradaInvalida = base > 0 && entradaNum >= base
@@ -484,52 +472,11 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
       MOSTRAR_FINANCIAMENTO ? selFinanciamento : new Set<number>(),
       freteResultado?.ok ? freteResultado : null,
     )
-    const blob = new Blob([comPaletaClara(html)], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const win = window.open(url, '_blank', 'width=780,height=960')
-    win?.focus()
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    abrirImpressao(html)
   }
 
   return (
     <>
-      {/* Seletor */}
-      <div className="bg-card rounded-xl border shadow-sm p-6">
-        <div className="max-w-sm space-y-1.5">
-          <Label className="text-sm font-medium text-foreground">Selecione o modelo</Label>
-          <Select value={modeloId} onValueChange={v => setModeloId(v ?? '')}>
-            <SelectTrigger className="h-11 text-base w-full">
-              <span className={modeloId ? 'text-foreground' : 'text-muted-foreground'}>
-                {modeloId ? (modelos.find(m => m.id === modeloId)?.nome ?? 'Escolha um modelo...') : 'Escolha um modelo...'}
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              {modelos.map(m => (
-                <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Resultado */}
-      {modelo && (
-        <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-          <div className="border-b bg-muted flex items-center gap-5 px-6 py-4">
-            {modelo.imagemUrl && (
-              <img
-                src={modelo.imagemUrl}
-                alt={modelo.nome}
-                className="h-24 w-36 object-contain rounded-lg bg-card border p-1 shrink-0"
-              />
-            )}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">{modelo.nome}</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Condições de pagamento</p>
-            </div>
-          </div>
-
-          <div className="p-6 space-y-6">
             {/* Resumo de preços destacados */}
             <PrecosDestaque
               base={base}
@@ -695,24 +642,12 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                           {total} opção(ões) selecionada(s) serão incluídas no PDF
                         </p>
                       )}
-                      <Button onClick={handlePrint} variant="outline" className="gap-2">
-                        <Printer size={16} />
-                        Imprimir / Salvar PDF
-                      </Button>
+                      <BotaoImprimir onClick={handlePrint} />
                     </div>
                   )
                 })()}
               </>
             )}
-          </div>
-        </div>
-      )}
-
-      {!modelo && (
-        <div className="rounded-xl border bg-card shadow-sm flex items-center justify-center py-24 text-muted-foreground">
-          <p>Selecione um modelo acima para ver as condições</p>
-        </div>
-      )}
     </>
   )
 }

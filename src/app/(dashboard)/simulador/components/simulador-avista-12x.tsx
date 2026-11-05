@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Printer } from 'lucide-react'
 import { destaqueAvista12x, type DestaqueAvista12x } from '@/lib/simulador-padrao'
 import { FreteSimulador } from './frete-simulador'
-import { comPaletaClara } from './simulador-client'
+import { abrirImpressao } from './simulador-casco'
 import { esc } from '@/lib/html'
 import { fmtBRL as fmt } from '@/lib/preco-minimo'
 import type { ResultadoFrete } from '../actions'
@@ -144,11 +144,7 @@ export function SimuladorAvista12x({ modelos, lojasFrete, isAdmin, lojaUsuarioId
   function handlePrint() {
     if (!modelo || !destaque) return
     const html = gerarHtmlPrint(modelo, destaque, freteResultado?.ok ? freteResultado : null)
-    const blob = new Blob([comPaletaClara(html)], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const win = window.open(url, '_blank', 'width=780,height=960')
-    win?.focus()
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    abrirImpressao(html)
   }
 
   return (
