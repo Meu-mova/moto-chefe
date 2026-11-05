@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { usuariosDados } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import {
-  normalizarCpf, chavePixValida, normalizarChavePix, nascimentoValido,
+  normalizarCpf, validarPix, normalizarChavePix, nascimentoValido,
   type TipoChavePix,
 } from '@/lib/dados-funcionario'
 import { cpfValido } from '@/lib/documento'
@@ -22,9 +22,8 @@ export async function salvarDadosFuncionarioAction(
   const usuario = await getUsuarioLogado()
 
   if (!cpfValido(dados.cpf)) return { ok: false, erro: 'CPF inválido — confira os números.' }
-  if (!chavePixValida(dados.pixTipo, dados.pixChave)) {
-    return { ok: false, erro: 'Chave PIX não confere com o tipo escolhido.' }
-  }
+  const erroPix = validarPix(dados.pixTipo, dados.pixChave)
+  if (erroPix) return { ok: false, erro: erroPix }
   if (!nascimentoValido(dados.dataNascimento, new Date())) {
     return { ok: false, erro: 'Data de nascimento inválida.' }
   }

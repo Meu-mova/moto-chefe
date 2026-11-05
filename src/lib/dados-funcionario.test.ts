@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarCpf, normalizarChavePix, chavePixValida, nascimentoValido, IDADE_MINIMA,
+  validarPix, ERRO_CHAVE_PIX, recusaCorrecaoPix, ERRO_SEM_DADOS, ERRO_FUNCIONARIO_NAO_ENCONTRADO,
 } from './dados-funcionario'
 import { cpfValido } from './documento'
 
@@ -88,4 +89,46 @@ test('ano absurdo é recusado', () => {
 test('formato fora de YYYY-MM-DD é recusado', () => {
   assert.equal(nascimentoValido('15/03/1990', HOJE), false)
   assert.equal(nascimentoValido('', HOJE), false)
+})
+
+// ─── Quem corrige o PIX de outro funcionário ─────────────────────────────
+// A Conta já vem filtrada na consulta (dados-funcionarios.db.test.ts); aqui, papel e dados.
+test('sócio corrige o PIX de vendedor que já preencheu os dados', () => {
+  assert.equal(recusaCorrecaoPix({ papel: 'admin_socio' }, { papel: 'vendedor', temDados: true }), null)
+})
+
+test('funcionário sem dados não tem PIX para corrigir', () => {
+  assert.equal(recusaCorrecaoPix({ papel: 'admin_geral' }, { papel: 'vendedor', temDados: false }), ERRO_SEM_DADOS)
+})
+
+test('sócio não corrige o PIX de admin_rede nem de admin_geral, e a recusa não revela que ele existe', () => {
+  // admin_rede fica acima do sócio (ADR-0019); mesma frase de id inexistente.
+  for (const papel of ['admin_rede', 'admin_geral']) {
+    assert.equal(recusaCorrecaoPix({ papel: 'admin_socio' }, { papel, temDados: true }), ERRO_FUNCIONARIO_NAO_ENCONTRADO, papel)
+  }
+})
+
+test('quem não é admin_geral nem sócio não corrige PIX de ninguém, mesmo se chegar à função', () => {
+  // A action já barra antes (soPeloPapel); a regra sozinha também falha fechada.
+  for (const papel of ['aux_adm', 'vendedor', 'admin_rede', 'cargo']) {
+    assert.equal(recusaCorrecaoPix({ papel }, { papel: 'vendedor', temDados: true }), ERRO_FUNCIONARIO_NAO_ENCONTRADO, papel)
+  }
+})
+
+test('admin_geral corrige o PIX de admin_rede', () => {
+  assert.equal(recusaCorrecaoPix({ papel: 'admin_geral' }, { papel: 'admin_rede', temDados: true }), null)
+})
+
+// ─── validarPix: a mesma conferência no "Meus dados" e no admin ──────────
+test('tipo e chave que conferem passam', () => {
+  assert.equal(validarPix('celular', '(35) 99999-1234'), null)
+})
+
+test('chave que não confere com o tipo é recusada', () => {
+  assert.equal(validarPix('email', '(35) 99999-1234'), ERRO_CHAVE_PIX)
+})
+
+test('tipo fora da lista é recusado, mesmo com chave no formato de aleatória', () => {
+  // A chave de 32 hexadecimais passaria como aleatória; o tipo inventado não pode ser gravado.
+  assert.equal(validarPix('pix', '0123456789abcdef0123456789abcdef'), ERRO_CHAVE_PIX)
 })

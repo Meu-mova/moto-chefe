@@ -146,6 +146,11 @@ export async function contaDoGrupoAtivo(usuario: UsuarioComConta): Promise<strin
   return (await grupoAtivoDaRequisicao(usuario)).contaId
 }
 
+// Filtro de Conta das telas de admin: null = admin_geral, que vê todas as Contas.
+export async function contaDoEditor(usuario: UsuarioComConta): Promise<string | null> {
+  return usuario.papel === 'admin_geral' ? null : contaDoGrupoAtivo(usuario)
+}
+
 export async function getGrupoIdDaLoja(lojaId: string): Promise<string> {
   const [loja] = await db.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, lojaId)).limit(1)
   if (!loja) throw new Error('Loja não encontrada')
