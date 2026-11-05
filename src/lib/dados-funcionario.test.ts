@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarCpf, normalizarChavePix, chavePixValida, nascimentoValido, IDADE_MINIMA,
-  podeEditarDadosDe, validarPix, ERRO_CHAVE_PIX,
+  validarPix, ERRO_CHAVE_PIX, recusaCorrecaoPix, ERRO_SEM_DADOS, ERRO_FUNCIONARIO_NAO_ENCONTRADO,
 } from './dados-funcionario'
 import { cpfValido } from './documento'
 
@@ -92,21 +92,24 @@ test('formato fora de YYYY-MM-DD é recusado', () => {
 })
 
 // ─── Quem corrige o PIX de outro funcionário ─────────────────────────────
-test('admin_geral corrige o PIX de qualquer Conta', () => {
-  assert.equal(podeEditarDadosDe({ papel: 'admin_geral', contaId: null }, { contaId: 'conta-a' }), true)
+// A Conta já vem filtrada na consulta (dados-funcionarios.db.test.ts); aqui, papel e dados.
+test('sócio corrige o PIX de vendedor que já preencheu os dados', () => {
+  assert.equal(recusaCorrecaoPix({ papel: 'admin_socio' }, { papel: 'vendedor', temDados: true }), null)
 })
 
-test('sócio corrige o PIX de quem é da mesma Conta', () => {
-  assert.equal(podeEditarDadosDe({ papel: 'admin_socio', contaId: 'conta-a' }, { contaId: 'conta-a' }), true)
+test('funcionário sem dados não tem PIX para corrigir', () => {
+  assert.equal(recusaCorrecaoPix({ papel: 'admin_geral' }, { papel: 'vendedor', temDados: false }), ERRO_SEM_DADOS)
 })
 
-test('sócio não corrige o PIX de outra Conta', () => {
-  assert.equal(podeEditarDadosDe({ papel: 'admin_socio', contaId: 'conta-a' }, { contaId: 'conta-b' }), false)
+test('sócio não corrige o PIX de admin_rede nem de admin_geral, e a recusa não revela que ele existe', () => {
+  // admin_rede fica acima do sócio (ADR-0019); mesma frase de id inexistente.
+  for (const papel of ['admin_rede', 'admin_geral']) {
+    assert.equal(recusaCorrecaoPix({ papel: 'admin_socio' }, { papel, temDados: true }), ERRO_FUNCIONARIO_NAO_ENCONTRADO, papel)
+  }
 })
 
-test('sem Conta de nenhum lado não libera', () => {
-  // null === null não pode virar "mesma Conta".
-  assert.equal(podeEditarDadosDe({ papel: 'admin_socio', contaId: null }, { contaId: null }), false)
+test('admin_geral corrige o PIX de admin_rede', () => {
+  assert.equal(recusaCorrecaoPix({ papel: 'admin_geral' }, { papel: 'admin_rede', temDados: true }), null)
 })
 
 // ─── validarPix: a mesma conferência no "Meus dados" e no admin ──────────

@@ -86,16 +86,24 @@ export function nascimentoValido(iso: string, hoje: Date): boolean {
   return idade >= IDADE_MINIMA
 }
 
+export const ERRO_FUNCIONARIO_NAO_ENCONTRADO = 'Funcionário não encontrado.'
+export const ERRO_SEM_DADOS = 'Esse funcionário ainda não preencheu os dados.'
+const PAPEIS_ACIMA_DO_SOCIO = ['admin_geral', 'admin_rede']
+
 /**
- * Quem pode corrigir o PIX de outro funcionário em /admin/dados-funcionarios.
- * admin_geral é da plataforma e corrige qualquer um; os demais só gente da
- * própria Conta (ADR-0018). Chave PIX é para onde vai o pagamento: um sócio
- * de outra Conta nunca deve conseguir trocá-la.
+ * Por que o PIX desse funcionário não pode ser corrigido por quem edita, ou null se pode.
+ * A Conta já foi filtrada na consulta; aqui fica o resto da regra, para o lápis da tela e o
+ * servidor decidirem igual (#576/#600).
  */
-export function podeEditarDadosDe(
-  editor: { papel: string; contaId: string | null },
-  alvo: { contaId: string | null },
-): boolean {
-  if (editor.papel === 'admin_geral') return true
-  return !!editor.contaId && editor.contaId === alvo.contaId
+export function recusaCorrecaoPix(
+  editor: { papel: string },
+  alvo: { papel: string; temDados: boolean },
+): string | null {
+  // admin_rede fica acima do sócio (ADR-0019), e o admin_geral acima de todos: trocar o PIX
+  // deles é trocar para onde vai o pagamento. Mesma frase do id inexistente.
+  if (editor.papel !== 'admin_geral' && PAPEIS_ACIMA_DO_SOCIO.includes(alvo.papel)) return ERRO_FUNCIONARIO_NAO_ENCONTRADO
+  // CPF e nascimento são obrigatórios na linha; sem eles o funcionário ainda
+  // não passou pelo primeiro acesso, e é lá que ele preenche tudo.
+  if (!alvo.temDados) return ERRO_SEM_DADOS
+  return null
 }
