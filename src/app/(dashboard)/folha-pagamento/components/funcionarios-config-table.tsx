@@ -45,7 +45,8 @@ const GRADE = [
   '@[680px]/folha:grid-cols-[minmax(140px,2fr)_repeat(3,minmax(0,1fr))_minmax(5rem,auto)_44px]',
   '@[960px]/folha:grid-cols-[minmax(150px,1.6fr)_9rem_minmax(0,1.6fr)_8rem_8rem_4rem_6.5rem]',
 ].join(' ')
-const SO_TABLET = 'hidden @[680px]/folha:block @[960px]/folha:hidden'
+// Só no tablet: some também a partir de 960 px (o campo editável ocupa o lugar). Não é o SO_TABLET de folha-mes-grade.
+const SO_TABLET_ESTREITO = 'hidden @[680px]/folha:block @[960px]/folha:hidden'
 const ROTULO_DO_CAMPO = 'mb-1 block text-xs text-muted-foreground @[960px]/folha:hidden'
 
 function RegrasLista({ regras }: { regras: RegraResumo[] }) {
@@ -118,9 +119,9 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
         {!f.ativo && <SeloInativo className="mt-1 @[680px]/folha:hidden" />}
       </div>
       <div role="cell" className={`${CELULA} text-right tabular-nums @[960px]/folha:hidden`}><ValorOuZero valor={gravado.salario} /></div>
-      <div role="cell" className={`${CELULA} text-right tabular-nums ${SO_TABLET}`}><ValorOuZero valor={gravado.ajuda} /></div>
-      <div role="cell" className={`${CELULA} text-right tabular-nums ${SO_TABLET}`}><ValorOuZero valor={gravado.fixo} /></div>
-      <div role="cell" className={`${CELULA} ${SO_TABLET}`}>
+      <div role="cell" className={`${CELULA} text-right tabular-nums ${SO_TABLET_ESTREITO}`}><ValorOuZero valor={gravado.ajuda} /></div>
+      <div role="cell" className={`${CELULA} text-right tabular-nums ${SO_TABLET_ESTREITO}`}><ValorOuZero valor={gravado.fixo} /></div>
+      <div role="cell" className={`${CELULA} ${SO_TABLET_ESTREITO}`}>
         {f.ativo ? <Badge variant="outline" className="border-success/50 bg-success/10 text-success">Ativo</Badge> : <SeloInativo />}
       </div>
       <div role="cell" className="flex items-center justify-center @[960px]/folha:hidden">
