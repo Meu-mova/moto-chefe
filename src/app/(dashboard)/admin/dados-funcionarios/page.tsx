@@ -1,6 +1,6 @@
 import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
-import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { contaDoEditor } from '@/lib/grupo'
 import { listarDadosFuncionarios } from '@/lib/dados-funcionarios'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TIPOS_CHAVE_PIX, type TipoChavePix } from '@/lib/dados-funcionario'
@@ -20,7 +20,7 @@ function formatData(iso: string) {
 export default async function DadosFuncionariosPage() {
   await exigirAcessoPagina('/admin/dados-funcionarios')
   const usuario = await getUsuarioLogado()
-  const contaId = usuario.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(usuario)
+  const contaId = await contaDoEditor(usuario)
   const linhas = await listarDadosFuncionarios(contaId)
 
   const rotulo = (t: string | null) => TIPOS_CHAVE_PIX.find(x => x.valor === t)?.rotulo ?? '—'

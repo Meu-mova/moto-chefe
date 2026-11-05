@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { usuarios, usuariosDados } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { contaDoEditor } from '@/lib/grupo'
 import {
   chavePixValida, normalizarChavePix, podeEditarDadosDe, TIPOS_CHAVE_PIX,
   type TipoChavePix,
@@ -24,7 +24,7 @@ export async function salvarPixDoFuncionarioAction(
   }
 
   // Mesma Conta que a página usa para listar (#320).
-  const contaId = editor.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(editor)
+  const contaId = await contaDoEditor(editor)
 
   const [alvo] = await db
     .select({ contaId: usuarios.contaId, temDados: usuariosDados.usuarioId })
