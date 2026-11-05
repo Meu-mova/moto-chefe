@@ -28,7 +28,7 @@ after(async () => {
 
 class Desfazer extends Error {}
 
-// A lista é do grupo ativo: nem o sócio nem o admin_geral veem os outros grupos por aqui.
+// A lista traz só quem é do grupo recebido; a função não olha o papel de quem pede.
 test('lista só o grupo ativo: outro grupo da mesma Conta e outra Conta ficam de fora', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
