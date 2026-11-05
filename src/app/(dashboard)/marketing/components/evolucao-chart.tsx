@@ -1,4 +1,5 @@
 'use client'
+import { rotuloMesCurtoAA } from '@/lib/data-venda'
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Legend } from 'recharts'
 
 type Ponto = { periodo: string; leads: number; ganhos: number }
@@ -7,8 +8,7 @@ type Ponto = { periodo: string; leads: number; ganhos: number }
 function rotulo(periodo: string, gran: 'dia' | 'mes') {
   const [ano, mes, dia] = periodo.split('-')
   if (gran === 'mes') {
-    const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-    return `${nomes[Number(mes) - 1] ?? mes}/${ano.slice(2)}`
+    return rotuloMesCurtoAA(ano, mes)
   }
   return `${dia}/${mes}`
 }
