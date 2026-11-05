@@ -110,8 +110,8 @@ export function ImportarPrecos() {
                     <tr>
                       <th className="w-10 px-3 py-2" />
                       <th className="px-3 py-2 text-left font-medium">Modelo</th>
-                      <th className="px-3 py-2 text-right font-medium">Hoje</th>
-                      <th className="px-3 py-2 text-right font-medium">Planilha</th>
+                      <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Hoje</th>
+                      <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">Planilha</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -131,11 +131,17 @@ export function ImportarPrecos() {
                           <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-bold ${l.tipo === 'novo' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
                             {l.tipo === 'novo' ? 'novo' : 'muda'}
                           </span>
+                          {/* No celular os dois preços descem para baixo do nome: a prévia não pode rolar para o lado. */}
+                          <span className="mt-1 block text-xs font-normal sm:hidden">
+                            <span className="text-muted-foreground">Hoje {l.precoAtual ? brl(l.precoAtual) : 'sem preço'}</span>
+                            {' · '}
+                            <span className="font-semibold">Planilha {brl(l.precoNovo)}</span>
+                          </span>
                         </td>
-                        <td className="px-3 py-2 text-right font-mono text-muted-foreground">
+                        <td className="hidden px-3 py-2 text-right font-mono text-muted-foreground sm:table-cell">
                           {l.precoAtual ? brl(l.precoAtual) : 'sem preço'}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold">{brl(l.precoNovo)}</td>
+                        <td className="hidden px-3 py-2 text-right font-mono font-semibold sm:table-cell">{brl(l.precoNovo)}</td>
                       </tr>
                     ))}
                   </tbody>

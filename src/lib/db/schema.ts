@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 import type { PapelBase } from '@/lib/gestao-usuarios'
+import type { PadraoSimulador } from '@/lib/simulador-padrao'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
 
@@ -1063,6 +1064,9 @@ export const configuracaoTaxas = pgTable('configuracao_taxas', {
   // limite o cálculo soma esse fixo ao km excedente (não substitui), ver calcularCustoFrete.
   freteValorFixo: numeric('frete_valor_fixo', { precision: 6, scale: 2 }).notNull().default('0.00'),
   imposto: numeric('imposto', { precision: 6, scale: 4 }).notNull().default('0.06'),
+  // Cards do simulador: 'taxas' (21x e 12x pela taxa do cartão, e PIX) ou 'avista_12x' (PIX e
+  // o total em 12x digitado por modelo em precificacao.valor_12x). Ver src/lib/simulador-padrao.ts.
+  padraoSimulador: text('padrao_simulador').$type<PadraoSimulador>().notNull().default('taxas'),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -1077,6 +1081,8 @@ export const precificacao = pgTable('precificacao', {
   taxasLink: jsonb('taxas_link').$type<Record<string, number>>().notNull().default({}),
   taxasFinanciamento: jsonb('taxas_financiamento').$type<Record<string, number>>().notNull().default({}),
   custo: numeric('custo', { precision: 12, scale: 2 }),
+  /** Total em 12x, digitado pelo administrador; só o padrão 'avista_12x' do simulador usa. */
+  valor12x: numeric('valor_12x', { precision: 12, scale: 2 }),
   imagemUrl: text('imagem_url'),
   ativo: boolean('ativo').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
