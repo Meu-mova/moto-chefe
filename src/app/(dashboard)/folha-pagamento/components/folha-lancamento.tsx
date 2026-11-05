@@ -35,7 +35,8 @@ export function TabelaLancamentos({ rotulo, grade, colunas, quantidade, vazio, r
   )
 }
 
-// As células da linha vêm em `children`, na ordem das colunas do desktop. Depois delas: a lixeira (só
+// `nome` e `rotuloRemover` identificam a linha para leitor de tela: devem diferir entre linhas da mesma
+// pessoa/loja (a aba põe data, tipo e valor). As células da linha vêm em `children`, na ordem das colunas do desktop. Depois delas: a lixeira (só
 // desktop), a seta (celular e tablet) e o detalhe aberto, com o texto longo e o Remover.
 export function LinhaLancamento({ id, grade, nome, rotuloDetalhe, detalhe, rotuloRemover, onRemover, ocupado, children }: {
   id: string
@@ -67,7 +68,7 @@ export function LinhaLancamento({ id, grade, nome, rotuloDetalhe, detalhe, rotul
         <div role="cell" id={idDetalhe} className="col-span-full px-2.5 pb-3 @[960px]/folha:hidden">
           <p className="text-xs text-muted-foreground">{rotuloDetalhe}</p>
           <p className="mb-2 wrap-anywhere font-medium">{detalhe || <span className="font-normal text-muted-foreground">Sem {rotuloDetalhe.toLowerCase()}</span>}</p>
-          <Button variant="outline" className="h-11 w-full @[680px]/folha:w-auto" disabled={ocupado} onClick={onRemover}>
+          <Button variant="outline" className="h-11 w-full @[680px]/folha:w-auto" aria-label={rotuloRemover} disabled={ocupado} onClick={onRemover}>
             <Trash2 aria-hidden /> Remover
           </Button>
         </div>

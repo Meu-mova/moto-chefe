@@ -108,9 +108,10 @@ export function AjustesBaseTable({
         {ajustes.map(a => {
           const tipoRotulo = TIPO_LABEL[a.tipo] ?? a.tipo
           const funcionario = a.usuarioNome ?? 'só a loja'
+          const descricao = `${a.lojaNome}, ${tipoRotulo}, ${funcionario}, ${reais(a.valor)}`
           return (
-            <LinhaLancamento key={a.id} id={a.id} grade={GRADE} nome={a.lojaNome} rotuloDetalhe="Motivo" detalhe={a.observacao}
-              rotuloRemover={`Remover ajuste de ${a.lojaNome}`} onRemover={() => excluir(a.id)} ocupado={pending}>
+            <LinhaLancamento key={a.id} id={a.id} grade={GRADE} nome={descricao} rotuloDetalhe="Motivo" detalhe={a.observacao}
+              rotuloRemover={`Remover ajuste de ${descricao}`} onRemover={() => excluir(a.id)} ocupado={pending}>
               <div role="cell" className={CELULA}>
                 <p className="wrap-anywhere font-medium">{a.lojaNome}</p>
                 <p className="text-xs text-muted-foreground @[680px]/folha:hidden">{tipoRotulo} · {funcionario}</p>

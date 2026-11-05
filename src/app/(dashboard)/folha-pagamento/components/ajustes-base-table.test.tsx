@@ -4,6 +4,7 @@ import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
 import { clicar, digitar, escolher } from '@/test/eventos-dom'
+import type { AjusteRow } from './ajustes-base-table'
 
 const { desmontar } = montarDom()
 after(desmontar)
@@ -28,14 +29,14 @@ afterEach(async () => {
   erros.length = 0
 })
 
-const AJUSTES = [
+const AJUSTES: AjusteRow[] = [
   { id: 'j1', lojaId: 'L1', lojaNome: 'Loja Centro', tipo: 'pecas', usuarioId: 'u1', usuarioNome: 'Vendedor A', valor: '1250.00', observacao: 'Venda de capacete no balcão' },
   { id: 'j2', lojaId: 'L2', lojaNome: 'Loja Norte', tipo: 'servicos', usuarioId: null, usuarioNome: null, valor: '-150.00', observacao: null },
 ]
 const LOJAS = [{ id: 'L1', nome: 'Loja Centro' }, { id: 'L2', nome: 'Loja Norte' }]
 const FUNCIONARIOS = [{ id: 'u1', nome: 'Vendedor A', lojaId: 'L1' }, { id: 'u2', nome: 'Mecânico D', lojaId: 'L2' }]
 
-let renderizar: (lista: typeof AJUSTES) => Promise<void> = async () => {}
+let renderizar: (lista: AjusteRow[]) => Promise<void> = async () => {}
 
 async function montar(ajustes = AJUSTES) {
   const React = (await import('react')).default
@@ -143,6 +144,27 @@ test('valor inválido avisa e não chama a action', async () => {
   await clicar(botao('Lançar ajuste'))
   assert.deepEqual(erros, ['Valor inválido'])
   assert.deepEqual(criados, [])
+})
+
+const MESMA_LOJA: AjusteRow[] = [
+  { ...AJUSTES[0], id: 'k1', valor: '1250.00' },
+  { ...AJUSTES[0], id: 'k2', tipo: 'servicos', usuarioId: null, usuarioNome: null, valor: '90.00' },
+]
+
+test('dois ajustes da mesma loja têm nomes diferentes na seta, na lixeira e no Remover do detalhe', async () => {
+  await montar(MESMA_LOJA)
+  const setas = [...document.querySelectorAll('button[aria-expanded]')].map(b => limpo(b.getAttribute('aria-label')))
+  assert.deepEqual(setas, [
+    'Ver detalhes de Loja Centro, Peças, Vendedor A, R$ 1.250,00',
+    'Ver detalhes de Loja Centro, Serviços (mão de obra), só a loja, R$ 90,00',
+  ])
+  const lixeiras = [...document.querySelectorAll('button[aria-label^="Remover ajuste"]')].map(b => limpo(b.getAttribute('aria-label')))
+  assert.deepEqual(lixeiras, [
+    'Remover ajuste de Loja Centro, Peças, Vendedor A, R$ 1.250,00',
+    'Remover ajuste de Loja Centro, Serviços (mão de obra), só a loja, R$ 90,00',
+  ])
+  await clicar(seta('Loja Centro, Serviços'))
+  assert.equal(limpo(removerDoDetalhe('k2')?.getAttribute('aria-label')), 'Remover ajuste de Loja Centro, Serviços (mão de obra), só a loja, R$ 90,00')
 })
 
 test('a seta aponta para o detalhe aberto pelo id', async () => {

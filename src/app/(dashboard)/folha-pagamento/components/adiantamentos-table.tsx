@@ -111,9 +111,10 @@ export function AdiantamentosTable({
         )}>
         {adiantamentos.map(a => {
           const nome = a.usuarioNome ?? 'Sem nome'
+          const descricao = `${nome}, ${fmtData(a.data)}, ${reais(a.valor)}`
           return (
-            <LinhaLancamento key={a.id} id={a.id} grade={GRADE} nome={nome} rotuloDetalhe="Observação" detalhe={a.observacao}
-              rotuloRemover={`Remover adiantamento de ${nome}`} onRemover={() => excluir(a.id)} ocupado={pending}>
+            <LinhaLancamento key={a.id} id={a.id} grade={GRADE} nome={descricao} rotuloDetalhe="Observação" detalhe={a.observacao}
+              rotuloRemover={`Remover adiantamento de ${descricao}`} onRemover={() => excluir(a.id)} ocupado={pending}>
               <div role="cell" className={CELULA}>
                 <p className="wrap-anywhere font-medium">{nome}</p>
                 <p className="text-xs text-muted-foreground">

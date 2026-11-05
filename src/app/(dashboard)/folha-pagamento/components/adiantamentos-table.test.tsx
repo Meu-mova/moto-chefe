@@ -5,6 +5,7 @@ import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
 import { clicar, digitar, escolher } from '@/test/eventos-dom'
+import type { AdiantamentoRow } from './adiantamentos-table'
 
 const { desmontar } = montarDom()
 after(desmontar)
@@ -30,14 +31,14 @@ afterEach(async () => {
   erros.length = 0
 })
 
-const ADIANTAMENTOS = [
+const ADIANTAMENTOS: AdiantamentoRow[] = [
   { id: 'a1', lojaId: 'L1', lojaNome: 'Loja Centro', usuarioId: 'u1', usuarioNome: 'Vendedor A', valor: '200.00', data: '2026-10-05', observacao: 'Vale do dia 05' },
   { id: 'a2', lojaId: 'L1', lojaNome: 'Loja Centro', usuarioId: 'u2', usuarioNome: 'Mecânico D', valor: '150.00', data: null, observacao: null },
   { id: 'a3', lojaId: 'L2', lojaNome: 'Loja Norte', usuarioId: 'u3', usuarioNome: null, valor: '150.00', data: '2026-10-20', observacao: null },
 ]
 const FUNCIONARIOS = [{ id: 'u1', nome: 'Vendedor A', lojaId: 'L1' }, { id: 'u2', nome: 'Mecânico D', lojaId: 'L1' }]
 
-let renderizar: (lista: typeof ADIANTAMENTOS) => Promise<void> = async () => {}
+let renderizar: (lista: AdiantamentoRow[]) => Promise<void> = async () => {}
 
 async function montar(adiantamentos = ADIANTAMENTOS) {
   const React = (await import('react')).default
@@ -151,6 +152,27 @@ test('sem data, o formulário manda data nula; valor inválido avisa e não cham
 test('a introdução diz que o adiantamento fixo mora na aba Funcionários e não entra na lista', async () => {
   await montar()
   assert.match(texto(document.body), /O adiantamento fixo de cada pessoa fica na aba Funcionários e não entra nesta lista\./)
+})
+
+const MESMA_PESSOA: AdiantamentoRow[] = [
+  { ...ADIANTAMENTOS[0], id: 'b1', data: '2026-10-05', valor: '200.00' },
+  { ...ADIANTAMENTOS[0], id: 'b2', data: '2026-10-12', valor: '80.00' },
+]
+
+test('duas linhas da mesma pessoa têm nomes diferentes na seta, na lixeira e no Remover do detalhe', async () => {
+  await montar(MESMA_PESSOA)
+  const setas = [...document.querySelectorAll('button[aria-expanded]')].map(b => limpo(b.getAttribute('aria-label')))
+  assert.deepEqual(setas, [
+    'Ver detalhes de Vendedor A, 05/10/2026, R$ 200,00',
+    'Ver detalhes de Vendedor A, 12/10/2026, R$ 80,00',
+  ])
+  const lixeiras = [...document.querySelectorAll('button[aria-label^="Remover adiantamento"]')].map(b => limpo(b.getAttribute('aria-label')))
+  assert.deepEqual(lixeiras, [
+    'Remover adiantamento de Vendedor A, 05/10/2026, R$ 200,00',
+    'Remover adiantamento de Vendedor A, 12/10/2026, R$ 80,00',
+  ])
+  await clicar(seta('Vendedor A, 12/10/2026'))
+  assert.equal(limpo(removerDoDetalhe('b2')?.getAttribute('aria-label')), 'Remover adiantamento de Vendedor A, 12/10/2026, R$ 80,00')
 })
 
 test('a seta aponta para o detalhe aberto pelo id', async () => {
