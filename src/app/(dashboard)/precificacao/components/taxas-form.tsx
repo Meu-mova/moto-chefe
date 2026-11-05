@@ -70,7 +70,7 @@ function TaxaGrid({
   )
 
   return (
-    <div className={`grid gap-4 ${cols === 3 ? 'grid-cols-3' : cols === 2 ? 'grid-cols-2' : 'grid-cols-1 max-w-xs'}`}>
+    <div className={`grid gap-4 ${cols === 3 ? 'sm:grid-cols-3' : cols === 2 ? 'sm:grid-cols-2' : 'max-w-xs'}`}>
       {chunks.map((chunk, ci) => (
         <div key={ci} className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
@@ -174,9 +174,10 @@ export function TaxasForm({ taxas, recolhida = false }: { taxas: Taxas; recolhid
         </div>
       </div>
 
-      {aberta && <div className="p-6">
+      {aberta && <div className="p-4 sm:p-6">
         <Tabs defaultValue="cartao">
-          <TabsList>
+          {/* No celular as abas quebram linha: a tela não pode rolar para o lado. */}
+          <TabsList className="w-full flex-wrap group-data-horizontal/tabs:h-auto *:h-8 sm:w-fit sm:flex-nowrap sm:group-data-horizontal/tabs:h-8">
             <TabsTrigger value="cartao">Cartão de Crédito (1–21x)</TabsTrigger>
             <TabsTrigger value="debito">Cartão de Débito</TabsTrigger>
             <TabsTrigger value="link">Link de Pagamento (1–18x)</TabsTrigger>

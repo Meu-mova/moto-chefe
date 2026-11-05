@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -117,7 +117,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
 
       {/* Lista de modelos */}
       <div className="bg-card rounded-xl border shadow-sm">
-        <div className="px-6 py-4 border-b flex flex-wrap items-center justify-between gap-3">
+        <div className="px-4 sm:px-6 py-4 border-b flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-foreground">Modelos</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -143,23 +143,37 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
         ) : (
           <>
           <ul aria-label="Modelos" className="divide-y sm:hidden">
-            {modelos.map(m => (
-              <li key={m.id} className={`px-4 py-3 space-y-2 ${m.precId === null ? 'bg-warning/5' : ''}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-foreground">{m.nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {m.precId === null ? 'Sem preço neste grupo' : m.ativo ? 'PIX' : 'PIX, inativo'}
+            {modelos.map(m => {
+              const margem = calcMargem(m.valorMinimo, m.custo)
+              const cor = margem ? corMargem(margem.pct) : null
+              return (
+                <li key={m.id} className={`px-4 py-3 space-y-3 ${m.precId === null ? 'bg-warning/5' : ''}`}>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-foreground break-words">
+                      {m.nome}
+                      {m.marca && <span className="ml-2 font-normal text-xs text-muted-foreground">{m.marca}</span>}
                     </p>
+                    <StatusModelo m={m} />
                   </div>
-                  <div className="text-right">
-                    {m.valorMinimo && <p className="font-semibold text-foreground tabular-nums">{fmtBRL(parseFloat(m.valorMinimo))}</p>}
-                    {com12x && <p className="text-xs text-muted-foreground tabular-nums"><Valor12x m={m} longo /></p>}
-                  </div>
-                </div>
-                <AcoesModelo m={m} onEditar={editar} onAlternar={handleToggle} onExcluir={handleExcluir} />
-              </li>
-            ))}
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <Campo rotulo="Custo">{m.custo ? fmtBRL(parseFloat(m.custo)) : 'Sem custo'}</Campo>
+                    <Campo rotulo="Valor mínimo (PIX)">{m.valorMinimo ? <b>{fmtBRL(parseFloat(m.valorMinimo))}</b> : 'Sem preço'}</Campo>
+                    {com12x && (
+                      <Campo rotulo="Total em 12x">
+                        {m.valor12x && <>{fmtBRL(parseFloat(m.valor12x))}<br /></>}
+                        <span className="text-xs text-muted-foreground"><Valor12x m={m} longo /></span>
+                      </Campo>
+                    )}
+                    {margem && cor && (
+                      <Campo rotulo="Margem">
+                        <span className={`font-semibold ${cor.text}`}>{fmtBRL(margem.reais)} ({margem.pct.toFixed(1)}%)</span>
+                      </Campo>
+                    )}
+                  </dl>
+                  <AcoesModelo m={m} onEditar={editar} onAlternar={handleToggle} onExcluir={handleExcluir} />
+                </li>
+              )
+            })}
           </ul>
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
@@ -227,38 +241,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
                         </>
                       )}
                       <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {!precificado ? (
-                            <span
-                              title="Modelo cadastrado em Modelos, mas ainda sem valor mínimo neste grupo — fora do Simulador até ter preço"
-                              className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold text-warning"
-                            >
-                              <Tag size={12} /> Sem preço
-                            </span>
-                          ) : (
-                            <Badge variant={m.ativo ? 'default' : 'secondary'}>
-                              {m.ativo ? 'Ativo' : 'Inativo'}
-                            </Badge>
-                          )}
-                          {precificado && !m.ativo && m.estoqueDisponivel > 0 && (
-                            <span
-                              title={`${m.estoqueDisponivel} moto${m.estoqueDisponivel !== 1 ? 's' : ''} disponíve${m.estoqueDisponivel !== 1 ? 'is' : 'l'} em estoque, mas fora do Simulador`}
-                              className="inline-flex items-center gap-1 text-warning text-xs font-medium"
-                            >
-                              <AlertTriangle size={12} />
-                              {m.estoqueDisponivel} em estoque
-                            </span>
-                          )}
-                          {!precificado && m.estoqueDisponivel > 0 && (
-                            <span
-                              title={`${m.estoqueDisponivel} moto${m.estoqueDisponivel !== 1 ? 's' : ''} em estoque sem preço mínimo definido`}
-                              className="inline-flex items-center gap-1 text-warning text-xs font-medium"
-                            >
-                              <AlertTriangle size={12} />
-                              {m.estoqueDisponivel} em estoque
-                            </span>
-                          )}
-                        </div>
+                        <StatusModelo m={m} className="justify-center" />
                       </td>
                       <td className="px-4 py-3">
                         <AcoesModelo m={m} onEditar={editar} onAlternar={handleToggle} onExcluir={handleExcluir} />
@@ -337,4 +320,51 @@ function Valor12x({ m, longo = false }: { m: Modelo; longo?: boolean }) {
   if (m.valor12x) return <>12x de {fmtBRL(parcelaDe12x(parseFloat(m.valor12x)))}</>
   if (m.precId !== null && m.ativo) return <span className="text-warning">{longo ? 'Sem valor em 12x' : 'Sem valor'}</span>
   return null
+}
+
+/** Selo de status do modelo (sem preço, ativo, inativo) e o aviso de estoque fora do simulador. */
+function StatusModelo({ m, className = '' }: { m: Modelo; className?: string }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
+      {m.precId === null ? (
+        <span
+          title="Modelo cadastrado em Modelos, mas ainda sem valor mínimo neste grupo — fora do Simulador até ter preço"
+          className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-bold text-warning"
+        >
+          <Tag size={12} /> Sem preço
+        </span>
+      ) : (
+        <Badge variant={m.ativo ? 'default' : 'secondary'}>
+          {m.ativo ? 'Ativo' : 'Inativo'}
+        </Badge>
+      )}
+      {m.precId !== null && !m.ativo && m.estoqueDisponivel > 0 && (
+        <span
+          title={`${m.estoqueDisponivel} moto${m.estoqueDisponivel !== 1 ? 's' : ''} disponíve${m.estoqueDisponivel !== 1 ? 'is' : 'l'} em estoque, mas fora do Simulador`}
+          className="inline-flex items-center gap-1 text-warning text-xs font-medium"
+        >
+          <AlertTriangle size={12} />
+          {m.estoqueDisponivel} em estoque
+        </span>
+      )}
+      {m.precId === null && m.estoqueDisponivel > 0 && (
+        <span
+          title={`${m.estoqueDisponivel} moto${m.estoqueDisponivel !== 1 ? 's' : ''} em estoque sem preço mínimo definido`}
+          className="inline-flex items-center gap-1 text-warning text-xs font-medium"
+        >
+          <AlertTriangle size={12} />
+          {m.estoqueDisponivel} em estoque
+        </span>
+      )}
+    </div>
+  )
+}
+
+function Campo({ rotulo, children }: { rotulo: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{rotulo}</dt>
+      <dd className="tabular-nums text-foreground">{children}</dd>
+    </div>
+  )
 }

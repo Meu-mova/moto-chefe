@@ -26,7 +26,7 @@ const modelo = (id: string, extra: Partial<Record<string, unknown>>) => ({
   valor12x: null, ativo: true, estoqueDisponivel: 0, ...extra,
 })
 const MODELOS = [
-  modelo('COM12X', { valor12x: '12000.00' }),
+  modelo('COM12X', { valor12x: '12000.00', custo: '8000.00' }),
   modelo('ATIVOSEM', {}),
   modelo('INATIVOSEM', { ativo: false }),
   modelo('SEMPRECO', { precId: null, valorMinimo: null }),
@@ -79,4 +79,13 @@ test('padrão das taxas: sem coluna, sem contagem e sem 12x na lista', async () 
   assert.doesNotMatch(texto(document.body), /sem valor em 12x/i)
   assert.ok(![...document.querySelectorAll('th')].some(th => /12x/.test(texto(th))))
   assert.doesNotMatch(texto(itemDaLista('COM12X')), /12x/)
+})
+
+test('lista do celular: custo, PIX e margem com rótulo', async () => {
+  await montar('taxas')
+  const item = texto(itemDaLista('COM12X'))
+  assert.match(item, /Custo\s*R\$ 8\.000,00/)
+  assert.match(item, /Valor mínimo \(PIX\)\s*R\$ 10\.000,00/)
+  assert.match(item, /Margem\s*R\$ 2\.000,00 \(20\.0%\)/)
+  assert.match(texto(itemDaLista('ATIVOSEM')), /Custo\s*Sem custo/)
 })
