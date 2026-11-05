@@ -39,6 +39,14 @@ async function montar(faixas = FAIXAS) {
   return act
 }
 
+test('avisa que mostra só as mais recentes quando a lista chegou ao limite', async () => {
+  const { FAIXAS_NO_HISTORICO } = await import('@/lib/notagateway/inutilizacao')
+  await montar(Array.from({ length: FAIXAS_NO_HISTORICO }, (_, i) => ({ ...FAIXAS[2], id: `x${i}` })))
+  assert.match(textoDaTela(), new RegExp(`${FAIXAS_NO_HISTORICO} mais recentes`))
+  await montar(FAIXAS)
+  assert.equal((textoDaTela().match(/mais recentes/g) ?? []).length, 1, 'com 3 faixas não avisa')
+})
+
 test('sem faixa pedida a seção não aparece', async () => {
   await montar([])
   assert.equal(textoDaTela(), '')

@@ -6,7 +6,7 @@ import { Loader2, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { diaEHoraBrt } from '@/lib/data-venda'
-import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
+import { FAIXAS_NO_HISTORICO, type SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 import { consultarFaixaAction } from '../actions'
 
 export type FaixaPedida = {
@@ -44,6 +44,7 @@ export function HistoricoFaixas({ faixas }: { faixas: FaixaPedida[] }) {
   return (
     <section aria-labelledby="historico-faixas" className="space-y-2">
       <h2 id="historico-faixas" className="border-b-2 border-foreground pb-1.5 text-base font-bold">Faixas inutilizadas</h2>
+      {faixas.length >= FAIXAS_NO_HISTORICO && <p className="text-sm text-muted-foreground">Mostra as {FAIXAS_NO_HISTORICO} mais recentes; as mais antigas não aparecem aqui.</p>}
       {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
       <ul className="divide-y">
         {faixas.map(f => (

@@ -5,7 +5,7 @@ import { grupos, notasFiscaisSaida, notasFiscaisSaidaInutilizacoes } from '@/lib
 import { semZerosAEsquerda } from '@/lib/texto'
 import { ambienteLiberado, FORA_DA_PRODUCAO } from './ambiente'
 import { pedirInutilizacao, serieEUfDaEmpresaNaNg, type ConfigNotaGateway } from './client'
-import { conflitosDaFaixa, ufPermiteInutilizacao, validarFaixaInutilizacao, type FaixaInutilizacao } from './inutilizacao'
+import { conflitosDaFaixa, FAIXAS_NO_HISTORICO, ufPermiteInutilizacao, validarFaixaInutilizacao, type FaixaInutilizacao } from './inutilizacao'
 import { configDoAmbiente, enviarPedido, grupoVisivel, lerConfigDoAmbiente, type DependenciasInutilizacao, type PedidoInutilizacao, type Resultado, type UsuarioInutilizacao } from './inutilizar'
 
 // Mesma frase para grupo de outra Conta, grupo inexistente e papel sem permissão: não revela que o grupo existe.
@@ -129,7 +129,7 @@ export function listarFaixas(
   }).from(t).innerJoin(grupos, eq(grupos.id, t.grupoId)).where(and(
     eq(t.grupoId, escopo.grupoId), eq(t.ambiente, escopo.ambiente), isNull(t.notaId),
     escopo.contaId === null ? undefined : eq(grupos.contaId, escopo.contaId),
-  )).orderBy(desc(t.criadoEm)).limit(20)
+  )).orderBy(desc(t.criadoEm)).limit(FAIXAS_NO_HISTORICO)
 }
 
 /**

@@ -29,6 +29,8 @@ export function validarJustificativa(bruta: string): ValidacaoJustificativa {
   return { ok: true, justificativa }
 }
 
+/** Quantas faixas o histórico da tela lista; ao chegar nele, a tela avisa que há mais antigas. */
+export const FAIXAS_NO_HISTORICO = 20
 export const MAX_NUMEROS_POR_INUTILIZACAO = 10_000 // MOC NF-e, regra I04
 const NUMERO_MAXIMO = 999_999_999
 
