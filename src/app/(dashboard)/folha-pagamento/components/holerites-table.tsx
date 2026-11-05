@@ -1,6 +1,6 @@
 'use client'
 import { useRef, useState } from 'react'
-import { AlertCircle, Check, ChevronDown, ExternalLink, Filter, Trash2, Upload } from 'lucide-react'
+import { AlertCircle, Check, ExternalLink, Filter, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
 import {
@@ -9,6 +9,7 @@ import {
 import { rotuloMes } from '@/lib/folha-tela'
 import type { HoleriteRow } from '../holerites-actions'
 import { useEnvioHolerite } from './holerite-envio'
+import { SetaDetalhe } from './folha-seta-detalhe'
 
 export type FuncionarioHolerite = { id: string; nome: string; papel: string; lojaNome: string }
 
@@ -72,6 +73,7 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
 }) {
   const [aberta, setAberta] = useState(false)
   const chevron = useRef<HTMLDivElement>(null)
+  const idDetalhe = `detalhe-holerite-${f.id}`
   const envio = useEnvioHolerite(f.id, mes, holeritesDaPessoa)
   const doTipo = (valor: string) => holeritesDaPessoa.find(h => h.tipo === valor)
   const descricaoPessoa = `${rotuloDoPapelGravado(f.papel)} · ${f.lojaNome}`
@@ -111,13 +113,10 @@ function LinhaPessoa({ funcionario: f, mes, holeritesDaPessoa }: {
         )
       })}
       <div ref={chevron} role="cell" className="@[960px]/folha:hidden">
-        <button type="button" aria-expanded={aberta} aria-label={`Ver detalhes de ${f.nome}`} onClick={() => setAberta(v => !v)}
-          className="flex size-11 items-center justify-center text-muted-foreground">
-          <ChevronDown aria-hidden className={aberta ? 'rotate-180' : ''} />
-        </button>
+        <SetaDetalhe nome={f.nome} aberta={aberta} alternar={() => setAberta(v => !v)} idDetalhe={idDetalhe} />
       </div>
       {aberta && (
-        <div role="cell" className="col-span-full grid gap-2 px-4 pb-3 @[680px]/folha:grid-cols-2 @[960px]/folha:hidden">
+        <div role="cell" id={idDetalhe} className="col-span-full grid gap-2 px-4 pb-3 @[680px]/folha:grid-cols-2 @[960px]/folha:hidden">
           {TIPOS_HOLERITE.map(t => {
             const h = doTipo(t.valor)
             return (
