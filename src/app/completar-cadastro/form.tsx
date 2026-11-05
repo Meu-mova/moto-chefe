@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { TIPOS_CHAVE_PIX, type TipoChavePix } from '@/lib/dados-funcionario'
+import { CamposPix } from '@/components/campos-pix'
+import type { TipoChavePix } from '@/lib/dados-funcionario'
 import { salvarDadosFuncionarioAction } from './actions'
 
 const AJUDA: Record<TipoChavePix, string> = {
@@ -54,22 +55,7 @@ export function CompletarCadastroForm({ inicial }: { inicial: Inicial | null }) 
                placeholder="000.000.000-00" />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="pixTipo">Tipo da chave PIX</Label>
-        {/* <select> nativo de propósito: o <Select> do base-ui mostra o value cru
-            quando ele difere do rótulo (valor "cpf", rótulo "CPF"). */}
-        <select id="pixTipo" value={pixTipo}
-                onChange={e => setPixTipo(e.target.value as TipoChavePix)}
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
-          {TIPOS_CHAVE_PIX.map(t => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="pixChave">Chave PIX</Label>
-        <Input id="pixChave" value={pixChave} onChange={e => setPixChave(e.target.value)} />
-        <p className="text-xs text-muted-foreground">{AJUDA[pixTipo]}</p>
-      </div>
+      <CamposPix id="pix" tipo={pixTipo} chave={pixChave} onTipo={setPixTipo} onChave={setPixChave} ajuda={AJUDA} />
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="nascimento">Data de nascimento</Label>

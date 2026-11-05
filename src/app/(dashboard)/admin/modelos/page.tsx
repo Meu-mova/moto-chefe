@@ -1,6 +1,6 @@
 import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
-import { getGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
+import { getGrupoAtivo, contaDoEditor } from '@/lib/grupo'
 import { carregarTelaModelos } from '@/lib/modelos-tela'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -19,7 +19,7 @@ export default async function ModelosPage() {
 
   // O admin_geral edita todos; o sócio cadastra e edita só os da própria Conta (#321).
   const adminGeral = usuario.papel === 'admin_geral'
-  const contaId = adminGeral ? null : await contaDoGrupoAtivo(usuario)
+  const contaId = await contaDoEditor(usuario)
   const quem = { papel: usuario.papel, contaId }
   const podeCadastrar = podeCadastrarModelo(quem)
   const { modelos: todos, codigos, apelidos, contas, usaBling } = await carregarTelaModelos(contaId === null

@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { veiculosHistorico } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
-import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { contaDoEditor, contaDoGrupoAtivo } from '@/lib/grupo'
 import { chassisNasMotos, gravarVeiculosHistorico } from '@/lib/busca-chassi'
 
 export type VeiculoImportRow = {
@@ -65,7 +65,7 @@ export async function verificarChassisExistentesAction(chassiList: string[]): Pr
 
   const normalizados = chassiList.map(c => c.trim().toUpperCase())
   // Só as motos da Conta (#325): não revela chassi de outro cliente do MOVA.
-  const daConta = usuario.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(usuario)
+  const daConta = await contaDoEditor(usuario)
 
   // inArray também tem limite — busca em lotes de 1000
   const LOTE = 1000
@@ -80,7 +80,8 @@ export async function verificarChassisExistentesAction(chassiList: string[]): Pr
 export async function contarVeiculosHistoricoAction() {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) return 0
+  const daConta = await contaDoEditor(usuario)
   const [r] = await db.select({ total: sql<number>`count(*)::int` }).from(veiculosHistorico)
-    .where(usuario.papel === 'admin_geral' ? undefined : eq(veiculosHistorico.contaId, await contaDoGrupoAtivo(usuario)))
+    .where(daConta ? eq(veiculosHistorico.contaId, daConta) : undefined)
   return r?.total ?? 0
 }
