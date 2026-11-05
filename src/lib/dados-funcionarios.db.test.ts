@@ -154,3 +154,35 @@ test('chave que não confere com o tipo não é gravada', async () => {
     throw new Desfazer()
   }), Desfazer)
 })
+
+// Roda `antes` logo antes da query do builder ir ao banco: simula outra requisição no meio.
+function antesDeExecutar<T extends object>(builder: T, antes: () => Promise<unknown>): T {
+  return new Proxy(builder, {
+    get(alvo, prop) {
+      const valor = Reflect.get(alvo, prop) as unknown
+      if (prop === 'then') {
+        const then = valor as PromiseLike<unknown>['then']
+        return (ok?: (v: unknown) => unknown, falha?: (e: unknown) => unknown) => antes().then(() => then.call(alvo, ok, falha))
+      }
+      if (typeof valor !== 'function') return valor
+      return (...args: unknown[]) => {
+        const r = (valor as (...a: unknown[]) => unknown).apply(alvo, args)
+        return r && typeof r === 'object' ? antesDeExecutar(r, antes) : r
+      }
+    },
+  })
+}
+
+test('funcionário que muda de Conta entre a leitura e a gravação não tem o PIX trocado pelo sócio da Conta antiga', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenarioDuasContas(tx)
+    const contaB = ((await tx.execute(sql`select conta_id as id from usuarios where id = ${c.funcB}`)) as unknown as { rows: { id: string }[] }).rows[0].id
+    const moverParaB = () => tx.execute(sql`update usuarios set conta_id = ${contaB} where id = ${c.funcA}`)
+    // A leitura vê o funcionário na Conta A; a gravação já o encontra na Conta B.
+    const exec = { select: tx.select.bind(tx), update: ((t: Parameters<Tx['update']>[0]) => antesDeExecutar(tx.update(t), moverParaB)) as Tx['update'] }
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', contaId: c.contaA }, c.funcA, CELULAR, exec)
+    assert.deepEqual(r, NAO_ENCONTRADO)
+    assert.deepEqual((await c.dados(c.funcA)).map(d => d.pix_chave), ['11111111111'], 'PIX intacto')
+    throw new Desfazer()
+  }), Desfazer)
+})

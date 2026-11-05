@@ -60,8 +60,10 @@ export async function corrigirPixDoFuncionario(
   const daContaDoEditor = editor.contaId
     ? inArray(usuariosDados.usuarioId, exec.select({ id: usuarios.id }).from(usuarios).where(daConta(editor.contaId)))
     : undefined
-  await exec.update(usuariosDados)
+  // A Conta vai de novo no update: o funcionário pode ter mudado de Conta depois da leitura.
+  const gravadas = await exec.update(usuariosDados)
     .set({ pixTipo: tipo, pixChave: normalizarChavePix(tipo, pix.chave), atualizadoEm: new Date() })
     .where(and(eq(usuariosDados.usuarioId, usuarioId), daContaDoEditor))
-  return { ok: true }
+    .returning({ usuarioId: usuariosDados.usuarioId })
+  return gravadas.length ? { ok: true } : naoEncontrado
 }
