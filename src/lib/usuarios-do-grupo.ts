@@ -1,6 +1,7 @@
-import { and, eq, inArray, or, sql } from 'drizzle-orm'
+import { and, inArray, or, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { lojas, usuarios } from '@/lib/db/schema'
+import { usuarios } from '@/lib/db/schema'
+import { lojasDoGrupo } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
 type Papel = (typeof usuarios.papel.enumValues)[number]
@@ -10,7 +11,7 @@ type Papel = (typeof usuarios.papel.enumValues)[number]
 // mostrava usuários de outros clientes do MOVA. Lojas do grupo em subconsulta: quem usa não precisa de join.
 export const usuarioDoGrupo = (grupoId: string) => and(
   or(
-    inArray(usuarios.lojaId, db.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, grupoId))),
+    inArray(usuarios.lojaId, lojasDoGrupo(grupoId)),
     sql`${grupoId}::uuid = any(${usuarios.gruposAcesso})`,
   ),
   // Marcação de grupo de outra Conta não vale (ADR-0018, adendo de 21/10).
