@@ -15,17 +15,21 @@ type Modelo = {
   marca: string | null
   valorMinimo: string | null
   custo: string | null
+  valor12x: string | null
 }
 
 type Props = {
   modelo?: Modelo | null
+  /** Grupo no padrão 'avista_12x': o campo do total em 12x aparece. */
+  com12x: boolean
   onClose: () => void
 }
 
-export function ModeloDialog({ modelo, onClose }: Props) {
+export function ModeloDialog({ modelo, com12x, onClose }: Props) {
   const [nome, setNome] = useState(modelo?.nome ?? '')
   const [valorMinimo, setValorMinimo] = useState(modelo?.valorMinimo ?? '')
   const [custo, setCusto] = useState(modelo?.custo ?? '')
+  const [valor12x, setValor12x] = useState(modelo?.valor12x ?? '')
   const [loading, setLoading] = useState(false)
 
   // Modelo do catálogo tem o nome travado: é ele que liga o preço ao cadastro
@@ -52,6 +56,8 @@ export function ModeloDialog({ modelo, onClose }: Props) {
         nome,
         valorMinimo,
         custo: custo || undefined,
+        // Campo escondido (padrão 'taxas'): não manda, e o valor gravado fica como está.
+        valor12x: com12x ? valor12x : undefined,
       })
       toast.success(primeiroPreco || !modelo ? 'Preço definido' : 'Modelo atualizado')
       onClose()
@@ -95,6 +101,17 @@ export function ModeloDialog({ modelo, onClose }: Props) {
             <Label>Valor Mínimo de Venda — PIX (R$) *</Label>
             <CurrencyInput value={valorMinimo} onChange={setValorMinimo} placeholder="0,00" autoFocus={nomeTravado} />
           </div>
+          {com12x && (
+            <div className="space-y-1.5">
+              <Label>Valor total em 12x (R$)</Label>
+              <CurrencyInput value={valor12x} onChange={setValor12x} placeholder="0,00" />
+              <p className="text-xs text-muted-foreground">
+                {parseFloat(valor12x || '0') > 0
+                  ? `12x de ${(parseFloat(valor12x) / 12).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}, sem taxa de cartão.`
+                  : 'Valor cheio que aparece no Simulador como 12x. Sem taxa de cartão.'}
+              </p>
+            </div>
+          )}
           {margemR !== null && margemPct !== null && (
             <div className={`rounded-lg p-3 text-sm ${margemPct >= 20 ? 'bg-success/10 border border-success/30' : margemPct >= 10 ? 'bg-warning/10 border border-warning/30' : 'bg-destructive/10 border border-destructive/30'}`}>
               <span className="font-medium">Margem: </span>

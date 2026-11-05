@@ -6,7 +6,9 @@ import { Badge } from '@/components/ui/badge'
 import { TaxasForm } from './taxas-form'
 import { ModeloDialog } from './modelo-dialog'
 import { ImportarPrecos } from './importar-precos'
+import { PadraoSimuladorCard } from './padrao-simulador-card'
 import { toggleAtivoAction, excluirModeloAction } from '../actions'
+import type { PadraoSimulador } from '@/lib/simulador-padrao'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, TrendingUp, AlertTriangle, Tag } from 'lucide-react'
 
 type Taxas = {
@@ -29,6 +31,7 @@ type Modelo = {
   marca: string | null
   valorMinimo: string | null
   custo: string | null
+  valor12x: string | null
   ativo: boolean
   estoqueDisponivel: number
 }
@@ -37,6 +40,7 @@ type Props = {
   taxas: Taxas
   modelos: Modelo[]
   grupoNome: string
+  padraoSimulador: PadraoSimulador
 }
 
 function fmtBRL(v: number) {
@@ -64,7 +68,7 @@ function corMargem(pct: number) {
   return { badge: 'text-destructive bg-destructive/10 border-destructive/30', text: 'text-destructive' }
 }
 
-export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
+export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador }: Props) {
   const [dialogAberto, setDialogAberto] = useState(false)
   const [modeloEdicao, setModeloEdicao] = useState<Modelo | null>(null)
 
@@ -102,9 +106,13 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
 
   const temCusto = modelos.some(m => m.custo)
   const semPreco = modelos.filter(m => !m.precId)
+  const com12x = padraoSimulador === 'avista_12x'
+  const sem12x = com12x ? modelos.filter(m => m.precId && m.ativo && !m.valor12x) : []
 
   return (
     <div className="space-y-6">
+      <PadraoSimuladorCard padrao={padraoSimulador} />
+
       {/* Taxas globais no topo */}
       <TaxasForm taxas={taxas} />
 
@@ -117,6 +125,9 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
               {modelos.length} modelo{modelos.length !== 1 ? 's' : ''} no catálogo
               {semPreco.length > 0 && (
                 <> · <span className="text-warning font-medium">{semPreco.length} sem preço em {grupoNome}</span></>
+              )}
+              {sem12x.length > 0 && (
+                <> · <span className="text-warning font-medium">{sem12x.length} ativo{sem12x.length !== 1 ? 's' : ''} sem valor em 12x</span></>
               )}
             </p>
           </div>
@@ -138,6 +149,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Modelo</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Custo</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Valor Mínimo (PIX)</th>
+                  {com12x && <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total em 12x</th>}
                   {temCusto && (
                     <>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">
@@ -169,6 +181,13 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
                       <td className="px-4 py-3 text-right font-mono font-semibold text-foreground">
                         {m.valorMinimo ? fmtBRL(parseFloat(m.valorMinimo)) : <span className="text-muted-foreground">—</span>}
                       </td>
+                      {com12x && (
+                        <td className="px-4 py-3 text-right font-mono text-foreground">
+                          {m.valor12x
+                            ? <>{fmtBRL(parseFloat(m.valor12x))}<span className="block text-xs text-muted-foreground">12x de {fmtBRL(parseFloat(m.valor12x) / 12)}</span></>
+                            : <span className={precificado && m.ativo ? 'text-warning text-xs' : 'text-muted-foreground'}>{precificado && m.ativo ? 'Sem valor' : '—'}</span>}
+                        </td>
+                      )}
                       {temCusto && (
                         <>
                           <td className="px-4 py-3 text-right font-mono">
@@ -275,6 +294,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome }: Props) {
       {dialogAberto && (
         <ModeloDialog
           modelo={modeloEdicao}
+          com12x={com12x}
           onClose={() => { setDialogAberto(false); setModeloEdicao(null) }}
         />
       )}

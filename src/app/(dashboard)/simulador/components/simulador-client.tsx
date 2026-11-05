@@ -34,11 +34,11 @@ type Props = {
   lojaUsuarioId: string | null
 }
 
-function fmt(v: number) {
+export function fmt(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function esc(s: string) {
+export function esc(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
@@ -187,7 +187,7 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
 
 // A janela da simulação não carrega o globals.css: cada var(--x) usada na folha recebe o valor
 // lido de um .tema-claro, para o papel sair claro mesmo com o escuro ligado na tela.
-function comPaletaClara(html: string) {
+export function comPaletaClara(html: string) {
   const nomes = [...new Set(Array.from(html.matchAll(/var\(--([\w-]+)\)/g), (m) => m[1]))]
   const sonda = document.createElement('div')
   sonda.className = 'tema-claro'
