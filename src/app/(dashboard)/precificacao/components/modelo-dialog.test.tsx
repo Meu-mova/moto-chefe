@@ -92,3 +92,11 @@ test('recusa do servidor deixa o diálogo aberto para corrigir', async () => {
   assert.equal(t.fechou.mock.callCount(), 0)
   assert.ok(!botao('Salvar')!.disabled)
 })
+
+test('criar com só o 12x digitado: mostra a parcela, sem "desconto de 100%" enquanto falta o PIX', async () => {
+  await montar({ modelo: null, com12x: true })
+  await digitar(campo(/^Total em 12x/)!, '1200000')
+  assert.match(textoDaTela(), /12x de R\$ 1\.000,00/)
+  assert.doesNotMatch(textoDaTela(), /Desconto do PIX/)
+  assert.doesNotMatch(textoDaTela(), /100%/)
+})

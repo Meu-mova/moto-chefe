@@ -115,7 +115,7 @@ export function ModeloDialog({ modelo, com12x, onClose }: Props) {
               </div>
             )}
           </div>
-          {com12x && <Conta12x d={d} />}
+          {com12x && <Conta12x d={d} comPix={vMin > 0} />}
           <div className="space-y-1.5">
             <Label htmlFor={`${id}-custo`}>Custo (R$)</Label>
             <CurrencyInput id={`${id}-custo`} value={custo} onChange={setCusto} placeholder="0,00" />
@@ -145,7 +145,7 @@ export function ModeloDialog({ modelo, com12x, onClose }: Props) {
 }
 
 /** O que o cliente vai ver no simulador com o 12x digitado; 12x igual ou abaixo do PIX avisa e deixa salvar. */
-function Conta12x({ d }: { d: ReturnType<typeof destaqueAvista12x> }) {
+function Conta12x({ d, comPix }: { d: ReturnType<typeof destaqueAvista12x>; comPix: boolean }) {
   if (d.total12x === null || d.parcela12x === null) {
     return <p className="text-xs text-muted-foreground">Sem total em 12x, o simulador mostra só o PIX deste modelo.</p>
   }
@@ -161,7 +161,8 @@ function Conta12x({ d }: { d: ReturnType<typeof destaqueAvista12x> }) {
     <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 rounded-lg bg-muted px-3 py-2.5 text-sm">
       <dt className="text-muted-foreground">Cliente vê</dt>
       <dd className="font-bold text-right tabular-nums">12x de {fmtBRL(d.parcela12x)}</dd>
-      {d.economiaPix !== null && (
+      {/* Sem o PIX digitado ainda, a "economia" seria o 12x inteiro. */}
+      {comPix && d.economiaPix !== null && (
         <>
           <dt className="text-muted-foreground">Desconto do PIX</dt>
           <dd className="font-bold text-right text-success tabular-nums">
