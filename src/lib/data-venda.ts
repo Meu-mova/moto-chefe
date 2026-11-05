@@ -13,9 +13,17 @@ export function parseDataInput(yyyyMmDd: string): Date {
   return new Date(`${yyyyMmDd}T12:00:00.000Z`)
 }
 
-/** "03/11/2026" → "2026-11-03". STUB. */
-export function dataBrParaIso(_ddmmaaaa: string): string | null {
-  return null
+/**
+ * "03/11/2026" → "2026-11-03". Devolve null se não for dd/mm/aaaa ou se o dia não existe
+ * (31/02): quem lê arquivo de operadora recusa o arquivo em vez de gravar data torta.
+ */
+export function dataBrParaIso(ddmmaaaa: string): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(ddmmaaaa.trim())
+  if (!m) return null
+  const [, dd, mm, aaaa] = m
+  const d = new Date(Date.UTC(Number(aaaa), Number(mm) - 1, Number(dd)))
+  const existe = d.getUTCFullYear() === Number(aaaa) && d.getUTCMonth() === Number(mm) - 1 && d.getUTCDate() === Number(dd)
+  return existe ? `${aaaa}-${mm}-${dd}` : null
 }
 
 // Hoje no calendário de Brasília, como "YYYY-MM-DD" — para default de <input

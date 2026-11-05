@@ -5,14 +5,13 @@ import { CABECALHO_CIELO, montarRelatorioCielo, vendaCielo } from '@/test/relato
 
 function ler(texto: string) {
   const r = lerRelatorioCielo(texto)
-  assert.equal(r.ok, true, r.ok ? '' : r.erro)
-  if (!r.ok) throw new Error(r.erro)
+  if (!r.ok) assert.fail(r.erro)
   return r
 }
 const recusa = (texto: string) => {
   const r = lerRelatorioCielo(texto)
-  assert.equal(r.ok, false)
-  return r.ok ? '' : r.erro
+  if (r.ok) assert.fail('devia recusar o arquivo')
+  return r.erro
 }
 
 test('capa, filtros e totalizador não viram transação; só as vendas depois do cabeçalho', () => {
@@ -99,8 +98,10 @@ test('sem a linha de cabeçalho, recusa em vez de importar zero linhas', () => {
 })
 
 test('cabeçalho com acento mal decodificado ainda acha as colunas', () => {
-  const quebrado = CABECALHO_CIELO.map(n => n.replace(/[áéíóúãçê]/g, '�'))
-  const [t] = ler(montarRelatorioCielo({ linhas: [vendaCielo({ 'Forma de pagamento': 'Cr�dito parcelado loja 03x' })], cabecalho: quebrado })).transacoes
+  const quebrado = CABECALHO_CIELO.map(n => n.replace(/[áéíóúãçê]/g, '\uFFFD'))
+  const texto = montarRelatorioCielo({ linhas: [vendaCielo({ 'Forma de pagamento': 'Cr\uFFFDdito parcelado loja 03x' })] })
+    .replace(CABECALHO_CIELO.join(';'), quebrado.join(';'))
+  const [t] = ler(texto).transacoes
   assert.equal(t.parcelas, 3)
   assert.equal(t.nsu, '1000000000000000001')
 })
