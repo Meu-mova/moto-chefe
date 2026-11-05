@@ -35,6 +35,19 @@ O MOC (Grupo X/X02) define os códigos DANFE 0, 1, 2, 3, 4 e 9. A resposta anter
 - Fora de `tpOp=2` (decisão do Luis: não generalizar para outras revendas), nada muda: a tela não pede frete nem entrega e o payload não leva `transporte`. O hotfix não define a regra comercial/fiscal da operação de revenda.
 - O payload segue no JSON já armazenado por `notas_fiscais_saida`; não há migração. O reenvio reaproveita o fluxo existente de tentativa e recebe o payload corrigido.
 
+## Rejeições 841, 842 e 843 (tipo e espécie do veículo)
+
+Na recusa, os códigos 841, 842 e 843 abrem o grupo "Veículo" da tela de correção (`src/lib/notagateway/recusa.ts`), para editar os dados do RENAVE e reenviar com o mesmo número (#673).
+
+- 841: "Código do Tipo de Veículo Inexistente [nItem:nnn]" (`veicProd/tpVeic`, formato `[0-9]{1,2}`, "utilizar tabela RENAVAM").
+- 842: código da espécie de veículo (`espVeic`) inexistente.
+- 843: "Código da espécie de Veículo incompatível com o tipo do Veículo [nItem:nnn]".
+- Origem: a NT 2021.004 v1.20, item 2.3.1, diz que `tpVeic` e `espVeic` passam a ser validados por tabelas externas; a Tabela de Tipo e Espécie de Veículo fica no Portal da NF-e, aba Documentos, Diversos.
+
+**Fonte não oficial.** O texto oficial da NT/MOC (Anexo I, grupo J) não foi lido: o PDF do MOC não abriu como texto e as URLs da NT deram erro de redirecionamento em 05/11/2026. Os trechos acima vêm de fontes secundárias que citam a NT: [oobj, 841](https://oobj.com.br/bc/rejeicao-841-como-resolver), [oobj, 843](https://oobj.com.br/bc/rejeicao-843-como-resolver/), [Omie, 843](https://ajuda.omie.com.br/pt-BR/articles/6719408-843-rejeicao-codigo-da-especie-de-veiculo-incompativel-com-o-tipo-do-veiculo), [descrição do campo tpVeic](https://buscadorncm.com.br/nfe/tags-xml/tpveic) e [resumo da NT 2021.004](https://portalspedbrasil.com.br/?p=17458). Conferir no texto oficial antes de mapear qualquer outro código do `veicProd`.
+
+**Limite.** Em 04/11/2026 os mesmos valores de RENAVE (tipo 02, espécie 1, combustível 07, `cMod` 000001) foram autorizados em MG e recusados com 841 em PR (homologação). Editar o RENAVE na tela é a saída para o operador; não é garantia de que o 841 de PR seja dado do RENAVE. Causa em apuração com o Hermes.
+
 Arquivos principais: `src/lib/notagateway/transporte.ts`, `src/lib/notagateway/payload.ts`, `src/app/(dashboard)/vendas/nfe-propria-actions.ts` e `src/app/(dashboard)/estoque/components/nfe-propria-painel.tsx`.
 
 Validação fiscal ponta a ponta ainda depende de teste autorizado em homologação e conferência do XML/DANFE. Nenhuma validação em produção foi feita ou está autorizada.

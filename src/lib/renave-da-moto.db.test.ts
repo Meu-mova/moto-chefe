@@ -84,6 +84,15 @@ test('a própria Conta grava o RENAVE da moto vendida', async () => {
   })
 })
 
+test('a própria Conta regrava o RENAVE de uma moto que já tem o dela: o reenvio da recusa leva o valor novo (#673)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000024104', await modeloCiclomotor(tx))
+    await gravarRenaveDaMoto(a.aux, a.motoId, RENAVE, a.auxId, tx)
+    assert.deepEqual(await gravarRenaveDaMoto(a.aux, a.motoId, { ...RENAVE, codigoMarcaModelo: '000001', numeroMotor: 'CORRIGIDO' }, a.auxId, tx), { ok: true })
+    assert.deepEqual(await renaveDe(tx, a.motoId), [{ codigo_marca_modelo: '000001', numero_motor: 'CORRIGIDO' }])
+  })
+})
+
 test('Conta B (aux e sócio) não grava nem sobrescreve o RENAVE da moto da Conta A, com a frase de moto sem venda', async () => {
   await emTransacaoDesfeita(async tx => {
     const modeloId = await modeloCiclomotor(tx)

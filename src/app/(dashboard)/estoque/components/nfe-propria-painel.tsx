@@ -171,6 +171,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     })
   }
 
+  const atualizarRenave = (atualizar: (prev: DadosRenave) => DadosRenave) => setRenave(prev => (prev ? atualizar(prev) : prev))
+
   function avancarDoRenave() {
     setErro('')
     setPasso(passo + 1)
@@ -224,6 +226,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       )}
       <Resultado
         r={resultado} teste={teste} previa={previa} erroCorrecao={erroCorrecao} pending={pending}
+        renave={renave} renaveOrigem={renaveOrigem} onRenave={atualizarRenave}
         onReconsultar={reconsultar} onAtualizada={nota => setResultado({ nota })} onTentarDeNovo={tentarDeNovo}
         onSalvarEReenviar={salvarEReenviar} onVoltar={onVoltar}
       />
@@ -251,7 +254,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     return (
       <div className="flex min-h-full flex-col gap-4">
         {passos}
-        <RenaveForm dados={renave} origem={renaveOrigem} parte={parte.id} onChange={atualizar => setRenave(prev => (prev ? atualizar(prev) : prev))} />
+        <RenaveForm dados={renave} origem={renaveOrigem} parte={parte.id} onChange={atualizarRenave} />
         {erro && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
         <div className="sticky bottom-0 -mx-4 mt-auto flex gap-2 border-t border-border bg-background px-4 py-3">
           <Button variant="outline" onClick={() => (passo === 0 ? onVoltar() : setPasso(passo - 1))} className="h-11">Voltar</Button>
@@ -549,11 +552,14 @@ function Historico({ notas, onAtualizada }: { notas: NotaResumo[]; onAtualizada:
   )
 }
 
-function Resultado({ r, teste, previa, erroCorrecao, pending, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarEReenviar, onVoltar }: {
+function Resultado({ r, teste, previa, erroCorrecao, pending, renave, renaveOrigem, onRenave, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarEReenviar, onVoltar }: {
   r: { nota: NotaResumo; erro?: string }
   teste: boolean
   previa: Previa | null
   erroCorrecao: string | null
+  renave: DadosRenave | null
+  renaveOrigem: OrigemRenave
+  onRenave: (atualizar: (prev: DadosRenave) => DadosRenave) => void
   onSalvarEReenviar: (c: CorrecaoNf) => void
   pending: boolean
   onReconsultar: (id: string) => void
@@ -613,6 +619,7 @@ function Resultado({ r, teste, previa, erroCorrecao, pending, onReconsultar, onA
       // Recusa nova depois do reenvio: os campos partem do cadastro de novo.
       key={`${nota.id}-${nota.motivoStatus}`}
       nota={nota} previa={previa!} pending={pending} erro={erroCorrecao}
+      renave={renave} renaveOrigem={renaveOrigem} onRenave={onRenave}
       onSalvarEReenviar={onSalvarEReenviar} onEmitirDeNovo={onTentarDeNovo} onVoltar={onVoltar}
     />
   )
