@@ -2,7 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { contaDoEditor } from '@/lib/grupo'
+import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { corrigirPixDoFuncionario } from '@/lib/dados-funcionarios'
 
 export async function salvarPixDoFuncionarioAction(
@@ -16,7 +16,7 @@ export async function salvarPixDoFuncionarioAction(
   }
 
   const r = await corrigirPixDoFuncionario(
-    { papel: editor.papel, contaId: await contaDoEditor(editor) }, usuarioId, { tipo: pixTipo, chave: pixChave },
+    { papel: editor.papel, grupoId: (await grupoAtivoDaRequisicao(editor)).id }, usuarioId, { tipo: pixTipo, chave: pixChave },
   )
   if (r.ok) revalidatePath('/admin/dados-funcionarios')
   return r
