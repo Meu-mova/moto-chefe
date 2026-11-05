@@ -114,6 +114,19 @@ Recebimento das motos de uma nota de entrada no estoque da loja (tela "Entrada")
 Busca de qualquer moto pelo chassi, inclusive as vendidas.
 _Evitar_: Radar Fiscal (é a tela de notas recebidas)
 
+**Remover moto**:
+Tirar do MOVA, de vez, uma moto que não devia ter entrado (ex.: importada por engano), junto com
+tudo o que depende dela. Não tem volta.
+_Evitar_: excluir, apagar, deletar
+
+**Arquivar moto**:
+Tirar de todas as telas uma moto que deixou de ser da loja sem ter sido vendida, guardando o
+registro e o histórico. Só o RADAR a acha.
+_Evitar_: inativar, esconder, remover
+
+**Desarquivar**:
+Devolver ao MOVA uma moto arquivada, pelo RADAR.
+
 ## Venda
 
 **Reserva**:
