@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { diaBrt, diaCurtoBrt, diaEHoraBrt, fimDoDiaBrt, hojeBrt, inicioDoDiaBrt, mesBrt, parseDataInput } from './data-venda'
+import { diaBrt, diaCurtoBrt, diaEHoraBrt, fimDoDiaBrt, hojeBrt, inicioDoDiaBrt, mesBrt, parseDataInput, rotuloMesCurto, rotuloMesCurtoAA } from './data-venda'
 
 test('mesBrt: virada de mês à noite NÃO pula pro mês seguinte', () => {
   // 01/08 02:00Z = 31/07 23:00 em Brasília — ainda é julho.
@@ -86,4 +86,16 @@ test('dia e hora em Brasília: 12:20 UTC vira 09:20', () => {
 test('diaBrt e diaCurtoBrt usam o dia de Brasília: 22h30 de 31/10 em UTC-3 é 01h30 de 01/11 em UTC', () => {
   assert.equal(diaBrt('2026-11-01T01:30:00.000Z'), '31/10/2026')
   assert.equal(diaCurtoBrt('2026-11-01T01:30:00.000Z'), '31/10')
+})
+
+test('rotuloMesCurto: "AAAA-MM" vira "out/2026"', () => {
+  assert.equal(rotuloMesCurto('2026-10'), 'out/2026')
+  assert.equal(rotuloMesCurto('2026-01'), 'jan/2026')
+  assert.equal(rotuloMesCurto('2026-12'), 'dez/2026')
+})
+
+test('rotuloMesCurtoAA: ano e mês viram "out/26", aceitando número ou texto', () => {
+  assert.equal(rotuloMesCurtoAA(2026, 10), 'out/26')
+  assert.equal(rotuloMesCurtoAA('2026', '01'), 'jan/26')
+  assert.equal(rotuloMesCurtoAA(2027, 12), 'dez/27')
 })
