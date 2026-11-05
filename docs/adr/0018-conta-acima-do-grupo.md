@@ -236,3 +236,20 @@ Conta nova. Decisões do Luis:
   A Conta de origem precisa ter só esse grupo e é desativada, não apagada. CPF/CNPJ de cliente ou
   apelido de modelo repetido na Conta de destino: nada é gravado e os casos são listados.
 - Descartado: apagar e recriar os grupos (perderia a configuração já feita pelo cliente).
+
+## Adendo de 2026-11-05: Dados de Funcionários só do grupo ativo (#698)
+
+Exceção à regra "o sócio vê a Conta" nesta tela. Decisão do Cesar em 05/11/2026, aceita pelo Luis:
+
+- `/admin/dados-funcionarios` lista e corrige o PIX só de quem é do **grupo ativo**, para todos os
+  papéis, **inclusive o `admin_geral`**. Antes o sócio via a Conta inteira e o `admin_geral` todas
+  as Contas (#320).
+- Por quê: a tela mostra CPF, chave PIX e data de nascimento. Dado pessoal sai só do grupo que a
+  pessoa está operando, não da rede inteira.
+- "Do grupo" é a mesma posse do seletor de grupo (`usuarioDoGrupo`, `src/lib/usuarios-do-grupo.ts`):
+  loja do usuário no grupo ou o grupo marcado em `grupos_acesso`, sempre dentro da Conta do grupo.
+  Marcação de grupo de outra Conta não vale.
+- Consequências: quem está em dois grupos (loja num, marcação no outro) aparece nos dois; quem não
+  tem loja nem grupo marcado não aparece em nenhum. Funcionário de outro grupo recebe a mesma frase
+  do id inexistente.
+- As outras telas da Conta seguem a regra deste ADR; a exceção vale só aqui.
