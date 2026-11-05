@@ -1,11 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { TIPOS_CHAVE_PIX, type TipoChavePix } from '@/lib/dados-funcionario'
+import { CamposPix } from '@/components/campos-pix'
+import type { TipoChavePix } from '@/lib/dados-funcionario'
 import { salvarPixDoFuncionarioAction } from '../actions'
 
 export function EditarPixDialog({ usuarioId, nome, pixTipo, pixChave }: {
@@ -19,55 +18,57 @@ export function EditarPixDialog({ usuarioId, nome, pixTipo, pixChave }: {
   const [chave, setChave] = useState(pixChave)
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  // O estado só muda no próximo render; o ref barra o segundo clique que chega antes dele.
+  const enviando = useRef(false)
 
-  function abrir(v: boolean) {
+  function abrir() {
     // Reabrir parte do que está gravado, não do que foi digitado e cancelado.
-    if (v) { setTipo(pixTipo); setChave(pixChave); setErro(null) }
-    setOpen(v)
+    setTipo(pixTipo); setChave(pixChave); setErro(null)
+    setOpen(true)
+  }
+
+  function fechar() {
+    if (!enviando.current) setOpen(false)
   }
 
   async function salvar() {
+    if (enviando.current) return
+    enviando.current = true
     setSalvando(true)
     setErro(null)
-    const r = await salvarPixDoFuncionarioAction(usuarioId, tipo, chave)
-    setSalvando(false)
-    if (r.ok) setOpen(false)
-    else setErro(r.erro)
+    try {
+      const r = await salvarPixDoFuncionarioAction(usuarioId, tipo, chave)
+      if (r.ok) setOpen(false)
+      else setErro(r.erro)
+    } catch {
+      setErro('Não consegui salvar agora. Tente de novo.')
+    } finally {
+      enviando.current = false
+      setSalvando(false)
+    }
   }
 
   return (
     <>
-    <Button variant="ghost" size="icon" aria-label={`Editar PIX de ${nome}`} onClick={() => abrir(true)}>
-      <Pencil className="size-4" />
-    </Button>
-    <Dialog open={open} onOpenChange={abrir}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Chave PIX de {nome}</DialogTitle>
-        </DialogHeader>
+      <Button variant="ghost" size="icon" aria-label={`Editar PIX de ${nome}`} onClick={abrir}>
+        <Pencil className="size-4" />
+      </Button>
+      <Dialog open={open} onOpenChange={aberto => { if (!aberto) fechar() }} disablePointerDismissal>
+        <DialogContent className="sm:max-w-sm" showCloseButton={!salvando}>
+          <DialogHeader>
+            <DialogTitle>Chave PIX de {nome}</DialogTitle>
+          </DialogHeader>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`pixTipo-${usuarioId}`}>Tipo da chave</Label>
-          {/* <select> nativo: o <Select> do base-ui mostra o value cru ("cpf"). */}
-          <select id={`pixTipo-${usuarioId}`} value={tipo}
-                  onChange={e => setTipo(e.target.value as TipoChavePix)}
-                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
-            {TIPOS_CHAVE_PIX.map(t => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}
-          </select>
-        </div>
+          <CamposPix id={`pix-${usuarioId}`} tipo={tipo} chave={chave} onTipo={setTipo} onChave={setChave} />
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`pixChave-${usuarioId}`}>Chave PIX</Label>
-          <Input id={`pixChave-${usuarioId}`} value={chave} onChange={e => setChave(e.target.value)} />
-        </div>
+          {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
 
-        {erro && <p className="text-sm text-destructive">{erro}</p>}
-
-        <DialogFooter>
-          <Button onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="outline" disabled={salvando} onClick={fechar}>Cancelar</Button>
+            <Button onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
