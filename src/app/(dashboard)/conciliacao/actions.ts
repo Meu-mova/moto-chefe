@@ -38,8 +38,8 @@ const comoLinhaDoRelatorio = (t: TransacaoCielo): LinhaRelatorio => ({
   parcelas: t.parcelas,
   autorizacao: t.autorizacao ?? null,
   valorBruto: t.valorBruto,
-  valorLiquido: t.valorLiquido ?? 0,
-  nsu: t.nsu ?? null,
+  valorLiquido: t.valorLiquido,
+  nsu: t.nsu,
   portador: t.rawData.portador,
   terminal: t.rawData.serial,
 })

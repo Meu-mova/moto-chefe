@@ -8,7 +8,10 @@ import type { TransacaoCartao } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
 
+// O leitor só devolve venda com Código da venda e com os dois valores lidos.
 export type TransacaoCielo = TransacaoCartao & {
+  nsu: string
+  valorLiquido: number
   rawData: { bandeira: string; portador: string | null; serial: string | null }
 }
 
