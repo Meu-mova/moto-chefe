@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ABAS_FOLHA, avisoDaAba, descreverRegra, diferencaValorReal, fmtPercentual, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
+import { ABAS_FOLHA, avisoDaAba, descreverRegra, diferencaValorReal, fmtPercentual, hrefComFiltro, mesAdjacente, rotuloMes, rotuloVigencia, situacaoValorReal } from './folha-tela'
 
 test('mesAdjacente: vira o ano em dezembro e em janeiro', () => {
   assert.equal(mesAdjacente('2026-12', 1), '2027-01')
@@ -83,4 +83,11 @@ test('fmtPercentual: o numeric do banco em pt-BR, de 1 a 3 casas', () => {
   assert.equal(fmtPercentual('1.00'), '1,0')
   assert.equal(fmtPercentual('12.5'), '12,5')
   assert.equal(fmtPercentual('0.0010'), '0,001')
+})
+
+test('rotuloVigencia: sem início e sem fim vale sempre; com um limite ou dois, diz qual', () => {
+  assert.equal(rotuloVigencia(null, null), 'Vale sempre')
+  assert.equal(rotuloVigencia('2026-01', null), 'Vale desde jan/2026')
+  assert.equal(rotuloVigencia(null, '2026-03'), 'Vale até mar/2026')
+  assert.equal(rotuloVigencia('2026-01', '2026-03'), 'Vale de jan/2026 a mar/2026')
 })

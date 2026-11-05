@@ -30,6 +30,14 @@ export function mesBrt(agora: Date = new Date()): string {
   return hojeBrt(agora).slice(0, 7)
 }
 
+const MES_CURTO = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+/** 'AAAA-MM' como "out/2026". Pelo texto, sem Date, para o fuso não mudar o mês. */
+export function rotuloMesCurto(mes: string): string {
+  const [ano, m] = mes.split('-')
+  return `${MES_CURTO[Number(m) - 1] ?? m}/${ano}`
+}
+
 // ─── limites de um dia do calendário de Brasília ──────────────────────────────
 // Toda coluna de data do sistema é `timestamptz`, mas o negócio raciocina em dia
 // do calendário daqui. Filtrar com `new Date("2026-07-31")` compara contra a

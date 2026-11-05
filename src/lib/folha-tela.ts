@@ -1,4 +1,4 @@
-import { mesBrt } from './data-venda'
+import { mesBrt, rotuloMesCurto } from './data-venda'
 import { labelDaBase } from './folha'
 import { fmtBRL } from './preco-minimo'
 
@@ -74,3 +74,11 @@ export const descreverRegra = (r: { percentual: number; base: string; valorBase:
 /** Percentual de regra como o banco entrega ('0.30'): "0,3", "0,05", "1,0". De 1 a 3 casas. */
 export const fmtPercentual = (v: string): string =>
   parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
+
+/** Até quando uma regra de comissão vale: "Vale sempre", "Vale desde jan/2026", "Vale de jan/2026 a mar/2026". */
+export function rotuloVigencia(inicio: string | null, fim: string | null): string {
+  if (inicio && fim) return `Vale de ${rotuloMesCurto(inicio)} a ${rotuloMesCurto(fim)}`
+  if (inicio) return `Vale desde ${rotuloMesCurto(inicio)}`
+  if (fim) return `Vale até ${rotuloMesCurto(fim)}`
+  return 'Vale sempre'
+}
