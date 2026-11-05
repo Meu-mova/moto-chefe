@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { Info } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PrintButton } from '../../relatorio-fabrica/print-button'
 import { ABAS_FOLHA, avisoDaAba } from '@/lib/folha-tela'
+import { AvisoFolha } from './folha-aviso'
 import { LojaSelectorFolha } from './loja-selector-folha'
 import { MesStepperFolha } from './mes-stepper-folha'
 
@@ -72,12 +72,7 @@ export function FolhaCasca({ lojas, lojaAtual, mesAtual, children }: {
             ))}
           </TabsList>
 
-          {aviso && (
-            <p className="flex max-w-[72ch] gap-2 rounded-lg bg-muted px-3 py-2 text-[13px] text-muted-foreground">
-              <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-info" />
-              <span>{aviso}</span>
-            </p>
-          )}
+          {aviso && <AvisoFolha>{aviso}</AvisoFolha>}
           {children}
         </Tabs>
       </div>
