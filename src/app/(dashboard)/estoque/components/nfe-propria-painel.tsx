@@ -224,6 +224,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       )}
       <Resultado
         r={resultado} teste={teste} previa={previa} erroCorrecao={erroCorrecao} pending={pending}
+        renave={renave} renaveOrigem={renaveOrigem} onRenave={atualizar => setRenave(prev => (prev ? atualizar(prev) : prev))}
         onReconsultar={reconsultar} onAtualizada={nota => setResultado({ nota })} onTentarDeNovo={tentarDeNovo}
         onSalvarEReenviar={salvarEReenviar} onVoltar={onVoltar}
       />
@@ -549,11 +550,14 @@ function Historico({ notas, onAtualizada }: { notas: NotaResumo[]; onAtualizada:
   )
 }
 
-function Resultado({ r, teste, previa, erroCorrecao, pending, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarEReenviar, onVoltar }: {
+function Resultado({ r, teste, previa, erroCorrecao, pending, renave, renaveOrigem, onRenave, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarEReenviar, onVoltar }: {
   r: { nota: NotaResumo; erro?: string }
   teste: boolean
   previa: Previa | null
   erroCorrecao: string | null
+  renave: DadosRenave | null
+  renaveOrigem: OrigemRenave
+  onRenave: (atualizar: (prev: DadosRenave) => DadosRenave) => void
   onSalvarEReenviar: (c: CorrecaoNf) => void
   pending: boolean
   onReconsultar: (id: string) => void
@@ -613,6 +617,7 @@ function Resultado({ r, teste, previa, erroCorrecao, pending, onReconsultar, onA
       // Recusa nova depois do reenvio: os campos partem do cadastro de novo.
       key={`${nota.id}-${nota.motivoStatus}`}
       nota={nota} previa={previa!} pending={pending} erro={erroCorrecao}
+      renave={renave} renaveOrigem={renaveOrigem} onRenave={onRenave}
       onSalvarEReenviar={onSalvarEReenviar} onEmitirDeNovo={onTentarDeNovo} onVoltar={onVoltar}
     />
   )

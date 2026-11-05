@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatarCpfCnpj, tipoPessoaDoDocumento } from '@/lib/documento'
+import { camposFaltando, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
+import { RenaveForm } from './renave-form'
 import { fraseDaRecusa, telaDaRecusa, type GrupoCorrecao } from '@/lib/notagateway/recusa'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import type { NotaResumo, PreviaNfe } from '../../vendas/nfe-propria-actions'
@@ -20,6 +22,10 @@ type Props = {
   pending: boolean
   /** Erro da última correção (o envio em si volta como outro resultado). */
   erro: string | null
+  /** Dados do veículo (ciclomotor) como estão no painel; o reenvio leva o que ficar aqui. */
+  renave: DadosRenave | null
+  renaveOrigem: OrigemRenave
+  onRenave: (atualizar: (prev: DadosRenave) => DadosRenave) => void
   onSalvarEReenviar: (c: CorrecaoNf) => void
   /** Volta à conferência para emitir de novo, sem correção aqui. */
   onEmitirDeNovo: () => void
@@ -31,8 +37,8 @@ type Props = {
  * "E o número N?", "O que fazer" quando couber, e o código só em "Detalhes técnicos".
  * A correção grava no cadastro de origem e a nota é remontada dele.
  */
-export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEmitirDeNovo, onVoltar }: Props) {
-  const tela = telaDaRecusa(nota)
+export function NfeRecusa({ nota, previa, pending, erro, renave, renaveOrigem, onRenave, onSalvarEReenviar, onEmitirDeNovo, onVoltar }: Props) {
+  const tela = telaDaRecusa(nota, previa.exigeRenave)
   const bloqueada = tela.tipo === 'denegada_cliente' || tela.tipo === 'denegada_empresa' || tela.tipo === 'denegada'
   const n = nota.numero
   const porque = tela.tipo === 'duplicidade' && n
@@ -47,6 +53,7 @@ export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEm
     numero: previa.correcao.comprador.clienteInscricaoEstadual ?? '',
   })
 
+  const faltamRenave = renave ? camposFaltando(renave).length : 0
   const apontados = tela.tipo === 'corrigir' ? tela.abertos : []
   // Moto sem ficha não se corrige aqui: a ficha nasce na conferência.
   const correcao = (): CorrecaoNf => ({
@@ -109,9 +116,20 @@ export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEm
               <Campo id="corr-cest" rotulo="CEST" valor={moto.cest} onChange={v => setMoto(m => ({ ...m, cest: v }))} inputMode="numeric" />
             </Grupo>
           )}
+          {previa.exigeRenave && renave && (
+            <Grupo
+              titulo="Veículo"
+              resumo={`Tipo ${renave.tipoVeiculo || 'vazio'} · Combustível ${renave.tipoCombustivel || 'vazio'}${faltamRenave ? ` · faltam ${faltamRenave}` : ''}`}
+              apontado={apontados.includes('veiculo')}
+              aberto={abertos.includes('veiculo')}
+              onAbrir={() => setAbertos(a => [...a, 'veiculo'])}
+            >
+              <div className="col-span-2"><RenaveForm dados={renave} origem={renaveOrigem} onChange={onRenave} /></div>
+            </Grupo>
+          )}
           {tela.empresa && <OQueFazerEmpresa podeConfigurar={previa.podeConfigurarFiscal} />}
           <p className="border-l-2 border-border pl-2.5 text-sm text-muted-foreground">
-            Salvar corrige também a venda nº {previa.vendaNumero}{previa.ficha ? ' e a ficha fiscal da moto' : ''}.
+            Salvar corrige também a venda nº {previa.vendaNumero}{previa.ficha ? ' e a ficha fiscal da moto' : ''}{previa.exigeRenave ? ' e os dados do veículo' : ''}.
           </p>
         </>
       )}
@@ -165,7 +183,7 @@ export function NfeRecusa({ nota, previa, pending, erro, onSalvarEReenviar, onEm
       <div className="space-y-2">
         {tela.tipo === 'corrigir' && (
           <>
-            <Button onClick={() => onSalvarEReenviar(correcao())} disabled={pending} className="h-11 w-full">Salvar e reenviar{n ? ` nº ${n}` : ''}</Button>
+            <Button onClick={() => onSalvarEReenviar(correcao())} disabled={pending || faltamRenave > 0} className="h-11 w-full">Salvar e reenviar{n ? ` nº ${n}` : ''}</Button>
             <Button variant="outline" onClick={onVoltar} className="h-11 w-full">Fechar</Button>
           </>
         )}
