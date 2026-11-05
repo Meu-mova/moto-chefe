@@ -11,13 +11,37 @@ permissions:
   contents: read
 
 jobs:
-  smoke:
-    name: smoke do preview
+  # Versão do Playwright no lock do commit testado: a imagem do container acompanha o bump do
+  # Dependabot sozinha (#704). Não há tag para trocar à mão.
+  versao:
+    name: versão do Playwright
     if: >-
       github.event.deployment_status.state == 'success' &&
       !contains(github.event.deployment.environment, 'Production')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      playwright: ${{ steps.v.outputs.playwright }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          sparse-checkout: package-lock.json
+          sparse-checkout-cone-mode: false
+      - id: v
+        run: echo "playwright=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    name: smoke do preview
+    needs: versao
+    runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Imagem oficial com Chromium e as libs do sistema já instaladas (#704): o
+    # `playwright install --with-deps` baixava fontes pelo apt e chegava a 11 min.
+    # --user 1001 como na doc do Playwright (playwright.dev/docs/ci, "Via Containers").
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.versao.outputs.playwright }}-noble
+      options: --user 1001
     # O código vem do commit do deployment, e os secrets chegam ao script dele: quem tem
     # push no repo consegue lê-los (como no migracoes.yml). Ver docs/infra/segredos.md.
     # Um smoke por vez: todos batem no mesmo staging, e ~15 rodando juntos esgotaram o banco e
@@ -36,8 +60,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-
-      - run: npx playwright install --with-deps chromium
 
       - name: smoke
         env:
