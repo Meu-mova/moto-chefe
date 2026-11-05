@@ -38,6 +38,11 @@ export function rotuloMesCurto(mes: string): string {
   return `${MES_CURTO[Number(m) - 1] ?? m}/${ano}`
 }
 
+/** Ano e mês como "out/26" (ano de 2 dígitos), o rótulo curto dos gráficos e das colunas por mês. */
+export function rotuloMesCurtoAA(ano: number | string, mes: number | string): string {
+  return `${MES_CURTO[Number(mes) - 1] ?? mes}/${String(ano).slice(2)}`
+}
+
 // ─── limites de um dia do calendário de Brasília ──────────────────────────────
 // Toda coluna de data do sistema é `timestamptz`, mas o negócio raciocina em dia
 // do calendário daqui. Filtrar com `new Date("2026-07-31")` compara contra a
