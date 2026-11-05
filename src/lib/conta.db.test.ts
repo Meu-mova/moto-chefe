@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -16,10 +17,11 @@ type Conta = typeof import('@/lib/conta')
 let db: Db['db']
 let grupoEstaNaConta: Conta['grupoEstaNaConta']
 let listarLojasAtivasDaConta: Conta['listarLojasAtivasDaConta']
+let usuarioDaConta: Conta['usuarioDaConta']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ grupoEstaNaConta, listarLojasAtivasDaConta } = await import('@/lib/conta'))
+  ;({ grupoEstaNaConta, listarLojasAtivasDaConta, usuarioDaConta } = await import('@/lib/conta'))
 })
 
 after(async () => {
@@ -61,6 +63,22 @@ test('o mesmo CPF pode existir em duas Contas, mas não duas vezes na mesma', as
       tx.execute(sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('De novo', '52998224725', ${conta.id})`),
       (e: { cause?: { constraint?: string } }) => e.cause?.constraint === 'clientes_conta_cpf_cnpj_key',
     )
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('usuarioDaConta: só quem tem o conta_id da Conta; grupos_acesso de outra Conta não vale', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const { usuarios } = await import('@/lib/db/schema')
+    const a = await semearContaBase(tx, { prefixo: 'UDC', nome: 'A', cnpj: '00000000065001' })
+    const b = await semearContaBase(tx, { prefixo: 'UDC', nome: 'B', cnpj: '00000000065002' })
+    const daA = await semearUsuario(tx, a, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comConta: true })
+    const daB = await semearUsuario(tx, b, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comConta: true })
+    // Sócio da B com o grupo da A em grupos_acesso: continua fora da Conta A.
+    const marcadoNaA = await semearUsuario(tx, { ...b, grupoId: a.grupoId }, { papel: 'admin_socio', rotulo: 'marcado', semLoja: true, comConta: true, comGrupo: true })
+    const ids = [daA, daB, marcadoNaA]
+    const rows = await tx.select({ id: usuarios.id }).from(usuarios).where(sql`${usuarios.id} in (${sql.join(ids.map(i => sql`${i}::uuid`), sql`, `)}) and ${usuarioDaConta(a.contaId)}`)
+    assert.deepEqual(rows.map(r => r.id), [daA])
     throw new Desfazer()
   }), Desfazer)
 })

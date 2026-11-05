@@ -5,3 +5,4 @@ Um arquivo por assunto da Nota Gateway, escrito à mão: o que a doc oficial diz
 | Arquivo | Assunto | Quando ler |
 |---|---|---|
 | [ng-inutilizar-numeracao.md](ng-inutilizar-numeracao.md) | Inutilizar numeração de NF-e na Nota Gateway | Antes de mexer no pedido, na consulta ou na tela de inutilização, ou ao decidir se um número pode ser inutilizado |
+| [ng-veiculo-transporte.md](ng-veiculo-transporte.md) | Veículo novo, faturamento direto e transporte na Nota Gateway | Antes de alterar tpOp, modalidade de frete ou local de entrega em NF-e de veículo novo |

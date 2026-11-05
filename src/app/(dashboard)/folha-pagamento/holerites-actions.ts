@@ -1,11 +1,12 @@
 'use server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { holerites, usuarios, folhaValoresReais } from '@/lib/db/schema'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { holerites, folhaValoresReais } from '@/lib/db/schema'
+import { and, desc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
-import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
+import { getGrupoAtivo } from '@/lib/grupo'
+import { caminhoDoHolerite, funcionarioDoGrupo, holeriteDoGrupo, listarHoleritesDoGrupo, removerHoleriteDoGrupo } from '@/lib/holerites-do-grupo'
 import { extrairHolerite, nomeConfere } from '@/lib/holerite-pdf'
 import { TIPOS_HOLERITE } from '@/lib/holerites-tela'
 
@@ -33,24 +34,6 @@ function storageAdmin() {
   )
 }
 
-/** Confere que o funcionário é do grupo ativo. Sem isso, um id de outro grupo na
- *  requisição penduraria o holerite na pessoa errada. */
-async function funcionarioDoGrupo(
-  usuario: { id: string; papel: string; lojaId: string | null; gruposAcesso: string[] | null; contaId: string | null },
-  usuarioId: string,
-) {
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  const [alvo] = await db
-    .select({ lojaId: usuarios.lojaId, nome: usuarios.nome })
-    .from(usuarios)
-    .where(eq(usuarios.id, usuarioId))
-    .limit(1)
-  if (!alvo?.lojaId || !lojaIdsGrupo.includes(alvo.lojaId)) {
-    throw new Error('Funcionário não pertence ao grupo ativo')
-  }
-  return alvo
-}
-
 export type HoleriteRow = {
   id: string
   usuarioId: string
@@ -64,48 +47,7 @@ export type HoleriteRow = {
 
 export async function listarHoleritesAction(mes: string): Promise<HoleriteRow[]> {
   const usuario = await checarAdmin()
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
-  if (lojaIdsGrupo.length === 0) return []
-
-  const rows = await db
-    .select({
-      id: holerites.id,
-      usuarioId: holerites.usuarioId,
-      mes: holerites.mes,
-      tipo: holerites.tipo,
-      arquivoNome: holerites.arquivoNome,
-      tamanho: holerites.tamanho,
-      enviadoEm: holerites.enviadoEm,
-      enviadoPorId: holerites.enviadoPor,
-      lojaId: usuarios.lojaId,
-    })
-    .from(holerites)
-    .innerJoin(usuarios, eq(holerites.usuarioId, usuarios.id))
-    .where(and(eq(holerites.mes, mes), inArray(usuarios.lojaId, lojaIdsGrupo)))
-
-  // Nome de quem enviou vem de uma segunda consulta em vez de um segundo join na
-  // mesma tabela: são poucas linhas por mês e o alias deixaria a query bem menos
-  // legível do que este de-para.
-  const enviantes = [...new Set(rows.map(r => r.enviadoPorId).filter((id): id is string => !!id))]
-  const nomePorId = new Map<string, string>()
-  if (enviantes.length > 0) {
-    const pessoas = await db
-      .select({ id: usuarios.id, nome: usuarios.nome })
-      .from(usuarios)
-      .where(inArray(usuarios.id, enviantes))
-    for (const p of pessoas) nomePorId.set(p.id, p.nome)
-  }
-
-  return rows.map(r => ({
-    id: r.id,
-    usuarioId: r.usuarioId,
-    mes: r.mes,
-    tipo: r.tipo,
-    arquivoNome: r.arquivoNome,
-    tamanho: r.tamanho,
-    enviadoEm: r.enviadoEm,
-    enviadoPorNome: r.enviadoPorId ? (nomePorId.get(r.enviadoPorId) ?? null) : null,
-  }))
+  return listarHoleritesDoGrupo(await getGrupoAtivo(usuario), mes)
 }
 
 export async function uploadHoleriteAction(formData: FormData) {
@@ -124,7 +66,9 @@ export async function uploadHoleriteAction(formData: FormData) {
   if (file.type !== 'application/pdf') throw new Error('Envie o holerite em PDF')
   if (file.size > TAMANHO_MAXIMO) throw new Error('Arquivo muito grande. Máximo: 10MB.')
 
-  const alvo = await funcionarioDoGrupo(usuario, usuarioId)
+  const { id: grupoId } = await getGrupoAtivo(usuario)
+  const alvo = await funcionarioDoGrupo(grupoId, usuarioId)
+  if (!alvo) throw new Error('Funcionário não pertence ao grupo ativo')
 
   // Lê o PDF para conferir de quem e de que mês ele é, e para pegar o líquido.
   // Nada aqui barra o envio — ver os avisos logo abaixo.
@@ -157,7 +101,7 @@ export async function uploadHoleriteAction(formData: FormData) {
   }
 
   const storage = storageAdmin()
-  const filePath = `${mes}/${usuarioId}-${tipo}-${crypto.randomUUID()}.pdf`
+  const filePath = caminhoDoHolerite({ grupoId, mes, usuarioId, tipo }, crypto.randomUUID())
 
   const { error } = await storage.storage
     .from(BUCKET)
@@ -256,20 +200,12 @@ async function preencherValorReal(
 
 export async function removerHoleriteAction(id: string) {
   const usuario = await checarAdmin()
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const { id: grupoId } = await getGrupoAtivo(usuario)
 
-  const [row] = await db
-    .select({ arquivoPath: holerites.arquivoPath, lojaId: usuarios.lojaId })
-    .from(holerites)
-    .innerJoin(usuarios, eq(holerites.usuarioId, usuarios.id))
-    .where(eq(holerites.id, id))
-    .limit(1)
-  if (!row?.lojaId || !lojaIdsGrupo.includes(row.lojaId)) {
-    throw new Error('Holerite não encontrado no grupo ativo')
-  }
+  const arquivoPath = await removerHoleriteDoGrupo(grupoId, id)
+  if (!arquivoPath) throw new Error('Holerite não encontrado no grupo ativo')
 
-  await db.delete(holerites).where(eq(holerites.id, id))
-  await storageAdmin().storage.from(BUCKET).remove([row.arquivoPath])
+  await storageAdmin().storage.from(BUCKET).remove([arquivoPath])
 
   revalidatePath('/folha-pagamento')
 }
@@ -283,17 +219,10 @@ export async function removerHoleriteAction(id: string) {
  */
 export async function getHoleriteUrlAction(id: string): Promise<string> {
   const usuario = await checarAdmin()
-  const lojaIdsGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
+  const { id: grupoId } = await getGrupoAtivo(usuario)
 
-  const [row] = await db
-    .select({ arquivoPath: holerites.arquivoPath, lojaId: usuarios.lojaId })
-    .from(holerites)
-    .innerJoin(usuarios, eq(holerites.usuarioId, usuarios.id))
-    .where(eq(holerites.id, id))
-    .limit(1)
-  if (!row?.lojaId || !lojaIdsGrupo.includes(row.lojaId)) {
-    throw new Error('Holerite não encontrado no grupo ativo')
-  }
+  const row = await holeriteDoGrupo(grupoId, id)
+  if (!row) throw new Error('Holerite não encontrado no grupo ativo')
 
   const { data, error } = await storageAdmin().storage
     .from(BUCKET)
