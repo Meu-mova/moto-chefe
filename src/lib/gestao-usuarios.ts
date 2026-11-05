@@ -68,14 +68,19 @@ function gruposDe(alvo: AlvoGestao): string[] {
   return [...(alvo.grupoDaLoja ? [alvo.grupoDaLoja] : []), ...alvo.gruposAcesso, ...alvo.gruposAprovacao]
 }
 
+/**
+ * Papel que o sócio não mexe (senha, papel, PIX). admin_geral deveria estar sem loja, mas nada
+ * impõe isso: com loja num grupo do sócio, ele trocaria a senha do admin_geral e entraria como tal.
+ * admin_rede fica acima do sócio (ADR-0019): só o admin_geral mexe nele.
+ */
+export function papelAcimaDoSocio(papel: string): boolean {
+  return papel === 'admin_geral' || papel === 'admin_rede'
+}
+
 export function podeGerenciar(gestor: Pick<Gestor, 'papel' | 'gruposVisiveis'>, alvo: AlvoGestao): boolean {
   if (gestor.papel === 'admin_geral') return true
   if (gestor.papel !== 'admin_socio') return false
-  // admin_geral deveria estar sem loja, mas nada impõe isso: com loja num grupo do
-  // sócio, ele trocaria a senha do admin_geral e entraria como tal.
-  if (alvo.papel === 'admin_geral') return false
-  // admin_rede fica acima do sócio (ADR-0019): só o admin_geral mexe nele.
-  if (alvo.papel === 'admin_rede') return false
+  if (papelAcimaDoSocio(alvo.papel)) return false
   const grupos = gruposDe(alvo)
   return grupos.length > 0 && grupos.every(g => gestor.gruposVisiveis.includes(g))
 }

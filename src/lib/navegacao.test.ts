@@ -98,6 +98,13 @@ test('Usuários não se libera por item: só o papel abre (#322)', () => {
   assert.ok(!podeAcessar(joao, '/admin/usuarios', SEM_REGRA_PROPRIA))
 })
 
+test('Dados de Funcionários não se libera por item: a tela grava o PIX dos colegas (#680)', () => {
+  const aux: UsuarioNav = { papel: 'aux_adm', modulosExtras: ['dados-funcionarios'] }
+  assert.ok(!ids(aux).includes('dados-funcionarios'))
+  assert.ok(!podeAcessar(aux, '/admin/dados-funcionarios', SEM_REGRA_PROPRIA))
+  assert.ok(podeAcessar(SOCIO, '/admin/dados-funcionarios', SEM_REGRA_PROPRIA), 'o sócio continua pelo papel')
+})
+
 test('modulos_bloqueados tira item que o papel dá', () => {
   const joao: UsuarioNav = { papel: 'vendedor', modulosBloqueados: ['pix'] }
   assert.ok(!ids(joao).includes('pix'))

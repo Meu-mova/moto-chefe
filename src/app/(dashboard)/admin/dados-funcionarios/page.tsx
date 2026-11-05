@@ -1,9 +1,10 @@
 import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
-import { contaDoGrupoAtivo } from '@/lib/grupo'
+import { contaDoEditor } from '@/lib/grupo'
 import { listarDadosFuncionarios } from '@/lib/dados-funcionarios'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TIPOS_CHAVE_PIX } from '@/lib/dados-funcionario'
+import { recusaCorrecaoPix, TIPOS_CHAVE_PIX, type TipoChavePix } from '@/lib/dados-funcionario'
+import { EditarPixDialog } from './components/editar-pix-dialog'
 
 function formatCpf(cpf: string) {
   return cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')
@@ -19,7 +20,7 @@ function formatData(iso: string) {
 export default async function DadosFuncionariosPage() {
   await exigirAcessoPagina('/admin/dados-funcionarios')
   const usuario = await getUsuarioLogado()
-  const contaId = usuario.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(usuario)
+  const contaId = await contaDoEditor(usuario)
   const linhas = await listarDadosFuncionarios(contaId)
 
   const rotulo = (t: string | null) => TIPOS_CHAVE_PIX.find(x => x.valor === t)?.rotulo ?? '—'
@@ -31,7 +32,7 @@ export default async function DadosFuncionariosPage() {
         <div>
           <h1 className="text-2xl font-bold">Dados dos funcionários</h1>
           <p className="text-muted-foreground text-sm">
-            Preenchidos pelo próprio funcionário no primeiro acesso.
+            Preenchidos pelo próprio funcionário no primeiro acesso. A chave PIX pode ser corrigida aqui.
             {faltando > 0 && ` ${faltando} ainda não preencheram.`}
           </p>
         </div>
@@ -44,6 +45,7 @@ export default async function DadosFuncionariosPage() {
               <TableHead>Tipo</TableHead>
               <TableHead>Chave PIX</TableHead>
               <TableHead>Nascimento</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -56,6 +58,13 @@ export default async function DadosFuncionariosPage() {
                 <TableCell>{rotulo(l.pixTipo)}</TableCell>
                 <TableCell>{l.pixChave ?? '—'}</TableCell>
                 <TableCell>{l.dataNascimento ? formatData(l.dataNascimento) : '—'}</TableCell>
+                {/* Mesma regra do servidor; a Conta já veio filtrada na lista. */}
+                <TableCell>
+                  {l.pixTipo && l.pixChave && !recusaCorrecaoPix(usuario, { papel: l.papel, temDados: !!l.cpf }) && (
+                    <EditarPixDialog usuarioId={l.id} nome={l.nome}
+                                     pixTipo={l.pixTipo as TipoChavePix} pixChave={l.pixChave} />
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
