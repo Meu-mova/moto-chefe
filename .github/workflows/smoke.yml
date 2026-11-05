@@ -51,6 +51,10 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v${{ needs.versao.outputs.playwright }}-noble
       options: --user 1001
+    # No container o `run:` usaria `sh`; bash como no runner.
+    defaults:
+      run:
+        shell: bash
     # O código vem do commit do deployment, e os secrets chegam ao script dele: quem tem
     # push no repo consegue lê-los (como no migracoes.yml). Ver docs/infra/segredos.md.
     # Um smoke por vez: todos batem no mesmo staging, e ~15 rodando juntos esgotaram o banco e

@@ -107,6 +107,10 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v${{ needs.filtro.outputs.playwright }}-noble
       options: --user 1001
+    # No container o `run:` usaria `sh`; bash como no runner.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v6
         with:
