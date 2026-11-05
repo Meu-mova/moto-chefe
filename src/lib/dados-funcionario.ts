@@ -1,4 +1,5 @@
-// Validação dos dados que o próprio funcionário preenche em /completar-cadastro.
+// Validação dos dados que o próprio funcionário preenche em /completar-cadastro, e a regra
+// de quem corrige o PIX dele em /admin/dados-funcionarios (#680).
 // Tudo puro: sem banco, sem fetch — é o que permite testar as bordas sem subir nada.
 
 import { cpfValido } from './documento'
