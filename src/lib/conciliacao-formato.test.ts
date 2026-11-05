@@ -10,7 +10,7 @@ test('relatório da Cielo é reconhecido pela capa, mesmo com a 1ª linha sem ca
 
 test('InfinityPay, Stone e PagueVeloz continuam reconhecidos pela 1ª linha', () => {
   assert.equal(detectarFormato('Data e hora,Meio,Bandeira\n01/11/2026 10:00,Crédito,Visa'), 'infinitypay')
-  assert.equal(detectarFormato('﻿Cod PagueVeloz;Data\n1;2'.replace('﻿', '')), 'pagueveloz')
+  assert.equal(detectarFormato('Cod PagueVeloz;Data\n1;2'), 'pagueveloz')
   assert.equal(detectarFormato('DOCUMENTO;STONECODE;DATA\n1;2;3'), 'stone')
 })
 
