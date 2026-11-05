@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { decidirInutilizacao, elegivelParaInutilizar, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu, podePedirInutilizacao, type ContextoInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, normalizarJustificativa, validarJustificativa } from './inutilizacao'
+import { decidirInutilizacao, serieEUfDaEmpresa, ufPermiteInutilizacao, validarFaixaInutilizacao, elegivelParaInutilizar, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu, podePedirInutilizacao, type ContextoInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, normalizarJustificativa, validarJustificativa } from './inutilizacao'
 
 test('justificativa: tira acentos e espaços sobrando', () => {
   assert.deepEqual(validarJustificativa('  Venda cancelada após\n a rejeição  '), { ok: true, justificativa: 'Venda cancelada apos a rejeicao' })
@@ -90,7 +90,7 @@ const ctxBase: ContextoInutilizacao = { nota: notaBase, outraNotaVivaDaVenda: nu
 const outra = (p: Partial<ContextoInutilizacao['outrasNotas'][number]> = {}) =>
   ({ id: 'n2', numero: '974', serie: '1', status: 'Autorizada', motivoStatus: null, ...p })
 const pedido = (p: Partial<ContextoInutilizacao['pedidos'][number]> = {}) =>
-  ({ situacao: 'pendente' as const, motivoStatus: null, serie: '1', numeroInicial: 974, criadoEm: '2026-10-29T12:00:00Z', ...p })
+  ({ situacao: 'pendente' as const, motivoStatus: null, serie: '1', numeroInicial: 974, numeroFinal: 974, criadoEm: '2026-10-29T12:00:00Z', ...p })
 const erroDe = (d: ReturnType<typeof decidirInutilizacao>) => (d as { erro: string }).erro
 
 test('decide: recusada elegível, sem pedido e sem outra nota com o número, pode ser inutilizada', () => {
@@ -157,4 +157,45 @@ test('decide: grupo em outro ambiente ou sem credencial da NG: sem botão, com a
 test('normalizarJustificativa é o que o contador do diálogo mede: sem acento, sem espaço repetido (C3)', () => {
   assert.equal(normalizarJustificativa('  Venda  cancelada após\n a rejeição  '), 'Venda cancelada apos a rejeicao')
   assert.equal(normalizarJustificativa(''), '')
+})
+
+const faixa = { serie: '1', numeroInicial: '16', numeroFinal: '24', justificativa: 'Quebra na sequência da numeração' }
+
+test('faixa: aceita crescente, de 1 a 10.000 números, e devolve números e justificativa normalizada', () => {
+  assert.deepEqual(validarFaixaInutilizacao(faixa), { ok: true, faixa: { serie: '1', numeroInicial: 16, numeroFinal: 24, justificativa: 'Quebra na sequencia da numeracao' } })
+  assert.equal(validarFaixaInutilizacao({ ...faixa, numeroInicial: '16', numeroFinal: '16' }).ok, true)
+  assert.equal(validarFaixaInutilizacao({ ...faixa, numeroInicial: '1', numeroFinal: '10000' }).ok, true)
+})
+
+test('faixa: recusa decrescente, zero, não inteiro, mais de 10.000 números e série fora de 1 a 999', () => {
+  for (const ruim of [
+    { numeroInicial: '24', numeroFinal: '16' }, { numeroInicial: '0', numeroFinal: '5' }, { numeroInicial: '1.5', numeroFinal: '5' },
+    { numeroInicial: '', numeroFinal: '5' }, { numeroInicial: '1', numeroFinal: '10001' }, { serie: '0' }, { serie: '1000' }, { serie: 'A' },
+  ]) assert.equal(validarFaixaInutilizacao({ ...faixa, ...ruim }).ok, false, JSON.stringify(ruim))
+})
+
+test('faixa: justificativa curta é recusada pela regra que já existe', () => {
+  assert.equal(validarFaixaInutilizacao({ ...faixa, justificativa: 'curta' }).ok, false)
+})
+
+test('UF: AC, BA e SP não pedem inutilização (Ajuste SINIEF 40/2026); as outras pedem', () => {
+  for (const uf of ['AC', 'BA', 'SP', ' sp ']) assert.equal(ufPermiteInutilizacao(uf), false, uf)
+  for (const uf of ['MG', 'RJ', 'PI']) assert.equal(ufPermiteInutilizacao(uf), true, uf)
+})
+
+test('empresa da NG: série do ambiente da credencial e UF do endereço', () => {
+  const empresa = { endereco: { uf: 'mg' }, emissaoNFeProduto: { ambienteProducao: { serieNFe: '2' }, ambienteHomologacao: { serieNFe: '9' } } }
+  assert.deepEqual(serieEUfDaEmpresa(empresa, 'Producao'), { serie: '2', uf: 'MG' })
+  assert.deepEqual(serieEUfDaEmpresa(empresa, 'Homologacao'), { serie: '9', uf: 'MG' })
+  assert.equal(serieEUfDaEmpresa({ ...empresa, emissaoNFeProduto: {} }, 'Producao'), null, 'sem série no ambiente')
+  assert.equal(serieEUfDaEmpresa({ emissaoNFeProduto: empresa.emissaoNFeProduto }, 'Producao'), null, 'sem UF')
+  assert.equal(serieEUfDaEmpresa(null, 'Producao'), null)
+})
+
+test('decide: faixa pedida que cobre o número esconde o botão; faixa que não cobre ou de outra série não', () => {
+  const faixaPedida = (extra = {}) => pedido({ numeroInicial: 970, numeroFinal: 980, ...extra })
+  assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [faixaPedida()] }).tipo, 'pendente')
+  assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [faixaPedida({ situacao: 'autorizada' })] }).tipo, 'autorizada')
+  assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [faixaPedida({ numeroInicial: 975, numeroFinal: 980 })] }).tipo, 'pode')
+  assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [faixaPedida({ serie: '2' })] }).tipo, 'pode')
 })

@@ -82,6 +82,14 @@ Toda mudança nasce de issue e de um plano aprovado antes do código. Além diss
   - Na folha responsiva (#628, #629), a Fase 0 afirmou "nenhuma data DD/MM em Brasília" e
     reescreveu `diaCurtoBrt`; `mesAdjacente` repetiu `mesAnterior`/`proximoMes`; o filtro de
     URL chegou a 15 cópias e o boilerplate de JSDOM a 8 (#632).
+  - **Tabela também.** Antes de criar tabela, procure em `schema.ts` uma que guarde a mesma
+    coisa, com o mesmo ciclo e as mesmas consultas; se só uma coluna atrapalha (um `not null`),
+    afrouxe-a numa migração e reuse gravação, consulta e filtro de Conta. Na #655 o Codex criou
+    `notas_fiscais_saida_inutilizacoes_faixas` com as 15 colunas de
+    `notas_fiscais_saida_inutilizacoes`, só sem `nota_id`; `nota_id` nulo bastou (~250 linhas a
+    menos). Tabela própria só quando muda a regra de acesso (bucket `holerites` separado de
+    `comprovantes`, migração 0077), a origem (`nfe_bling_arquivo`, NF que o MOVA não emitiu) ou
+    quando reusar afrouxaria uma trava do fluxo antigo; o porquê vai no comentário da migração.
 
 ## Stack
 

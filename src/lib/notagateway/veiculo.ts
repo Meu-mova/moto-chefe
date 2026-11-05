@@ -15,9 +15,14 @@
  * sugerido da última moto do mesmo modelo, para não digitar de novo.
  */
 
+export const TIPO_OPERACAO_FATURAMENTO_DIRETO = 'FaturamentoDiretoConsumidorFinal'
+
+/** Faturamento direto (tpOp 2) exige o local de entrega: sem a UF a SEFAZ recusa com 478. */
+export const operacaoExigeEntrega = (tipoOperacao: string | null | undefined) => tipoOperacao === TIPO_OPERACAO_FATURAMENTO_DIRETO
+
 export const OPCOES_TIPO_OPERACAO: [string, string][] = [
   ['VendaConcessionaria', '1 - Venda concessionária'],
-  ['FaturamentoDiretoConsumidorFinal', '2 - Faturamento direto para consumidor final'],
+  [TIPO_OPERACAO_FATURAMENTO_DIRETO, '2 - Faturamento direto para consumidor final'],
   ['VendaDiretaGrandesConsumidores', '3 - Venda direta para grandes consumidores'],
   ['Outros', '0 - Outros'],
 ]

@@ -8,6 +8,9 @@ export function ambienteLiberado(ambiente: 'Homologacao' | 'Producao', vercelEnv
   return ambiente === 'Homologacao' || vercelEnv === 'production'
 }
 
+/** Começo da frase de quem recusa produção fora do deploy de produção; cada fluxo completa com o que o usuário faz. */
+export const FORA_DA_PRODUCAO = 'Fora da produção, a Nota Gateway só roda em homologação'
+
 const NOME_AMBIENTE = { Producao: 'produção', Homologacao: 'homologação' } as const
 
 /** O ambiente gravado (texto) como a NG o entende: só Producao vale; o resto é homologação. */
