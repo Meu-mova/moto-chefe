@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarCpf, normalizarChavePix, chavePixValida, nascimentoValido, IDADE_MINIMA,
-  podeEditarDadosDe,
+  podeEditarDadosDe, validarPix, ERRO_CHAVE_PIX,
 } from './dados-funcionario'
 import { cpfValido } from './documento'
 
@@ -107,4 +107,18 @@ test('sócio não corrige o PIX de outra Conta', () => {
 test('sem Conta de nenhum lado não libera', () => {
   // null === null não pode virar "mesma Conta".
   assert.equal(podeEditarDadosDe({ papel: 'admin_socio', contaId: null }, { contaId: null }), false)
+})
+
+// ─── validarPix: a mesma conferência no "Meus dados" e no admin ──────────
+test('tipo e chave que conferem passam', () => {
+  assert.equal(validarPix('celular', '(35) 99999-1234'), null)
+})
+
+test('chave que não confere com o tipo é recusada', () => {
+  assert.equal(validarPix('email', '(35) 99999-1234'), ERRO_CHAVE_PIX)
+})
+
+test('tipo fora da lista é recusado, mesmo com chave no formato de aleatória', () => {
+  // A chave de 32 hexadecimais passaria como aleatória; o tipo inventado não pode ser gravado.
+  assert.equal(validarPix('pix', '0123456789abcdef0123456789abcdef'), ERRO_CHAVE_PIX)
 })

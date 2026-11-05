@@ -52,6 +52,14 @@ export function chavePixValida(tipo: TipoChavePix, chave: string): boolean {
   return /^[0-9a-f]{32}$/.test(bruto.replace(/-/g, '').toLowerCase())
 }
 
+export const ERRO_CHAVE_PIX = 'Chave PIX não confere com o tipo escolhido.'
+
+/** Erro para mostrar, ou null se tipo e chave conferem. Mesma regra no "Meus dados" e no admin. */
+export function validarPix(tipo: string, chave: string): string | null {
+  const tipoConhecido = TIPOS_CHAVE_PIX.some(t => t.valor === tipo)
+  return tipoConhecido && chavePixValida(tipo as TipoChavePix, chave) ? null : ERRO_CHAVE_PIX
+}
+
 /**
  * `iso` no formato "YYYY-MM-DD", como vem do <input type="date">.
  * Comparação feita em número (ano/mês/dia), nunca com `new Date(iso)`, que

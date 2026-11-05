@@ -7,7 +7,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { contaDoEditor } from '@/lib/grupo'
 import {
-  chavePixValida, normalizarChavePix, podeEditarDadosDe, TIPOS_CHAVE_PIX,
+  normalizarChavePix, podeEditarDadosDe, validarPix,
   type TipoChavePix,
 } from '@/lib/dados-funcionario'
 
@@ -37,9 +37,8 @@ export async function salvarPixDoFuncionarioAction(
   // não passou pelo primeiro acesso, e é lá que ele preenche tudo.
   if (!alvo.temDados) return { ok: false, erro: 'Esse funcionário ainda não preencheu os dados.' }
 
-  if (!TIPOS_CHAVE_PIX.some(t => t.valor === pixTipo) || !chavePixValida(pixTipo, pixChave)) {
-    return { ok: false, erro: 'Chave PIX não confere com o tipo escolhido.' }
-  }
+  const erroPix = validarPix(pixTipo, pixChave)
+  if (erroPix) return { ok: false, erro: erroPix }
 
   await db.update(usuariosDados)
     .set({ pixTipo, pixChave: normalizarChavePix(pixTipo, pixChave), atualizadoEm: new Date() })
