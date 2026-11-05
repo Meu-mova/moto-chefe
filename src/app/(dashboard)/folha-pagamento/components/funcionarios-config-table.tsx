@@ -125,7 +125,7 @@ function LinhaFuncionario({ f }: { f: FuncionarioRow }) {
         {f.ativo ? <Badge variant="outline" className="border-success/50 bg-success/10 text-success">Ativo</Badge> : <SeloInativo />}
       </div>
       <div role="cell" className="flex items-center justify-center @[960px]/folha:hidden">
-        <SetaDetalhe nome={f.nome} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} />
+        <SetaDetalhe nome={f.nome} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} detalheSempreNoDom />
       </div>
 
       <div id={idDetalhe} className={`${aberta ? 'col-span-full grid gap-3 px-2.5 pb-3 @[680px]/folha:grid-cols-4' : 'hidden'} @[960px]/folha:contents`}>
