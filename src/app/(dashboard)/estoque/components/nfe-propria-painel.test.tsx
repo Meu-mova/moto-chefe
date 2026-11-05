@@ -176,3 +176,70 @@ test('operação que não é faturamento direto vai da etapa da operação diret
   const transmitir = [...container.querySelectorAll('button')].find(b => /Transmitir teste/.test(b.textContent ?? ''))
   assert.equal(transmitir?.disabled, false)
 })
+
+const recusa841: NotaResumo = {
+  ...recusa478, id: 'nota-841', numero: '9',
+  motivoStatus: 'Código: 841\r\nDescrição: Codigo do tipo de veiculo inexistente. [nItem:1]',
+}
+const trocar = async (el: HTMLSelectElement | HTMLInputElement, valor: string) => act(async () => {
+  el.value = valor
+  el.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+})
+const botao = (container: Element, nome: RegExp) => [...container.querySelectorAll('button')].find(b => nome.test(b.textContent ?? ''))
+
+test('recusa 841 abre o grupo Veículo e o reenvio leva o RENAVE corrigido (#673)', async () => {
+  const chamadas: unknown[][] = []
+  acoes = { ...acoes,
+    previsualizarNfePropriaAction: async () => ({ ...preview, notas: [recusa841], transporteAnterior: { modalidade: modalidade4, enderecoEntrega: entregaDoComprador } }),
+    corrigirEReenviarNfAction: async (...args: unknown[]) => { chamadas.push(args); return { ok: true } } }
+  const { container, click } = await abrirPainel()
+
+  assert.match(container.textContent ?? '', /Corrigir aqui/)
+  const combustivel = container.querySelector<HTMLSelectElement>('select#renave-tipoCombustivel')
+  assert.ok(combustivel, 'o campo do RENAVE deve estar na recusa do 841')
+  await trocar(combustivel, '06')
+  await click(/^Salvar e reenviar nº 9/)
+
+  assert.equal(chamadas.length, 1)
+  assert.deepEqual(chamadas[0][2], { ...RENAVE_COMPLETO_FATURAMENTO_DIRETO, tipoCombustivel: '06' })
+})
+
+test('recusa 841 com campo do RENAVE vazio não deixa reenviar (#673)', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...preview, notas: [recusa841], renave: { ...RENAVE_COMPLETO_FATURAMENTO_DIRETO, numeroMotor: '' } }) }
+  const { container } = await abrirPainel()
+  assert.equal(botao(container, /^Salvar e reenviar/)?.disabled, true)
+})
+
+test('recusa de cliente (237) deixa o Veículo fechado, só com resumo (#673)', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...preview, notas: [{ ...recusa478, motivoStatus: '237 - Rejeição: CPF do destinatário inválido' }] }) }
+  const { container } = await abrirPainel()
+  assert.ok(botao(container, /^Veículo/), 'o grupo Veículo existe, fechado')
+  assert.equal(container.querySelector('select#renave-tipoCombustivel'), null)
+  assert.ok(container.querySelector('#corr-doc'), 'o cliente continua aberto')
+})
+
+test('moto sem RENAVE recusada com 841 não ganha o grupo Veículo (#673)', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...preview, exigeRenave: false, renave: null, notas: [recusa841] }) }
+  const { container } = await abrirPainel()
+  assert.equal(botao(container, /^Veículo/), undefined)
+  assert.ok(container.querySelector('#corr-doc'), 'cai nos grupos editáveis')
+})
+
+test('recusa de cliente com o RENAVE incompleto diz o que falta e onde abrir, não só apaga o botão (#673)', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...preview, renave: { ...RENAVE_COMPLETO_FATURAMENTO_DIRETO, numeroMotor: '' },
+    notas: [{ ...recusa478, motivoStatus: '237 - Rejeição: CPF do destinatário inválido' }] }) }
+  const { container } = await abrirPainel()
+  assert.match(container.textContent ?? '', /Falta 1 campo nos dados do veículo\. Abra o grupo Veículo e preencha\./)
+})
+
+test('nova recusa depois do reenvio mantém o RENAVE que o operador digitou (#673)', async () => {
+  const nova: NotaResumo = { ...recusa841, id: 'nota-841-b', motivoStatus: '842 - Rejeição: Código da espécie de Veículo inexistente' }
+  acoes = { ...acoes,
+    previsualizarNfePropriaAction: async () => ({ ...preview, notas: [recusa841], transporteAnterior: { modalidade: modalidade4, enderecoEntrega: entregaDoComprador } }),
+    corrigirEReenviarNfAction: async () => ({ ok: false, error: 'recusada de novo', nota: nova }) }
+  const { container, click } = await abrirPainel()
+  await trocar(container.querySelector<HTMLSelectElement>('select#renave-tipoCombustivel')!, '06')
+  await click(/^Salvar e reenviar nº 9/)
+  assert.match(container.textContent ?? '', /espécie/)
+  assert.equal(container.querySelector<HTMLSelectElement>('select#renave-tipoCombustivel')?.value, '06')
+})
