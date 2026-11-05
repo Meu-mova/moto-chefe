@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizarCpf, normalizarChavePix, chavePixValida, nascimentoValido, IDADE_MINIMA,
+  podeEditarDadosDe,
 } from './dados-funcionario'
 import { cpfValido } from './documento'
 
@@ -88,4 +89,22 @@ test('ano absurdo é recusado', () => {
 test('formato fora de YYYY-MM-DD é recusado', () => {
   assert.equal(nascimentoValido('15/03/1990', HOJE), false)
   assert.equal(nascimentoValido('', HOJE), false)
+})
+
+// ─── Quem corrige o PIX de outro funcionário ─────────────────────────────
+test('admin_geral corrige o PIX de qualquer Conta', () => {
+  assert.equal(podeEditarDadosDe({ papel: 'admin_geral', contaId: null }, { contaId: 'conta-a' }), true)
+})
+
+test('sócio corrige o PIX de quem é da mesma Conta', () => {
+  assert.equal(podeEditarDadosDe({ papel: 'admin_socio', contaId: 'conta-a' }, { contaId: 'conta-a' }), true)
+})
+
+test('sócio não corrige o PIX de outra Conta', () => {
+  assert.equal(podeEditarDadosDe({ papel: 'admin_socio', contaId: 'conta-a' }, { contaId: 'conta-b' }), false)
+})
+
+test('sem Conta de nenhum lado não libera', () => {
+  // null === null não pode virar "mesma Conta".
+  assert.equal(podeEditarDadosDe({ papel: 'admin_socio', contaId: null }, { contaId: null }), false)
 })

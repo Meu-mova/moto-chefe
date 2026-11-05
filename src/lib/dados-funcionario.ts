@@ -77,3 +77,17 @@ export function nascimentoValido(iso: string, hoje: Date): boolean {
   if (mes > hojeMes || (mes === hojeMes && dia > hojeDia)) idade--
   return idade >= IDADE_MINIMA
 }
+
+/**
+ * Quem pode corrigir o PIX de outro funcionário em /admin/dados-funcionarios.
+ * admin_geral é da plataforma e corrige qualquer um; os demais só gente da
+ * própria Conta (ADR-0018). Chave PIX é para onde vai o pagamento: um sócio
+ * de outra Conta nunca deve conseguir trocá-la.
+ */
+export function podeEditarDadosDe(
+  editor: { papel: string; contaId: string | null },
+  alvo: { contaId: string | null },
+): boolean {
+  if (editor.papel === 'admin_geral') return true
+  return !!editor.contaId && editor.contaId === alvo.contaId
+}
