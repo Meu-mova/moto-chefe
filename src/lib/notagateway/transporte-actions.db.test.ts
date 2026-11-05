@@ -169,6 +169,44 @@ test('salvar e reenviar leva o transporte no mesmo id, na mesma linha e com o me
   assert.deepEqual(notes[0].payload.transporte, expectedTransport)
 })
 
+test('recusa 841: reenviar com o RENAVE editado leva o veículo novo no mesmo id, linha e número (#673)', async () => {
+  const f = await fixture(true)
+  user = f.user
+  const net = network(f)
+  const { gravarRenaveDaMoto } = await import('@/lib/renave-da-moto')
+  const antigo = { ...renave, tipoCombustivel: '06' }
+  assert.deepEqual(await gravarRenaveDaMoto(f.user, f.motoId, antigo, f.user.id), { ok: true })
+
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87116000', cest: '' } }, { ...renave, tipoCombustivel: '07' }, transport)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads.length, 1)
+  assert.equal(net.payloads[0].id, f.externalId)
+  assert.equal(net.payloads[0].itens[0].veiculoNovo?.tipoCombustivel, '7')
+  const notas = (await snapshot(f)).notes as { id: string; id_externo: string; numero: string; payload: Payload }[]
+  assert.equal(notas.length, 1)
+  assert.equal(notas[0].id, f.noteId)
+  assert.equal(notas[0].numero, '650')
+  assert.equal(notas[0].payload.itens[0].veiculoNovo?.tipoCombustivel, '7')
+  assert.deepEqual(await rows(sql`select tipo_combustivel from motos_renave where moto_id = ${f.motoId}`), [{ tipo_combustivel: '07' }])
+})
+
+test('recusa 841: a Conta B reenviando com RENAVE próprio recebe a resposta de moto inexistente e nada muda na Conta A (#673)', async () => {
+  const a = await fixture(true)
+  const b = await fixture()
+  const { gravarRenaveDaMoto } = await import('@/lib/renave-da-moto')
+  await gravarRenaveDaMoto(a.user, a.motoId, { ...renave, tipoCombustivel: '06' }, a.user.id)
+  user = b.user
+  const net = network(a)
+  const antes = await snapshot(a)
+  const editado = { ...renave, tipoCombustivel: '07', codigoMarcaModelo: '000009' }
+  const correcao = { moto: { ncm: '87116000', cest: '' } }
+  const daB = await actions.corrigirEReenviarNfAction(a.motoId, correcao, editado, transport)
+  assert.deepEqual(daB, await actions.corrigirEReenviarNfAction(randomUUID(), correcao, editado, transport))
+  assert.equal(daB.ok, false)
+  assert.deepEqual(net.requests, [])
+  assert.deepEqual(await snapshot(a), antes)
+})
+
 test('salvar e reenviar com entrega sem UF não grava a correção nem muda a nota recusada', async () => {
   const f = await fixture(true)
   user = f.user
