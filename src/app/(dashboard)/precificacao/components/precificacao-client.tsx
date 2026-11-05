@@ -102,6 +102,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
     }
   }
 
+  const editar = (m: Modelo | null) => { setModeloEdicao(m); setDialogAberto(true) }
   const temCusto = modelos.some(m => m.custo)
   const semPreco = modelos.filter(m => !m.precId)
   const com12x = usaValor12x(padraoSimulador)
@@ -131,7 +132,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ImportarPrecos />
-            <Button onClick={() => { setModeloEdicao(null); setDialogAberto(true) }} className="gap-1.5">
+            <Button onClick={() => editar(null)} className="gap-1.5">
               <Plus size={16} /> Novo Modelo
             </Button>
           </div>
@@ -140,7 +141,27 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
         {modelos.length === 0 ? (
           <div className="py-16 text-center text-muted-foreground text-sm">Nenhum modelo cadastrado.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <ul aria-label="Modelos" className="divide-y sm:hidden">
+            {modelos.map(m => (
+              <li key={m.id} className={`px-4 py-3 space-y-2 ${m.precId === null ? 'bg-warning/5' : ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-foreground">{m.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {m.precId === null ? 'Sem preço neste grupo' : m.ativo ? 'PIX' : 'PIX, inativo'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {m.valorMinimo && <p className="font-semibold text-foreground tabular-nums">{fmtBRL(parseFloat(m.valorMinimo))}</p>}
+                    {com12x && <p className="text-xs text-muted-foreground tabular-nums"><Valor12x m={m} longo /></p>}
+                  </div>
+                </div>
+                <AcoesModelo m={m} onEditar={editar} onAlternar={handleToggle} onExcluir={handleExcluir} />
+              </li>
+            ))}
+          </ul>
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted border-b">
                 <tr>
@@ -181,9 +202,8 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
                       </td>
                       {com12x && (
                         <td className="px-4 py-3 text-right font-mono text-foreground">
-                          {m.valor12x
-                            ? <>{fmtBRL(parseFloat(m.valor12x))}<span className="block text-xs text-muted-foreground">12x de {fmtBRL(parcelaDe12x(parseFloat(m.valor12x)))}</span></>
-                            : precificado && m.ativo && <span className="text-warning text-xs">Sem valor</span>}
+                          {m.valor12x && fmtBRL(parseFloat(m.valor12x))}
+                          <span className="block text-xs text-muted-foreground"><Valor12x m={m} /></span>
                         </td>
                       )}
                       {temCusto && (
@@ -241,44 +261,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          {precificado ? (
-                            <>
-                              <Button
-                                variant="ghost" size="sm"
-                                onClick={() => { setModeloEdicao(m); setDialogAberto(true) }}
-                                title="Editar"
-                              >
-                                <Pencil size={14} />
-                              </Button>
-                              <Button
-                                variant="ghost" size="sm"
-                                onClick={() => handleToggle(m)}
-                                title={m.ativo ? 'Desativar' : 'Ativar'}
-                                className={m.ativo ? 'text-muted-foreground' : 'text-success'}
-                              >
-                                {m.ativo ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                              </Button>
-                              <Button
-                                variant="ghost" size="sm"
-                                onClick={() => handleExcluir(m)}
-                                className="text-destructive/70 hover:text-destructive"
-                                title={m.doCatalogo ? 'Limpar preço' : 'Excluir'}
-                                aria-label={m.doCatalogo ? 'Limpar preço' : 'Excluir'}
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              variant="outline" size="sm"
-                              onClick={() => { setModeloEdicao(m); setDialogAberto(true) }}
-                              className="gap-1.5 border-warning/50 text-warning hover:bg-warning/10"
-                            >
-                              <Tag size={13} /> Definir preço
-                            </Button>
-                          )}
-                        </div>
+                        <AcoesModelo m={m} onEditar={editar} onAlternar={handleToggle} onExcluir={handleExcluir} />
                       </td>
                     </tr>
                   )
@@ -286,6 +269,7 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
@@ -298,4 +282,59 @@ export function PrecificacaoClient({ taxas, modelos, grupoNome, padraoSimulador 
       )}
     </div>
   )
+}
+
+function AcoesModelo({ m, onEditar, onAlternar, onExcluir }: {
+  m: Modelo
+  onEditar: (m: Modelo) => void
+  onAlternar: (m: Modelo) => void
+  onExcluir: (m: Modelo) => void
+}) {
+  return (
+    <div className="flex items-center justify-end gap-1">
+      {m.precId !== null ? (
+        <>
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => onEditar(m)}
+            title="Editar"
+          >
+            <Pencil size={14} />
+          </Button>
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => onAlternar(m)}
+            title={m.ativo ? 'Desativar' : 'Ativar'}
+            className={m.ativo ? 'text-muted-foreground' : 'text-success'}
+          >
+            {m.ativo ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+          </Button>
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => onExcluir(m)}
+            className="text-destructive/70 hover:text-destructive"
+            title={m.doCatalogo ? 'Limpar preço' : 'Excluir'}
+            aria-label={m.doCatalogo ? 'Limpar preço' : 'Excluir'}
+          >
+            <Trash2 size={14} />
+          </Button>
+        </>
+      ) : (
+        <Button
+          variant="outline" size="sm"
+          onClick={() => onEditar(m)}
+          className="gap-1.5 border-warning/50 text-warning hover:bg-warning/10"
+        >
+          <Tag size={13} /> Definir preço
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/** Total em 12x de um modelo; "Sem valor" só para quem tem preço e está ativo (os outros ficam fora do simulador). */
+function Valor12x({ m, longo = false }: { m: Modelo; longo?: boolean }) {
+  if (m.valor12x) return <>12x de {fmtBRL(parcelaDe12x(parseFloat(m.valor12x)))}</>
+  if (m.precId !== null && m.ativo) return <span className="text-warning">{longo ? 'Sem valor em 12x' : 'Sem valor'}</span>
+  return null
 }
