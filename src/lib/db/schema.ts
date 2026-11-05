@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 import type { PapelBase } from '@/lib/gestao-usuarios'
+import type { PadraoSimulador } from '@/lib/simulador-padrao'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 
 
@@ -1065,7 +1066,7 @@ export const configuracaoTaxas = pgTable('configuracao_taxas', {
   imposto: numeric('imposto', { precision: 6, scale: 4 }).notNull().default('0.06'),
   // Cards do simulador: 'taxas' (21x e 12x pela taxa do cartão, e PIX) ou 'avista_12x' (PIX e
   // o total em 12x digitado por modelo em precificacao.valor_12x). Ver src/lib/simulador-padrao.ts.
-  padraoSimulador: text('padrao_simulador').$type<'taxas' | 'avista_12x'>().notNull().default('taxas'),
+  padraoSimulador: text('padrao_simulador').$type<PadraoSimulador>().notNull().default('taxas'),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
