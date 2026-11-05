@@ -92,5 +92,5 @@ export function abrirImpressao(html: string) {
   const url = URL.createObjectURL(blob)
   const win = window.open(url, '_blank', 'width=780,height=960')
   win?.focus()
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }

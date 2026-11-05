@@ -29,10 +29,11 @@ type Props = {
 }
 
 export function SimuladorAvista12x({ modelos, ...resto }: Props) {
-  return <SimuladorCasco modelos={modelos}>{modelo => <Resultado modelo={modelo} {...resto} />}</SimuladorCasco>
+  return <SimuladorCasco modelos={modelos}>{modelo => <ResultadoAvista12x modelo={modelo} {...resto} />}</SimuladorCasco>
 }
 
-function Resultado({ modelo, lojasFrete, isAdmin, lojaUsuarioId }: Omit<Props, 'modelos'> & { modelo: Modelo }) {
+/** Miolo do padrão para um modelo escolhido: bloco PIX e 12x, frete, totais com frete e impressão. */
+export function ResultadoAvista12x({ modelo, lojasFrete, isAdmin, lojaUsuarioId }: Omit<Props, 'modelos'> & { modelo: Modelo }) {
   const [frete, setFrete] = useState<ResultadoFrete | null>(null)
   const freteOk = frete?.ok ? frete : null
   const d = destaqueAvista12x(
