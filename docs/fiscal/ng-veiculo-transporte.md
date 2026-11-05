@@ -1,0 +1,53 @@
+# Veículo novo, faturamento direto e transporte na Nota Gateway
+
+## Regra fiscal oficial
+
+O MOC 7.0, Grupo JA/J02, define `tpOp=1` como venda concessionária e `tpOp=2` como faturamento direto para consumidor final. A regra C18-20 prevê rejeição 478 quando `tpOp=2` e a UF do local de entrega (G09) não é informada. No Grupo G, quando o endereço de entrega é enviado, documento (CPF ou CNPJ), logradouro, número, bairro, código IBGE do município, nome do município e UF são campos obrigatórios; nome do recebedor e CEP são opcionais.
+
+Fontes oficiais:
+
+- [MOC 7.0, Anexo I, leiaute e regras de validação](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf): Grupo G, p. 16; Grupo JA/J02, p. 22; regra C18-20, p. 82.
+- [Convênio ICMS 51/00](https://www.confaz.fazenda.gov.br/legislacao/convenios/2000/CV051_00): faturamento direto ao consumidor pela montadora/importador com participação da concessionária na entrega.
+
+O MOC especifica o XML e a validação SEFAZ, não as chaves JSON da Nota Gateway.
+
+## Contrato JSON da Nota Gateway
+
+A referência pública localizada é a [página oficial de exemplos de NF-e Produto da NG](https://docs.notagateway.com.br/v2/docs/exemplos-de-emiss%C3%A3o-de-nf-e-produto-ou-conjugada). Ela exemplifica `transporte.enderecoEntrega` com `cidade`, UF, logradouro, número, bairro e documento. Os exemplos não são uma especificação pública completa dos campos mínimos ou do mapeamento XML.
+
+Os exemplos 1 e 4 dessa página também mostram `tipoPessoaDestinatario` e `pais` dentro de `enderecoEntrega`; por isso o MOVA envia `pais: null` e deriva `tipoPessoaDestinatario` do documento (11 dígitos = `F`, 14 = `J`).
+
+Em resposta escrita de suporte Hermes recebida em 04/11/2026, a NG orientou que o campo JSON aceito para o município é somente `cidade`. Ele aceita o nome da cidade ou o código IBGE de sete dígitos; a NG resolve o valor e preenche `cMun` e `xMun` no XML. Para evitar ambiguidade no caso fiscal, o MOVA coleta o código IBGE e o envia no campo `cidade`. Não envia `codigoMunicipio`, `codigoIbge` nem `cMun` como propriedades JSON.
+
+O exemplo do Hermes mostra o código IBGE em `cidade` e um XML com as tags `cMun` e `xMun`. Isso é orientação escrita de suporte, não uma especificação pública oficial da NG. Não foi transmitida NF para obter esse exemplo.
+
+### Modalidade de frete
+
+O MOC (Grupo X/X02) define os códigos DANFE 0, 1, 2, 3, 4 e 9. A resposta anterior do Hermes listou os tokens JSON `PorContaDoRemetente`, `PorContaDoDestinatario`, `PorContaDeTerceiros`, `TransporteProprioPorContaDoRemetente`, `TransporteProprioPorContaDoDestinatario` e `SemTransporte`, respectivamente, e disse que omitir modalidade resulta em 0. O token do código 4, utilizado no caso inicial, foi confirmado como `TransporteProprioPorContaDoDestinatario`.
+
+**Modalidade 0 fora deste hotfix (decisão do Luis, 04/11/2026).** Há três nomes conflitantes para o código 0: `PorContaDoRemetente` (primeira resposta do Hermes), `ContratacaoPorContaDoRemetente` (exemplo posterior do Hermes) e `PorContaDoEmitente` (exemplo público da NG). A 0 só volta com confirmação escrita da NG do token e do XML `modFrete=0` resultante. Até lá o MOVA oferece 1, 2, 3, 4 e 9, e a omissão de modalidade não é possível (a NG assume 0 quando omitida).
+
+## Escopo no MOVA
+
+- O tipo RENAVE continua sendo uma escolha do operador. Este hotfix não sobrescreve `VendaConcessionaria`, `Outros` ou outros valores salvos com `FaturamentoDiretoConsumidorFinal`.
+- Para `FaturamentoDiretoConsumidorFinal` (2), a tela exige endereço de entrega e envia CPF/CNPJ, logradouro, número, bairro, código IBGE em `cidade` e UF. A NG completa o nome do município no XML conforme a orientação de suporte.
+- A modalidade de frete é obrigatória no faturamento direto e escolhida sem valor pré-selecionado. `SemTransporte` não desativa o endereço quando `tpOp=2`.
+- Fora de `tpOp=2` (decisão do Luis: não generalizar para outras revendas), nada muda: a tela não pede frete nem entrega e o payload não leva `transporte`. O hotfix não define a regra comercial/fiscal da operação de revenda.
+- O payload segue no JSON já armazenado por `notas_fiscais_saida`; não há migração. O reenvio reaproveita o fluxo existente de tentativa e recebe o payload corrigido.
+
+## Rejeições 841, 842 e 843 (tipo e espécie do veículo)
+
+Na recusa, os códigos 841, 842 e 843 abrem o grupo "Veículo" da tela de correção (`src/lib/notagateway/recusa.ts`), para editar os dados do RENAVE e reenviar com o mesmo número (#673).
+
+- 841: "Código do Tipo de Veículo Inexistente [nItem:nnn]" (`veicProd/tpVeic`, formato `[0-9]{1,2}`, "utilizar tabela RENAVAM").
+- 842: código da espécie de veículo (`espVeic`) inexistente.
+- 843: "Código da espécie de Veículo incompatível com o tipo do Veículo [nItem:nnn]".
+- Origem: a NT 2021.004 v1.20, item 2.3.1, diz que `tpVeic` e `espVeic` passam a ser validados por tabelas externas; a Tabela de Tipo e Espécie de Veículo fica no Portal da NF-e, aba Documentos, Diversos.
+
+**Fonte não oficial.** O texto oficial da NT/MOC (Anexo I, grupo J) não foi lido: o PDF do MOC não abriu como texto e as URLs da NT deram erro de redirecionamento em 05/11/2026. Os trechos acima vêm de fontes secundárias que citam a NT: [oobj, 841](https://oobj.com.br/bc/rejeicao-841-como-resolver), [oobj, 843](https://oobj.com.br/bc/rejeicao-843-como-resolver/), [Omie, 843](https://ajuda.omie.com.br/pt-BR/articles/6719408-843-rejeicao-codigo-da-especie-de-veiculo-incompativel-com-o-tipo-do-veiculo), [descrição do campo tpVeic](https://buscadorncm.com.br/nfe/tags-xml/tpveic) e [resumo da NT 2021.004](https://portalspedbrasil.com.br/?p=17458). Conferir no texto oficial antes de mapear qualquer outro código do `veicProd`.
+
+**Limite.** Em 04/11/2026 os mesmos valores de RENAVE (tipo 02, espécie 1, combustível 07, `cMod` 000001) foram autorizados em MG e recusados com 841 em PR (homologação). Editar o RENAVE na tela é a saída para o operador; não é garantia de que o 841 de PR seja dado do RENAVE. Causa em apuração com o Hermes.
+
+Arquivos principais: `src/lib/notagateway/transporte.ts`, `src/lib/notagateway/payload.ts`, `src/app/(dashboard)/vendas/nfe-propria-actions.ts` e `src/app/(dashboard)/estoque/components/nfe-propria-painel.tsx`.
+
+Validação fiscal ponta a ponta ainda depende de teste autorizado em homologação e conferência do XML/DANFE. Nenhuma validação em produção foi feita ou está autorizada.

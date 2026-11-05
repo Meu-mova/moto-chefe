@@ -29,6 +29,42 @@ export function validarJustificativa(bruta: string): ValidacaoJustificativa {
   return { ok: true, justificativa }
 }
 
+/** Quantas faixas o histórico da tela lista; ao chegar nele, a tela avisa que há mais antigas. */
+export const FAIXAS_NO_HISTORICO = 20
+export const MAX_NUMEROS_POR_INUTILIZACAO = 10_000 // MOC NF-e, regra I04
+const NUMERO_MAXIMO = 999_999_999
+
+export type FaixaInutilizacao = { serie: string; numeroInicial: number; numeroFinal: number; justificativa: string }
+export type ValidacaoFaixa = { ok: true; faixa: FaixaInutilizacao } | { ok: false; erro: string }
+
+/** Uma faixa contínua por pedido: nunca se divide sozinha. A série vem da NG, não da tela. */
+export function validarFaixaInutilizacao(entrada: { serie: string; numeroInicial: string; numeroFinal: string; justificativa: string }): ValidacaoFaixa {
+  const serie = entrada.serie.trim()
+  if (!/^\d{1,3}$/.test(serie) || Number(serie) < 1) return { ok: false, erro: 'A série de NF-e configurada na Nota Gateway precisa ser um número de 1 a 999.' }
+  const inteiro = (texto: string) => (/^\d+$/.test(texto.trim()) ? Number(texto) : NaN)
+  const [numeroInicial, numeroFinal] = [inteiro(entrada.numeroInicial), inteiro(entrada.numeroFinal)]
+  if (!(numeroInicial >= 1 && numeroFinal >= numeroInicial && numeroFinal <= NUMERO_MAXIMO)) {
+    return { ok: false, erro: 'Informe uma faixa crescente de números inteiros, do 1 em diante.' }
+  }
+  if (numeroFinal - numeroInicial + 1 > MAX_NUMEROS_POR_INUTILIZACAO) {
+    return { ok: false, erro: `Cada pedido pode ter no máximo ${MAX_NUMEROS_POR_INUTILIZACAO.toLocaleString('pt-BR')} números.` }
+  }
+  const justificativa = validarJustificativa(entrada.justificativa)
+  return justificativa.ok ? { ok: true, faixa: { serie, numeroInicial, numeroFinal, justificativa: justificativa.justificativa } } : justificativa
+}
+
+// Ajuste SINIEF 40/2026 (§ 6º novo na cláusula décima quarta do 07/05): o pedido não se aplica a AC, BA e SP (vale desde 01/11/2026).
+const UFS_SEM_INUTILIZACAO = ['AC', 'BA', 'SP']
+export const ufPermiteInutilizacao = (uf: string): boolean => !UFS_SEM_INUTILIZACAO.includes(uf.trim().toUpperCase())
+
+/** Série do ambiente da credencial e UF do emitente, na resposta de Consultar Empresa; null se faltar algum. */
+export function serieEUfDaEmpresa(empresa: unknown, ambiente: 'Producao' | 'Homologacao'): { serie: string; uf: string } | null {
+  const e = empresa as { endereco?: { uf?: unknown }; emissaoNFeProduto?: Record<string, { serieNFe?: unknown } | undefined> } | null
+  const serie = e?.emissaoNFeProduto?.[ambiente === 'Producao' ? 'ambienteProducao' : 'ambienteHomologacao']?.serieNFe
+  const uf = e?.endereco?.uf
+  return typeof serie === 'string' && serie.trim() && typeof uf === 'string' && uf.trim() ? { serie: serie.trim(), uf: uf.trim().toUpperCase() } : null
+}
+
 export type SituacaoInutilizacao = 'pendente' | 'autorizada' | 'negada'
 
 /** Nossos: o pedido não chegou à NG. Contam como negada para liberar o número a outro pedido. */
@@ -83,7 +119,29 @@ export function elegivelParaInutilizar(nota: NotaParaInutilizar, outraNotaVivaDa
 
 export type NotaDoNumero = { id: string; numero: string | null; serie: string | null; status: string; motivoStatus: string | null }
 
-export type PedidoDoNumero = { situacao: SituacaoInutilizacao; motivoStatus: string | null; serie: string; numeroInicial: number; criadoEm: Date | string }
+export type PedidoDoNumero = { situacao: SituacaoInutilizacao; motivoStatus: string | null; serie: string; numeroInicial: number; numeroFinal: number; criadoEm: Date | string }
+
+export type ConflitosDaFaixa = { numerosDeNotas: number[]; pedidos: Pick<PedidoDoNumero, 'numeroInicial' | 'numeroFinal' | 'situacao'>[] }
+
+/**
+ * O que o MOVA já sabe sobre a faixa, só para avisar (nunca bloqueia): notas que ocupam um número dela
+ * e pedidos de inutilização vivos que a cruzam. Emissão feita fora do MOVA ninguém consulta.
+ */
+export function conflitosDaFaixa(
+  faixa: Pick<FaixaInutilizacao, 'serie' | 'numeroInicial' | 'numeroFinal'>, notas: NotaDoNumero[], pedidos: PedidoDoNumero[],
+): ConflitosDaFaixa {
+  const daSerie = (serie: string | null) => semZerosAEsquerda(serie) === semZerosAEsquerda(faixa.serie)
+  const numerosDeNotas = [...new Set(notas
+    .filter(n => daSerie(n.serie) && !numeroLivre(n))
+    .map(n => Number(n.numero))
+    .filter(numero => numero >= faixa.numeroInicial && numero <= faixa.numeroFinal))].sort((a, b) => a - b)
+  return {
+    numerosDeNotas,
+    pedidos: pedidos
+      .filter(p => daSerie(p.serie) && p.situacao !== 'negada' && p.numeroInicial <= faixa.numeroFinal && p.numeroFinal >= faixa.numeroInicial)
+      .map(({ numeroInicial, numeroFinal, situacao }) => ({ numeroInicial, numeroFinal, situacao })),
+  }
+}
 
 /**
  * Tudo o que a decisão precisa, carregado uma vez (inutilizar.ts) para o pedido e para a
@@ -138,7 +196,9 @@ const maisRecentePrimeiro = (a: PedidoDoNumero, b: PedidoDoNumero) => new Date(b
 export function decidirInutilizacao(ctx: ContextoInutilizacao): DecisaoInutilizacao {
   const elegivel = elegivelParaInutilizar(ctx.nota, ctx.outraNotaVivaDaVenda)
   if (!elegivel.ok) return { tipo: 'nenhuma', erro: elegivel.erro }
-  const pedidos = ctx.pedidos.filter(p => mesmaSerieENumero({ serie: p.serie, numero: p.numeroInicial }, elegivel))
+  // Pedido em faixa cobre o número se ele cai entre o inicial e o final (o individual tem os dois iguais).
+  const pedidos = ctx.pedidos.filter(p => semZerosAEsquerda(p.serie) === semZerosAEsquerda(elegivel.serie)
+    && elegivel.numero >= p.numeroInicial && elegivel.numero <= p.numeroFinal)
   const vivo = pedidos.find(p => p.situacao !== 'negada')
   if (vivo?.situacao === 'autorizada') return { tipo: 'autorizada', erro: 'Este número já foi inutilizado.' }
   if (vivo) return { tipo: 'pendente', erro: ERRO_JA_PEDIDA }

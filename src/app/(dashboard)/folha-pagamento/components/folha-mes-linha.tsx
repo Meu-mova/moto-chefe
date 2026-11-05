@@ -1,12 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { situacaoValorReal } from '@/lib/folha-tela'
 import { fmtBRL } from '@/lib/preco-minimo'
 import type { FuncionarioFolha } from '@/lib/queries/folha'
 import { CELULA, GRADE, NUMERO, SO_DESKTOP, SO_TABLET } from './folha-mes-grade'
 import { FolhaMesDetalhe } from './folha-mes-detalhe'
+import { SetaDetalhe } from './folha-seta-detalhe'
 import { ValorOuZero } from './folha-mes-valor'
 import { ValorRealInput } from './valor-real-input'
 
@@ -16,15 +15,6 @@ const COR_DA_SITUACAO = { sem: 'text-muted-foreground', confere: 'text-success',
 
 // O estado "aberta" mora aqui: a linha tem `key` estável na tabela, então salvar o valor real
 // (revalidatePath) não fecha o detalhe.
-function SetaDetalhe({ f, aberta, alternar, idDetalhe }: { f: LinhaFolhaDados; aberta: boolean; alternar: () => void; idDetalhe: string }) {
-  return (
-    <Button variant="ghost" size="icon" className="size-11 text-muted-foreground @[960px]/folha:size-8" aria-expanded={aberta}
-      aria-controls={aberta ? idDetalhe : undefined} aria-label={`Ver detalhes de ${f.nome}`} onClick={alternar}>
-      <ChevronDown className={aberta ? 'rotate-180' : ''} />
-    </Button>
-  )
-}
-
 export function LinhaFolha({ f, mes }: { f: LinhaFolhaDados; mes: string }) {
   const [aberta, setAberta] = useState(false)
   const situacao = situacaoValorReal(f.valorReal, f.totalPagar)
@@ -49,7 +39,7 @@ export function LinhaFolha({ f, mes }: { f: LinhaFolhaDados; mes: string }) {
           antes do campo (que fica dentro do detalhe, embaixo) e do tablet em diante vem depois
           dele, na ponta da linha. Assim a ordem do Tab é a ordem que o olho vê, sem `order`. */}
       <div role="cell" className="flex items-center justify-center @[680px]/folha:hidden">
-        <SetaDetalhe f={f} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} />
+        <SetaDetalhe nome={f.nome} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} />
       </div>
       {/* O MESMO campo nos dois lugares: na coluna a partir do tablet; no celular, só dentro do
           detalhe aberto, embaixo dos blocos. Em branco, a folha segue valendo o calculado
@@ -59,7 +49,7 @@ export function LinhaFolha({ f, mes }: { f: LinhaFolhaDados; mes: string }) {
         <ValorRealInput usuarioId={f.id} nome={f.nome} mes={mes} valorReal={f.valorReal} totalPagar={f.totalPagar} />
       </div>
       <div role="cell" className="hidden items-center justify-center @[680px]/folha:flex">
-        <SetaDetalhe f={f} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} />
+        <SetaDetalhe nome={f.nome} aberta={aberta} alternar={() => setAberta(a => !a)} idDetalhe={idDetalhe} />
       </div>
       {aberta && (
         <div role="cell" id={idDetalhe} className="order-1 col-span-full px-2.5 pb-3 @[680px]/folha:order-none">

@@ -8,8 +8,11 @@ import { Label } from '@/components/ui/label'
 import { ehFinal, recusaParaAbrir, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import { RenaveForm } from './renave-form'
-import { camposFaltando, faltandoPorParte, PARTES_RENAVE, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
+import { camposFaltando, faltandoPorParte, PARTES_RENAVE, operacaoExigeEntrega, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import { NfeRecusa } from './nfe-recusa'
+import { TransporteForm } from './transporte-form'
+import { DADOS_TRANSPORTE_VAZIOS, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
+import { tipoPessoa } from '@/lib/notagateway/venda'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, corrigirEReenviarNfAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
@@ -66,10 +69,12 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   // Ciclomotor: os dados do veículo se preenchem aqui e vão junto com a transmissão.
   const [renave, setRenave] = useState<DadosRenave | null>(null)
   const [renaveOrigem, setRenaveOrigem] = useState<OrigemRenave>({})
+  const [transporte, setTransporte] = useState<DadosTransporte>(DADOS_TRANSPORTE_VAZIOS)
   // Ciclomotor: uma etapa por vez (Desta moto, Do modelo, Da operação) e depois a conferência.
   const [passo, setPasso] = useState(0)
   const [pending, startTransition] = useTransition()
   const [transmitindo, setTransmitindo] = useState(false)
+  const exigeEntrega = operacaoExigeEntrega(renave?.tipoOperacao)
   useEffect(() => {
     onOcupado?.(pending || transmitindo)
     return () => onOcupado?.(false)
@@ -85,6 +90,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       setFicha(r.ficha ? null : r.sugestao)
       setRenave(r.exigeRenave ? r.renave : null)
       setRenaveOrigem(r.renaveOrigem)
+      setTransporte(r.transporteAnterior ?? transporteDoComprador(r.correcao.comprador))
       setPasso(0)
       // "Reenviar" volta à conferência: ali não reabre a recusa.
       const recusa = abrirRecusa ? recusaParaAbrir(r.notas, r.ambiente) : null
@@ -124,7 +130,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     setErro('')
     setTransmitindo(true)
     startTransition(async () => {
-      const r = await transmitirNfePropriaAction(motoId, renave)
+      const r = await transmitirNfePropriaAction(motoId, renave, transporte)
       setTransmitindo(false)
       if (r.nota) {
         if (r.nota.status === 'Autorizada' && r.nota.ambiente === 'Producao') {
@@ -158,11 +164,25 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     setErroCorrecao(null)
     setTransmitindo(true)
     startTransition(async () => {
-      const r = await corrigirEReenviarNfAction(motoId, c, renave)
+      const r = await corrigirEReenviarNfAction(motoId, c, renave, transporte)
       setTransmitindo(false)
       if (r.nota) setResultado({ nota: r.nota, erro: r.ok ? undefined : r.error })
       else if (!r.ok) setErroCorrecao(r.error)
     })
+  }
+
+  const atualizarRenave = (atualizar: (prev: DadosRenave) => DadosRenave) => setRenave(prev => (prev ? atualizar(prev) : prev))
+
+  function avancarDoRenave() {
+    setErro('')
+    setPasso(passo + 1)
+  }
+
+  function avancarDoTransporte() {
+    const validacao = validarDadosTransporte(transporte)
+    if (!validacao.ok) { setErro(validacao.erro); return }
+    setErro('')
+    setPasso(PARTES_RENAVE.length + 1)
   }
 
   function tentarDeNovo() {
@@ -200,23 +220,30 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
 
   if (resultado) {
     return (
+      <>
+      {ehRecusada(resultado.nota.status) && exigeEntrega && (
+        <TransporteForm dados={transporte} onChange={atualizar => setTransporte(prev => atualizar(prev))} />
+      )}
       <Resultado
         r={resultado} teste={teste} previa={previa} erroCorrecao={erroCorrecao} pending={pending}
+        renave={renave} renaveOrigem={renaveOrigem} onRenave={atualizarRenave}
         onReconsultar={reconsultar} onAtualizada={nota => setResultado({ nota })} onTentarDeNovo={tentarDeNovo}
         onSalvarEReenviar={salvarEReenviar} onVoltar={onVoltar}
       />
+      </>
     )
   }
 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
   const faltamRenave = renave ? camposFaltando(renave).length : 0
+  const faltamTransporte = exigeEntrega && !validarDadosTransporte(transporte).ok
   const porParte = renave ? faltandoPorParte(renave) : null
   const comEtapas = !!(r && renave && porParte && !bloqueadaProducao)
   const passos = comEtapas && porParte && (
     <Passos
-      nomes={[...PARTES_RENAVE.map(p => p.nome), 'Conferir']}
-      faltam={[...PARTES_RENAVE.map(p => porParte[p.id]), faltamRenave]}
+      nomes={[...PARTES_RENAVE.map(p => p.nome), ...(exigeEntrega ? ['Entrega'] : []), 'Conferir']}
+      faltam={[...PARTES_RENAVE.map(p => porParte[p.id]), ...(exigeEntrega ? [faltamTransporte ? 1 : 0] : []), faltamRenave]}
       atual={passo}
       onIr={setPasso}
     />
@@ -227,13 +254,27 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     return (
       <div className="flex min-h-full flex-col gap-4">
         {passos}
-        <RenaveForm dados={renave} origem={renaveOrigem} parte={parte.id} onChange={atualizar => setRenave(prev => (prev ? atualizar(prev) : prev))} />
+        <RenaveForm dados={renave} origem={renaveOrigem} parte={parte.id} onChange={atualizarRenave} />
         {erro && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
         <div className="sticky bottom-0 -mx-4 mt-auto flex gap-2 border-t border-border bg-background px-4 py-3">
           <Button variant="outline" onClick={() => (passo === 0 ? onVoltar() : setPasso(passo - 1))} className="h-11">Voltar</Button>
-          <Button onClick={() => setPasso(passo + 1)} className="h-11 flex-1">
+          <Button onClick={avancarDoRenave} className="h-11 flex-1">
             Avançar{porParte[parte.id] ? ` (faltam ${porParte[parte.id]} aqui)` : ''}
           </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (comEtapas && renave && exigeEntrega && passo === PARTES_RENAVE.length) {
+    return (
+      <div className="flex min-h-full flex-col gap-4">
+        {passos}
+        <TransporteForm dados={transporte} onChange={atualizar => setTransporte(prev => atualizar(prev))} />
+        {erro && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
+        <div className="sticky bottom-0 -mx-4 mt-auto flex gap-2 border-t border-border bg-background px-4 py-3">
+          <Button variant="outline" onClick={() => setPasso(PARTES_RENAVE.length - 1)} className="h-11">Voltar</Button>
+          <Button onClick={avancarDoTransporte} className="h-11 flex-1">Conferir nota</Button>
         </div>
       </div>
     )
@@ -385,6 +426,11 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
           {faltamRenave === 1 ? 'Falta 1 campo' : `Faltam ${faltamRenave} campos`} nos dados do veículo: volte à etapa marcada.
         </p>
       )}
+      {comEtapas && faltamTransporte && (
+        <p className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">
+          Complete o frete e o endereço de entrega na etapa Entrega antes de transmitir.
+        </p>
+      )}
 
       {erro && cestEdicao == null && <p className="whitespace-pre-line border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>}
 
@@ -404,7 +450,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
         {!r || bloqueadaProducao ? (
           <Button variant="outline" onClick={onVoltar} disabled={pending} className="h-11 flex-1">Voltar</Button>
         ) : (
-          <Button onClick={transmitir} disabled={pending || !conferido || faltamRenave > 0} className="h-12 flex-1 gap-2 text-base">
+          <Button onClick={transmitir} disabled={pending || !conferido || faltamRenave > 0 || faltamTransporte} className="h-12 flex-1 gap-2 text-base">
             <Send className="size-4" /> {teste ? 'Transmitir teste' : 'Emitir pelo MOVA'} · {brl(r.valor)}
           </Button>
         )}
@@ -413,10 +459,27 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   )
 }
 
+/** Ponto de partida da entrega: o endereço do comprador (Hermes: pode espelhá-lo). O município só entra se já for código IBGE. */
+function transporteDoComprador(c: Previa['correcao']['comprador']): DadosTransporte {
+  return {
+    ...DADOS_TRANSPORTE_VAZIOS,
+    enderecoEntrega: {
+      ...DADOS_TRANSPORTE_VAZIOS.enderecoEntrega,
+      tipoPessoaDestinatario: tipoPessoa(c.clienteCpf ?? ''),
+      cpfCnpjDestinatario: c.clienteCpf ?? '',
+      logradouro: c.clienteLogradouro ?? '',
+      numero: c.clienteNumero ?? '',
+      bairro: c.clienteBairro ?? '',
+      cidade: /^\d{7}$/.test(c.clienteCidade ?? '') ? c.clienteCidade! : '',
+      uf: c.clienteEstado ?? '',
+    },
+  }
+}
+
 /** As etapas do ciclomotor, com quantos campos faltam em cada uma. Clicar leva à etapa. */
 function Passos({ nomes, faltam, atual, onIr }: { nomes: string[]; faltam: number[]; atual: number; onIr: (i: number) => void }) {
   return (
-    <ol className="grid grid-cols-4 gap-1.5">
+    <ol className={cn('grid gap-1.5', nomes.length === 5 ? 'grid-cols-5' : 'grid-cols-4')}>
       {nomes.map((nome, i) => {
         const ultimo = i === nomes.length - 1
         const f = faltam[i]
@@ -489,11 +552,14 @@ function Historico({ notas, onAtualizada }: { notas: NotaResumo[]; onAtualizada:
   )
 }
 
-function Resultado({ r, teste, previa, erroCorrecao, pending, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarEReenviar, onVoltar }: {
+function Resultado({ r, teste, previa, erroCorrecao, pending, renave, renaveOrigem, onRenave, onReconsultar, onAtualizada, onTentarDeNovo, onSalvarEReenviar, onVoltar }: {
   r: { nota: NotaResumo; erro?: string }
   teste: boolean
   previa: Previa | null
   erroCorrecao: string | null
+  renave: DadosRenave | null
+  renaveOrigem: OrigemRenave
+  onRenave: (atualizar: (prev: DadosRenave) => DadosRenave) => void
   onSalvarEReenviar: (c: CorrecaoNf) => void
   pending: boolean
   onReconsultar: (id: string) => void
@@ -553,6 +619,7 @@ function Resultado({ r, teste, previa, erroCorrecao, pending, onReconsultar, onA
       // Recusa nova depois do reenvio: os campos partem do cadastro de novo.
       key={`${nota.id}-${nota.motivoStatus}`}
       nota={nota} previa={previa!} pending={pending} erro={erroCorrecao}
+      renave={renave} renaveOrigem={renaveOrigem} onRenave={onRenave}
       onSalvarEReenviar={onSalvarEReenviar} onEmitirDeNovo={onTentarDeNovo} onVoltar={onVoltar}
     />
   )

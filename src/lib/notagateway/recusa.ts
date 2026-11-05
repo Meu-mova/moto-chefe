@@ -6,7 +6,7 @@
  */
 import { codigoRecusa, ehDenegada, ehDuplicidade } from './status'
 
-export type GrupoCorrecao = 'comprador' | 'moto' | 'empresa'
+export type GrupoCorrecao = 'comprador' | 'moto' | 'veiculo' | 'empresa'
 
 const GRUPOS: Record<string, GrupoCorrecao[]> = {}
 function mapear(grupos: GrupoCorrecao[], codigos: string) {
@@ -16,9 +16,11 @@ mapear(['comprador'], '208 210 225 237 690 724 726 728 _0004 _0005 _0006 _0008 G
 mapear(['moto'], '446 471 777 778 891 892 CEST001 NCM001 E008 GW99223')
 mapear(['empresa'], '209 213 244 245 257 481 518 519 678 GW3331 GW3332 GW3333 GW0901 GW0902 GW7324 CFOP001 E003 GW073 GW1324')
 mapear(['comprador', 'empresa'], '523 732 733')
+// Tipo/espécie do veículo (veicProd, tpVeic e espVeic): tabelas da NT 2021.004. Ver docs/fiscal/ng-veiculo-transporte.md.
+mapear(['veiculo'], '841 842 843')
 
 const EDITAVEIS: GrupoCorrecao[] = ['comprador', 'moto']
-const ORDEM: GrupoCorrecao[] = ['comprador', 'moto', 'empresa']
+const ORDEM: GrupoCorrecao[] = ['comprador', 'moto', 'veiculo', 'empresa']
 
 export function codigosDaRecusa(motivo: string | null): string[] {
   if (!motivo) return []
@@ -28,10 +30,14 @@ export function codigosDaRecusa(motivo: string | null): string[] {
   return sefaz ? [sefaz[1]] : []
 }
 
-/** Sem código conhecido, abre tudo o que dá para editar. */
-export function gruposDaRecusa(motivo: string | null): GrupoCorrecao[] {
+/**
+ * Sem código conhecido, abre tudo o que dá para editar. O veículo só conta quando a moto
+ * leva RENAVE: sem ele não há o que corrigir ali, e o 841 cai nos grupos editáveis.
+ */
+export function gruposDaRecusa(motivo: string | null, exigeRenave = false): GrupoCorrecao[] {
   const grupos = new Set(codigosDaRecusa(motivo).flatMap(c => GRUPOS[c] ?? []))
-  return grupos.size ? ORDEM.filter(g => grupos.has(g)) : EDITAVEIS
+  const aplicaveis = ORDEM.filter(g => grupos.has(g) && (g !== 'veiculo' || exigeRenave))
+  return aplicaveis.length ? aplicaveis : EDITAVEIS
 }
 
 /** "Por quê?" da tela, em linguagem de loja. Código sem frase: a tela mostra o motivo como veio. */
@@ -75,6 +81,9 @@ const FRASES: Record<string, string> = {
   '301': 'A Inscrição Estadual da sua empresa está com problema na SEFAZ (suspensa, baixada ou cancelada).',
   '302': 'A Inscrição Estadual do cliente está com problema na SEFAZ.',
   '303': 'A Inscrição Estadual do cliente está com problema na SEFAZ.',
+  '841': 'O tipo de veículo da moto não existe na tabela da SEFAZ.',
+  '842': 'A espécie do veículo da moto não existe na tabela da SEFAZ.',
+  '843': 'A espécie do veículo não combina com o tipo de veículo.',
   '539': 'Este número de nota já foi usado em outra nota.',
 }
 
@@ -97,7 +106,7 @@ export type TelaRecusa =
  * Qual tela a recusa abre: denegada pelo cliente corrige só a IE dele; pela
  * empresa, ou recusa só da configuração fiscal, não tem campos aqui.
  */
-export function telaDaRecusa(nota: { status: string; motivoStatus: string | null }): TelaRecusa {
+export function telaDaRecusa(nota: { status: string; motivoStatus: string | null }, exigeRenave = false): TelaRecusa {
   if (ehDenegada(nota)) {
     const codigo = codigoRecusa(nota.motivoStatus)
     if (codigo === 301) return { tipo: 'denegada_empresa' }
@@ -105,7 +114,7 @@ export function telaDaRecusa(nota: { status: string; motivoStatus: string | null
     return codigo === 302 || codigo === 303 ? { tipo: 'denegada_cliente' } : { tipo: 'denegada' }
   }
   if (ehDuplicidade(nota)) return { tipo: 'duplicidade' }
-  const grupos = gruposDaRecusa(nota.motivoStatus)
+  const grupos = gruposDaRecusa(nota.motivoStatus, exigeRenave)
   const abertos = grupos.filter(g => g !== 'empresa')
   if (!abertos.length) return { tipo: 'empresa' }
   return { tipo: 'corrigir', abertos, empresa: grupos.includes('empresa') }

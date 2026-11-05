@@ -3,7 +3,7 @@
 // resto da resposta fica de fora, inclusive um 4xx que ecoe o caminho com o empresaId.
 import { afterEach, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao } from './client'
+import { consultarInutilizacaoNaNg, InutilizacaoRecusada, NotaGatewayIndisponivel, pedirInutilizacao, serieEUfDaEmpresaNaNg, ufDaEmpresa } from './client'
 import { cfgDeTeste as cfg, responderComFetch as responder, restaurarFetch } from './fetch-de-teste'
 
 const pedido = { idExterno: 'nfe-31601-1-inut-1', serie: '1', numeroInicial: 974, numeroFinal: 974, justificativa: 'Venda cancelada apos a rejeicao' }
@@ -64,4 +64,26 @@ test('consulta: GET pelo id; 404 é "ainda não conhece"; 4xx fora do formato do
     assert.equal(e.message, 'Falha ao consultar a inutilização: HTTP 400')
     return true
   })
+})
+
+test('série e UF da empresa: GET em Consultar Empresa, série do ambiente da credencial', async () => {
+  const empresa = { endereco: { uf: 'MG' }, emissaoNFeProduto: { ambienteProducao: { serieNFe: '2' }, ambienteHomologacao: { serieNFe: '9' } } }
+  const pedidos = responder(200, JSON.stringify(empresa))
+  assert.deepEqual(await serieEUfDaEmpresaNaNg(cfg), { serie: '9', uf: 'MG' })
+  assert.equal(pedidos[0].url, 'https://api.notagateway.com.br/v2/empresas/EMPRESA-SECRETA-456')
+  assert.equal(pedidos[0].init.method, 'GET')
+})
+
+test('série e UF da empresa: erro sem a série e erro HTTP não levam corpo, empresaId nem token', async () => {
+  responder(200, JSON.stringify({ endereco: { uf: 'MG' } }))
+  await assert.rejects(serieEUfDaEmpresaNaNg(cfg), (e: Error) => !/EMPRESA-SECRETA|TOKEN-SECRETO/.test(e.message) && /série/.test(e.message))
+  responder(404, 'Rota /empresas/EMPRESA-SECRETA-456 nao encontrada')
+  await assert.rejects(serieEUfDaEmpresaNaNg(cfg), (e: Error) => e.message === 'Consultar Empresa respondeu HTTP 404')
+})
+
+test('UF da empresa (venda): lê o endereço da mesma consulta e o erro HTTP não leva o corpo nem o empresaId', async () => {
+  responder(200, JSON.stringify({ endereco: { uf: 'MG' } }))
+  assert.equal(await ufDaEmpresa(cfg), 'MG')
+  responder(404, 'Rota /empresas/EMPRESA-SECRETA-456 nao encontrada')
+  await assert.rejects(ufDaEmpresa(cfg), (e: Error) => e.message === 'Consultar Empresa respondeu HTTP 404')
 })

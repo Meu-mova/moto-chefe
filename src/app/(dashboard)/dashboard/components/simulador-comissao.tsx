@@ -3,9 +3,7 @@ import { useMemo, useState } from 'react'
 import { Slider } from '@/components/ui/slider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { TrendingUp, Trophy, HandCoins, Wallet, Table2 } from 'lucide-react'
-import { calcularPremiacao } from '@/lib/premiacao'
-
-type Faixa = { valorMinimoVendas: string; premiacao: string }
+import { calcularPremiacao, ordenarFaixas, type Faixa } from '@/lib/premiacao'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -18,10 +16,7 @@ export function SimuladorComissaoOTE({
   comissaoPercentual: number
   valorInicial: number
 }) {
-  const ordenadas = useMemo(
-    () => [...faixas].sort((a, b) => parseFloat(a.valorMinimoVendas) - parseFloat(b.valorMinimoVendas)),
-    [faixas],
-  )
+  const ordenadas = useMemo(() => ordenarFaixas(faixas), [faixas])
   const maiorFaixa = ordenadas.length > 0 ? parseFloat(ordenadas[ordenadas.length - 1].valorMinimoVendas) : 0
   const max = Math.max(Math.ceil((maiorFaixa * 1.2) / 10000) * 10000, 100000)
   const step = 1000

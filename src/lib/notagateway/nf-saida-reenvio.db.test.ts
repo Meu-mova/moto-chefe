@@ -71,14 +71,21 @@ test('recusa comum: o reenvio usa o mesmo id e atualiza a mesma linha; a recusa 
 
     const escolha = await escolherTentativa(tx, { vendaId: venda.id, grupoId: c.grupoId, numeroVenda: venda.numero, ambiente: 'Producao' })
     assert.equal(escolha.idExterno, `mova-${venda.numero}-1`)
-    const notaId = await gravarEnvio(tx, escolha, { vendaId: venda.id, vendaNumero: venda.numero, grupoId: c.grupoId, ambiente: 'Producao', payload: { novo: true }, emitidaPor: c.vendId })
+    const payload = {
+      novo: true,
+      transporte: {
+        frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' },
+        enderecoEntrega: { cidade: '3170701', uf: 'MG' },
+      },
+    }
+    const notaId = await gravarEnvio(tx, escolha, { vendaId: venda.id, vendaNumero: venda.numero, grupoId: c.grupoId, ambiente: 'Producao', payload, emitidaPor: c.vendId })
 
     const notas = await linhas(tx, sql`select id, status, motivo_status, payload, numero from notas_fiscais_saida where venda_id = ${venda.id}`)
     assert.equal(notas.length, 1)
     assert.equal(notas[0].id, notaId)
     assert.equal(notas[0].status, 'Enviando')
     assert.equal(notas[0].motivo_status, null)
-    assert.deepEqual(notas[0].payload, { novo: true })
+    assert.deepEqual(notas[0].payload, payload)
     assert.equal(notas[0].numero, '1001', 'o número da nota continua o mesmo')
 
     const log = await linhas(tx, sql`select detalhe from log_acoes where tipo = 'nf_emitida' and grupo_id = ${c.grupoId} and detalhe->>'motivoStatus' is not null`)
