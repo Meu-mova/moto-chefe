@@ -59,7 +59,7 @@ export function AdiantamentosTable({
   const [data, setData] = useState('')
   const [observacao, setObservacao] = useState('')
   const [pending, startTransition] = useTransition()
-  const id = useId()
+  const idForm = useId()
 
   const total = adiantamentos.reduce((s, a) => s + parseFloat(a.valor), 0)
 
@@ -130,20 +130,20 @@ export function AdiantamentosTable({
       </TabelaLancamentos>
 
       <CartaoFormulario titulo="Lançar adiantamento" colunas="@[960px]/folha:grid-cols-3" dica={usuarioId ? null : 'Escolha o funcionário para liberar o botão.'}>
-        <Campo id={`${id}-funcionario`} rotulo="Funcionário">
-          <select id={`${id}-funcionario`} value={usuarioId} onChange={e => setUsuarioId(e.target.value)} className={SELECT}>
+        <Campo id={`${idForm}-funcionario`} rotulo="Funcionário">
+          <select id={`${idForm}-funcionario`} value={usuarioId} onChange={e => setUsuarioId(e.target.value)} className={SELECT}>
             <option value="">Selecione…</option>
             {funcionarios.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
           </select>
         </Campo>
-        <Campo id={`${id}-valor`} rotulo="Valor (R$)">
-          <Input id={`${id}-valor`} inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} className={CAMPO} placeholder="0,00" />
+        <Campo id={`${idForm}-valor`} rotulo="Valor (R$)">
+          <Input id={`${idForm}-valor`} inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} className={CAMPO} placeholder="0,00" />
         </Campo>
-        <Campo id={`${id}-data`} rotulo="Data do adiantamento">
-          <Input id={`${id}-data`} type="date" value={data} onChange={e => setData(e.target.value)} className={CAMPO} />
+        <Campo id={`${idForm}-data`} rotulo="Data do adiantamento">
+          <Input id={`${idForm}-data`} type="date" value={data} onChange={e => setData(e.target.value)} className={CAMPO} />
         </Campo>
-        <Campo id={`${id}-obs`} rotulo="Observação (opcional)" className="@[960px]/folha:col-span-2">
-          <Input id={`${id}-obs`} value={observacao} onChange={e => setObservacao(e.target.value)} className={CAMPO} placeholder="Ex.: vale do dia 05" />
+        <Campo id={`${idForm}-obs`} rotulo="Observação (opcional)" className="@[960px]/folha:col-span-2">
+          <Input id={`${idForm}-obs`} value={observacao} onChange={e => setObservacao(e.target.value)} className={CAMPO} placeholder="Ex.: vale do dia 05" />
         </Campo>
         <Button className="h-11 w-full text-sm @[680px]/folha:col-span-2 @[960px]/folha:col-span-1 @[960px]/folha:h-8 @[960px]/folha:w-fit @[960px]/folha:text-xs"
           disabled={pending || !usuarioId} onClick={adicionar}>

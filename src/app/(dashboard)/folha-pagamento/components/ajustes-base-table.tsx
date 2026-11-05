@@ -56,7 +56,7 @@ export function AjustesBaseTable({
   const [valor, setValor] = useState('')
   const [observacao, setObservacao] = useState('')
   const [pending, startTransition] = useTransition()
-  const id = useId()
+  const idForm = useId()
 
   // Só faz sentido creditar alguém da própria loja do ajuste — a action valida isso também.
   const funcionariosDaLoja = funcionarios.filter(f => f.lojaId === lojaId)
@@ -126,28 +126,28 @@ export function AjustesBaseTable({
 
       <CartaoFormulario titulo="Lançar ajuste" colunas="@[960px]/folha:grid-cols-4"
         dica={lojaId ? null : 'Escolha a loja para liberar o funcionário e o botão. Só aparece quem é daquela loja.'}>
-        <Campo id={`${id}-loja`} rotulo="Loja">
-          <select id={`${id}-loja`} value={lojaId} onChange={e => { setLojaId(e.target.value); setUsuarioId('') }} className={SELECT}>
+        <Campo id={`${idForm}-loja`} rotulo="Loja">
+          <select id={`${idForm}-loja`} value={lojaId} onChange={e => { setLojaId(e.target.value); setUsuarioId('') }} className={SELECT}>
             <option value="">Selecione…</option>
             {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>
         </Campo>
-        <Campo id={`${id}-tipo`} rotulo="Tipo">
-          <select id={`${id}-tipo`} value={tipo} onChange={e => setTipo(e.target.value)} className={SELECT}>
+        <Campo id={`${idForm}-tipo`} rotulo="Tipo">
+          <select id={`${idForm}-tipo`} value={tipo} onChange={e => setTipo(e.target.value)} className={SELECT}>
             {TIPOS_AJUSTE.map(t => <option key={t.valor} value={t.valor}>{t.label}</option>)}
           </select>
         </Campo>
-        <Campo id={`${id}-funcionario`} rotulo="Funcionário (opcional)">
-          <select id={`${id}-funcionario`} value={usuarioId} onChange={e => setUsuarioId(e.target.value)} disabled={!lojaId} className={SELECT}>
+        <Campo id={`${idForm}-funcionario`} rotulo="Funcionário (opcional)">
+          <select id={`${idForm}-funcionario`} value={usuarioId} onChange={e => setUsuarioId(e.target.value)} disabled={!lojaId} className={SELECT}>
             <option value="">Só a loja</option>
             {funcionariosDaLoja.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
           </select>
         </Campo>
-        <Campo id={`${id}-valor`} rotulo="Valor (R$)">
-          <Input id={`${id}-valor`} inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} className={CAMPO} placeholder="0,00" />
+        <Campo id={`${idForm}-valor`} rotulo="Valor (R$)">
+          <Input id={`${idForm}-valor`} inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} className={CAMPO} placeholder="0,00" />
         </Campo>
-        <Campo id={`${id}-motivo`} rotulo="Motivo" className="@[960px]/folha:col-span-3">
-          <Input id={`${id}-motivo`} value={observacao} onChange={e => setObservacao(e.target.value)} className={CAMPO} placeholder="Ex.: OS lançada fora do sistema" />
+        <Campo id={`${idForm}-motivo`} rotulo="Motivo" className="@[960px]/folha:col-span-3">
+          <Input id={`${idForm}-motivo`} value={observacao} onChange={e => setObservacao(e.target.value)} className={CAMPO} placeholder="Ex.: OS lançada fora do sistema" />
         </Campo>
         <Button className="h-11 w-full text-sm @[680px]/folha:self-end @[960px]/folha:h-8 @[960px]/folha:w-fit @[960px]/folha:text-xs"
           disabled={pending || !lojaId} onClick={adicionar}>
