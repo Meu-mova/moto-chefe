@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { ChevronDown, Loader2, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { matchPagamentos, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
+import { nomeOperadora } from '@/lib/operadoras'
 import {
   buscarConciliacoesDoAlvo,
   buscarPixDoAlvo,
@@ -29,10 +30,6 @@ const TIPO_LABEL: Record<string, string> = {
   financiamento: 'Financiamento', link_pagamento: 'Link de Pagamento',
   transferencia: 'Transferência Bancária', cortesia: 'Cortesia / Garantia', gratuita: 'Gratuita',
   bonificacao: 'Bonificação', cupom_revisao: 'Cupom de revisão',
-}
-const OPERADORA_LABEL: Record<string, string> = {
-  infinitypay: 'InfinityPay', stone: 'Stone', pagueveloz: 'PaguéVeloz',
-  cielo: 'Cielo', getnet: 'GetNet', redecard: 'Redecard',
 }
 
 const fmt = (v: string | number) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -215,7 +212,7 @@ export function PagamentosConciliacao({ alvo, pagamentos, dados, papel, somenteC
 
   function renderCandidato(c: Candidato) {
     const raw = c.rawData as { bandeira?: string; portador?: string } | null
-    const titulo = `${OPERADORA_LABEL[c.operadora] ?? c.operadora}${raw?.bandeira ? ` · ${raw.bandeira}` : ''} · ${c.tipo === 'debito' ? 'Débito' : 'Crédito'}`
+    const titulo = `${nomeOperadora(c.operadora)}${raw?.bandeira ? ` · ${raw.bandeira}` : ''} · ${c.tipo === 'debito' ? 'Débito' : 'Crédito'}`
     const data = c.dataTransacao ? new Date(c.dataTransacao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'
     return (
       <Sugestao

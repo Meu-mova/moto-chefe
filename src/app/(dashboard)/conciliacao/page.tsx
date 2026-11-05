@@ -1,4 +1,5 @@
 import { maquininhasDoGrupo } from '@/lib/maquininhas'
+import { nomeOperadora } from '@/lib/operadoras'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, vendas, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, desc, and, isNull, isNotNull, inArray, gte, sql } from 'drizzle-orm'
@@ -13,12 +14,6 @@ import { VincularVendaButton } from './components/vincular-venda-button'
 
 const fmt = (v: string | number) =>
   parseFloat(String(v)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-const OPERADORA_LABEL: Record<string, string> = {
-  infinitypay: 'InfinityPay',
-  stone:       'Stone',
-  pagueveloz:  'PaguéVeloz',
-}
 
 export default async function ConciliacaoPage({
   searchParams,
@@ -180,7 +175,7 @@ export default async function ConciliacaoPage({
                       {new Date(t.dataTransacao + 'T12:00:00').toLocaleDateString('pt-BR')}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {OPERADORA_LABEL[t.operadora] ?? t.operadora}
+                      {nomeOperadora(t.operadora)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
