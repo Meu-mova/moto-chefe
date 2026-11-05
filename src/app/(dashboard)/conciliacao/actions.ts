@@ -12,8 +12,37 @@ import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-per
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import { extrairTerminalInfinityPay } from '@/lib/conciliacao-terminal'
+import { detectarFormato } from '@/lib/conciliacao-formato'
+import { lerRelatorioCielo, type TransacaoCielo } from '@/lib/conciliacao-cielo'
 import { grupos } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
+
+// Linha comum aos leitores de relatório, o que a gravação precisa de cada transação.
+type LinhaRelatorio = {
+  dataTransacao: string
+  tipo: 'credito' | 'debito'
+  bandeira: string
+  parcelas: number
+  autorizacao: string | null
+  valorBruto: number
+  valorLiquido: number
+  nsu: string | null
+  portador: string | null
+  terminal: string | null
+}
+
+const comoLinhaDoRelatorio = (t: TransacaoCielo): LinhaRelatorio => ({
+  dataTransacao: t.dataTransacao,
+  tipo: t.tipo,
+  bandeira: t.rawData.bandeira,
+  parcelas: t.parcelas,
+  autorizacao: t.autorizacao ?? null,
+  valorBruto: t.valorBruto,
+  valorLiquido: t.valorLiquido ?? 0,
+  nsu: t.nsu ?? null,
+  portador: t.rawData.portador,
+  terminal: t.rawData.serial,
+})
 
 // ── Parser CSV InfinityPay ────────────────────────────────────────────────────
 
@@ -48,7 +77,7 @@ function parseInfinityPay(text: string) {
     const [dd, mm, yyyy] = (c[0].split(' ')[0]).split('/')
     rows.push({
       dataTransacao: `${yyyy}-${mm}-${dd}`,
-      tipo:          c[1] === 'Débito' ? 'debito' : 'credito',
+      tipo:          c[1] === 'Débito' ? 'debito' as const : 'credito' as const,
       bandeira:      c[2],
       parcelas:      c[3] === 'À Vista' ? 1 : (parseInt(c[3], 10) || 1),
       autorizacao:   c[6] !== '000000' ? c[6] : null,
@@ -117,66 +146,7 @@ function parseStone(text: string) {
   return rows
 }
 
-function parseCielo(text: string) {
-  const lines = text.split(/\r?\n/)
-  // O relatório "Detalhado de vendas" da Cielo começa com uma capa (Ouvidoria,
-  // filtros, totalizador) antes do cabeçalho das transações. Acha a linha de
-  // cabeçalho e lê a partir dela; "Data da venda;" (com ponto-e-vírgula) não se
-  // confunde com a linha de filtro "Data da venda: 30/10/2026 ...".
-  const inicio = lines.findIndex(l => l.startsWith('Data da venda;Hora da venda;'))
-  if (inicio === -1) return []
-
-  const rows = []
-  for (let i = inicio + 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue
-    const c = lines[i].split(';')
-    if (c[8]?.trim() !== 'Aprovada') continue
-
-    // "Forma de pagamento": "Crédito à vista" / "Crédito parcelado loja 02x" /
-    // "Débito". Os trechos "dito"/"bito" são ASCII e sobrevivem a qualquer
-    // codificação do acento. PIX, saque e afins não são cartão e caem fora.
-    const forma = (c[3] ?? '').toLowerCase()
-    const ehDebito  = forma.includes('bito')
-    const ehCredito = forma.includes('dito')
-    if (!ehDebito && !ehCredito) continue
-
-    const [dd, mm, yyyy] = (c[0] ?? '').split('/')
-    const parcelado = forma.match(/(\d+)\s*x/)   // "02x" → 2; "à vista" → sem match
-    const auth = c[13]?.trim()
-
-    rows.push({
-      dataTransacao: `${yyyy}-${mm}-${dd}`,
-      tipo:          ehDebito ? 'debito' as const : 'credito' as const,
-      bandeira:      (c[4] ?? '').toLowerCase(),
-      parcelas:      parcelado ? parseInt(parcelado[1], 10) || 1 : 1,
-      autorizacao:   auth && !/^0+$/.test(auth) ? auth : null,   // Código de autorização
-      valorBruto:    parseBRL(c[5] ?? '0'),
-      valorLiquido:  parseBRL(c[7] ?? '0'),   // c[6] é a taxa; c[7] é o líquido
-      // "Código da venda" é o id único da transação na Cielo — chave de dedup estável.
-      // O "NSU/DOC" (c[14]) é um contador de 6 dígitos que reinicia por aparelho e
-      // se repetiria entre dias, derrubando venda legítima como "duplicada".
-      nsu:           c[15]?.trim() || c[14]?.trim() || null,
-      portador:      c[21]?.trim() || null,   // número do cartão mascarado
-      terminal:      c[28]?.trim() || null,   // "Número da máquina" — serial p/ trava de grupo
-    })
-  }
-  return rows
-}
-
 // ── Actions ──────────────────────────────────────────────────────────────────
-
-function detectarFormato(text: string): string | null {
-  const primeiraLinha = text.trimStart().split(/\r?\n/)[0] ?? ''
-  if (primeiraLinha.startsWith('Data e hora'))        return 'infinitypay'
-  if (primeiraLinha.startsWith('Cod PagueVeloz') ||
-      primeiraLinha.startsWith('Cod Pague'))           return 'pagueveloz'
-  if (primeiraLinha.startsWith('DOCUMENTO;STONECODE')) return 'stone'
-  // A 1ª linha da Cielo é a capa do relatório, não o cabeçalho — reconhece pela
-  // linha de cabeçalho das transações ou pelo título do relatório.
-  if (/^Data da venda;Hora da venda;/m.test(text) ||
-      text.includes('Detalhado de vendas Cielo'))      return 'cielo'
-  return null
-}
 
 // Recusa volta como valor: em produção a mensagem de erro lançado não chega à tela (#404).
 export async function importarRelatorioAction(formData: FormData) {
@@ -210,11 +180,18 @@ async function importarRelatorio(formData: FormData) {
     console.log(`[conciliacao] formato detectado: ${formatoDetectado} (selecionado: ${operadoraSelecionada})`)
   }
 
-  let rows: ReturnType<typeof parseInfinityPay> = []
+  let rows: LinhaRelatorio[] = []
+  let semCodigo = 0
   if (operadora === 'infinitypay')      rows = parseInfinityPay(text)
   else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
   else if (operadora === 'stone')       rows = parseStone(text)
-  else if (operadora === 'cielo')       rows = parseCielo(text)
+  else if (operadora === 'cielo') {
+    // Arquivo ruim volta como recusa aqui, antes de gravar qualquer linha (a importação não é transacional).
+    const lido = lerRelatorioCielo(text)
+    if (!lido.ok) throw new RecusaUsuario(lido.erro)
+    rows = lido.transacoes.map(comoLinhaDoRelatorio)
+    semCodigo = lido.semCodigo
+  }
   else throw new RecusaUsuario(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
   if (!(await maquininhasDoGrupo(db, grupo.id)).some(m => m.operadora === operadora)) {
     throw new RecusaUsuario('Maquininha não encontrada')
@@ -231,7 +208,7 @@ async function importarRelatorio(formData: FormData) {
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
     // Só a Conta do grupo ativo: terminal visto em outra Conta conta como desconhecido (#460).
-    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal) : []
+    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal, { soSerial: operadora === 'cielo' }) : []
     if (vistos.length > 0 && !vistos.includes(grupo.id)) {
       throw new RecusaUsuario('Esse relatório parece ser de outro grupo. Confira o grupo ativo; nada foi gravado.')
     }
@@ -244,7 +221,7 @@ async function importarRelatorio(formData: FormData) {
   for (const r of rows) {
     if (!r.valorBruto || r.valorBruto <= 0) continue
 
-    // Evita duplicata por NSU (Stone, PagueVeloz)
+    // Evita duplicata por NSU (Stone, PagueVeloz) ou Código da venda (Cielo)
     if (r.nsu) {
       const [ex] = await db
         .select({ id: conciliacoesCartao.id })
@@ -335,7 +312,7 @@ async function importarRelatorio(formData: FormData) {
   }
 
   revalidatePath('/conciliacao')
-  return { importadas, duplicadas, conciliadas }
+  return { importadas, duplicadas, conciliadas, semCodigo }
 }
 
 export async function vincularVendaAction(conciliacaoId: string, alvoId: string, tipo: 'moto' | 'peca' | 'os' = 'moto') {

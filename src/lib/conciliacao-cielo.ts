@@ -8,8 +8,12 @@ import type { TransacaoCartao } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
 
+export type TransacaoCielo = TransacaoCartao & {
+  rawData: { bandeira: string; portador: string | null; serial: string | null }
+}
+
 export type ResultadoCielo =
-  | { ok: true; transacoes: TransacaoCartao[]; semCodigo: number }
+  | { ok: true; transacoes: TransacaoCielo[]; semCodigo: number }
   | { ok: false; erro: string }
 
 const COLUNAS = {
@@ -62,7 +66,7 @@ const parcelasDaForma = (forma: string) => {
   return m ? Number(m[1]) || 1 : 1
 }
 
-type Lido = { transacao: TransacaoCartao } | { semCodigo: true } | { ignorada: true } | { erro: string }
+type Lido = { transacao: TransacaoCielo } | { semCodigo: true } | { ignorada: true } | { erro: string }
 
 function lerVenda(celulas: string[], i: Indices, numeroDaLinha: number): Lido {
   const celula = (campo: keyof Indices) => (celulas[i[campo]] ?? '').trim()
