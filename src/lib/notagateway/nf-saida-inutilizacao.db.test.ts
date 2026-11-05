@@ -590,6 +590,10 @@ test('faixa: 4xx da NG nega e deixa a faixa livre para novo pedido; sem resposta
       const negada = await mf.inutilizarFaixa(a.socio, a.grupoId, faixa(), depsDaFaixa(tx, a.grupoId, async () => { throw new InutilizacaoRecusada('faixa invalida') }))
       assert.deepEqual(negada, { ok: false, erro: 'A Nota Gateway recusou o pedido: faixa invalida' })
       let envios = 0
+      // A mesma chave depois da recusa não reenvia: por isso a tela gera outra chave após um ok:false.
+      const mesmaChave = await mf.inutilizarFaixa(a.socio, a.grupoId, faixa(), depsDaFaixa(tx, a.grupoId, async () => { envios++ }))
+      assert.ok(mesmaChave.ok && mesmaChave.aviso === 'Esta tentativa já foi registrada; nenhum novo pedido foi enviado.')
+      assert.equal(envios, 0)
       const semResposta = await mf.inutilizarFaixa(a.socio, a.grupoId, faixa({ chave: CHAVE_2 }), depsDaFaixa(tx, a.grupoId, async () => { envios++; throw new NotaGatewayIndisponivel(503) }))
       assert.ok(semResposta.ok && semResposta.aviso === m.AVISO_SEM_RESPOSTA)
       const [l1, l2] = await faixasDoGrupo(tx, a.grupoId)

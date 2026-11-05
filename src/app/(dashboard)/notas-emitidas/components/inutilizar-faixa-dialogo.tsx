@@ -86,7 +86,12 @@ export function InutilizarFaixaDialogo({ ambiente }: { ambiente: 'Producao' | 'H
   const confirmar = () => rodar(async () => {
     try {
       const r = await pedirFaixaAction({ ...entrada, chave })
-      if (!r.ok) return setErro(r.erro)
+      if (!r.ok) {
+        // Recusa: a linha ficou gravada com esta chave, e repetir a chave só devolveria "já registrada".
+        // Sem resposta (catch abaixo) a chave fica, para a tentativa não duplicar o pedido.
+        setChave(crypto.randomUUID())
+        return setErro(r.erro)
+      }
       setMensagem(r.dados.aviso ?? 'Pedido enviado. O resultado da SEFAZ aparece no histórico de faixas.')
     } catch {
       setMensagem(SEM_CONFIRMACAO)

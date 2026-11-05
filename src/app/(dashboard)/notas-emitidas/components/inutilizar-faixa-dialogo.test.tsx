@@ -143,6 +143,20 @@ test('recusa do servidor e resposta sem confirmação aparecem na tela e nada so
   assert.match(textoDaTela(), /não respondeu/)
 })
 
+test('depois da recusa a nova tentativa vai com outra chave; sem resposta, repete a mesma', async () => {
+  const chaveDa = (n: number) => (api.pedir.mock.calls[n].arguments[0] as { chave: string }).chave
+  api.pedir.mock.mockImplementationOnce(async () => ({ ok: false, erro: 'A Nota Gateway recusou o pedido: faixa invalida' }))
+  const t = await montar()
+  await t.abrir(); await t.faixaValida(); await t.clique('Continuar'); await t.marcarConferi(); await t.clique('Confirmar inutilização')
+  await t.clique('Confirmar inutilização')
+  assert.equal(api.pedir.mock.callCount(), 2)
+  assert.notEqual(chaveDa(1), chaveDa(0), 'a linha recusada ficou gravada: a mesma chave só devolveria "já registrada"')
+  api.pedir.mock.mockImplementationOnce(async () => { throw new Error('rede') })
+  await t.clique('Fechar', DEPOIS_DA_ANIMACAO_MS)
+  await t.abrir(); await t.faixaValida(); await t.clique('Continuar'); await t.marcarConferi(); await t.clique('Confirmar inutilização')
+  assert.match(textoDaTela(), /Confira o histórico/)
+})
+
 test('UF excluída: explica e não deixa continuar; produção avisa que não tem volta', async () => {
   api.contexto.mock.mockImplementationOnce(async () => ({ ok: true, dados: { ...CONTEXTO, uf: 'SP', permiteInutilizar: false } }))
   const t = await montar('Producao')
