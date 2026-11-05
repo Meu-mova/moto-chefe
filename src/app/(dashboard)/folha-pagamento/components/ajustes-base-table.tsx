@@ -1,12 +1,14 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useId, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Trash2 } from 'lucide-react'
 import { TIPOS_AJUSTE } from '@/lib/folha'
 import { criarAjusteBaseAction, excluirAjusteBaseAction } from '../actions'
 import { parseNumeroBR } from '@/lib/numero-br'
+import { fmtBRL } from '@/lib/preco-minimo'
+import { CAMPO, CELULA, NUMERO, SO_DESKTOP, SO_TABLET } from './folha-mes-grade'
+import { Campo, CartaoFormulario, LinhaLancamento, SELECT, TabelaLancamentos } from './folha-lancamento'
 
 export type AjusteRow = {
   id: string
@@ -22,8 +24,23 @@ export type AjusteRow = {
 export type LojaOpcao = { id: string; nome: string }
 export type FuncionarioOpcao = { id: string; nome: string; lojaId: string }
 
-const fmt = (v: string) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const reais = (v: string) => fmtBRL(parseFloat(v))
 const TIPO_LABEL = Object.fromEntries(TIPOS_AJUSTE.map(t => [t.valor, t.label]))
+
+// Celular: loja (com "tipo · funcionário" embaixo), valor e seta. Tablet: + colunas Tipo e Funcionário.
+// Desktop: Loja, Tipo, Funcionário, Valor, Motivo e lixeira.
+const GRADE = [
+  'grid grid-cols-[minmax(0,1fr)_auto_44px]',
+  '@[680px]/folha:grid-cols-[minmax(120px,1.4fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_44px]',
+  '@[960px]/folha:grid-cols-[minmax(120px,1.2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,2fr)_44px]',
+].join(' ')
+const COLUNAS = [
+  { titulo: 'Loja' },
+  { titulo: 'Tipo', className: SO_TABLET },
+  { titulo: 'Funcionário', className: SO_TABLET },
+  { titulo: 'Valor', className: 'text-right' },
+  { titulo: 'Motivo', className: SO_DESKTOP },
+]
 
 export function AjustesBaseTable({
   ajustes, lojas, funcionarios, mes,
@@ -39,6 +56,7 @@ export function AjustesBaseTable({
   const [valor, setValor] = useState('')
   const [observacao, setObservacao] = useState('')
   const [pending, startTransition] = useTransition()
+  const idForm = useId()
 
   // Só faz sentido creditar alguém da própria loja do ajuste — a action valida isso também.
   const funcionariosDaLoja = funcionarios.filter(f => f.lojaId === lojaId)
@@ -80,97 +98,63 @@ export function AjustesBaseTable({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Venda que aconteceu de verdade mas não foi lançada no sistema. Entra só no cálculo da folha — não aparece
+      <p className="max-w-[72ch] text-sm text-muted-foreground">
+        Venda que aconteceu de verdade mas não foi lançada no sistema. Entra só no cálculo da folha: não aparece
         em Financeiro, Despesas nem no estoque. O valor sempre soma à base da loja; se você escolher um funcionário,
         soma também à base individual dele. Valor negativo corrige um lançamento a maior.
       </p>
 
-      <div className="bg-card border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted border-b">
-            <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Loja</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Tipo</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Funcionário</th>
-              <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Valor</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Motivo</th>
-              <th className="px-4 py-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {ajustes.map(a => (
-              <tr key={a.id} className="hover:bg-muted">
-                <td className="px-4 py-2">{a.lojaNome}</td>
-                <td className="px-4 py-2">{TIPO_LABEL[a.tipo] ?? a.tipo}</td>
-                <td className="px-4 py-2">{a.usuarioNome ?? <span className="text-muted-foreground">só a loja</span>}</td>
-                <td className="px-4 py-2 text-right font-medium">{fmt(a.valor)}</td>
-                <td className="px-4 py-2 text-xs text-muted-foreground">{a.observacao}</td>
-                <td className="px-4 py-2 text-right">
-                  <button onClick={() => excluir(a.id)} disabled={pending} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 size={14} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {ajustes.length === 0 && (
-              <tr><td colSpan={6} className="text-center text-muted-foreground py-6">Nenhum ajuste neste mês.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <TabelaLancamentos rotulo="Ajustes do mês" grade={GRADE} colunas={COLUNAS} quantidade={ajustes.length} vazio="Nenhum ajuste neste mês.">
+        {ajustes.map(a => {
+          const tipoRotulo = TIPO_LABEL[a.tipo] ?? a.tipo
+          const funcionario = a.usuarioNome ?? 'só a loja'
+          const descricao = `${a.lojaNome}, ${tipoRotulo}, ${funcionario}, ${reais(a.valor)}`
+          return (
+            <LinhaLancamento key={a.id} id={a.id} grade={GRADE} nome={descricao} rotuloDetalhe="Motivo" detalhe={a.observacao}
+              rotuloRemover={`Remover ajuste de ${descricao}`} onRemover={() => excluir(a.id)} ocupado={pending}>
+              <div role="cell" className={CELULA}>
+                <p className="wrap-anywhere font-medium">{a.lojaNome}</p>
+                <p className="text-xs text-muted-foreground @[680px]/folha:hidden">{tipoRotulo} · {funcionario}</p>
+              </div>
+              <div role="cell" className={`${CELULA} ${SO_TABLET}`}>{tipoRotulo}</div>
+              <div role="cell" className={`${CELULA} ${SO_TABLET} ${a.usuarioNome ? '' : 'text-muted-foreground'}`}>{funcionario}</div>
+              <div role="cell" className={`${NUMERO} font-medium`}>{reais(a.valor)}</div>
+              <div role="cell" className={`${CELULA} ${SO_DESKTOP} text-xs text-muted-foreground`}>{a.observacao}</div>
+            </LinhaLancamento>
+          )
+        })}
+      </TabelaLancamentos>
 
-      <div className="flex flex-wrap items-end gap-2 bg-card border rounded-lg p-3">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Loja</label>
-          <select
-            value={lojaId}
-            onChange={e => { setLojaId(e.target.value); setUsuarioId('') }}
-            className="h-8 text-xs w-40 border border-border rounded-md px-2 bg-card block"
-          >
+      <CartaoFormulario titulo="Lançar ajuste" colunas="@[960px]/folha:grid-cols-4"
+        dica={lojaId ? null : 'Escolha a loja para liberar o funcionário e o botão. Só aparece quem é daquela loja.'}>
+        <Campo id={`${idForm}-loja`} rotulo="Loja">
+          <select id={`${idForm}-loja`} value={lojaId} onChange={e => { setLojaId(e.target.value); setUsuarioId('') }} className={SELECT}>
             <option value="">Selecione…</option>
             {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Tipo</label>
-          <select
-            value={tipo}
-            onChange={e => setTipo(e.target.value)}
-            className="h-8 text-xs w-44 border border-border rounded-md px-2 bg-card block"
-          >
+        </Campo>
+        <Campo id={`${idForm}-tipo`} rotulo="Tipo">
+          <select id={`${idForm}-tipo`} value={tipo} onChange={e => setTipo(e.target.value)} className={SELECT}>
             {TIPOS_AJUSTE.map(t => <option key={t.valor} value={t.valor}>{t.label}</option>)}
           </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Funcionário (opcional)</label>
-          <select
-            value={usuarioId}
-            onChange={e => setUsuarioId(e.target.value)}
-            disabled={!lojaId}
-            className="h-8 text-xs w-44 border border-border rounded-md px-2 bg-card block disabled:bg-muted"
-          >
+        </Campo>
+        <Campo id={`${idForm}-funcionario`} rotulo="Funcionário (opcional)">
+          <select id={`${idForm}-funcionario`} value={usuarioId} onChange={e => setUsuarioId(e.target.value)} disabled={!lojaId} className={SELECT}>
             <option value="">Só a loja</option>
             {funcionariosDaLoja.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
           </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Valor (R$)</label>
-          <Input value={valor} onChange={e => setValor(e.target.value)} className="h-8 text-xs w-32" placeholder="0,00" />
-        </div>
-        <div className="space-y-1 flex-1 min-w-48">
-          <label className="text-xs text-muted-foreground">Motivo</label>
-          <Input
-            value={observacao}
-            onChange={e => setObservacao(e.target.value)}
-            className="h-8 text-xs"
-            placeholder="Ex.: OS lançada fora do sistema"
-          />
-        </div>
-        <Button size="sm" className="h-8 text-xs" disabled={pending || !lojaId} onClick={adicionar}>
+        </Campo>
+        <Campo id={`${idForm}-valor`} rotulo="Valor (R$)">
+          <Input id={`${idForm}-valor`} inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)} className={CAMPO} placeholder="0,00" />
+        </Campo>
+        <Campo id={`${idForm}-motivo`} rotulo="Motivo" className="@[960px]/folha:col-span-3">
+          <Input id={`${idForm}-motivo`} value={observacao} onChange={e => setObservacao(e.target.value)} className={CAMPO} placeholder="Ex.: OS lançada fora do sistema" />
+        </Campo>
+        <Button className="h-11 w-full text-sm @[680px]/folha:self-end @[960px]/folha:h-8 @[960px]/folha:w-fit @[960px]/folha:text-xs"
+          disabled={pending || !lojaId} onClick={adicionar}>
           Lançar ajuste
         </Button>
-      </div>
+      </CartaoFormulario>
     </div>
   )
 }

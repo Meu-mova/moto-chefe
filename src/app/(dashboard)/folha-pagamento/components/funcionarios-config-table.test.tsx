@@ -102,6 +102,15 @@ test('a seta abre e fecha o detalhe da pessoa, e só dela', async () => {
   assert.equal(seta('Vendedor A').getAttribute('aria-expanded'), 'false')
 })
 
+test('a seta aponta para o detalhe mesmo fechado, porque ele fica sempre no DOM', async () => {
+  await montar()
+  const alvo = seta('Vendedor A').getAttribute('aria-controls')
+  assert.ok(alvo)
+  assert.ok(document.getElementById(alvo))
+  await clicar(seta('Vendedor A'))
+  assert.equal(seta('Vendedor A').getAttribute('aria-controls'), alvo)
+})
+
 test('os campos nascem com o valor da pessoa em formato BR, um campo por valor', async () => {
   await montar()
   assert.equal(document.querySelectorAll('input[aria-label^="Salário de"]').length, 2)
