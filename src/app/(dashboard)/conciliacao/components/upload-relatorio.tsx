@@ -31,6 +31,7 @@ export function UploadRelatorio({ maquininhas: doGrupo }: { maquininhas: Maquini
       const partes = [`${result.importadas} importadas`]
       if (result.conciliadas) partes.push(`${result.conciliadas} conciliadas automaticamente`)
       if (result.duplicadas)  partes.push(`${result.duplicadas} duplicatas ignoradas`)
+      if (result.semCodigo)   partes.push(`${result.semCodigo} ${result.semCodigo === 1 ? 'linha sem Código da venda ficou' : 'linhas sem Código da venda ficaram'} de fora`)
       toast.success(partes.join(' · '))
       if (fileRef.current) fileRef.current.value = ''
     } catch (err: unknown) {
