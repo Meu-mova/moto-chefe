@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label'
 import { Printer } from 'lucide-react'
 import { destaqueAvista12x, type DestaqueAvista12x } from '@/lib/simulador-padrao'
 import { FreteSimulador } from './frete-simulador'
-import { comPaletaClara, esc, fmt } from './simulador-client'
+import { comPaletaClara } from './simulador-client'
+import { esc } from '@/lib/html'
+import { fmtBRL as fmt } from '@/lib/preco-minimo'
 import type { ResultadoFrete } from '../actions'
 
 /**

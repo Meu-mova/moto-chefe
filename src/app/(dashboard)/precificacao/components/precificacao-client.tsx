@@ -10,6 +10,7 @@ import { PadraoSimuladorCard } from './padrao-simulador-card'
 import { toggleAtivoAction, excluirModeloAction } from '../actions'
 import type { PadraoSimulador } from '@/lib/simulador-padrao'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, TrendingUp, AlertTriangle, Tag } from 'lucide-react'
+import { fmtBRL } from '@/lib/preco-minimo'
 
 type Taxas = {
   taxasCartao: Record<string, number>
@@ -43,13 +44,10 @@ type Props = {
   padraoSimulador: PadraoSimulador
 }
 
-function fmtBRL(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
 function fmtBRLStr(v: string | null) {
   if (!v) return '—'
-  return parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return fmtBRL(parseFloat(v))
 }
 
 type Margem = { reais: number; pct: number }

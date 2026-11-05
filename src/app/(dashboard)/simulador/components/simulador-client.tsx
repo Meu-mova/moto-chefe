@@ -7,6 +7,8 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import { CreditCard, Link2, Building2, Printer, ChevronDown, Wallet } from 'lucide-react'
 import { FreteSimulador } from './frete-simulador'
 import type { ResultadoFrete } from '../actions'
+import { fmtBRL } from '@/lib/preco-minimo'
+import { esc } from '@/lib/html'
 
 // Financiamento oculto no simulador e no PDF, para todos, a pedido do Luis (#161,
 // 15/10/2026). É temporário: para voltar, troque para true. As taxas seguem na Precificação.
@@ -34,13 +36,7 @@ type Props = {
   lojaUsuarioId: string | null
 }
 
-export function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
-export function esc(s: string) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 type Linha = { parcelas: number; credito: number; parcela: number }
 
@@ -114,12 +110,12 @@ function TabelaOpcoes({
                   </td>
                 )}
                 <td className="px-3 py-2 font-semibold text-foreground">{parcelas}x</td>
-                <td className={`px-3 py-2 text-right font-bold ${cor}`}>{fmt(parcela)}</td>
+                <td className={`px-3 py-2 text-right font-bold ${cor}`}>{fmtBRL(parcela)}</td>
                 {mostrarTotal && (
-                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmt(credito)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmtBRL(credito)}</td>
                 )}
                 {!mostrarTotal && entrada > 0 && (
-                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmt(credito)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmtBRL(credito)}</td>
                 )}
               </tr>
             )
@@ -161,7 +157,7 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
   return `
   <div style="margin-bottom:20px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${corLabel};margin-bottom:10px;border-left:3px solid ${corLabel};padding-left:8px">
-      ${esc(titulo)}${comEntrada && entrada > 0 ? ` <span style="font-weight:400;color:var(--muted-foreground)">(entrada: ${fmt(entrada)})</span>` : ''}
+      ${esc(titulo)}${comEntrada && entrada > 0 ? ` <span style="font-weight:400;color:var(--muted-foreground)">(entrada: ${fmtBRL(entrada)})</span>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid ${corBorder};border-radius:8px;overflow:hidden">
       <thead>
@@ -176,9 +172,9 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
         ${linhasParaImprimir.map(({ parcelas, credito, parcela }) => `
         <tr style="border-bottom:1px solid ${corBorder}">
           <td style="padding:8px 10px;font-weight:700;color:${corValor}">${parcelas}x</td>
-          <td style="padding:8px 10px;text-align:right;font-weight:700;color:${corValor}">${fmt(parcela)}</td>
-          <td style="padding:8px 10px;text-align:right;color:var(--muted-foreground);font-size:11px">${fmt(credito)}</td>
-          ${comEntrada && entrada > 0 ? `<td style="padding:8px 10px;text-align:right;color:${corValor};font-weight:600;font-size:12px">${fmt(entrada + credito)}</td>` : ''}
+          <td style="padding:8px 10px;text-align:right;font-weight:700;color:${corValor}">${fmtBRL(parcela)}</td>
+          <td style="padding:8px 10px;text-align:right;color:var(--muted-foreground);font-size:11px">${fmtBRL(credito)}</td>
+          ${comEntrada && entrada > 0 ? `<td style="padding:8px 10px;text-align:right;color:${corValor};font-weight:600;font-size:12px">${fmtBRL(entrada + credito)}</td>` : ''}
         </tr>`).join('')}
       </tbody>
     </table>
@@ -237,8 +233,8 @@ function gerarHtmlPrint(
 
   const blocoFrete = frete ? `
   <div style="margin-bottom:20px;padding:12px;border-radius:8px;background:var(--muted);border:1px solid var(--border)">
-    <div style="font-size:11px;color:var(--muted-foreground)">Frete: ${frete.custo > 0 ? fmt(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
-    <div style="font-size:13px;font-weight:700;color:var(--foreground);margin-top:2px">Total com frete (PIX): ${fmt(base + frete.custo)}</div>
+    <div style="font-size:11px;color:var(--muted-foreground)">Frete: ${frete.custo > 0 ? fmtBRL(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
+    <div style="font-size:13px;font-weight:700;color:var(--foreground);margin-top:2px">Total com frete (PIX): ${fmtBRL(base + frete.custo)}</div>
   </div>` : ''
 
   // "Com entrada" subsections — só aparecem quando há entrada
@@ -248,8 +244,8 @@ function gerarHtmlPrint(
   const entradaSubTabela = (linha: Linha | null | undefined, cor: string) => linha ? `
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${cor}">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);margin-bottom:5px">Com entrada</div>
-      <div style="font-size:14px;font-weight:700;color:var(--foreground)">${fmt(linha.credito)} no cartão</div>
-      <div style="font-size:10px;color:var(--muted-foreground);margin-top:2px">${linha.parcelas}x de ${fmt(linha.parcela)}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--foreground)">${fmtBRL(linha.credito)} no cartão</div>
+      <div style="font-size:10px;color:var(--muted-foreground);margin-top:2px">${linha.parcelas}x de ${fmtBRL(linha.parcela)}</div>
     </div>` : ''
 
   return `<!DOCTYPE html>
@@ -300,29 +296,29 @@ function gerarHtmlPrint(
     <div class="date">${data}</div>
   </div>
 
-  ${entrada > 0 ? `<div class="entrada-tag">Entrada: <strong>${fmt(entrada)}</strong></div>` : ''}
+  ${entrada > 0 ? `<div class="entrada-tag">Entrada: <strong>${fmtBRL(entrada)}</strong></div>` : ''}
 
   <div class="price-row">
     <div class="price-card price-tabela">
       <div class="price-label">Valor de Tabela</div>
-      <div class="price-val">${cartao21 ? fmt(cartao21.credito) : '—'}</div>
-      <div class="price-sub">${cartao21 ? `21x de ${fmt(cartao21.parcela)}` : '21x no cartão'}</div>
+      <div class="price-val">${cartao21 ? fmtBRL(cartao21.credito) : '—'}</div>
+      <div class="price-sub">${cartao21 ? `21x de ${fmtBRL(cartao21.parcela)}` : '21x no cartão'}</div>
       ${entradaSubTabela(c21Entrada, 'var(--border)')}
     </div>
     <div class="price-card price-desconto">
       <div class="price-label">Valor com Desconto</div>
-      <div class="price-val">${cartao12 ? fmt(cartao12.credito) : '—'}</div>
-      <div class="price-sub">${cartao12 ? `12x de ${fmt(cartao12.parcela)}` : '12x no cartão'}</div>
+      <div class="price-val">${cartao12 ? fmtBRL(cartao12.credito) : '—'}</div>
+      <div class="price-sub">${cartao12 ? `12x de ${fmtBRL(cartao12.parcela)}` : '12x no cartão'}</div>
       ${desc12 ? `<div class="badge badge-blue">${desc12}% de desconto</div>` : ''}
-      ${eco12 && eco12 > 0 ? `<div class="eco">Economia de ${fmt(eco12)}</div>` : ''}
+      ${eco12 && eco12 > 0 ? `<div class="eco">Economia de ${fmtBRL(eco12)}</div>` : ''}
       ${entradaSubTabela(c12Entrada, 'color-mix(in srgb, var(--info) 30%, var(--card))')}
     </div>
     <div class="price-card price-pix">
       <div class="price-label">Valor Promocional</div>
-      <div class="price-val">${fmt(base)}</div>
+      <div class="price-val">${fmtBRL(base)}</div>
       <div class="price-sub">PIX / Dinheiro</div>
       ${descPix ? `<div class="badge badge-green">${descPix}% de desconto</div>` : ''}
-      ${ecoPix && ecoPix > 0 ? `<div class="eco">Economia de ${fmt(ecoPix)}</div>` : ''}
+      ${ecoPix && ecoPix > 0 ? `<div class="eco">Economia de ${fmtBRL(ecoPix)}</div>` : ''}
     </div>
   </div>
 
@@ -344,7 +340,7 @@ function DescontoBadge({ pct: pctStr, economia, corBadge, corEcon }: { pct: stri
       </span>
       {economia !== null && economia > 0 && (
         <p className={`text-[10px] font-semibold ${corEcon}`}>
-          Economia de {fmt(economia)}
+          Economia de {fmtBRL(economia)}
         </p>
       )}
     </div>
@@ -376,13 +372,13 @@ function PrecosDestaque({
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Valor de Tabela</p>
         {cartao21 ? (
           <>
-            <p className="text-lg font-bold text-foreground">{fmt(cartao21.credito)}</p>
-            <p className="text-xs text-muted-foreground mt-1">21x de {fmt(cartao21.parcela)}</p>
+            <p className="text-lg font-bold text-foreground">{fmtBRL(cartao21.credito)}</p>
+            <p className="text-xs text-muted-foreground mt-1">21x de {fmtBRL(cartao21.parcela)}</p>
             {c21Entrada && (
               <div className="mt-2 pt-2 border-t border-border">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Com entrada</p>
-                <p className="text-xs font-bold text-foreground">{fmt(c21Entrada.credito)} no cartão</p>
-                <p className="text-xs text-muted-foreground">21x de {fmt(c21Entrada.parcela)}</p>
+                <p className="text-xs font-bold text-foreground">{fmtBRL(c21Entrada.credito)} no cartão</p>
+                <p className="text-xs text-muted-foreground">21x de {fmtBRL(c21Entrada.parcela)}</p>
               </div>
             )}
           </>
@@ -396,14 +392,14 @@ function PrecosDestaque({
         <p className="text-[10px] font-semibold uppercase tracking-widest text-info mb-2">Valor com Desconto</p>
         {cartao12 ? (
           <>
-            <p className="text-lg font-bold text-info">{fmt(cartao12.credito)}</p>
-            <p className="text-xs text-info mt-1">12x de {fmt(cartao12.parcela)}</p>
+            <p className="text-lg font-bold text-info">{fmtBRL(cartao12.credito)}</p>
+            <p className="text-xs text-info mt-1">12x de {fmtBRL(cartao12.parcela)}</p>
             <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-info/10 text-info" corEcon="text-info" />
             {c12Entrada && (
               <div className="mt-2 pt-2 border-t border-info/30">
                 <p className="text-[10px] text-info uppercase tracking-wide mb-1">Com entrada</p>
-                <p className="text-xs font-bold text-info">{fmt(c12Entrada.credito)} no cartão</p>
-                <p className="text-xs text-info">12x de {fmt(c12Entrada.parcela)}</p>
+                <p className="text-xs font-bold text-info">{fmtBRL(c12Entrada.credito)} no cartão</p>
+                <p className="text-xs text-info">12x de {fmtBRL(c12Entrada.parcela)}</p>
               </div>
             )}
           </>
@@ -415,7 +411,7 @@ function PrecosDestaque({
       {/* Valor Promocional — PIX/Dinheiro */}
       <div className="rounded-xl border-2 border-success/50 bg-success/10 p-4 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-success mb-2">Valor Promocional</p>
-        <p className="text-lg font-bold text-success">{fmt(base)}</p>
+        <p className="text-lg font-bold text-success">{fmtBRL(base)}</p>
         <p className="text-xs text-success mt-1">PIX / Dinheiro</p>
         <DescontoBadge pct={descPix} economia={ecoPix} corBadge="bg-success/10 text-success" corEcon="text-success" />
       </div>
@@ -551,7 +547,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
 
             {freteResultado?.ok && (
               <p className="text-sm font-medium text-foreground">
-                Total com frete (PIX): {fmt(base + freteResultado.custo)}
+                Total com frete (PIX): {fmtBRL(base + freteResultado.custo)}
               </p>
             )}
 

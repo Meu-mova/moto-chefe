@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Truck } from 'lucide-react'
 import { simularFreteAction, type ResultadoFrete } from '../actions'
+import { fmtBRL } from '@/lib/preco-minimo'
 
 type Loja = { id: string; nome: string; temCep: boolean }
 
@@ -15,9 +16,6 @@ type Props = {
   onResultado: (r: ResultadoFrete | null) => void
 }
 
-function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
 export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: Props) {
   const lojaInicial = isAdmin ? (lojas[0]?.id ?? '') : (lojaUsuarioId ?? '')
@@ -135,7 +133,7 @@ export function FreteSimulador({ lojas, isAdmin, lojaUsuarioId, onResultado }: P
                   <div className="text-muted-foreground space-y-0.5">
                     <p>Distância: {resultado.kmIdaEVolta.toFixed(1)} km (ida e volta)</p>
                     <p className="font-semibold text-foreground">
-                      Frete: {resultado.gratis ? 'Grátis' : fmt(resultado.custo)}
+                      Frete: {resultado.gratis ? 'Grátis' : fmtBRL(resultado.custo)}
                     </p>
                   </div>
                 )}
