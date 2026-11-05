@@ -108,6 +108,13 @@ test('sócio não corrige o PIX de admin_rede nem de admin_geral, e a recusa nã
   }
 })
 
+test('quem não é admin_geral nem sócio não corrige PIX de ninguém, mesmo se chegar à função', () => {
+  // A action já barra antes (soPeloPapel); a regra sozinha também falha fechada.
+  for (const papel of ['aux_adm', 'vendedor', 'admin_rede', 'cargo']) {
+    assert.equal(recusaCorrecaoPix({ papel }, { papel: 'vendedor', temDados: true }), ERRO_FUNCIONARIO_NAO_ENCONTRADO, papel)
+  }
+})
+
 test('admin_geral corrige o PIX de admin_rede', () => {
   assert.equal(recusaCorrecaoPix({ papel: 'admin_geral' }, { papel: 'admin_rede', temDados: true }), null)
 })

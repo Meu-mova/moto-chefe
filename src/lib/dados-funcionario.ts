@@ -3,6 +3,7 @@
 // Tudo puro: sem banco, sem fetch — é o que permite testar as bordas sem subir nada.
 
 import { cpfValido } from './documento'
+import { papelAcimaDoSocio } from './gestao-usuarios'
 
 export type TipoChavePix = 'cpf' | 'celular' | 'email' | 'aleatoria'
 
@@ -89,7 +90,6 @@ export function nascimentoValido(iso: string, hoje: Date): boolean {
 
 export const ERRO_FUNCIONARIO_NAO_ENCONTRADO = 'Funcionário não encontrado.'
 export const ERRO_SEM_DADOS = 'Esse funcionário ainda não preencheu os dados.'
-const PAPEIS_ACIMA_DO_SOCIO = ['admin_geral', 'admin_rede']
 
 /**
  * Por que o PIX desse funcionário não pode ser corrigido por quem edita, ou null se pode.
@@ -100,9 +100,12 @@ export function recusaCorrecaoPix(
   editor: { papel: string },
   alvo: { papel: string; temDados: boolean },
 ): string | null {
-  // admin_rede fica acima do sócio (ADR-0019), e o admin_geral acima de todos: trocar o PIX
-  // deles é trocar para onde vai o pagamento. Mesma frase do id inexistente.
-  if (editor.papel !== 'admin_geral' && PAPEIS_ACIMA_DO_SOCIO.includes(alvo.papel)) return ERRO_FUNCIONARIO_NAO_ENCONTRADO
+  if (editor.papel !== 'admin_geral') {
+    // Falha fechada: só admin_geral e sócio corrigem PIX de outra pessoa.
+    if (editor.papel !== 'admin_socio') return ERRO_FUNCIONARIO_NAO_ENCONTRADO
+    // Trocar o PIX de um superior é trocar para onde vai o pagamento dele. Mesma frase do id inexistente.
+    if (papelAcimaDoSocio(alvo.papel)) return ERRO_FUNCIONARIO_NAO_ENCONTRADO
+  }
   // CPF e nascimento são obrigatórios na linha; sem eles o funcionário ainda
   // não passou pelo primeiro acesso, e é lá que ele preenche tudo.
   if (!alvo.temDados) return ERRO_SEM_DADOS
