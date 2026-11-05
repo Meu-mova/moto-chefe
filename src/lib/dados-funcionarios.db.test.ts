@@ -128,6 +128,28 @@ test('admin_geral corrige o PIX no grupo ativo, inclusive de admin_rede, e não 
   }), Desfazer)
 })
 
+test('sócio corrige o PIX de quem está no grupo só pelo acesso marcado', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenarioDuasContas(tx)
+    await tx.execute(sql`update usuarios set grupos_acesso = array[${c.grupoA2}]::uuid[] where id = ${c.funcA}`)
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA2 }, c.funcA, CELULAR, tx)
+    assert.deepEqual(r, { ok: true })
+    assert.deepEqual((await c.dados(c.funcA)).map(d => d.pix_chave), ['+5535999991234'])
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('marcação de acesso a grupo de outra Conta não deixa corrigir o PIX', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenarioDuasContas(tx)
+    await tx.execute(sql`update usuarios set grupos_acesso = array[${c.grupoA}]::uuid[] where id = ${c.funcB}`)
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA }, c.funcB, CELULAR, tx)
+    assert.deepEqual(r, NAO_ENCONTRADO)
+    assert.deepEqual((await c.dados(c.funcB)).map(d => d.pix_chave), ['22222222222'], 'linha da Conta B intacta')
+    throw new Desfazer()
+  }), Desfazer)
+})
+
 test('sócio não corrige o PIX de admin_rede da própria Conta', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
