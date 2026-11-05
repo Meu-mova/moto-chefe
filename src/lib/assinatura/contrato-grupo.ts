@@ -1,6 +1,7 @@
 import { formatarCpfCnpj } from '@/lib/documento'
+import { esc } from '@/lib/html'
 import {
-  descreverPagamentos, esc, ITENS_CARTILHA_BATERIA, qualificacaoCompradorEmLinha, type DadosDocumento,
+  descreverPagamentos, ITENS_CARTILHA_BATERIA, qualificacaoCompradorEmLinha, type DadosDocumento,
 } from './documento'
 
 /**

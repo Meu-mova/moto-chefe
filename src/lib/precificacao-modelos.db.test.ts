@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaVazia, semearGrupo } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -16,11 +17,13 @@ type Prec = typeof import('@/lib/precificacao-modelos')
 let db: Db['db']
 let catalogoDePrecificacao: Prec['catalogoDePrecificacao']
 let modeloPrecificavel: Prec['modeloPrecificavel']
+let salvarPrecoDoModelo: Prec['salvarPrecoDoModelo']
+let salvarPadraoSimulador: Prec['salvarPadraoSimulador']
 let ocultarModelo: typeof import('@/lib/modelos-da-conta')['ocultarModelo']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ catalogoDePrecificacao, modeloPrecificavel } = await import('@/lib/precificacao-modelos'))
+  ;({ catalogoDePrecificacao, modeloPrecificavel, salvarPrecoDoModelo, salvarPadraoSimulador } = await import('@/lib/precificacao-modelos'))
   ;({ ocultarModelo } = await import('@/lib/modelos-da-conta'))
 })
 
@@ -67,6 +70,97 @@ test('precificação: a Conta B não vê nem precifica o modelo próprio da A, e
     assert.equal(await modeloPrecificavel(contaB.id, 'NAOEXISTE496', tx), false)
     assert.equal(await modeloPrecificavel(contaB.id, ' p496 ', tx), true)
     assert.equal(await modeloPrecificavel(contaA.id, 'P496 A', tx), true)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
+
+async function duasContas(tx: Tx) {
+  const grupoDaConta = async (nome: string, cnpj: string) => {
+    const contaId = await semearContaVazia(tx, { prefixo: 'PR683', nome })
+    return { id: (await semearGrupo(tx, contaId, { prefixo: 'PR683', nome, cnpj })).grupoId, contaId }
+  }
+  const a = await grupoDaConta('A', '00000000068301')
+  const b = await grupoDaConta('B', '00000000068302')
+  await tx.execute(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('TESTE-12X', 'M12X', 'autopropelido', '1000', '', '')`)
+  return { a, b }
+}
+
+async function precoDoGrupo(tx: Tx, grupoId: string) {
+  const r = (await tx.execute(sql`select id, valor_minimo, valor_12x from precificacao where grupo_id = ${grupoId} and nome = 'M12X'`)) as unknown as {
+    rows: { id: string; valor_minimo: string; valor_12x: string | null }[]
+  }
+  return r.rows[0] ?? null
+}
+
+test('valor em 12x: grava, mantém quando não vem e limpa quando vem vazio', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const { a } = await duasContas(tx)
+    await salvarPrecoDoModelo(a, { nome: 'm12x', valorMinimo: '12990', valor12x: '15600' }, tx)
+    const criado = (await precoDoGrupo(tx, a.id))!
+    assert.deepEqual([criado.valor_minimo, criado.valor_12x], ['12990.00', '15600.00'])
+
+    await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: '15600.00' }, tx)
+    const editado = (await precoDoGrupo(tx, a.id))!
+    assert.deepEqual([editado.valor_minimo, editado.valor_12x], ['12500.00', '15600.00'])
+
+    // Sem o campo (diálogo no padrão 'taxas', que esconde o 12x): o 12x fica como estava.
+    await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12400' }, tx)
+    assert.equal((await precoDoGrupo(tx, a.id))!.valor_12x, '15600.00')
+
+    await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: '' }, tx)
+    assert.equal((await precoDoGrupo(tx, a.id))!.valor_12x, null)
+
+    // O campo de moeda devolve "0.00" quando o administrador apaga o valor: também limpa, sem erro.
+    for (const zero of ['0', '0.00']) {
+      await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: '15600' }, tx)
+      await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: zero }, tx)
+      assert.equal((await precoDoGrupo(tx, a.id))!.valor_12x, null, zero)
+    }
+
+    await assert.rejects(salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: '-1' }, tx), /Valor em 12x inválido/)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('valor em 12x: o grupo da Conta B não muda o preço da Conta A pelo id', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const { a, b } = await duasContas(tx)
+    await salvarPrecoDoModelo(a, { nome: 'M12X', valorMinimo: '12990', valor12x: '15600' }, tx)
+    const daA = (await precoDoGrupo(tx, a.id))!
+
+    // O id de A procurado no grupo de B não acha linha: nada muda, em nenhum dos dois.
+    await salvarPrecoDoModelo(b, { precId: daA.id, nome: 'M12X', valorMinimo: '1', valor12x: '2' }, tx)
+    assert.deepEqual(await precoDoGrupo(tx, a.id), daA, 'o preço da A ficou igual')
+    assert.equal(await precoDoGrupo(tx, b.id), null)
+
+    // O de B nasce pelo caminho de modelo novo, sem tocar no da A.
+    await salvarPrecoDoModelo(b, { nome: 'M12X', valorMinimo: '1', valor12x: '2' }, tx)
+    const deB = (await precoDoGrupo(tx, b.id))!
+    assert.deepEqual([deB.valor_minimo, deB.valor_12x], ['1.00', '2.00'])
+    assert.deepEqual(await precoDoGrupo(tx, a.id), daA)
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('padrão do simulador é por grupo e não mexe nas taxas', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const { a, b } = await duasContas(tx)
+    await tx.execute(sql`insert into configuracao_taxas (grupo_id, taxas_cartao) values (${a.id}, '{"12": 0.1}')`)
+    const padrao = async (g: string) => ((await tx.execute(sql`select padrao_simulador, taxas_cartao from configuracao_taxas where grupo_id = ${g}`)) as unknown as {
+      rows: { padrao_simulador: string; taxas_cartao: Record<string, number> }[]
+    }).rows[0] ?? null
+    assert.equal((await padrao(a.id))!.padrao_simulador, 'taxas', 'quem já existe fica no padrão de hoje')
+
+    await salvarPadraoSimulador(a.id, 'avista_12x', tx)
+    assert.deepEqual(await padrao(a.id), { padrao_simulador: 'avista_12x', taxas_cartao: { 12: 0.1 } })
+    assert.equal(await padrao(b.id), null, 'o grupo B não ganhou configuração')
+
+    await salvarPadraoSimulador(b.id, 'avista_12x', tx)
+    await salvarPadraoSimulador(a.id, 'taxas', tx)
+    assert.equal((await padrao(b.id))!.padrao_simulador, 'avista_12x')
+    assert.equal((await padrao(a.id))!.padrao_simulador, 'taxas')
     throw new Desfazer()
   }), Desfazer)
 })

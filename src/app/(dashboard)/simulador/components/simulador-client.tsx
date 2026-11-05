@@ -1,12 +1,14 @@
 'use client'
 import { useState, useMemo, type Dispatch, type SetStateAction } from 'react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { CreditCard, Link2, Building2, Printer, ChevronDown, Wallet } from 'lucide-react'
+import { CreditCard, Link2, Building2, ChevronDown, Wallet } from 'lucide-react'
 import { FreteSimulador } from './frete-simulador'
+import { SimuladorCasco, BotaoImprimir, abrirImpressao } from './simulador-casco'
 import type { ResultadoFrete } from '../actions'
+import { fmtBRL } from '@/lib/preco-minimo'
+import { esc } from '@/lib/html'
+import { folhaSimulacao } from '@/lib/simulador-impressao'
 
 // Financiamento oculto no simulador e no PDF, para todos, a pedido do Luis (#161,
 // 15/10/2026). É temporário: para voltar, troque para true. As taxas seguem na Precificação.
@@ -34,13 +36,7 @@ type Props = {
   lojaUsuarioId: string | null
 }
 
-function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
-function esc(s: string) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 type Linha = { parcelas: number; credito: number; parcela: number }
 
@@ -114,12 +110,12 @@ function TabelaOpcoes({
                   </td>
                 )}
                 <td className="px-3 py-2 font-semibold text-foreground">{parcelas}x</td>
-                <td className={`px-3 py-2 text-right font-bold ${cor}`}>{fmt(parcela)}</td>
+                <td className={`px-3 py-2 text-right font-bold ${cor}`}>{fmtBRL(parcela)}</td>
                 {mostrarTotal && (
-                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmt(credito)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmtBRL(credito)}</td>
                 )}
                 {!mostrarTotal && entrada > 0 && (
-                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmt(credito)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground text-xs">{fmtBRL(credito)}</td>
                 )}
               </tr>
             )
@@ -161,7 +157,7 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
   return `
   <div style="margin-bottom:20px">
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${corLabel};margin-bottom:10px;border-left:3px solid ${corLabel};padding-left:8px">
-      ${esc(titulo)}${comEntrada && entrada > 0 ? ` <span style="font-weight:400;color:var(--muted-foreground)">(entrada: ${fmt(entrada)})</span>` : ''}
+      ${esc(titulo)}${comEntrada && entrada > 0 ? ` <span style="font-weight:400;color:var(--muted-foreground)">(entrada: ${fmtBRL(entrada)})</span>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid ${corBorder};border-radius:8px;overflow:hidden">
       <thead>
@@ -176,26 +172,13 @@ function gerarTabelaSelecionada({ titulo, corLabel, corBg, corBorder, corValor, 
         ${linhasParaImprimir.map(({ parcelas, credito, parcela }) => `
         <tr style="border-bottom:1px solid ${corBorder}">
           <td style="padding:8px 10px;font-weight:700;color:${corValor}">${parcelas}x</td>
-          <td style="padding:8px 10px;text-align:right;font-weight:700;color:${corValor}">${fmt(parcela)}</td>
-          <td style="padding:8px 10px;text-align:right;color:var(--muted-foreground);font-size:11px">${fmt(credito)}</td>
-          ${comEntrada && entrada > 0 ? `<td style="padding:8px 10px;text-align:right;color:${corValor};font-weight:600;font-size:12px">${fmt(entrada + credito)}</td>` : ''}
+          <td style="padding:8px 10px;text-align:right;font-weight:700;color:${corValor}">${fmtBRL(parcela)}</td>
+          <td style="padding:8px 10px;text-align:right;color:var(--muted-foreground);font-size:11px">${fmtBRL(credito)}</td>
+          ${comEntrada && entrada > 0 ? `<td style="padding:8px 10px;text-align:right;color:${corValor};font-weight:600;font-size:12px">${fmtBRL(entrada + credito)}</td>` : ''}
         </tr>`).join('')}
       </tbody>
     </table>
   </div>`
-}
-
-// A janela da simulação não carrega o globals.css: cada var(--x) usada na folha recebe o valor
-// lido de um .tema-claro, para o papel sair claro mesmo com o escuro ligado na tela.
-function comPaletaClara(html: string) {
-  const nomes = [...new Set(Array.from(html.matchAll(/var\(--([\w-]+)\)/g), (m) => m[1]))]
-  const sonda = document.createElement('div')
-  sonda.className = 'tema-claro'
-  document.body.appendChild(sonda)
-  const estilo = getComputedStyle(sonda)
-  const declaracoes = nomes.map((nome) => `--${nome}: ${estilo.getPropertyValue(`--${nome}`).trim()};`).join(' ')
-  sonda.remove()
-  return html.replace('<style>', `<style>\n    :root { ${declaracoes} }`)
 }
 
 function gerarHtmlPrint(
@@ -213,9 +196,7 @@ function gerarHtmlPrint(
   frete: { kmIdaEVolta: number; custo: number } | null,
 ) {
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  const nomeEsc = esc(modelo.nome)
   const base = parseFloat(modelo.valorMinimo)
-  const imgUrl = modelo.imagemUrl && /^https:\/\//i.test(modelo.imagemUrl) ? esc(modelo.imagemUrl) : null
 
   // Preços de referência sempre sem entrada (valores cheios)
   const cartao21 = linhasCartaoSemEntrada.find(l => l.parcelas === 21)
@@ -237,8 +218,8 @@ function gerarHtmlPrint(
 
   const blocoFrete = frete ? `
   <div style="margin-bottom:20px;padding:12px;border-radius:8px;background:var(--muted);border:1px solid var(--border)">
-    <div style="font-size:11px;color:var(--muted-foreground)">Frete: ${frete.custo > 0 ? fmt(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
-    <div style="font-size:13px;font-weight:700;color:var(--foreground);margin-top:2px">Total com frete (PIX): ${fmt(base + frete.custo)}</div>
+    <div style="font-size:11px;color:var(--muted-foreground)">Frete: ${frete.custo > 0 ? fmtBRL(frete.custo) : 'Grátis'} (${frete.kmIdaEVolta.toFixed(1)} km ida e volta)</div>
+    <div style="font-size:13px;font-weight:700;color:var(--foreground);margin-top:2px">Total com frete (PIX): ${fmtBRL(base + frete.custo)}</div>
   </div>` : ''
 
   // "Com entrada" subsections — só aparecem quando há entrada
@@ -248,23 +229,14 @@ function gerarHtmlPrint(
   const entradaSubTabela = (linha: Linha | null | undefined, cor: string) => linha ? `
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${cor}">
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);margin-bottom:5px">Com entrada</div>
-      <div style="font-size:14px;font-weight:700;color:var(--foreground)">${fmt(linha.credito)} no cartão</div>
-      <div style="font-size:10px;color:var(--muted-foreground);margin-top:2px">${linha.parcelas}x de ${fmt(linha.parcela)}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--foreground)">${fmtBRL(linha.credito)} no cartão</div>
+      <div style="font-size:10px;color:var(--muted-foreground);margin-top:2px">${linha.parcelas}x de ${fmtBRL(linha.parcela)}</div>
     </div>` : ''
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <title>Simulação — ${nomeEsc}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,sans-serif;padding:40px;color:var(--foreground);font-size:14px;max-width:640px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid var(--border)}
-    .brand{font-size:11px;color:var(--muted-foreground);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
-    .model{font-size:26px;font-weight:700}
-    .date{font-size:11px;color:var(--muted-foreground);text-align:right;white-space:nowrap}
-    .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
+  return folhaSimulacao({
+    modelo,
+    dataTexto: data,
+    estilos: `    .price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
     .price-card{border-radius:12px;padding:16px 12px;text-align:center}
     .price-tabela{background:var(--muted);border:2px solid var(--border)}
     .price-desconto{background:color-mix(in srgb, var(--info) 10%, var(--card));border:2px solid color-mix(in srgb, var(--info) 30%, var(--card))}
@@ -284,55 +256,38 @@ function gerarHtmlPrint(
     .eco{font-size:10px;margin-top:3px}
     .price-desconto .eco{color:var(--info)}
     .price-pix .eco{color:var(--success)}
-    .entrada-tag{text-align:center;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:16px;font-size:13px;color:var(--muted-foreground)}
-    .footer{margin-top:32px;padding-top:12px;border-top:1px solid var(--border);font-size:10px;color:var(--muted-foreground);text-align:center}
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div style="display:flex;align-items:center;gap:16px">
-      ${imgUrl ? `<img src="${imgUrl}" alt="${nomeEsc}" style="height:72px;width:108px;object-fit:contain;border-radius:8px;background:var(--muted);border:1px solid var(--border);padding:4px">` : ''}
-      <div>
-        <div class="brand">MOVA — Gestão em Mobilidade Elétrica</div>
-        <div class="model">${nomeEsc}</div>
-      </div>
-    </div>
-    <div class="date">${data}</div>
-  </div>
-
-  ${entrada > 0 ? `<div class="entrada-tag">Entrada: <strong>${fmt(entrada)}</strong></div>` : ''}
+    .entrada-tag{text-align:center;background:var(--muted);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:16px;font-size:13px;color:var(--muted-foreground)}`,
+    corpo: `${entrada > 0 ? `<div class="entrada-tag">Entrada: <strong>${fmtBRL(entrada)}</strong></div>` : ''}
 
   <div class="price-row">
     <div class="price-card price-tabela">
       <div class="price-label">Valor de Tabela</div>
-      <div class="price-val">${cartao21 ? fmt(cartao21.credito) : '—'}</div>
-      <div class="price-sub">${cartao21 ? `21x de ${fmt(cartao21.parcela)}` : '21x no cartão'}</div>
+      <div class="price-val">${cartao21 ? fmtBRL(cartao21.credito) : '—'}</div>
+      <div class="price-sub">${cartao21 ? `21x de ${fmtBRL(cartao21.parcela)}` : '21x no cartão'}</div>
       ${entradaSubTabela(c21Entrada, 'var(--border)')}
     </div>
     <div class="price-card price-desconto">
       <div class="price-label">Valor com Desconto</div>
-      <div class="price-val">${cartao12 ? fmt(cartao12.credito) : '—'}</div>
-      <div class="price-sub">${cartao12 ? `12x de ${fmt(cartao12.parcela)}` : '12x no cartão'}</div>
+      <div class="price-val">${cartao12 ? fmtBRL(cartao12.credito) : '—'}</div>
+      <div class="price-sub">${cartao12 ? `12x de ${fmtBRL(cartao12.parcela)}` : '12x no cartão'}</div>
       ${desc12 ? `<div class="badge badge-blue">${desc12}% de desconto</div>` : ''}
-      ${eco12 && eco12 > 0 ? `<div class="eco">Economia de ${fmt(eco12)}</div>` : ''}
+      ${eco12 && eco12 > 0 ? `<div class="eco">Economia de ${fmtBRL(eco12)}</div>` : ''}
       ${entradaSubTabela(c12Entrada, 'color-mix(in srgb, var(--info) 30%, var(--card))')}
     </div>
     <div class="price-card price-pix">
       <div class="price-label">Valor Promocional</div>
-      <div class="price-val">${fmt(base)}</div>
+      <div class="price-val">${fmtBRL(base)}</div>
       <div class="price-sub">PIX / Dinheiro</div>
       ${descPix ? `<div class="badge badge-green">${descPix}% de desconto</div>` : ''}
-      ${ecoPix && ecoPix > 0 ? `<div class="eco">Economia de ${fmt(ecoPix)}</div>` : ''}
+      ${ecoPix && ecoPix > 0 ? `<div class="eco">Economia de ${fmtBRL(ecoPix)}</div>` : ''}
     </div>
   </div>
 
   ${tabelasSelecionadas}
 
-  ${blocoFrete}
-
-  <div class="footer">MOVA · Simulação gerada em ${data} · Valores sujeitos a alteração sem aviso prévio${MOSTRAR_FINANCIAMENTO ? ' · Financiamento sujeito a aprovação de crédito' : ''}</div>
-</body>
-</html>`
+  ${blocoFrete}`,
+    rodape: `MOVA · Simulação gerada em ${data} · Valores sujeitos a alteração sem aviso prévio${MOSTRAR_FINANCIAMENTO ? ' · Financiamento sujeito a aprovação de crédito' : ''}`,
+  })
 }
 
 function DescontoBadge({ pct: pctStr, economia, corBadge, corEcon }: { pct: string | null; economia: number | null; corBadge: string; corEcon: string }) {
@@ -344,7 +299,7 @@ function DescontoBadge({ pct: pctStr, economia, corBadge, corEcon }: { pct: stri
       </span>
       {economia !== null && economia > 0 && (
         <p className={`text-[10px] font-semibold ${corEcon}`}>
-          Economia de {fmt(economia)}
+          Economia de {fmtBRL(economia)}
         </p>
       )}
     </div>
@@ -376,13 +331,13 @@ function PrecosDestaque({
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Valor de Tabela</p>
         {cartao21 ? (
           <>
-            <p className="text-lg font-bold text-foreground">{fmt(cartao21.credito)}</p>
-            <p className="text-xs text-muted-foreground mt-1">21x de {fmt(cartao21.parcela)}</p>
+            <p className="text-lg font-bold text-foreground">{fmtBRL(cartao21.credito)}</p>
+            <p className="text-xs text-muted-foreground mt-1">21x de {fmtBRL(cartao21.parcela)}</p>
             {c21Entrada && (
               <div className="mt-2 pt-2 border-t border-border">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Com entrada</p>
-                <p className="text-xs font-bold text-foreground">{fmt(c21Entrada.credito)} no cartão</p>
-                <p className="text-xs text-muted-foreground">21x de {fmt(c21Entrada.parcela)}</p>
+                <p className="text-xs font-bold text-foreground">{fmtBRL(c21Entrada.credito)} no cartão</p>
+                <p className="text-xs text-muted-foreground">21x de {fmtBRL(c21Entrada.parcela)}</p>
               </div>
             )}
           </>
@@ -396,14 +351,14 @@ function PrecosDestaque({
         <p className="text-[10px] font-semibold uppercase tracking-widest text-info mb-2">Valor com Desconto</p>
         {cartao12 ? (
           <>
-            <p className="text-lg font-bold text-info">{fmt(cartao12.credito)}</p>
-            <p className="text-xs text-info mt-1">12x de {fmt(cartao12.parcela)}</p>
+            <p className="text-lg font-bold text-info">{fmtBRL(cartao12.credito)}</p>
+            <p className="text-xs text-info mt-1">12x de {fmtBRL(cartao12.parcela)}</p>
             <DescontoBadge pct={desc12} economia={eco12} corBadge="bg-info/10 text-info" corEcon="text-info" />
             {c12Entrada && (
               <div className="mt-2 pt-2 border-t border-info/30">
                 <p className="text-[10px] text-info uppercase tracking-wide mb-1">Com entrada</p>
-                <p className="text-xs font-bold text-info">{fmt(c12Entrada.credito)} no cartão</p>
-                <p className="text-xs text-info">12x de {fmt(c12Entrada.parcela)}</p>
+                <p className="text-xs font-bold text-info">{fmtBRL(c12Entrada.credito)} no cartão</p>
+                <p className="text-xs text-info">12x de {fmtBRL(c12Entrada.parcela)}</p>
               </div>
             )}
           </>
@@ -415,7 +370,7 @@ function PrecosDestaque({
       {/* Valor Promocional — PIX/Dinheiro */}
       <div className="rounded-xl border-2 border-success/50 bg-success/10 p-4 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-success mb-2">Valor Promocional</p>
-        <p className="text-lg font-bold text-success">{fmt(base)}</p>
+        <p className="text-lg font-bold text-success">{fmtBRL(base)}</p>
         <p className="text-xs text-success mt-1">PIX / Dinheiro</p>
         <DescontoBadge pct={descPix} economia={ecoPix} corBadge="bg-success/10 text-success" corEcon="text-success" />
       </div>
@@ -423,8 +378,11 @@ function PrecosDestaque({
   )
 }
 
-export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuarioId }: Props) {
-  const [modeloId, setModeloId] = useState('')
+export function SimuladorClient({ modelos, ...resto }: Props) {
+  return <SimuladorCasco modelos={modelos}>{modelo => <ResultadoTaxas modelo={modelo} {...resto} />}</SimuladorCasco>
+}
+
+function ResultadoTaxas({ modelo, taxas, lojasFrete, isAdmin, lojaUsuarioId }: Omit<Props, 'modelos'> & { modelo: Modelo }) {
   const [entrada, setEntrada] = useState('')
   const [freteResultado, setFreteResultado] = useState<ResultadoFrete | null>(null)
   const [aberto, setAberto] = useState<Record<string, boolean>>({ cartao: false, debito: false, link: false, financiamento: false })
@@ -446,7 +404,6 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
   const toggleLink = makeToggle(setSelLink)
   const toggleFinanciamento = makeToggle(setSelFinanciamento)
 
-  const modelo = modelos.find(m => m.id === modeloId) ?? null
   const base = modelo ? parseFloat(modelo.valorMinimo) : 0
   const entradaNum = parseFloat(entrada || '0')
   const entradaInvalida = base > 0 && entradaNum >= base
@@ -488,52 +445,11 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
       MOSTRAR_FINANCIAMENTO ? selFinanciamento : new Set<number>(),
       freteResultado?.ok ? freteResultado : null,
     )
-    const blob = new Blob([comPaletaClara(html)], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const win = window.open(url, '_blank', 'width=780,height=960')
-    win?.focus()
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    abrirImpressao(html)
   }
 
   return (
     <>
-      {/* Seletor */}
-      <div className="bg-card rounded-xl border shadow-sm p-6">
-        <div className="max-w-sm space-y-1.5">
-          <Label className="text-sm font-medium text-foreground">Selecione o modelo</Label>
-          <Select value={modeloId} onValueChange={v => setModeloId(v ?? '')}>
-            <SelectTrigger className="h-11 text-base w-full">
-              <span className={modeloId ? 'text-foreground' : 'text-muted-foreground'}>
-                {modeloId ? (modelos.find(m => m.id === modeloId)?.nome ?? 'Escolha um modelo...') : 'Escolha um modelo...'}
-              </span>
-            </SelectTrigger>
-            <SelectContent>
-              {modelos.map(m => (
-                <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Resultado */}
-      {modelo && (
-        <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-          <div className="border-b bg-muted flex items-center gap-5 px-6 py-4">
-            {modelo.imagemUrl && (
-              <img
-                src={modelo.imagemUrl}
-                alt={modelo.nome}
-                className="h-24 w-36 object-contain rounded-lg bg-card border p-1 shrink-0"
-              />
-            )}
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">{modelo.nome}</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">Condições de pagamento</p>
-            </div>
-          </div>
-
-          <div className="p-6 space-y-6">
             {/* Resumo de preços destacados */}
             <PrecosDestaque
               base={base}
@@ -551,7 +467,7 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
 
             {freteResultado?.ok && (
               <p className="text-sm font-medium text-foreground">
-                Total com frete (PIX): {fmt(base + freteResultado.custo)}
+                Total com frete (PIX): {fmtBRL(base + freteResultado.custo)}
               </p>
             )}
 
@@ -699,24 +615,12 @@ export function SimuladorClient({ modelos, taxas, lojasFrete, isAdmin, lojaUsuar
                           {total} opção(ões) selecionada(s) serão incluídas no PDF
                         </p>
                       )}
-                      <Button onClick={handlePrint} variant="outline" className="gap-2">
-                        <Printer size={16} />
-                        Imprimir / Salvar PDF
-                      </Button>
+                      <BotaoImprimir onClick={handlePrint} />
                     </div>
                   )
                 })()}
               </>
             )}
-          </div>
-        </div>
-      )}
-
-      {!modelo && (
-        <div className="rounded-xl border bg-card shadow-sm flex items-center justify-center py-24 text-muted-foreground">
-          <p>Selecione um modelo acima para ver as condições</p>
-        </div>
-      )}
     </>
   )
 }

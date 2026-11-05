@@ -1,4 +1,5 @@
 import { formatarCpfCnpj, rotuloDocumento, tipoPessoaDoDocumento } from '@/lib/documento'
+import { esc } from '@/lib/html'
 
 export type TipoDocumento = 'contrato_venda' | 'checklist_entrega'
 
@@ -147,9 +148,6 @@ export const ITENS_CHECKLIST = [
   'Abertura do banco / compartimento da bateria',
 ]
 
-export function esc(v: string): string {
-  return (v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 const ESTILO = `
   .doc { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1e293b; line-height: 1.55; }

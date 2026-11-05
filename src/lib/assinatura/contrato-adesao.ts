@@ -1,7 +1,8 @@
 import { CONTRATADA } from '@/lib/mova-empresa'
 import { formatarCpfCnpj } from '@/lib/documento'
 import { formatarNumeroBR } from '@/lib/numero-br'
-import { esc, envolverDocumento } from '@/lib/assinatura/documento'
+import { envolverDocumento } from '@/lib/assinatura/documento'
+import { esc } from '@/lib/html'
 import type { StatusAdesao } from '@/lib/adesao-campos'
 
 // Contrato de Licença de Uso do MOVA (#165). Texto: minuta do Cesar de
