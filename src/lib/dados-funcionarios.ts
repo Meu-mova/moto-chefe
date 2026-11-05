@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { usuarios, usuariosDados } from '@/lib/db/schema'
+import { usuarioDoGrupo } from '@/lib/usuarios-do-grupo'
 import {
   ERRO_FUNCIONARIO_NAO_ENCONTRADO, normalizarChavePix, recusaCorrecaoPix, validarPix, type TipoChavePix,
 } from '@/lib/dados-funcionario'
@@ -8,15 +9,13 @@ import {
 type Executor = Pick<typeof db, 'select'>
 type ExecutorGravacao = Pick<typeof db, 'select' | 'update'>
 
-/** contaId nulo = admin_geral, que vê e corrige todas as Contas. */
-type Editor = { papel: string; contaId: string | null }
+/** grupoId = grupo ativo de quem corrige. Vale para todos os papéis, inclusive admin_geral. */
+type Editor = { papel: string; grupoId: string }
 
-const daConta = (contaId: string | null) => (contaId ? eq(usuarios.contaId, contaId) : undefined)
-
-// Lista de /admin/dados-funcionarios. contaId nulo = admin_geral, que vê todas as Contas;
-// o sócio vê a Conta inteira, não só o grupo ativo (#320, ADR-0018).
+// Lista de /admin/dados-funcionarios: só o grupo ativo, para sócio e admin_geral. CPF e PIX
+// não aparecem por Conta inteira (decisão do Cesar, 05/11/2026; antes valia a Conta, #320).
 // Sem next/headers, para ser testado contra o banco.
-export async function listarDadosFuncionarios(contaId: string | null, exec: Executor = db) {
+export async function listarDadosFuncionarios(grupoId: string, exec: Executor = db) {
   return exec
     .select({
       id: usuarios.id,
@@ -29,7 +28,7 @@ export async function listarDadosFuncionarios(contaId: string | null, exec: Exec
     })
     .from(usuarios)
     .leftJoin(usuariosDados, eq(usuariosDados.usuarioId, usuarios.id))
-    .where(daConta(contaId))
+    .where(usuarioDoGrupo(grupoId))
     .orderBy(asc(usuarios.nome))
 }
 
@@ -41,14 +40,11 @@ export async function corrigirPixDoFuncionario(
   exec: ExecutorGravacao = db,
 ): Promise<{ ok: true } | { ok: false; erro: string }> {
   const naoEncontrado = { ok: false as const, erro: ERRO_FUNCIONARIO_NAO_ENCONTRADO }
-  // Falha fechado: só o admin_geral fica sem filtro de Conta.
-  if (editor.papel !== 'admin_geral' && !editor.contaId) return naoEncontrado
-
   const [alvo] = await exec
     .select({ papel: usuarios.papel, temDados: usuariosDados.usuarioId })
     .from(usuarios)
     .leftJoin(usuariosDados, eq(usuariosDados.usuarioId, usuarios.id))
-    .where(and(eq(usuarios.id, usuarioId), daConta(editor.contaId)))
+    .where(and(eq(usuarios.id, usuarioId), usuarioDoGrupo(editor.grupoId)))
     .limit(1)
   if (!alvo) return naoEncontrado
 
@@ -57,13 +53,12 @@ export async function corrigirPixDoFuncionario(
   if (recusa) return { ok: false, erro: recusa }
 
   const tipo = pix.tipo as TipoChavePix
-  const daContaDoEditor = editor.contaId
-    ? inArray(usuariosDados.usuarioId, exec.select({ id: usuarios.id }).from(usuarios).where(daConta(editor.contaId)))
-    : undefined
-  // A Conta vai de novo no update: o funcionário pode ter mudado de Conta depois da leitura.
+  const doGrupoDoEditor = inArray(usuariosDados.usuarioId,
+    exec.select({ id: usuarios.id }).from(usuarios).where(usuarioDoGrupo(editor.grupoId)))
+  // O grupo vai de novo no update: o funcionário pode ter mudado de grupo depois da leitura.
   const gravadas = await exec.update(usuariosDados)
     .set({ pixTipo: tipo, pixChave: normalizarChavePix(tipo, pix.chave), atualizadoEm: new Date() })
-    .where(and(eq(usuariosDados.usuarioId, usuarioId), daContaDoEditor))
+    .where(and(eq(usuariosDados.usuarioId, usuarioId), doGrupoDoEditor))
     .returning({ usuarioId: usuariosDados.usuarioId })
   return gravadas.length ? { ok: true } : naoEncontrado
 }

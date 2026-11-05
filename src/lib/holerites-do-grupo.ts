@@ -1,13 +1,9 @@
 import { and, eq, inArray, or } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { holerites, lojas, usuarios } from '@/lib/db/schema'
-import { usuarioDaConta } from '@/lib/conta'
+import { holerites, usuarios } from '@/lib/db/schema'
+import { lojasDoGrupo, usuarioDaConta } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select' | 'delete'>
-
-// Lojas do grupo como subconsulta: o grupo ativo entra dentro de cada consulta.
-const lojasDoGrupo = (grupoId: string, exec: Pick<typeof db, 'select'>) =>
-  exec.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, grupoId))
 
 // Leituras de holerite pelo id, com o grupo ativo DENTRO da consulta: registro de
 // outro grupo nem é lido. Sem next/headers nem Storage, para rodar contra o banco.
@@ -27,7 +23,7 @@ export async function funcionarioDoGrupo(grupoId: string, usuarioId: string, exe
   const [alvo] = await exec
     .select({ lojaId: usuarios.lojaId, nome: usuarios.nome })
     .from(usuarios)
-    .where(and(eq(usuarios.id, usuarioId), inArray(usuarios.lojaId, lojasDoGrupo(grupoId, exec))))
+    .where(and(eq(usuarios.id, usuarioId), inArray(usuarios.lojaId, lojasDoGrupo(grupoId))))
     .limit(1)
   return alvo ?? null
 }
@@ -38,7 +34,7 @@ export async function holeriteDoGrupo(grupoId: string, id: string, exec: Executo
     .select({ arquivoPath: holerites.arquivoPath })
     .from(holerites)
     .innerJoin(usuarios, eq(holerites.usuarioId, usuarios.id))
-    .where(and(eq(holerites.id, id), inArray(usuarios.lojaId, lojasDoGrupo(grupoId, exec))))
+    .where(and(eq(holerites.id, id), inArray(usuarios.lojaId, lojasDoGrupo(grupoId))))
     .limit(1)
   return row ?? null
 }
@@ -50,7 +46,7 @@ export async function removerHoleriteDoGrupo(grupoId: string, id: string, exec: 
     .where(and(
       eq(holerites.id, id),
       inArray(holerites.usuarioId, exec.select({ id: usuarios.id }).from(usuarios)
-        .where(inArray(usuarios.lojaId, lojasDoGrupo(grupoId, exec)))),
+        .where(inArray(usuarios.lojaId, lojasDoGrupo(grupoId)))),
     ))
     .returning({ arquivoPath: holerites.arquivoPath })
   return row?.arquivoPath ?? null
@@ -73,7 +69,7 @@ export async function listarHoleritesDoGrupo(grupo: { id: string; contaId: strin
     })
     .from(holerites)
     .innerJoin(usuarios, eq(holerites.usuarioId, usuarios.id))
-    .where(and(eq(holerites.mes, mes), inArray(usuarios.lojaId, lojasDoGrupo(grupoId, exec))))
+    .where(and(eq(holerites.mes, mes), inArray(usuarios.lojaId, lojasDoGrupo(grupoId))))
 
   // Nome de quem enviou vem de uma segunda consulta em vez de um segundo join na
   // mesma tabela: são poucas linhas por mês e o alias deixaria a query bem menos
