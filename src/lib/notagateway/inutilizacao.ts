@@ -119,6 +119,28 @@ export type NotaDoNumero = { id: string; numero: string | null; serie: string | 
 
 export type PedidoDoNumero = { situacao: SituacaoInutilizacao; motivoStatus: string | null; serie: string; numeroInicial: number; numeroFinal: number; criadoEm: Date | string }
 
+export type ConflitosDaFaixa = { numerosDeNotas: number[]; pedidos: Pick<PedidoDoNumero, 'numeroInicial' | 'numeroFinal' | 'situacao'>[] }
+
+/**
+ * O que o MOVA já sabe sobre a faixa, só para avisar (nunca bloqueia): notas que ocupam um número dela
+ * e pedidos de inutilização vivos que a cruzam. Emissão feita fora do MOVA ninguém consulta.
+ */
+export function conflitosDaFaixa(
+  faixa: Pick<FaixaInutilizacao, 'serie' | 'numeroInicial' | 'numeroFinal'>, notas: NotaDoNumero[], pedidos: PedidoDoNumero[],
+): ConflitosDaFaixa {
+  const daSerie = (serie: string | null) => semZerosAEsquerda(serie) === semZerosAEsquerda(faixa.serie)
+  const numerosDeNotas = [...new Set(notas
+    .filter(n => daSerie(n.serie) && !numeroLivre(n))
+    .map(n => Number(n.numero))
+    .filter(numero => numero >= faixa.numeroInicial && numero <= faixa.numeroFinal))].sort((a, b) => a - b)
+  return {
+    numerosDeNotas,
+    pedidos: pedidos
+      .filter(p => daSerie(p.serie) && p.situacao !== 'negada' && p.numeroInicial <= faixa.numeroFinal && p.numeroFinal >= faixa.numeroInicial)
+      .map(({ numeroInicial, numeroFinal, situacao }) => ({ numeroInicial, numeroFinal, situacao })),
+  }
+}
+
 /**
  * Tudo o que a decisão precisa, carregado uma vez (inutilizar.ts) para o pedido e para a
  * lista: a regra mora aqui, e o SQL só traz candidatos do mesmo grupo e ambiente.

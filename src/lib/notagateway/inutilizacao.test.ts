@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { decidirInutilizacao, serieEUfDaEmpresa, ufPermiteInutilizacao, validarFaixaInutilizacao, elegivelParaInutilizar, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu, podePedirInutilizacao, type ContextoInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, normalizarJustificativa, validarJustificativa } from './inutilizacao'
+import { conflitosDaFaixa, decidirInutilizacao, serieEUfDaEmpresa, ufPermiteInutilizacao, validarFaixaInutilizacao, elegivelParaInutilizar, ERRO_SEM_CONFIGURACAO, pedidoSemRespostaVenceu, podePedirInutilizacao, type ContextoInutilizacao, situacaoInutilizacao, STATUS_NAO_ENVIADA, STATUS_SEM_CONFIGURACAO, normalizarJustificativa, validarJustificativa } from './inutilizacao'
 
 test('justificativa: tira acentos e espaços sobrando', () => {
   assert.deepEqual(validarJustificativa('  Venda cancelada após\n a rejeição  '), { ok: true, justificativa: 'Venda cancelada apos a rejeicao' })
@@ -198,4 +198,19 @@ test('decide: faixa pedida que cobre o número esconde o botão; faixa que não 
   assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [faixaPedida({ situacao: 'autorizada' })] }).tipo, 'autorizada')
   assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [faixaPedida({ numeroInicial: 975, numeroFinal: 980 })] }).tipo, 'pode')
   assert.equal(decidirInutilizacao({ ...ctxBase, pedidos: [faixaPedida({ serie: '2' })] }).tipo, 'pode')
+})
+
+test('conflitos: nota que ocupa o número e pedido vivo que cruza a faixa avisam; o resto não', () => {
+  const nota = (numero: string, status: string, extra = {}) => ({ id: numero, numero, serie: '1', status, motivoStatus: null, ...extra })
+  const doPedido = (extra = {}) => ({ situacao: 'pendente' as const, motivoStatus: null, serie: '1', numeroInicial: 20, numeroFinal: 30, criadoEm: '2026-11-01T12:00:00Z', ...extra })
+  const f = { serie: '1', numeroInicial: 16, numeroFinal: 24 }
+  const notas = [
+    nota('0017', 'Autorizada'), nota('18', 'Processando'), nota('19', 'Negada', { motivoStatus: '301 - Uso Denegado' }),
+    nota('21', 'Negada', { motivoStatus: '225 - Falha no schema' }), nota('22', 'Descartada'),
+    nota('23', 'Autorizada', { serie: '2' }), nota('99', 'Autorizada'), nota('17', 'Cancelada'),
+  ]
+  const c = conflitosDaFaixa(f, notas, [doPedido(), doPedido({ situacao: 'negada' }), doPedido({ serie: '2' }), doPedido({ numeroInicial: 25, numeroFinal: 30 }), doPedido({ situacao: 'autorizada', numeroInicial: 1, numeroFinal: 16 })])
+  assert.deepEqual(c.numerosDeNotas, [17, 18, 19], 'ocupam: autorizada, cancelada, em andamento e denegada; livres e de outra série não')
+  assert.deepEqual(c.pedidos.map(p => [p.numeroInicial, p.numeroFinal, p.situacao]), [[20, 30, 'pendente'], [1, 16, 'autorizada']])
+  assert.deepEqual(conflitosDaFaixa(f, [], []), { numerosDeNotas: [], pedidos: [] })
 })
