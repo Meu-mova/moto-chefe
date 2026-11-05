@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatarCpfCnpj, tipoPessoaDoDocumento } from '@/lib/documento'
-import { camposFaltando, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
-import { RenaveForm } from './renave-form'
 import { fraseDaRecusa, telaDaRecusa, type GrupoCorrecao } from '@/lib/notagateway/recusa'
+import { camposFaltando, type DadosRenave, type OrigemRenave } from '@/lib/notagateway/veiculo'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import type { NotaResumo, PreviaNfe } from '../../vendas/nfe-propria-actions'
+import { RenaveForm } from './renave-form'
 
 type Previa = Extract<PreviaNfe, { ok: true }>
 type Comprador = NonNullable<CorrecaoNf['comprador']>
@@ -54,6 +54,11 @@ export function NfeRecusa({ nota, previa, pending, erro, renave, renaveOrigem, o
   })
 
   const faltamRenave = renave ? camposFaltando(renave).length : 0
+  const corrigidos = new Intl.ListFormat('pt-BR', { type: 'conjunction' }).format([
+    `a venda nº ${previa.vendaNumero}`,
+    ...(previa.ficha ? ['a ficha fiscal da moto'] : []),
+    ...(previa.exigeRenave ? ['os dados do veículo'] : []),
+  ])
   const apontados = tela.tipo === 'corrigir' ? tela.abertos : []
   // Moto sem ficha não se corrige aqui: a ficha nasce na conferência.
   const correcao = (): CorrecaoNf => ({
@@ -129,8 +134,13 @@ export function NfeRecusa({ nota, previa, pending, erro, renave, renaveOrigem, o
           )}
           {tela.empresa && <OQueFazerEmpresa podeConfigurar={previa.podeConfigurarFiscal} />}
           <p className="border-l-2 border-border pl-2.5 text-sm text-muted-foreground">
-            Salvar corrige também a venda nº {previa.vendaNumero}{previa.ficha ? ' e a ficha fiscal da moto' : ''}{previa.exigeRenave ? ' e os dados do veículo' : ''}.
+            Salvar corrige também {corrigidos}.
           </p>
+          {faltamRenave > 0 && (
+            <p className="border-l-2 border-l-destructive pl-2.5 text-sm text-destructive">
+              {faltamRenave === 1 ? 'Falta 1 campo' : `Faltam ${faltamRenave} campos`} nos dados do veículo. Abra o grupo Veículo e preencha.
+            </p>
+          )}
         </>
       )}
 
