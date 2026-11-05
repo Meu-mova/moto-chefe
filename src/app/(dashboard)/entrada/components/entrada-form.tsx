@@ -11,6 +11,9 @@ import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } fr
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
 import { PecasPorPlanilha } from './pecas-por-planilha'
+import { MotosImportadas } from './motos-importadas'
+import { devolverTiradas, tirarMarcadas, type MotoImportada, type MotoNaLista } from '@/lib/entrada-lista'
+import { marcarVarias } from '@/lib/selecao'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
@@ -21,17 +24,9 @@ type Modelo = {
 }
 type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
-// `modelo` guarda o nome cru que veio do XML/planilha (é a chave de agrupamento da
-// tela); `modeloId` e `preco` são o que de fato vai pro banco, e ambos ficam editáveis.
-type MotoLinhaPlanilha = {
-  chassi: string
-  cor: string
-  motor: string
-  modelo: string
-  nf: string
-  modeloId: string
-  preco: string
-}
+
+// Um aviso de Desfazer por vez: excluir de novo troca o aviso, e trocar a lista o fecha.
+const AVISO_DESFAZER = 'entrada-desfazer-exclusao'
 
 export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo[]; lojas: Loja[]; apelidos?: NomeDeModelo[] }) {
   const [modo, setModo] = useState<'manual' | 'planilha'>('planilha')
@@ -42,7 +37,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   const [lojaId, setLojaId] = useState('')
   const [linhas, setLinhas] = useState<MotoLinha[]>([{ chassi: '', cor: '', motor: '' }])
 
-  const [linhasPlanilha, setLinhasPlanilha] = useState<MotoLinhaPlanilha[]>([])
+  const [linhasPlanilha, setLinhasPlanilha] = useState<MotoImportada[]>([])
+  // Posições marcadas na lista para excluir antes de registrar (#686).
+  const [marcadas, setMarcadas] = useState<ReadonlySet<number>>(new Set())
   // De onde vieram as motos da lista: o contador aparece no quadro que as carregou.
   const [origemDasLinhas, setOrigemDasLinhas] = useState<'xml' | 'planilha'>('xml')
   // Ficha fiscal (NCM, CEST, origem…) lida dos <det> dos XMLs importados. Não
@@ -164,6 +161,36 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     setLinhasPlanilha(prev => prev.map((l, i) => i === idx ? { ...l, preco } : l))
   }
 
+  // --- Tirar motos da lista antes de registrar (#686) ---
+  // Lista trocada inteira (planilha nova, Limpar, registrada): as posições marcadas e o
+  // Desfazer pendente valiam para a lista antiga.
+  function substituirLista(novas: MotoImportada[]) {
+    setLinhasPlanilha(novas)
+    setMarcadas(new Set())
+    toast.dismiss(AVISO_DESFAZER)
+  }
+
+  function marcar(indices: number[], ligar: boolean) {
+    setMarcadas(prev => marcarVarias(prev, indices, ligar))
+  }
+
+  function excluirMarcadas() {
+    const { ficam, tiradas } = tirarMarcadas(linhasPlanilha, marcadas)
+    setLinhasPlanilha(ficam)
+    setMarcadas(new Set())
+    toast(tiradas.length === 1 ? `Moto ${tiradas[0].moto.chassi} tirada da lista.` : `${tiradas.length} motos tiradas da lista.`, {
+      id: AVISO_DESFAZER,
+      duration: 6000,
+      action: { label: 'Desfazer', onClick: () => desfazerExclusao(tiradas) },
+    })
+  }
+
+  // As posições mudam ao devolver: marca feita depois da exclusão apontaria para outra moto.
+  function desfazerExclusao(tiradas: MotoNaLista[]) {
+    setLinhasPlanilha(prev => devolverTiradas(prev, tiradas))
+    setMarcadas(new Set())
+  }
+
   // --- Planilha XLSX handler ---
   function handleXLSX(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -181,7 +208,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         return
       }
 
-      const novas: MotoLinhaPlanilha[] = rows
+      const novas: MotoImportada[] = rows
         .filter(r => r['CHASSI'])
         .map(r => {
           const modelo = String(r['MODELO'] || '').trim()
@@ -200,7 +227,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         return
       }
 
-      setLinhasPlanilha(novas)
+      substituirLista(novas)
       setOrigemDasLinhas('planilha')
       toast.success(`${novas.length} moto(s) importada(s) da planilha`)
     }
@@ -215,7 +242,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     if (!files.length) return
 
     const nomesMova = modelos.map(m => m.modelo)
-    const novas: MotoLinhaPlanilha[] = []
+    const novas: MotoImportada[] = []
     const fichasNovas: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[] = []
     const avisos: string[] = []
     let pecasNovas: typeof notaPecas = null
@@ -390,7 +417,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           toast.error(result.error, { duration: Infinity, closeButton: true })
         } else {
           toast.success(result.success)
-          setLinhasPlanilha([])
+          substituirLista([])
           setNotaPecas(null)
           setLinhasPecas([])
           setLojaId('')
@@ -420,25 +447,13 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         toast.error(result.error)
       } else {
         toast.success(result.success)
-        setLinhasPlanilha([])
+        substituirLista([])
         setLojaId('')
       }
     } finally {
       setLoading(false)
     }
   }
-
-  // --- Agrupar motos por NF > Modelo para exibição ---
-  // Guarda o índice de cada linha junto: a chave do grupo é o nome cru do XML, então
-  // trocar o modelo de um bloco não o faz saltar de lugar embaixo do clique.
-  const nfsAgrupadas = linhasPlanilha.reduce<Record<string, Record<string, { moto: MotoLinhaPlanilha; idx: number }[]>>>((acc, m, idx) => {
-    const nfKey = m.nf || 'SEM NF'
-    const modeloKey = m.modelo.toUpperCase()
-    if (!acc[nfKey]) acc[nfKey] = {}
-    if (!acc[nfKey][modeloKey]) acc[nfKey][modeloKey] = []
-    acc[nfKey][modeloKey].push({ moto: m, idx })
-    return acc
-  }, {})
 
   return (
     <div className="space-y-6">
@@ -538,98 +553,17 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             </div>
           </div>
 
-          {/* Motos importadas agrupadas por modelo */}
           {linhasPlanilha.length > 0 && (
-            <div className="bg-card rounded-lg border p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">
-                  Motos importadas ({linhasPlanilha.length})
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setLinhasPlanilha([])}
-                  className="text-sm text-destructive hover:opacity-80"
-                >
-                  Limpar
-                </button>
-              </div>
-
-              {Object.entries(nfsAgrupadas).map(([nf, modelosGrupo]) => {
-                const totalNf = Object.values(modelosGrupo).reduce((s, arr) => s + arr.length, 0)
-                return (
-                  <div key={nf} className="space-y-3">
-                    <div className="flex items-center gap-2 border-b pb-2">
-                      <span className="text-sm font-semibold text-foreground">NF {nf}</span>
-                      <span className="text-xs bg-info/10 text-info px-2 py-0.5 rounded-full">
-                        {totalNf} moto(s)
-                      </span>
-                    </div>
-
-                    {Object.entries(modelosGrupo).map(([modelo, motosGrupo]) => {
-                      const indices = motosGrupo.map(g => g.idx)
-                      // O bloco só tem um modelo escolhido quando todas as suas motos
-                      // apontam pro mesmo — senão o select abre vazio, esperando escolha.
-                      const idsNoGrupo = new Set(motosGrupo.map(g => g.moto.modeloId))
-                      const modeloIdDoGrupo = idsNoGrupo.size === 1 ? [...idsNoGrupo][0] : ''
-                      return (
-                        <div key={`${nf}-${modelo}`} className="border rounded-md p-3 space-y-2 ml-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-sm">{modelo}</span>
-                            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                              {motosGrupo.length} un.
-                            </span>
-                            <select
-                              value={modeloIdDoGrupo}
-                              onChange={e => trocarModeloDoGrupo(indices, e.target.value)}
-                              className={`border rounded px-2 py-1 text-xs ${modeloIdDoGrupo ? '' : 'border-destructive/50 text-destructive bg-destructive/10'}`}
-                            >
-                              <option value="">Escolha o modelo cadastrado...</option>
-                              {modelos.map(m => (
-                                <option key={m.id} value={m.id}>{m.marca} — {m.modelo}</option>
-                              ))}
-                            </select>
-                            {!modeloIdDoGrupo && (
-                              <span className="text-xs text-destructive font-medium">
-                                Modelo não cadastrado — escolha o equivalente
-                              </span>
-                            )}
-                          </div>
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b text-muted-foreground">
-                                <th className="text-left px-2 py-1 w-8">#</th>
-                                <th className="text-left px-2 py-1">Chassi</th>
-                                <th className="text-left px-2 py-1">Motor</th>
-                                <th className="text-left px-2 py-1">Cor</th>
-                                <th className="text-left px-2 py-1 w-32">Preço de compra</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {motosGrupo.map(({ moto: m, idx }, i) => (
-                                <tr key={idx} className="border-b last:border-0">
-                                  <td className="px-2 py-1 text-muted-foreground">{i + 1}</td>
-                                  <td className="px-2 py-1 font-mono">{m.chassi}</td>
-                                  <td className="px-2 py-1 font-mono">{m.motor}</td>
-                                  <td className="px-2 py-1">{m.cor}</td>
-                                  <td className="px-2 py-1">
-                                    <CurrencyInput
-                                      value={m.preco}
-                                      onChange={v => updatePreco(idx, v)}
-                                      placeholder="0,00"
-                                      className="h-7 text-xs"
-                                    />
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
+            <MotosImportadas
+              linhas={linhasPlanilha}
+              modelos={modelos}
+              marcadas={marcadas}
+              onMarcar={marcar}
+              onTrocarModelo={trocarModeloDoGrupo}
+              onPreco={updatePreco}
+              onExcluir={excluirMarcadas}
+              onLimpar={() => substituirLista([])}
+            />
           )}
 
           {notaPecas && (
