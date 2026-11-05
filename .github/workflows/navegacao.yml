@@ -62,6 +62,8 @@ jobs:
 
       # Versão do Playwright no lock da ref testada: a imagem do container acompanha o bump do
       # Dependabot sozinha (#704). Não há tag para trocar à mão.
+      # Se a imagem dessa versão ainda não saiu no MCR quando o PR do Dependabot roda, o container
+      # falha com "manifest unknown": espere a imagem sair e rode de novo (`gh run rerun <id>`).
       - if: steps.f.outputs.rodar == 'true'
         uses: actions/checkout@v6
         with:
