@@ -6,7 +6,7 @@ alter table configuracao_taxas
   check (padrao_simulador in ('taxas', 'avista_12x'));
 
 -- Total em 12x do modelo no padrão 'avista_12x' (o valor cheio, não a parcela). Vazio: o
--- simulador mostra o card de 12x sem valor.
+-- simulador mostra só o PIX do modelo, com o aviso para definir o 12x na Precificação.
 alter table precificacao
   add column valor_12x numeric(12, 2)
   check (valor_12x is null or valor_12x > 0);
