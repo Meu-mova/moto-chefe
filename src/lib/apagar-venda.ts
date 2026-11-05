@@ -1,6 +1,6 @@
 /**
  * Apaga uma venda de moto e o que depende dela. Hoje serve ao "Cancelar venda"; o "Remover moto"
- * (ADR-0020) reusa, para as duas não divergirem nem deixarem dado pessoal no Storage.
+ * (#677, PR #687) vai reusar, para as duas formas de apagar venda não divergirem.
  */
 import { eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'
@@ -21,14 +21,16 @@ export function caminhosDosArquivos(docs: { selfiePath: string | null; assinatur
 const somaValores = (linhas: { valor: string | number }[]) => linhas.reduce((a, l) => a + Number(l.valor), 0)
 
 /**
- * Apaga a venda dentro da transação recebida. NÃO confere a Conta: quem chama TEM de ter buscado
- * a venda com a Conta e o alcance do usuário no where (como `vendaDoUsuario`) e travado a NF antes.
+ * Apaga a venda dentro da transação recebida. Não confere nada; quem chama TEM de, antes:
+ * - buscar a venda com a Conta e o alcance do usuário no where (como `vendaDoUsuario`);
+ * - no MESMO tx, travar a linha da venda (`for update`) e recusar NF viva (`vendaTemNfViva`),
+ *   senão uma emissão simultânea deixa a nota órfã e viva na SEFAZ.
  * Moto, pedido e histórico ficam com quem chama: cancelar e remover tratam cada um de um jeito.
  */
 export async function apagarVendaTx(tx: Tx, vendaId: string): Promise<VendaApagada> {
-  // conciliacoes_cartao, pix_recebimentos_mcp e demandas apontam para a venda com ON DELETE NO
-  // ACTION: sem soltar antes, o DELETE estoura a FK. Os recebimentos voltam a ficar sem dono em
-  // /conciliacao e /pix-mcp, porque o dinheiro entrou e continua no extrato.
+  // pix_recebimentos_mcp e demandas apontam para a venda sem ON DELETE: sem soltar antes, o DELETE
+  // estoura a FK. O cartão (ON DELETE SET NULL) é solto aqui para zerar também `conciliado`.
+  // Os recebimentos voltam a ficar sem dono em /conciliacao e /pix-mcp: o dinheiro continua no extrato.
   const cartoes = await tx.update(conciliacoesCartao)
     .set({ vendaId: null, conciliado: false, conciliadoEm: null })
     .where(eq(conciliacoesCartao.vendaId, vendaId))
