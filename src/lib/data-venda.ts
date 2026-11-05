@@ -13,6 +13,11 @@ export function parseDataInput(yyyyMmDd: string): Date {
   return new Date(`${yyyyMmDd}T12:00:00.000Z`)
 }
 
+/** "03/11/2026" → "2026-11-03". STUB. */
+export function dataBrParaIso(_ddmmaaaa: string): string | null {
+  return null
+}
+
 // Hoje no calendário de Brasília, como "YYYY-MM-DD" — para default de <input
 // type="date"> e de datas gravadas "de hoje".
 //
