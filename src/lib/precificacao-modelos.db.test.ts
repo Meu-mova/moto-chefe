@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaVazia, semearGrupo } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -76,13 +77,14 @@ test('precificação: a Conta B não vê nem precifica o modelo próprio da A, e
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 
 async function duasContas(tx: Tx) {
-  const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0].id
-  const contaA = await linha(sql`insert into contas (nome) values ('Prec 12x A') returning id`)
-  const contaB = await linha(sql`insert into contas (nome) values ('Prec 12x B') returning id`)
-  const grupoA = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Prec 12x A', '00000000001201', ${contaA}) returning id`)
-  const grupoB = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Prec 12x B', '00000000001202', ${contaB}) returning id`)
+  const grupoDaConta = async (nome: string, cnpj: string) => {
+    const contaId = await semearContaVazia(tx, { prefixo: 'PR683', nome })
+    return { id: (await semearGrupo(tx, contaId, { prefixo: 'PR683', nome, cnpj })).grupoId, contaId }
+  }
+  const a = await grupoDaConta('A', '00000000068301')
+  const b = await grupoDaConta('B', '00000000068302')
   await tx.execute(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('TESTE-12X', 'M12X', 'autopropelido', '1000', '', '')`)
-  return { a: { id: grupoA, contaId: contaA }, b: { id: grupoB, contaId: contaB } }
+  return { a, b }
 }
 
 async function precoDoGrupo(tx: Tx, grupoId: string) {
