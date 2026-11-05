@@ -29,7 +29,14 @@ jobs:
           sparse-checkout: package-lock.json
           sparse-checkout-cone-mode: false
       - id: v
-        run: echo "playwright=$(node -p "require('./package-lock.json').packages['node_modules/playwright'].version")" >> "$GITHUB_OUTPUT"
+        run: |
+          v=$(node -p "require('./package-lock.json').packages['node_modules/playwright']?.version ?? ''")
+          # Sem versão válida a tag sairia "v-noble" e o container falharia sem dizer por quê.
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Versão do Playwright não encontrada no package-lock.json (node_modules/playwright): '$v'"
+            exit 1
+          fi
+          echo "playwright=$v" >> "$GITHUB_OUTPUT"
 
   smoke:
     name: smoke do preview
