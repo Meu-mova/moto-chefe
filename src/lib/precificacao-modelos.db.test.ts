@@ -103,12 +103,19 @@ test('valor em 12x: grava, mantém quando não vem e limpa quando vem vazio', as
     const editado = (await precoDoGrupo(tx, a.id))!
     assert.deepEqual([editado.valor_minimo, editado.valor_12x], ['12500.00', '15600.00'])
 
-    // Sem o campo (outra tela que grava preço): o 12x fica como estava.
+    // Sem o campo (diálogo no padrão 'taxas', que esconde o 12x): o 12x fica como estava.
     await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12400' }, tx)
     assert.equal((await precoDoGrupo(tx, a.id))!.valor_12x, '15600.00')
 
     await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: '' }, tx)
     assert.equal((await precoDoGrupo(tx, a.id))!.valor_12x, null)
+
+    // O campo de moeda devolve "0.00" quando o administrador apaga o valor: também limpa, sem erro.
+    for (const zero of ['0', '0.00']) {
+      await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: '15600' }, tx)
+      await salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: zero }, tx)
+      assert.equal((await precoDoGrupo(tx, a.id))!.valor_12x, null, zero)
+    }
 
     await assert.rejects(salvarPrecoDoModelo(a, { precId: criado.id, nome: 'M12X', valorMinimo: '12500', valor12x: '-1' }, tx), /Valor em 12x inválido/)
     throw new Desfazer()

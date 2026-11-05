@@ -15,12 +15,9 @@ export function PadraoSimuladorCard({ padrao }: { padrao: PadraoSimulador }) {
   const [escolhido, setEscolhido] = useState<PadraoSimulador>(padrao)
   const [pendente, iniciar] = useTransition()
   const salvar = () => iniciar(async () => {
-    try {
-      await salvarPadraoSimuladorAction(escolhido)
-      toast.success('Padrão do simulador salvo')
-    } catch {
-      toast.error('Erro ao salvar o padrão')
-    }
+    const r = await salvarPadraoSimuladorAction(escolhido)
+    if (r.ok) toast.success('Padrão do simulador salvo')
+    else toast.error(r.erro)
   })
 
   return (

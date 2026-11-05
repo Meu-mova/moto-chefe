@@ -3,7 +3,8 @@ import { db } from '@/lib/db'
 import { configuracaoTaxas, motos, precificacao } from '@/lib/db/schema'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { travarPrecificacaoDoGrupo } from '@/lib/tabela-preco-padrao'
-import type { PadraoSimulador } from '@/lib/simulador-padrao'
+import { lerTotal12x, type PadraoSimulador } from '@/lib/simulador-padrao'
+import { RecusaUsuario } from '@/lib/resultado-action'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -39,13 +40,10 @@ export async function modeloPrecificavel(contaId: string, nome: string, exec: Ex
   return (await listarModelosDaConta(contaId, exec)).some(m => chaveNome(m.modeloOriginal) === alvo)
 }
 
-/** Valor em reais vindo da tela: vazio vira null; o resto precisa ser número positivo. */
-function valorOpcional(v: string, campo: string): string | null {
-  const t = v.trim()
-  if (!t) return null
-  const n = Number(t)
-  if (!Number.isFinite(n) || n <= 0) throw new Error(`${campo} inválido`)
-  return n.toFixed(2)
+function total12xParaGravar(v: string): string | null {
+  const n = lerTotal12x(v)
+  if (n === 'invalido') throw new RecusaUsuario('Valor em 12x inválido')
+  return n === null ? null : n.toFixed(2)
 }
 
 /**
@@ -64,19 +62,19 @@ export async function salvarPrecoDoModelo(
     nome: string
     valorMinimo: string
     custo?: string
-    /** Total em 12x: undefined não mexe; '' limpa. */
+    /** Total em 12x: undefined não mexe; vazio ou zero limpa. */
     valor12x?: string
   },
   exec: Pick<typeof db, 'select' | 'update' | 'transaction'> = db,
 ): Promise<void> {
   const nome = chaveNome(data.nome)
-  if (!nome) throw new Error('Nome do modelo é obrigatório')
+  if (!nome) throw new RecusaUsuario('Nome do modelo é obrigatório')
   const campos = {
     nome,
     valorMinimo: data.valorMinimo,
     custo: data.custo || null,
-    // Não veio: não mexe no que está gravado. Veio vazio: limpa.
-    ...(data.valor12x === undefined ? {} : { valor12x: valorOpcional(data.valor12x, 'Valor em 12x') }),
+    // Não veio: não mexe no que está gravado. Veio vazio ou zero: limpa.
+    ...(data.valor12x === undefined ? {} : { valor12x: total12xParaGravar(data.valor12x) }),
   }
 
   // Só modelo do catálogo da Conta (#496). O preço avulso antigo continua
@@ -87,7 +85,7 @@ export async function salvarPrecoDoModelo(
     : undefined
   const mantemNome = !!atual && chaveNome(atual.nome) === nome
   if (!mantemNome && !(await modeloPrecificavel(grupo.contaId, nome, exec))) {
-    throw new Error('Modelo não encontrado')
+    throw new RecusaUsuario('Modelo não encontrado')
   }
 
   if (daLinha) {

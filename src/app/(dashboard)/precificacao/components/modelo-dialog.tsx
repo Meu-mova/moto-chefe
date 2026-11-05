@@ -51,7 +51,7 @@ export function ModeloDialog({ modelo, com12x, onClose }: Props) {
     }
     setLoading(true)
     try {
-      await salvarPrecoAction({
+      const r = await salvarPrecoAction({
         precId: modelo?.precId ?? null,
         nome,
         valorMinimo,
@@ -59,6 +59,10 @@ export function ModeloDialog({ modelo, com12x, onClose }: Props) {
         // Campo escondido (padrão 'taxas'): não manda, e o valor gravado fica como está.
         valor12x: com12x ? valor12x : undefined,
       })
+      if (!r.ok) {
+        toast.error(r.erro)
+        return
+      }
       toast.success(primeiroPreco || !modelo ? 'Preço definido' : 'Modelo atualizado')
       onClose()
     } catch {

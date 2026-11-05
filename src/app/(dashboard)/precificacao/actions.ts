@@ -8,13 +8,14 @@ import { revalidatePath } from 'next/cache'
 import { salvarPadraoSimulador, salvarPrecoDoModelo } from '@/lib/precificacao-modelos'
 import { ehPadraoSimulador } from '@/lib/simulador-padrao'
 import { ehMatrizDePlanilha } from '@/lib/planilha-precos'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { gravarImportacao, previaDaImportacao } from '@/lib/importar-precos'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
 async function checarAdmin() {
   const u = await getUsuarioLogado()
-  if (!ADMINS.includes(u.papel)) throw new Error('Sem permissão')
+  if (!ADMINS.includes(u.papel)) throw new RecusaUsuario('Sem permissão')
   return getGrupoAtivo(u)
 }
 
@@ -59,21 +60,25 @@ export async function salvarPrecoAction(data: {
   nome: string
   valorMinimo: string
   custo?: string
-  /** Total em 12x do padrão 'avista_12x': ausente não mexe; vazio limpa. */
+  /** Total em 12x do padrão 'avista_12x': ausente não mexe; vazio ou zero limpa. */
   valor12x?: string
 }) {
-  const grupo = await checarAdmin()
-  await salvarPrecoDoModelo(grupo, data)
-  revalidatePath('/precificacao')
-  revalidatePath('/simulador')
+  return acao(async () => {
+    const grupo = await checarAdmin()
+    await salvarPrecoDoModelo(grupo, data)
+    revalidatePath('/precificacao')
+    revalidatePath('/simulador')
+  })
 }
 
 export async function salvarPadraoSimuladorAction(padrao: string) {
-  const grupo = await checarAdmin()
-  if (!ehPadraoSimulador(padrao)) throw new Error('Padrão inválido')
-  await salvarPadraoSimulador(grupo.id, padrao)
-  revalidatePath('/precificacao')
-  revalidatePath('/simulador')
+  return acao(async () => {
+    const grupo = await checarAdmin()
+    if (!ehPadraoSimulador(padrao)) throw new RecusaUsuario('Padrão inválido')
+    await salvarPadraoSimulador(grupo.id, padrao)
+    revalidatePath('/precificacao')
+    revalidatePath('/simulador')
+  })
 }
 
 export async function toggleAtivoAction(id: string, ativo: boolean) {
