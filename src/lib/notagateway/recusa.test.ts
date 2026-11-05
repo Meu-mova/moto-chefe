@@ -68,3 +68,35 @@ test('denegada sem código conhecido não abre campos: só emite a nova nota (#3
 test('539 abre a tela do número já usado, sem campos (#347)', () => {
   assert.deepEqual(telaDaRecusa({ status: 'Negada', motivoStatus: '539 - Rejeição: Duplicidade de NF-e, com diferença na Chave de Acesso' }), { tipo: 'duplicidade' })
 })
+
+const M841 = 'Código: 841\r\nDescrição: Codigo do tipo de veiculo inexistente. [nItem:1]'
+
+test('841, 842 e 843 abrem o veículo quando a moto tem RENAVE (#673)', () => {
+  assert.deepEqual(gruposDaRecusa(M841, true), ['veiculo'])
+  assert.deepEqual(gruposDaRecusa('842 - Rejeição: Código da espécie de Veículo inexistente', true), ['veiculo'])
+  assert.deepEqual(gruposDaRecusa('843 - Rejeição: Código da espécie de Veículo incompatível com o tipo do Veículo', true), ['veiculo'])
+  assert.deepEqual(telaDaRecusa({ status: 'Negada', motivoStatus: M841 }, true), { tipo: 'corrigir', abertos: ['veiculo'], empresa: false })
+})
+
+test('moto sem RENAVE recusada com 841 cai nos grupos editáveis, sem veículo (#673)', () => {
+  assert.deepEqual(gruposDaRecusa(M841, false), ['comprador', 'moto'])
+  assert.deepEqual(telaDaRecusa({ status: 'Negada', motivoStatus: M841 }), { tipo: 'corrigir', abertos: ['comprador', 'moto'], empresa: false })
+})
+
+test('841 junto com recusa de empresa mantém o veículo aberto e marca a empresa (#673)', () => {
+  const motivo = `${M841}; Código: GW7324\r\nDescrição: x`
+  assert.deepEqual(telaDaRecusa({ status: 'Negada', motivoStatus: motivo }, true), { tipo: 'corrigir', abertos: ['veiculo'], empresa: true })
+})
+
+test('código desconhecido com RENAVE continua abrindo cliente e moto; o veículo fica fechado (#673)', () => {
+  assert.deepEqual(gruposDaRecusa('999 - Rejeição: Erro não catalogado', true), ['comprador', 'moto'])
+})
+
+test('frases de 841, 842 e 843 sem travessão (#673)', () => {
+  for (const c of ['841', '842', '843']) {
+    const f = fraseDaRecusa(`${c} - Rejeição: x`)
+    assert.ok(f, c)
+    assert.ok(!f.includes('—'), c)
+  }
+  assert.match(fraseDaRecusa('841 - x') ?? '', /tipo de veículo/)
+})
