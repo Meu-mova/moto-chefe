@@ -4,6 +4,7 @@ import { createElement } from 'react'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
+import { clicar, digitar, escolher } from '@/test/eventos-dom'
 
 const { dom, desmontar: desmontarDom } = montarDom()
 after(desmontarDom)
@@ -25,7 +26,6 @@ const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
 const DEPOIS_DA_ANIMACAO_MS = 300
 const textoDaTela = () => document.body.textContent ?? ''
 const botao = (texto: string) => [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').trim() === texto)
-const clicar = (el: Element | undefined) => el!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 const dialogoAberto = () => document.querySelector('[data-slot="dialog-content"]') !== null
 // Campo pelo rótulo visível, não pelo id: o id é detalhe do componente.
 const campo = <T extends HTMLElement>(rotulo: RegExp) => {
@@ -45,18 +45,13 @@ async function montar() {
   document.body.appendChild(container)
   const root = createRoot(container)
   await act(async () => { root.render(createElement(EditarPixDialog, GRAVADO)) })
-  const definir = (el: HTMLInputElement | HTMLSelectElement, valor: string, evento: 'input' | 'change') => act(async () => {
-    const proto = el instanceof dom.window.HTMLSelectElement ? dom.window.HTMLSelectElement.prototype : dom.window.HTMLInputElement.prototype
-    Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(el, valor)
-    el.dispatchEvent(new dom.window.Event(evento, { bubbles: true }))
-  })
-  const clique = (el: Element | undefined, ms = 50) => act(async () => { clicar(el); await esperar(ms) })
-  const abrir = () => clique(document.querySelector(`button[aria-label="Editar PIX de ${GRAVADO.nome}"]`)!)
+  const clique = async (el: Element | undefined, ms = 50) => { await clicar(el); await act(() => esperar(ms)) }
+  const abrir = () => clique(document.querySelector(`button[aria-label="Editar PIX de ${GRAVADO.nome}"]`) ?? undefined)
   const escape = () => act(async () => {
     document.querySelector('[data-slot="dialog-content"]')!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await esperar(DEPOIS_DA_ANIMACAO_MS)
   })
-  const editar = async (t: string, c: string) => { await definir(tipo(), t, 'change'); await definir(chave(), c, 'input') }
+  const editar = async (t: string, c: string) => { await escolher(tipo(), t); await digitar(chave(), c) }
   let montado = true
   const desmontar = () => act(async () => { if (!montado) return; montado = false; root.unmount(); container.remove() })
   montados.push(desmontar)
@@ -98,7 +93,9 @@ test('trava enquanto envia: Escape não fecha, Salvar e Cancelar desabilitados, 
   salvar.mock.mockImplementation(() => new Promise(ok => { liberar = () => ok({ ok: true }) }))
   const t = await montar()
   await t.abrir()
-  await t.act(async () => { clicar(botao('Salvar')); clicar(botao('Salvar')); await esperar(20) })
+  // Os dois cliques no mesmo act, antes do render que desabilita o botão: é o que só o ref barra.
+  const cliqueCru = () => botao('Salvar')!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+  await t.act(async () => { cliqueCru(); cliqueCru(); await esperar(20) })
   assert.equal(salvar.mock.callCount(), 1)
   await t.escape()
   assert.ok(dialogoAberto(), 'Escape não fecha enquanto envia')
