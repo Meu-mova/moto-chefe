@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { contaDoEditor } from '@/lib/grupo'
 import { listarDadosFuncionarios } from '@/lib/dados-funcionarios'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TIPOS_CHAVE_PIX, type TipoChavePix } from '@/lib/dados-funcionario'
+import { recusaCorrecaoPix, TIPOS_CHAVE_PIX, type TipoChavePix } from '@/lib/dados-funcionario'
 import { EditarPixDialog } from './components/editar-pix-dialog'
 
 function formatCpf(cpf: string) {
@@ -58,9 +58,9 @@ export default async function DadosFuncionariosPage() {
                 <TableCell>{rotulo(l.pixTipo)}</TableCell>
                 <TableCell>{l.pixChave ?? '—'}</TableCell>
                 <TableCell>{l.dataNascimento ? formatData(l.dataNascimento) : '—'}</TableCell>
-                {/* A lista já vem só com a Conta de quem edita; a action confere de novo. */}
+                {/* Mesma regra do servidor; a Conta já veio filtrada na lista. */}
                 <TableCell>
-                  {l.pixTipo && l.pixChave && (
+                  {l.pixTipo && l.pixChave && !recusaCorrecaoPix(usuario, { papel: l.papel, temDados: !!l.cpf }) && (
                     <EditarPixDialog usuarioId={l.id} nome={l.nome}
                                      pixTipo={l.pixTipo as TipoChavePix} pixChave={l.pixChave} />
                   )}
