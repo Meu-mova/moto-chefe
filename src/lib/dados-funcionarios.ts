@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { lojas, usuarios, usuariosDados } from '@/lib/db/schema'
+import { usuarios, usuariosDados } from '@/lib/db/schema'
 import { usuarioDoGrupo } from '@/lib/usuarios-do-grupo'
 import {
   ERRO_FUNCIONARIO_NAO_ENCONTRADO, normalizarChavePix, recusaCorrecaoPix, validarPix, type TipoChavePix,
@@ -28,7 +28,6 @@ export async function listarDadosFuncionarios(grupoId: string, exec: Executor = 
     })
     .from(usuarios)
     .leftJoin(usuariosDados, eq(usuariosDados.usuarioId, usuarios.id))
-    .leftJoin(lojas, eq(lojas.id, usuarios.lojaId))
     .where(usuarioDoGrupo(grupoId))
     .orderBy(asc(usuarios.nome))
 }
@@ -45,7 +44,6 @@ export async function corrigirPixDoFuncionario(
     .select({ papel: usuarios.papel, temDados: usuariosDados.usuarioId })
     .from(usuarios)
     .leftJoin(usuariosDados, eq(usuariosDados.usuarioId, usuarios.id))
-    .leftJoin(lojas, eq(lojas.id, usuarios.lojaId))
     .where(and(eq(usuarios.id, usuarioId), usuarioDoGrupo(editor.grupoId)))
     .limit(1)
   if (!alvo) return naoEncontrado
@@ -55,8 +53,8 @@ export async function corrigirPixDoFuncionario(
   if (recusa) return { ok: false, erro: recusa }
 
   const tipo = pix.tipo as TipoChavePix
-  const doGrupoDoEditor = inArray(usuariosDados.usuarioId, exec.select({ id: usuarios.id }).from(usuarios)
-    .leftJoin(lojas, eq(lojas.id, usuarios.lojaId)).where(usuarioDoGrupo(editor.grupoId)))
+  const doGrupoDoEditor = inArray(usuariosDados.usuarioId,
+    exec.select({ id: usuarios.id }).from(usuarios).where(usuarioDoGrupo(editor.grupoId)))
   // O grupo vai de novo no update: o funcionário pode ter mudado de grupo depois da leitura.
   const gravadas = await exec.update(usuariosDados)
     .set({ pixTipo: tipo, pixChave: normalizarChavePix(tipo, pix.chave), atualizadoEm: new Date() })

@@ -7,9 +7,12 @@ type Papel = (typeof usuarios.papel.enumValues)[number]
 
 // "Do grupo" = loja do usuário no grupo ou grupo no grupos_acesso, dentro da Conta do
 // grupo: a mesma posse do seletor (podeVerGrupo). admin_geral sem loja fica de fora de propósito: lista global
-// mostrava usuários de outros clientes do MOVA. A consulta precisa do leftJoin de lojas por usuarios.lojaId.
+// mostrava usuários de outros clientes do MOVA. Lojas do grupo em subconsulta: quem usa não precisa de join.
 export const usuarioDoGrupo = (grupoId: string) => and(
-  or(eq(lojas.grupoId, grupoId), sql`${grupoId}::uuid = any(${usuarios.gruposAcesso})`),
+  or(
+    inArray(usuarios.lojaId, db.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, grupoId))),
+    sql`${grupoId}::uuid = any(${usuarios.gruposAcesso})`,
+  ),
   // Marcação de grupo de outra Conta não vale (ADR-0018, adendo de 21/10).
   sql`${usuarios.contaId} = (select conta_id from grupos where id = ${grupoId}::uuid)`,
 )
@@ -27,7 +30,6 @@ export async function listarUsuariosDoGrupo(
   return exec
     .select({ id: usuarios.id, nome: usuarios.nome })
     .from(usuarios)
-    .leftJoin(lojas, eq(lojas.id, usuarios.lojaId))
     .where(and(usuarioDoGrupo(grupoId), doPapel))
     .orderBy(usuarios.nome)
 }
