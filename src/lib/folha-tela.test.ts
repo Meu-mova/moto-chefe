@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ABAS_FOLHA, AVISO_PREMIACAO, avisoDaAba, descreverRegra, diferencaValorReal, exemploDaPremiacao, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
+import { ABAS_FOLHA, AVISO_PREMIACAO, avisoDaAba, descreverRegra, diferencaValorReal, exemploDaPremiacao, fmtPercentual, hrefComFiltro, mesAdjacente, rotuloMes, situacaoValorReal } from './folha-tela'
 
 test('mesAdjacente: vira o ano em dezembro e em janeiro', () => {
   assert.equal(mesAdjacente('2026-12', 1), '2027-01')
@@ -101,4 +101,12 @@ test('exemploDaPremiacao: se o exemplo passa da faixa seguinte, o texto segue a 
   const coladas = [{ valorMinimoVendas: '100000', premiacao: '300' }, { valorMinimoVendas: '110000', premiacao: '400' }, { valorMinimoVendas: '120000', premiacao: '900' }]
   // 110.000 x 1,15 = 126.500: já passou da 3ª faixa.
   assert.deepEqual(exemploDaPremiacao(coladas), { vendido: 126500, premiacao: 900, ordinal: 3 })
+})
+
+test('fmtPercentual: o numeric do banco em pt-BR, de 1 a 3 casas', () => {
+  assert.equal(fmtPercentual('0.30'), '0,3')
+  assert.equal(fmtPercentual('0.05'), '0,05')
+  assert.equal(fmtPercentual('1.00'), '1,0')
+  assert.equal(fmtPercentual('12.5'), '12,5')
+  assert.equal(fmtPercentual('0.0010'), '0,001')
 })

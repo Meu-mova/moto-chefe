@@ -10,12 +10,13 @@ import { AVISO_PREMIACAO, exemploDaPremiacao } from '@/lib/folha-tela'
 import { ordenarFaixas } from '@/lib/premiacao'
 import { fmtBRL } from '@/lib/preco-minimo'
 import { AvisoFolha } from './folha-aviso'
+import { TITULO } from './folha-mes-grade'
 
 export type FaixaRow = { id: string; valorMinimoVendas: string; premiacao: string }
 
 const reais = (v: string) => fmtBRL(parseFloat(v))
 const CARTAO = 'rounded-lg border bg-card p-4'
-const TITULO_COLUNA = 'px-4 py-2 text-left text-xs font-medium text-muted-foreground'
+const TITULO_COLUNA = `${TITULO} px-4 py-2 text-left`
 // Alvo de toque de 44 px abaixo de 960 px de conteúdo (container `folha`, ver folha-casca.tsx).
 const CAMPO = 'h-11 @[960px]/folha:h-8'
 

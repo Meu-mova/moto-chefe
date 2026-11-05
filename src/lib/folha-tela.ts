@@ -94,3 +94,7 @@ export function exemploDaPremiacao(faixas: Faixa[]): { vendido: number; premiaca
     ordinal: ordenadas.filter(f => parseFloat(f.valorMinimoVendas) <= vendido).length,
   }
 }
+
+/** Percentual de regra como o banco entrega ('0.30'): "0,3", "0,05", "1,0". De 1 a 3 casas. */
+export const fmtPercentual = (v: string): string =>
+  parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
