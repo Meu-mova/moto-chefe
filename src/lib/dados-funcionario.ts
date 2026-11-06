@@ -93,7 +93,7 @@ export const ERRO_SEM_DADOS = 'Esse funcionário ainda não preencheu os dados.'
 
 /**
  * Por que o PIX desse funcionário não pode ser corrigido por quem edita, ou null se pode.
- * A Conta já foi filtrada na consulta; aqui fica o resto da regra, para o lápis da tela e o
+ * O grupo já foi filtrado na consulta; aqui fica o resto da regra, para o lápis da tela e o
  * servidor decidirem igual (#576/#600).
  */
 export function recusaCorrecaoPix(

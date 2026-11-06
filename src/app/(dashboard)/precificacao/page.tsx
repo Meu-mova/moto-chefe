@@ -45,6 +45,7 @@ export default async function PrecificacaoPage() {
       marca: m.marca as string | null,
       valorMinimo: p?.valorMinimo ?? null,
       custo: p?.custo ?? null,
+      valor12x: p?.valor12x ?? null,
       ativo: p?.ativo ?? false,
       estoqueDisponivel: m.estoqueDisponivel,
     }
@@ -64,6 +65,7 @@ export default async function PrecificacaoPage() {
       marca: null,
       valorMinimo: p.valorMinimo,
       custo: p.custo,
+      valor12x: p.valor12x,
       ativo: p.ativo,
       estoqueDisponivel: estoquePorNome[chaveNome(p.nome)] ?? 0,
     }))
@@ -103,6 +105,7 @@ export default async function PrecificacaoPage() {
         }}
         modelos={modelos}
         grupoNome={grupo.nome}
+        padraoSimulador={taxasRow[0]?.padraoSimulador ?? 'taxas'}
       />
     </div>
   )

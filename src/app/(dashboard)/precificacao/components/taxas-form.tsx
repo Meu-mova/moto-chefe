@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { salvarTaxasAction } from '../actions'
 import { CurrencyInput } from '@/components/ui/currency-input'
-import { Save } from 'lucide-react'
+import { ChevronDown, Save } from 'lucide-react'
 
 const PARCELAS_CARTAO = Array.from({ length: 21 }, (_, i) => i + 1)
 const PARCELAS_DEBITO = [1]
@@ -70,7 +70,7 @@ function TaxaGrid({
   )
 
   return (
-    <div className={`grid gap-4 ${cols === 3 ? 'grid-cols-3' : cols === 2 ? 'grid-cols-2' : 'grid-cols-1 max-w-xs'}`}>
+    <div className={`grid gap-4 ${cols === 3 ? 'sm:grid-cols-3' : cols === 2 ? 'sm:grid-cols-2' : 'max-w-xs'}`}>
       {chunks.map((chunk, ci) => (
         <div key={ci} className="rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
@@ -106,7 +106,11 @@ function TaxaGrid({
   )
 }
 
-export function TaxasForm({ taxas }: { taxas: Taxas }) {
+/** `recolhida`: no padrão 'avista_12x' o simulador não usa as taxas de cartão; o card abre só se pedir. */
+export function TaxasForm({ taxas, recolhida = false }: { taxas: Taxas; recolhida?: boolean }) {
+  const [abriu, setAbriu] = useState(false)
+  // Fora do padrão novo o card fica sempre aberto, mesmo se o padrão trocar com a tela aberta.
+  const aberta = !recolhida || abriu
   const [cartao, setCartao] = useState<RateMap>(() => initMap(taxas.taxasCartao, PARCELAS_CARTAO))
   const [debito, setDebito] = useState<RateMap>(() => initMap(taxas.taxasDebito, PARCELAS_DEBITO))
   const [link, setLink] = useState<RateMap>(() => initMap(taxas.taxasLink, PARCELAS_LINK))
@@ -145,20 +149,35 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
 
   return (
     <div className="bg-card rounded-xl border shadow-sm">
-      <div className="px-6 py-4 border-b flex items-center justify-between">
+      <div className={`px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3 ${aberta ? 'border-b' : ''}`}>
         <div>
           <h2 className="font-semibold text-foreground">Configuração de Taxas Globais</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Aplicadas sobre o valor mínimo de cada modelo</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {recolhida
+              ? 'O simulador deste grupo não usa as taxas de cartão. Frete e imposto continuam valendo.'
+              : 'Aplicadas sobre o valor mínimo de cada modelo'}
+          </p>
         </div>
-        <Button onClick={handleSave} disabled={loading} className="gap-2">
-          <Save size={15} />
-          {loading ? 'Salvando...' : 'Salvar taxas'}
-        </Button>
+        <div className="flex gap-2">
+          {recolhida && (
+            <Button variant="outline" onClick={() => setAbriu(a => !a)} aria-expanded={aberta} className="gap-2">
+              {aberta ? 'Recolher' : 'Ver taxas'}
+              <ChevronDown size={15} className={aberta ? 'rotate-180' : ''} />
+            </Button>
+          )}
+          {aberta && (
+            <Button onClick={handleSave} disabled={loading} className="gap-2">
+              <Save size={15} />
+              {loading ? 'Salvando...' : 'Salvar taxas'}
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="p-6">
+      {aberta && <div className="p-4 sm:p-6">
         <Tabs defaultValue="cartao">
-          <TabsList>
+          {/* No celular as abas quebram linha: a tela não pode rolar para o lado. */}
+          <TabsList className="w-full flex-wrap group-data-horizontal/tabs:h-auto *:h-8 sm:w-fit sm:flex-nowrap sm:group-data-horizontal/tabs:h-8">
             <TabsTrigger value="cartao">Cartão de Crédito (1–21x)</TabsTrigger>
             <TabsTrigger value="debito">Cartão de Débito</TabsTrigger>
             <TabsTrigger value="link">Link de Pagamento (1–18x)</TabsTrigger>
@@ -236,7 +255,7 @@ export function TaxasForm({ taxas }: { taxas: Taxas }) {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+      </div>}
     </div>
   )
 }
