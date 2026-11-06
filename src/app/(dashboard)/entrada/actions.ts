@@ -8,7 +8,8 @@ import { contaDaLoja } from '@/lib/conta'
 import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
 import { type FichaDaMoto } from '@/lib/nfe-fiscal'
-import { gravarFichaFiscalDasMotos, inserirMotosUmaAUma, lojaDestinoDaEntrada, type MotoConferida, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { gravarFichaFiscalDasMotos, inserirMotosUmaAUma, lojaDestinoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { separarMotosDaEntrada } from '@/lib/entrada-motos-regras'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import {
@@ -149,19 +150,10 @@ export async function registrarEntradaLote(formData: {
     return { error: `Chassis duplicados na planilha: ${duplicados.join(', ')}` }
   }
 
-  const erros: string[] = []
-  const validas: MotoConferida[] = []
-  for (const moto of formData.motos) {
-    const chassi = moto.chassi.trim().toUpperCase()
-    if (!chassi) continue
-    const precoCompra = (moto.precoCompra || '').replace(',', '.').trim()
-    if (!moto.modeloId || !idsValidos.has(moto.modeloId)) erros.push(`${chassi}: selecione o modelo antes de registrar`)
-    else if (!precoCompra) erros.push(`${chassi}: informe o preço de compra`)
-    else validas.push({ chassi, moto, precoCompra })
-  }
+  const { prontas, erros: naConferencia } = separarMotosDaEntrada(formData.motos, idsValidos)
   // idPorChassi: id da moto recém-inserida, para casar com a ficha fiscal do XML
-  const { idPorChassi, erros: recusadas } = await inserirMotosUmaAUma(db, { lojaId: loja.id, usuario, motos: validas })
-  erros.push(...recusadas)
+  const { idPorChassi, erros: noInsert } = await inserirMotosUmaAUma(db, { lojaId: loja.id, usuario, motos: prontas })
+  const erros = [...naConferencia, ...noInsert]
   const inseridos = idPorChassi.size
 
   // Só as motos que de fato entraram: chassi recusado (duplicado, sem modelo)

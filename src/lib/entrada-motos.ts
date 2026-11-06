@@ -13,6 +13,7 @@ import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { historicoEstoque, lojas, motos, motosFiscal } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
 import { CHASSI_ARQUIVADO } from '@/lib/arquivar-moto-regras'
+import { separarMotosDaEntrada } from '@/lib/entrada-motos-regras'
 import { type FichaFiscal, type EmitenteNfe, type FichaDaMoto } from '@/lib/nfe-fiscal'
 
 type Executor = Pick<typeof db, 'insert'>
@@ -144,19 +145,7 @@ export async function conferirMotosDaEntrada(
     [...new Set(motosDaNota.map(m => m.modeloId).filter(Boolean))],
     exec,
   )
-  const vistos = new Set<string>()
-  const erros: string[] = []
-  const prontas: MotoConferida[] = []
-  for (const moto of motosDaNota) {
-    const chassi = moto.chassi.trim().toUpperCase()
-    if (!chassi) continue
-    const precoCompra = (moto.precoCompra || '').replace(',', '.').trim()
-    if (vistos.has(chassi)) erros.push(`${chassi}: chassi repetido na nota`)
-    else if (!moto.modeloId || !modelosValidos.has(moto.modeloId)) erros.push(`${chassi}: selecione o modelo antes de registrar`)
-    else if (!precoCompra) erros.push(`${chassi}: informe o preço de compra`)
-    else prontas.push({ chassi, moto, precoCompra })
-    vistos.add(chassi)
-  }
+  const { prontas, erros } = separarMotosDaEntrada(motosDaNota, modelosValidos)
   if (!prontas.length) return { prontas, erros }
 
   const jaCadastrados = await recusasDeChassiCadastrado(exec, { contaId, grupoLiberado: usuario.grupoLiberado }, prontas.map(p => p.chassi))
