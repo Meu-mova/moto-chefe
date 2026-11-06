@@ -5,12 +5,7 @@ import * as XLSX from 'xlsx'
 import { montarDom } from '@/test/montar-dom'
 
 const { dom, desmontar } = montarDom()
-// O formulário lê a planilha com FileReader; o File tem de ser o do mesmo JSDOM.
-const g = globalThis as Record<string, unknown>
-const antes = { FileReader: g.FileReader, File: g.File }
-g.FileReader = dom.window.FileReader
-g.File = dom.window.File
-after(() => { Object.assign(g, antes); desmontar() })
+after(desmontar)
 
 const enviados: { lojaId: string; motos: { chassi: string }[] }[] = []
 const registrarEntradaLote = async (dados: { lojaId: string; motos: { chassi: string }[] }) => {
