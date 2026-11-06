@@ -80,7 +80,8 @@ export default async function RadarPage({
               {motos.map((moto) => (
                 <TableRow key={moto.id}>
                   <TableCell>
-                    {/* Selo junto do chassi (#688): no celular a tabela rola e as colunas do fim ficam fora da tela. */}
+                    {/* Arquivada (0174): só o RADAR mostra; some do resto do MOVA. O selo fica junto do chassi
+                        porque no celular a tabela rola e as colunas do fim ficam fora da tela (#688). */}
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-mono text-xs">{moto.chassi}</span>
                       {moto.arquivadaEm && <Badge variant="outline" className="whitespace-nowrap">Arquivada</Badge>}
@@ -94,7 +95,7 @@ export default async function RadarPage({
                       {statusLabel_legado[moto.status] ?? moto.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="space-x-1">
+                  <TableCell>
                     {moto.disponibilidade && (
                       <Badge variant="secondary">
                         {disponibilidadeLabel[moto.disponibilidade] ?? moto.disponibilidade}
