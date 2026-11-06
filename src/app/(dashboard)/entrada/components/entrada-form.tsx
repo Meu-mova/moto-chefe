@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
+import { modeloDaNota } from '@/lib/entrada-xml-lote'
 import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, lerItensDaNfe, ehNcmDeMoto, tagNfe, type ItemPecaNfe } from '@/lib/nfe-entrada'
 import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } from '@/lib/conferencia-pecas'
 import type { Conferencia } from '@/lib/entrada-pecas'
@@ -254,15 +255,15 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdMotosNaNota} moto(s). Confira.`)
         }
         for (const m of motos) {
-          const modelo = mapearModelo(m.modelo, nomesMova) ?? m.modelo // de-para NF → MOVA
           novas.push({
             chassi: m.chassi,
             cor: m.cor,
             motor: m.motor,
-            modelo,
+            modelo: mapearModelo(m.modelo, nomesMova) ?? m.modelo, // de-para NF → MOVA
             nf: nNF,
+            modeloId: modeloDaNota(m.modelo, modelos),
             // vUnCom do item desta moto na própria nota (#513).
-            ...sugerirModelo(modelo, fichaPorChassi.get(m.chassi.trim().toUpperCase())?.valorUnitario ?? ''),
+            preco: fichaPorChassi.get(m.chassi.trim().toUpperCase())?.valorUnitario ?? '',
           })
         }
       } catch {
