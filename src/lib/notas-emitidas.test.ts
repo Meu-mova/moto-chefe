@@ -28,7 +28,7 @@ test('vendaQueNaoExisteMais: texto da venda apagada (cancelada ou removida), com
 })
 
 test('recusaSemVenda: a ação que precisa da venda diz que ela não existe mais (#690)', () => {
-  assert.equal(recusaSemVenda(31601), 'Venda #31601 (não existe mais): esta ação precisa da venda')
+  assert.equal(recusaSemVenda(31601), 'Venda #31601 (não existe mais): esta ação precisa da venda. Recarregue a tela.')
 })
 
 test('vendaNaDescricao: complemento de "Nota 974, série 1" com e sem a venda (#690)', () => {

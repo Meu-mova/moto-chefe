@@ -35,7 +35,7 @@ function textoSemVenda(vendaNumero: number | null): string {
 
 /** Recusa da ação na nota que precisa da venda (consultar, cancelar, descartar) quando ela não existe mais. */
 export function recusaSemVenda(vendaNumero: number): string {
-  return `${textoSemVenda(vendaNumero)}: esta ação precisa da venda`
+  return `${textoSemVenda(vendaNumero)}: esta ação precisa da venda. Recarregue a tela.`
 }
 
 /** O fim de "Nota 974, série 1" nos diálogos: ", venda #N", ou uma frase própria se a venda não existe mais. */
