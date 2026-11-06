@@ -181,9 +181,9 @@ test('recusa gravada com SemTransporte reabre com SemOcorrenciaDeTransporte e o 
 
   const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87116000', cest: '' } }, renave, anterior!)
   assert.equal(result.ok, true, JSON.stringify(result))
-  assert.deepEqual(net.payloads.map(p => p.transporte.frete.modalidade), ['SemOcorrenciaDeTransporte'])
+  assert.deepEqual(net.payloads.map(p => p.transporte?.frete.modalidade), ['SemOcorrenciaDeTransporte'])
   const notes = (await snapshot(f)).notes as { id: string; numero: string; payload: Payload }[]
-  assert.deepEqual(notes.map(n => [n.id, n.numero, n.payload.transporte.frete.modalidade]), [[f.noteId, '650', 'SemOcorrenciaDeTransporte']])
+  assert.deepEqual(notes.map(n => [n.id, n.numero, n.payload.transporte?.frete.modalidade]), [[f.noteId, '650', 'SemOcorrenciaDeTransporte']])
 })
 
 test('recusa 841: reenviar com o RENAVE editado leva o veículo novo no mesmo id, linha e número (#673)', async () => {
