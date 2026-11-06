@@ -143,3 +143,32 @@ test('trava enquanto envia: duplo clique envia uma vez, botões desabilitados e 
   await t.act(async () => { liberar(); await esperar(20) })
   assert.match(textoDaTela(), /2 motos arquivadas/)
 })
+
+test('busca que falha avisa na tela e deixa buscar de novo', async () => {
+  api.buscar.mock.mockImplementationOnce(async () => { throw new Error('rede') })
+  const t = await montar()
+  await t.buscar('43440')
+  assert.match(textoDaTela(), /Não deu para buscar\. Tente de novo\./)
+  await t.clique('Buscar')
+  assert.ok(caixa('TESTE00ARQ000001'), 'a segunda busca traz as motos')
+  assert.doesNotMatch(textoDaTela(), /Não deu para buscar/)
+})
+
+test('envio sem resposta avisa para conferir antes de tentar de novo e destrava', async () => {
+  api.arquivar.mock.mockImplementationOnce(async () => { throw new Error('rede') })
+  const t = await montar()
+  await t.ateConfirmar()
+  await t.clique('Arquivar 2 motos')
+  assert.match(textoDaTela(), /Sem resposta do servidor\. Confira no Showroom se as motos saíram antes de tentar de novo\./)
+  assert.ok(!botao('Arquivar 2 motos')!.disabled)
+  assert.equal(t.onFechar.mock.callCount(), 0)
+})
+
+test('"Moto não encontrada" do servidor (outra Conta, já arquivada ou sumiu) aparece como veio', async () => {
+  api.arquivar.mock.mockImplementationOnce(async () => ({ ok: false, erro: 'Moto não encontrada' }))
+  const t = await montar()
+  await t.ateConfirmar()
+  await t.clique('Arquivar 2 motos')
+  assert.match(textoDaTela(), /Moto não encontrada/)
+  assert.doesNotMatch(textoDaTela(), /motos arquivadas/)
+})
