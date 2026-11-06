@@ -1738,6 +1738,7 @@ async function solicitarAprovacaoVenda(
   }
 
   await db.transaction(async (tx) => {
+    await travarMotoNaoArquivada(tx, moto.id)
     await tx.insert(aprovacoesVenda).values({
       motoId: moto.id,
       lojaId: moto.lojaId,

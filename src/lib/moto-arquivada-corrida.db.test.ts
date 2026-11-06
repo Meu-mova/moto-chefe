@@ -161,3 +161,10 @@ test('venda: o arquivar que termina entre a checagem e a gravação faz a venda 
   const r = await corrida(moto, () => acoes.vender(venda(moto)), sql`select count(*) from vendas where moto_id = ${moto}`)
   assert.deepEqual(r, { resposta: { ...recusou, erro: MOTO_ARQUIVADA }, arquivar: true, arquivada: true, pendencias: 0 })
 })
+
+test('pedido de aprovação: o arquivar que termina no meio faz o pedido recusar; nada fica aguardando', async () => {
+  const moto = await novaMoto('APR')
+  const r = await corrida(moto, () => acoes.pedirAprovacao(venda(moto, 'transferencia'), '', 'pagamento_sensivel'),
+    sql`select count(*) from aprovacoes_venda where moto_id = ${moto} and status = 'pendente'`)
+  assert.deepEqual(r, { resposta: { ...recusou, erro: MOTO_ARQUIVADA }, arquivar: true, arquivada: true, pendencias: 0 })
+})
