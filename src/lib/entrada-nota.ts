@@ -4,15 +4,11 @@
  * motos continua parcial, pelo registrarEntradaLote. Roda dentro da transação de quem
  * chama.
  */
-import { eq, inArray } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { grupos, lojas, motos } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
-import { contaDaLoja } from '@/lib/conta'
-import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
-import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { conferirMotosDaEntrada, gravarMotosConferidas, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { conferirLinhasPecas, gravarEntradaPecas, type EntradaPecas, type LinhaEntradaPeca } from '@/lib/entrada-pecas'
-import type { EmitenteNfe, FichaFiscal } from '@/lib/nfe-fiscal'
+import type { FichaDaMoto } from '@/lib/nfe-fiscal'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
 
@@ -28,7 +24,7 @@ export type NotaComPecas = {
   lojaId: string
   nota: EntradaPecas['nota']
   motos: MotoEntradaLote[]
-  fiscais?: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
+  fiscais?: FichaDaMoto[]
   pecas: LinhaEntradaPeca[]
 }
 
@@ -38,48 +34,11 @@ export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Pr
     throw new NotaRecusada(['Loja de destino não encontrada'])
   }
 
-  const erros: string[] = []
-  const contaId = await contaDaLoja(e.lojaId, exec)
-  const modelosValidos = await modelosUsaveisPelaConta(
-    contaId,
-    [...new Set(e.motos.map(m => m.modeloId).filter(Boolean))],
-    exec,
-  )
-  const vistos = new Set<string>()
-  const prontas: { chassi: string; moto: MotoEntradaLote; precoCompra: string }[] = []
-  for (const moto of e.motos) {
-    const chassi = moto.chassi.trim().toUpperCase()
-    if (!chassi) continue
-    const precoCompra = (moto.precoCompra || '').replace(',', '.').trim()
-    if (vistos.has(chassi)) erros.push(`${chassi}: chassi repetido na nota`)
-    else if (!moto.modeloId || !modelosValidos.has(moto.modeloId)) erros.push(`${chassi}: selecione o modelo antes de registrar`)
-    else if (!precoCompra) erros.push(`${chassi}: informe o preço de compra`)
-    else prontas.push({ chassi, moto, precoCompra })
-    vistos.add(chassi)
-  }
-  // Conferido antes de gravar: um insert que falha dentro da transação a invalida inteira.
-  if (prontas.length) {
-    const existentes = await exec.select({ chassi: motos.chassi, contaId: grupos.contaId }).from(motos)
-      .innerJoin(lojas, eq(lojas.id, motos.lojaId)).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
-      .where(inArray(motos.chassi, prontas.map(p => p.chassi)))
-    // Chassi de outra Conta recusa sem dizer onde está (#456).
-    for (const m of existentes) {
-      erros.push(m.contaId === contaId
-        ? `${m.chassi}: chassi já existe no sistema`
-        : `${m.chassi}: não deu para registrar este chassi. Confira o número.`)
-    }
-  }
-  erros.push(...await conferirLinhasPecas(exec, e.lojaId, e.pecas))
+  const { prontas, erros: errosDasMotos } = await conferirMotosDaEntrada(exec, e.lojaId, e.motos)
+  const erros = [...errosDasMotos, ...await conferirLinhasPecas(exec, e.lojaId, e.pecas)]
   if (erros.length) throw new NotaRecusada(erros)
 
-  const idPorChassi = new Map<string, string>()
-  for (const p of prontas) {
-    idPorChassi.set(p.chassi, await inserirMotoDaEntrada(exec, { lojaId: e.lojaId, usuarioId: e.usuario.id, ...p }))
-  }
-  await gravarFichaFiscalDasMotos(exec, (e.fiscais ?? [])
-    .map(f => ({ ...f, motoId: idPorChassi.get(f.chassi.trim().toUpperCase()) }))
-    .filter((f): f is typeof f & { motoId: string } => !!f.motoId))
-
+  await gravarMotosConferidas(exec, { lojaId: e.lojaId, usuarioId: e.usuario.id, prontas, fiscais: e.fiscais ?? [] })
   await gravarEntradaPecas(exec, { lojaId: e.lojaId, usuario: e.usuario, nota: e.nota, linhas: e.pecas })
   return { motos: prontas.length, pecas: e.pecas.length }
 }

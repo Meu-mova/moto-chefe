@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { extrairFiscalDaNfe, extrairEmitenteDaNfe, normalizarCest } from './nfe-fiscal'
+import { extrairCnpjDoDestinatario, extrairFiscalDaNfe, extrairEmitenteDaNfe, normalizarCest } from './nfe-fiscal'
 
 // <det> reais, copiados de notas que o Radar Fiscal já baixou da SEFAZ.
 // O primeiro é a moto GIGA da Q.P.A (a fábrica): ICMS-ST já recolhido por ela,
@@ -105,4 +105,10 @@ test('valor unitário do item (vUnCom) sai com 2 casas; sem vUnCom fica vazio (#
   assert.equal(ilegivel.valorUnitario, '')
   const [tresCasas] = extrairFiscalDaNfe(envolver(DET_GIGA.replace('6400.0000000000</vUnCom>', '1.500</vUnCom>')))
   assert.equal(tresCasas.valorUnitario, '1.50')
+})
+
+test('CNPJ do destinatário (quem comprou), não o do emitente', () => {
+  const xml = '<nfeProc><NFe><infNFe><emit><CNPJ>11222333000181</CNPJ></emit><dest><CNPJ>33333333000191</CNPJ><xNome>Loja</xNome></dest></infNFe></NFe></nfeProc>'
+  assert.equal(extrairCnpjDoDestinatario(xml), '33333333000191')
+  assert.equal(extrairCnpjDoDestinatario('<nfeProc><dest><CPF>12345678909</CPF></dest></nfeProc>'), '')
 })
