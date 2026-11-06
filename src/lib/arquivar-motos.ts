@@ -112,9 +112,12 @@ export async function arquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[
     if (recusa) throw new RecusaUsuario(recusa)
 
     const texto = motivo.trim()
-    await tx.update(motos)
+    // A gravação repete a Conta e o alcance no where (AGENTS.md, isolamento), e confere as linhas.
+    const gravadas = await tx.update(motos)
       .set({ arquivadaEm: new Date(), arquivadaPor: usuario.id, motivoArquivo: texto })
-      .where(inArray(motos.id, ids))
+      .where(and(inArray(motos.id, ids), motoNaoArquivada(), onde ?? undefined))
+      .returning({ id: motos.id })
+    if (gravadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
     for (const m of achadas) {
       await registrarAcaoSensivel({
         tipo: 'moto_arquivada', usuarioId: usuario.id, lojaId: m.lojaId,
