@@ -12,7 +12,7 @@ import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
 import { PecasPorPlanilha } from './pecas-por-planilha'
 import { MotosImportadas } from './motos-importadas'
-import { devolverTiradas, fichasDoEnvio, tirarMarcadas, type MotoImportada, type MotoNaLista } from '@/lib/entrada-lista'
+import { chaveDoChassi, devolverTiradas, fichasDoEnvio, tirarMarcadas, type MotoImportada, type MotoNaLista } from '@/lib/entrada-lista'
 import { marcarVarias } from '@/lib/selecao'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type NomeDeModelo } from '@/lib/nfe-fiscal'
@@ -301,8 +301,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     }
 
     setLinhasPlanilha(prev => {
-      const vistos = new Set(prev.map(l => l.chassi.toUpperCase()))
-      const add = novas.filter(n => n.chassi && !vistos.has(n.chassi.toUpperCase()))
+      const vistos = new Set(prev.map(l => chaveDoChassi(l.chassi)))
+      const add = novas.filter(n => n.chassi && !vistos.has(chaveDoChassi(n.chassi)))
       return [...prev, ...add]
     })
     setOrigemDasLinhas('xml')

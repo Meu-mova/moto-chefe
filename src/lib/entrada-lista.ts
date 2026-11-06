@@ -22,7 +22,8 @@ export type MotoImportada = {
 export type MotoNaLista = { moto: MotoImportada; idx: number }
 export type GrupoDaNf = { nf: string; total: number; modelos: { modelo: string; motos: MotoNaLista[] }[] }
 
-const chaveDoChassi = (chassi: string) => chassi.trim().toUpperCase()
+/** Mesmo chassi na lista: a mesma regra no Desfazer e na leitura de outro XML. */
+export const chaveDoChassi = (chassi: string) => chassi.trim().toUpperCase()
 
 /**
  * NF > modelo, com o índice de cada moto: a chave do grupo é o nome cru, então trocar o modelo
