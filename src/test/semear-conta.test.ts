@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { listarArquivos } from './listar-arquivos'
 import { emailDeTeste, nomeDeTeste } from './semear-conta'
 
 test('e-mail muda com o prefixo, o nome e o rótulo, e se repete com os mesmos três', () => {
@@ -31,13 +31,7 @@ test('prefixo vazio é recusado', () => {
 // UNIQUE, o 2º INSERT só espera o rollback do 1º. A trava tem que ser aqui, na leitura dos fontes.
 const PREFIXO = /prefixo:\s*'([^']+)'/g
 
-function arquivosDeBanco(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap(e => {
-    const caminho = join(dir, e.name)
-    if (e.isDirectory()) return arquivosDeBanco(caminho)
-    return e.name.endsWith('.db.test.ts') ? [caminho] : []
-  })
-}
+const arquivosDeBanco = (dir: string) => listarArquivos(dir, f => f.endsWith('.db.test.ts'))
 
 type Uso = readonly [prefixo: string, arquivo: string]
 
