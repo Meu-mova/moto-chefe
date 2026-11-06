@@ -185,7 +185,8 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
       )}
 
       <Tabs defaultValue="historico">
-        <TabsList>
+        {/* Celular: as 4 abas não cabem; rolam dentro da barra, não a página (mesmo padrão de /pecas). */}
+        <TabsList className="max-w-full justify-start overflow-x-auto overflow-y-hidden lg:overflow-visible">
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="os">Ordens de Serviço</TabsTrigger>
           <TabsTrigger value="garantias">Garantias</TabsTrigger>
