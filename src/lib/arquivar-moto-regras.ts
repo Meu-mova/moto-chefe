@@ -52,3 +52,6 @@ export function recusaDoLote(lote: { motivo: string; motos: { chassi: string; pe
 
 /** Vender, reservar, pedir, transferir ou abrir garantia em moto arquivada (#688, decisão do Luis). */
 export const MOTO_ARQUIVADA = 'Esta moto está arquivada. Desarquive pelo RADAR.'
+
+/** Entrada de um chassi que já é moto arquivada da Conta (#691). */
+export const CHASSI_ARQUIVADO = 'Este chassi está arquivado. Desarquive pelo RADAR.'
