@@ -7,6 +7,8 @@ import { alias } from 'drizzle-orm/pg-core'
 import type { PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { motoNaoArquivada, motoNaoVendida } from './showroom'
 import { lojasDoEscopo } from '@/lib/conta'
+import { daContaDo } from '@/lib/moto-do-usuario'
+import { ehUuid } from '@/lib/uuid'
 
 export type MotoComDetalhes = Awaited<ReturnType<typeof listarMotos>>[0]
 
@@ -209,8 +211,15 @@ export async function contarPorStatus() {
     .groupBy(motos.status)
 }
 
-export async function buscarMoto(id: string) {
+/**
+ * Moto do detalhe (/estoque/[id]) com a Conta no where (#688): de outra Conta, inexistente ou
+ * texto que não é id voltam null, e a página responde o mesmo 404.
+ */
+export async function buscarMoto(usuario: Parameters<typeof daContaDo>[0], id: string) {
+  const daConta = daContaDo(usuario)
+  if (daConta === null || !ehUuid(id)) return null
   const mecanico = alias(usuarios, 'mecanico')
+  const arquivador = alias(usuarios, 'arquivador')
 
   const [moto] = await db
     .select({
@@ -231,6 +240,9 @@ export async function buscarMoto(id: string) {
       motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),
       precoCompra: motos.precoCompra,
       mecanicoNome: mecanico.nome,
+      arquivadaEm: motos.arquivadaEm,
+      motivoArquivo: motos.motivoArquivo,
+      arquivadaPorNome: arquivador.nome,
       transferenciaPendente: sql<boolean>`EXISTS (
         SELECT 1 FROM transferencias
         WHERE transferencias.moto_id = ${motos.id}
@@ -375,7 +387,8 @@ export async function buscarMoto(id: string) {
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(motos.lojaId, lojas.id))
     .leftJoin(mecanico, eq(motos.responsavelMontagemId, mecanico.id))
-    .where(eq(motos.id, id))
+    .leftJoin(arquivador, eq(motos.arquivadaPor, arquivador.id))
+    .where(and(eq(motos.id, id), daConta))
     .limit(1)
 
   return moto ?? null
