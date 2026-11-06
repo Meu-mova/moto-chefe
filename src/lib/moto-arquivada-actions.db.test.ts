@@ -26,8 +26,9 @@ type Db = typeof import('@/lib/db')
 let db: Db['db']
 let solicitarTransferenciaAction: typeof import('@/app/(dashboard)/transferencias/actions')['solicitarTransferenciaAction']
 let abrirGarantiaAction: typeof import('@/app/(dashboard)/garantias/actions')['abrirGarantiaAction']
+let resolverGarantiaSemRegistroAction: typeof import('@/app/(dashboard)/estoque/[id]/actions')['resolverGarantiaSemRegistroAction']
 let MOTO_ARQUIVADA: string
-const semente = { contaId: '', grupoId: '', lojaId: '', destinoId: '', arquivada: '', viva: '' }
+const semente = { contaId: '', grupoId: '', lojaId: '', destinoId: '', arquivada: '', viva: '', arquivadaEmGarantia: '', vivaEmGarantia: '' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const linhas = async (q: ReturnType<typeof sql>) => ((await db.execute(q)) as unknown as { rows: any[] }).rows
@@ -36,16 +37,18 @@ before(async () => {
   ;({ db } = await import('@/lib/db'))
   ;({ solicitarTransferenciaAction } = await import('@/app/(dashboard)/transferencias/actions'))
   ;({ abrirGarantiaAction } = await import('@/app/(dashboard)/garantias/actions'))
+  ;({ resolverGarantiaSemRegistroAction } = await import('@/app/(dashboard)/estoque/[id]/actions'))
   ;({ MOTO_ARQUIVADA } = await import('@/lib/arquivar-moto-regras'))
   // As actions usam o db global: a semente é gravada e apagada no after.
   const base = await semearContaBase(db, { prefixo: P, nome: 'A', cnpj: '00000000068850' })
   const socioId = await semearUsuario(db, base, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comGrupo: true })
   const [destino] = await linhas(sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'Destino ' + P}, 'C', 'R', ${base.grupoId}) returning id`)
   const [modelo] = await linhas(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${P}, 'autopropelido', '1000', 'hub', '32') returning id`)
-  const moto = async (chassi: string) => (await linhas(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
-    values (${chassi}, ${modelo.id}, ${base.lojaId}, 'CINZA', '1', 'montada', 'disponivel') returning id`))[0].id as string
-  Object.assign(semente, { contaId: base.contaId, grupoId: base.grupoId, lojaId: base.lojaId, destinoId: destino.id, arquivada: await moto(P + 'ARQ'), viva: await moto(P + 'VIVA') })
-  await db.execute(sql`update motos set arquivada_em = now(), arquivada_por = ${socioId}, motivo_arquivo = 'golpe' where id = ${semente.arquivada}`)
+  const moto = async (chassi: string, status = 'montada') => (await linhas(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
+    values (${chassi}, ${modelo.id}, ${base.lojaId}, 'CINZA', '1', ${status}, 'disponivel') returning id`))[0].id as string
+  Object.assign(semente, { contaId: base.contaId, grupoId: base.grupoId, lojaId: base.lojaId, destinoId: destino.id, arquivada: await moto(P + 'ARQ'), viva: await moto(P + 'VIVA'),
+    arquivadaEmGarantia: await moto(P + 'ARQGAR', 'em_garantia'), vivaEmGarantia: await moto(P + 'VIVAGAR', 'em_garantia') })
+  await db.execute(sql`update motos set arquivada_em = now(), arquivada_por = ${socioId}, motivo_arquivo = 'golpe' where id in (${semente.arquivada}, ${semente.arquivadaEmGarantia})`)
   usuarioDaSessao = { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId, grupoLiberado: null }
 })
 
@@ -79,4 +82,12 @@ test('abrir garantia em moto arquivada devolve a frase e não grava; a viva fica
   assert.deepEqual(await abrirGarantiaAction(garantia(semente.arquivada)), { ok: false, erro: MOTO_ARQUIVADA })
   assert.deepEqual(await abrirGarantiaAction(garantia(semente.viva)), { ok: true, dados: undefined })
   assert.deepEqual(await pendentes('garantias', 'ativa'), { arquivada: 0, viva: 1 })
+})
+
+test('resolver garantia sem registro em moto arquivada devolve a frase e não mexe nela; a viva volta a Montada', async () => {
+  assert.deepEqual(await resolverGarantiaSemRegistroAction(semente.arquivadaEmGarantia), { ok: false, erro: MOTO_ARQUIVADA })
+  assert.deepEqual(await resolverGarantiaSemRegistroAction(semente.vivaEmGarantia), { ok: true, dados: undefined })
+  const status = Object.fromEntries((await linhas(sql`select id, status from motos where id in (${semente.arquivadaEmGarantia}, ${semente.vivaEmGarantia})`))
+    .map(r => [r.id === semente.arquivadaEmGarantia ? 'arquivada' : 'viva', r.status]))
+  assert.deepEqual(status, { arquivada: 'em_garantia', viva: 'montada' })
 })
