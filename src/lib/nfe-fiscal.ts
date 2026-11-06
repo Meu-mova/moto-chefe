@@ -216,6 +216,9 @@ export function ligarFichasAosChassis(
 /** Cabeçalho da nota: de quem veio e qual é. Explica duas fichas do mesmo modelo. */
 export type EmitenteNfe = { cnpj: string; nome: string; nfNumero: string; nfChave: string }
 
+/** Ficha fiscal de uma moto da nota, com quem a emitiu: o que a entrada grava em motos_fiscal. */
+export type FichaDaMoto = { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }
+
 export function extrairEmitenteDaNfe(xml: string): EmitenteNfe {
   const emit = grupo(xml ?? '', 'emit')
   return {

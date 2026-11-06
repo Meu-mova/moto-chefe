@@ -8,7 +8,7 @@ import type { db } from '@/lib/db'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { conferirMotosDaEntrada, gravarMotosConferidas, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { conferirLinhasPecas, gravarEntradaPecas, type EntradaPecas, type LinhaEntradaPeca } from '@/lib/entrada-pecas'
-import type { EmitenteNfe, FichaFiscal } from '@/lib/nfe-fiscal'
+import type { FichaDaMoto } from '@/lib/nfe-fiscal'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
 
@@ -24,7 +24,7 @@ export type NotaComPecas = {
   lojaId: string
   nota: EntradaPecas['nota']
   motos: MotoEntradaLote[]
-  fiscais?: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
+  fiscais?: FichaDaMoto[]
   pecas: LinhaEntradaPeca[]
 }
 

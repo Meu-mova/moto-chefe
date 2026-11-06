@@ -50,7 +50,7 @@ async function main() {
   const { db } = await import('../src/lib/db')
   const { and, eq, or, sql } = await import('drizzle-orm')
   const { grupos, lojas, usuarios } = await import('../src/lib/db/schema')
-  const { contaDaLoja } = await import('../src/lib/conta')
+  const { contaDaLoja, usuarioDaConta } = await import('../src/lib/conta')
   const { apelidosDosModelos, listarApelidosDaConta, listarModelosDaConta } = await import('../src/lib/modelos-da-conta')
   const { lerListaDeChassis, motosDeOutroCnpj, planejarEntradaDeXmls } = await import('../src/lib/entrada-xml-lote')
   const { gravarLoteDeEntrada } = await import('../src/lib/entrada-motos')
@@ -61,11 +61,15 @@ async function main() {
   if (!loja) throw new Error('Loja não encontrada')
   const contaId = await contaDaLoja(loja.id)
 
-  // Quem fica no histórico: da Conta da loja, ou o admin_geral da plataforma.
+  // Quem fica no histórico: usuário ativo da Conta da loja (ADR-0018), ou o admin_geral da plataforma.
   const [usuario] = await db.select({ id: usuarios.id, nome: usuarios.nome }).from(usuarios)
-    .where(and(eq(usuarios.email, email!), or(eq(usuarios.contaId, contaId), eq(usuarios.papel, 'admin_geral'), sql`${usuarios.lojaId} in (select l.id from lojas l join grupos g on g.id = l.grupo_id where g.conta_id = ${contaId})`)))
+    .where(and(
+      sql`lower(${usuarios.email}) = ${email!.trim().toLowerCase()}`,
+      eq(usuarios.ativo, true),
+      or(usuarioDaConta(contaId), eq(usuarios.papel, 'admin_geral')),
+    ))
     .limit(1)
-  if (!usuario) throw new Error('Usuário não encontrado na Conta da loja')
+  if (!usuario) throw new Error('Usuário ativo não encontrado na Conta da loja')
 
   const xmls = readdirSync(pastaXmls!).filter(n => n.toLowerCase().endsWith('.xml')).map(n => lerXml(join(pastaXmls!, n)))
   const escolhidas = lerListaDeChassis(readFileSync(arquivoLista!, 'utf8'))

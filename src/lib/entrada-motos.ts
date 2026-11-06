@@ -12,7 +12,7 @@ import { contaDaLoja } from '@/lib/conta'
 import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { grupos, historicoEstoque, lojas, motos, motosFiscal } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
-import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
+import { type FichaFiscal, type EmitenteNfe, type FichaDaMoto } from '@/lib/nfe-fiscal'
 
 type Executor = Pick<typeof db, 'insert'>
 
@@ -163,7 +163,7 @@ export async function conferirMotosDaEntrada(
 /** Grava as motos já conferidas e a ficha fiscal de cada uma. Devolve quantas fichas entraram. */
 export async function gravarMotosConferidas(
   exec: Executor,
-  e: { lojaId: string; usuarioId: string; prontas: MotoConferida[]; fiscais: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[] },
+  e: { lojaId: string; usuarioId: string; prontas: MotoConferida[]; fiscais: FichaDaMoto[] },
 ): Promise<number> {
   const idPorChassi = new Map<string, string>()
   for (const p of e.prontas) {
@@ -185,7 +185,7 @@ export async function gravarLoteDeEntrada(
     lojaId: string
     usuarioId: string
     motos: MotoEntradaLote[]
-    fiscais: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
+    fiscais: FichaDaMoto[]
   },
 ): Promise<{ motos: number; fichas: number }> {
   const [loja] = await exec.select({ id: lojas.id }).from(lojas)

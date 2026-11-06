@@ -13,7 +13,7 @@
 import { extrairDaNfe, mapearModelo, parseMotosInfCpl, type MotoNfe } from './nfe-entrada'
 import {
   extrairCnpjDoDestinatario, extrairEmitenteDaNfe, extrairFiscalDaNfe, ligarFichasAosChassis,
-  type EmitenteNfe, type FichaFiscal, type NomeDeModelo,
+  type EmitenteNfe, type FichaDaMoto, type FichaFiscal, type NomeDeModelo,
 } from './nfe-fiscal'
 import { casarModelo, precoDaPlanilha, type ModeloSugestao } from './entrada-preco'
 import type { MotoEntradaLote } from './entrada-motos'
@@ -38,7 +38,7 @@ export type MotoEscolhida = {
 
 export type PlanoDeEntrada = {
   motos: MotoEntradaLote[]
-  fiscais: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
+  fiscais: FichaDaMoto[]
   /** Motivo de cada moto escolhida que não entra no lote. */
   problemas: string[]
   /** Moto que entra, mas sem ficha fiscal: a emissão da NF vai pedir conferência. */

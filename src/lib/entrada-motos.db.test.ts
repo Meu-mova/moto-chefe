@@ -52,7 +52,7 @@ test('aux_adm usa loja da própria Conta; loja da Conta A para o aux_adm da Cont
   })
 })
 
-// Lote do onboarding (scripts/importar-motos-xml.ts): tudo ou nada.
+// Lote do onboarding (scripts/importar-motos-xml.ts): o que entra e o que recusa o lote antes de gravar.
 const ficha = { codigo: 'GIGA', descricao: 'GIGA MOTO CHEFE', ncm: '87116000', cest: '2600100', cfopEntrada: '5405', unidade: 'UN', origem: '4', cstIcmsEntrada: '60', cstPis: '01', cstCofins: '01', classTribIbsCbs: '', tpPint: '', valorUnitario: '6400.00' }
 const emitente = { cnpj: '11222333000181', nome: 'Fornecedor EM', nfNumero: '9901', nfChave: '35261011222333000181550010000099011000000010' }
 
