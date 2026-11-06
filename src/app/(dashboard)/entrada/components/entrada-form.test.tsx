@@ -394,7 +394,7 @@ test('planilha e depois o XML das mesmas motos: a moto não se repete e a ficha 
   assert.deepEqual(enviados[0].dados.fiscais?.map(f => [f.chassi, f.emitente.nfNumero]), [['TESTE0000GG000001', '111']])
 })
 
-test('Desfazer clicado durante o envio não devolve a moto (o aviso ainda está saindo da tela)', async () => {
+test('Desfazer clicado durante o envio não devolve a moto', async () => {
   let soltar = () => {}
   segurarEnvio = new Promise(r => { soltar = r })
   await montarComPlanilha()
