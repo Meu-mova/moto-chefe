@@ -663,11 +663,10 @@ async function carregarNota(notaId: string, usuario: Usuario) {
   if (!r) throw new Error('Nota não encontrada')
   const cfg = await configNotaGateway(r.grupoId)
   if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo')
-  const vendaId = r.vendaId
-  const [v] = vendaId ? await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1) : []
-  // Venda cancelada ou removida; ou apagada entre a leitura da nota e esta.
-  if (!vendaId || !v) throw new Error(recusaSemVenda(r.vendaNumero))
-  return { r: { ...r, vendaId }, cfg, motoId: v.motoId }
+  // Sem venda: cancelada ou removida (venda_id nulo), ou apagada entre a leitura da nota e esta.
+  const [v] = r.vendaId ? await db.select({ id: vendas.id, motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, r.vendaId)).limit(1) : []
+  if (!v) throw new Error(recusaSemVenda(r.vendaNumero))
+  return { r: { ...r, vendaId: v.id }, cfg, motoId: v.motoId }
 }
 
 type NotaCarregada = Awaited<ReturnType<typeof carregarNota>>
