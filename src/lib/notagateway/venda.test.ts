@@ -70,9 +70,3 @@ test('comprador contribuinte de ICMS sem inscrição estadual é pendência; ise
   assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: 'isento', clienteInscricaoEstadual: null }), [])
   assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: null, clienteInscricaoEstadual: null }), [])
 })
-
-test('venda com Entrega e sem modalidade do frete não emite; com modalidade ou sem Entrega (venda antiga), nada muda (#725)', () => {
-  assert.deepEqual(pendenciasDaVenda({ ...OK, entrega: { modo: 'retira', modalidade: '' } }), ['Escolha a modalidade do frete. Sem ela a nota não sai.'])
-  assert.deepEqual(pendenciasDaVenda({ ...OK, entrega: { modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' } }), [])
-  assert.deepEqual(pendenciasDaVenda({ ...OK, entrega: null }), [])
-})

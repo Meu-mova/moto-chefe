@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, operacaoDaVenda, textoDaOperacao, type EntregaVenda } from './entrega'
+import { conferirEntrega, operacaoDaVenda, pendenciasDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -73,4 +73,10 @@ test('o selo diz dentro ou fora do estado com as UFs, e o porquê diz qual regra
     { selo: 'Para outro estado (PI para MA)', porque: 'O cliente retira na loja, mas tem inscrição estadual em outro estado: a venda é para outro estado.' })
   assert.deepEqual(textoDaOperacao({ interestadual: true, motivo: 'sem_entrega', ufOrigem: 'PI', ufDestino: 'MA' }),
     { selo: 'Para outro estado (PI para MA)', porque: 'Esta venda não tem a Entrega informada: vale a UF do endereço do cliente. Confira antes de emitir.' })
+})
+
+test('venda com Entrega e sem modalidade do frete não emite; com modalidade ou sem Entrega (venda antiga), nada pende', () => {
+  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: '' }), ['Escolha a modalidade do frete. Sem ela a nota não sai.'])
+  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }), [])
+  assert.deepEqual(pendenciasDaEntrega(null), [])
 })

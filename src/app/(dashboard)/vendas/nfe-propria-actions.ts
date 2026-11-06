@@ -32,7 +32,7 @@ import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { recusaSemVenda } from '@/lib/notas-emitidas'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
-import type { OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { pendenciasDaEntrega, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -145,14 +145,14 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
   const pagamentosMova = ((venda.pagamentos as PagamentoMova[] | null) ?? []).map(p => ({ ...p, valor: Number(p.valor) }))
   const valor = Number(venda.valor)
 
-  const pendencias = pendenciasDaVenda({
+  const pendencias = [...pendenciasDaVenda({
     clienteNome: venda.clienteNome, clienteCpf: venda.clienteCpf,
     clienteLogradouro: venda.clienteLogradouro, clienteNumero: venda.clienteNumero,
     clienteBairro: venda.clienteBairro, clienteCidade: venda.clienteCidade,
     clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
     clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
-    valor, pagamentos: pagamentosMova, temFicha: !!ficha, entrega: venda.entrega,
-  })
+    valor, pagamentos: pagamentosMova, temFicha: !!ficha,
+  }), ...pendenciasDaEntrega(venda.entrega)]
   if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
 
   const regra: RegraSaida | null = regraRow

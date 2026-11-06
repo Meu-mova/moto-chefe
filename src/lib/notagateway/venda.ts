@@ -1,5 +1,3 @@
-import { AVISO_SEM_MODALIDADE, type EntregaVenda } from './entrega'
-
 /**
  * Tradução da venda do MOVA para a emissão pela Nota Gateway — funções puras,
  * sem banco, para a tela e a action decidirem a mesma coisa.
@@ -54,8 +52,6 @@ export type ConferenciaVenda = {
   valor: number
   pagamentos: PagamentoMova[]
   temFicha: boolean
-  /** Entrega da venda (#725); nula = venda antiga, sem exigência de modalidade. */
-  entrega?: EntregaVenda | null
 }
 
 /**
@@ -98,7 +94,6 @@ export function pendenciasDaVenda(v: ConferenciaVenda): string[] {
       falta.push(`Os pagamentos somam R$ ${soma.toFixed(2)} e a venda é R$ ${v.valor.toFixed(2)} — edite a venda`)
     }
   }
-  if (v.entrega && !v.entrega.modalidade) falta.push(AVISO_SEM_MODALIDADE)
   return falta
 }
 

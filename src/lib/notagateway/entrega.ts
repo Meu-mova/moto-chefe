@@ -10,6 +10,9 @@ export type EntregaVenda = { modo: 'retira'; modalidade: ModalidadeFrete | '' }
 /** Venda com Entrega e sem modalidade: o Novo pedido avisa e a NF não sai (#682). */
 export const AVISO_SEM_MODALIDADE = 'Escolha a modalidade do frete. Sem ela a nota não sai.'
 
+/** O que a Entrega impede de emitir; venda antiga (sem Entrega) não exige modalidade. */
+export const pendenciasDaEntrega = (entrega: EntregaVenda | null): string[] => (entrega && !entrega.modalidade ? [AVISO_SEM_MODALIDADE] : [])
+
 /** Confere a Entrega que veio do navegador e devolve só os campos que se gravam. */
 export function conferirEntrega(dado: unknown): { ok: true; entrega: EntregaVenda } | { ok: false; erro: string } {
   const { modo, modalidade } = (dado ?? {}) as { modo?: unknown; modalidade?: unknown }
