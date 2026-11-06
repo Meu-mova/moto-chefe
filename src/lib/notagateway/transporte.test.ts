@@ -23,9 +23,11 @@ test('aceita a modalidade 0 (loja contrata a transportadora) com o nome da KB 17
   assert.deepEqual(resultado, { ok: true, dados: { modalidade: 'ContratacaoPorContaDoRemetente', enderecoEntrega: ENTREGA_COMPLETA } })
 })
 
-test('recusa SemTransporte, nome que não existe na doc da NG', () => {
-  const dados = { modalidade: 'SemTransporte', enderecoEntrega: ENTREGA_COMPLETA } as unknown as Parameters<typeof validarDadosTransporte>[0]
-  assert.deepEqual(validarDadosTransporte(dados), { ok: false, erro: 'Modalidade do frete inválida.' })
+test('recusa no envio SemTransporte (fora da doc da NG) e nome 3.10: só os nomes 4.0 saem', () => {
+  for (const nome of ['SemTransporte', 'PorContaDoDestinatario', 'PorContaDeTerceiros']) {
+    const dados = { modalidade: nome, enderecoEntrega: ENTREGA_COMPLETA } as unknown as Parameters<typeof validarDadosTransporte>[0]
+    assert.deepEqual(validarDadosTransporte(dados), { ok: false, erro: 'Modalidade do frete inválida.' }, nome)
+  }
 })
 
 test('bloqueia a transmissão quando a modalidade não foi escolhida', () => {
@@ -129,8 +131,8 @@ test('transporteDoPayload lê o nome que o MOVA já gravou (v1.21.1 até o #723)
   }
 })
 
-test('transporteDoPayload não traduz nome 3.10 que o MOVA nunca gravou', () => {
-  for (const nome of ['SemFrete', 'PorContaDoEmitente']) {
+test('transporteDoPayload não traduz nome antigo que o MOVA nunca gravou nem PorContaDoRemetente, que não existe na doc', () => {
+  for (const nome of ['SemFrete', 'PorContaDoEmitente', 'PorContaDoRemetente']) {
     assert.equal(transporteDoPayload({ transporte: { frete: { modalidade: nome } } }), null, nome)
   }
 })
