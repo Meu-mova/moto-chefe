@@ -451,7 +451,7 @@ test('admin_geral desarquiva motos das duas Contas', async () => {
     const motoB = await b.novaMoto('D9')
     const geral = { id: a.socioId, papel: 'admin_geral', lojaId: null, gruposAcesso: [], contaId: null }
     await arquivarMotos(geral, [motoA, motoB], 'golpe', tx)
-    assert.deepEqual(await idsQuePodeDesarquivar(geral, [motoA, motoB], tx), [motoA, motoB].sort())
+    assert.deepEqual((await idsQuePodeDesarquivar(geral, [motoA, motoB], tx)).sort(), [motoA, motoB].sort())
     assert.deepEqual(await desarquivarMotos(geral, [motoA, motoB], 'motivo', tx), { desarquivadas: 2 })
   })
 })
