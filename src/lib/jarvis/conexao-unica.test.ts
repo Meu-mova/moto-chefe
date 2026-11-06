@@ -11,11 +11,17 @@ const UNICO_PERMITIDO = 'src/lib/jarvis/conexao.ts'
 
 const MODULO_DO_DB = /^(@\/lib\/db|\.{1,2}(\/\.\.)*\/(lib\/)?db|\.)(\/index)?$/
 
+// Formas cobertas: `import { client }`, `export { client } from` e `import * as x` seguido de `x.client`.
+// `await import()` e `require` ficam de fora: nenhum arquivo do app usa essas formas para o banco.
 function importaClientDoDb(codigo: string): boolean {
-  return [...codigo.matchAll(/import\s*(type\s*)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g)].some(
+  const porNome = [...codigo.matchAll(/(?:import|export)\s*(type\s*)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g)].some(
     ([, soTipo, nomes, modulo]) =>
       !soTipo && MODULO_DO_DB.test(modulo) && nomes.split(',').some(n => /^\s*client(\s+as\s+\w+)?\s*$/.test(n)),
   )
+  const porNamespace = [...codigo.matchAll(/import\s*\*\s*as\s+(\w+)\s+from\s*['"]([^'"]+)['"]/g)].some(
+    ([, apelido, modulo]) => MODULO_DO_DB.test(modulo) && new RegExp(`\\b${apelido}\\.client\\b`).test(codigo),
+  )
+  return porNome || porNamespace
 }
 
 const arquivosDoApp = (pasta: string) => listarArquivos(pasta, f => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
@@ -26,10 +32,16 @@ test('reconhece import do client vindo de src/lib/db', () => {
   assert.equal(importaClientDoDb('import { client } from "../db"'), true)
 })
 
+test('reconhece o client por re-export e por import de namespace', () => {
+  assert.equal(importaClientDoDb("export { client } from '@/lib/db'"), true)
+  assert.equal(importaClientDoDb("import * as banco from '@/lib/db'\nawait banco.client`select 1`"), true)
+})
+
 test('não confunde com outros imports', () => {
   assert.equal(importaClientDoDb("import { db, execRows } from '@/lib/db'"), false)
   assert.equal(importaClientDoDb("import { client } from '@/lib/notagateway/client'"), false)
   assert.equal(importaClientDoDb("import { clientes } from '@/lib/db'"), false)
+  assert.equal(importaClientDoDb("import * as banco from '@/lib/db'\nawait banco.db.select()"), false)
 })
 
 test('só a fila do Jarvis importa o client do postgres.js', () => {
