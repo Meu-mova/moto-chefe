@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { DialogoPassoAPasso } from '@/components/dialogo-passo-a-passo'
+import { motivoDoArquivoValido } from '@/lib/arquivar-moto-regras'
 import { arquivarMotosAction, buscarMotosParaArquivarAction } from '../arquivar-actions'
 
 type Moto = Awaited<ReturnType<typeof buscarMotosParaArquivarAction>>[number]
@@ -105,7 +106,7 @@ export function ArquivarMotoDialog({ aberto, onFechar }: { aberto: boolean; onFe
       <Button variant="ghost" onClick={() => irPara(0)} className="h-10 w-full text-muted-foreground">Voltar e mudar as motos</Button>
     </>,
     <>
-      <Button onClick={arquivar} disabled={enviando || !motivo.trim()} className="h-12 w-full text-base">
+      <Button onClick={arquivar} disabled={enviando || !motivoDoArquivoValido(motivo)} className="h-12 w-full text-base">
         {enviando ? <><Loader2 className="size-4 animate-spin" />Arquivando...</> : `Arquivar ${motos(n)}`}
       </Button>
       <Button variant="ghost" onClick={() => irPara(1)} disabled={enviando} className="h-10 w-full text-muted-foreground">Voltar</Button>
