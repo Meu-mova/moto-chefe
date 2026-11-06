@@ -17,7 +17,7 @@ const FILA_CHEIA = { erro: 'consulta demorou demais', detalhe: 'muitas consultas
 const pedido = (caminho: string, init: { method?: string; body?: string } = {}) =>
   new NextRequest(`http://localhost${caminho}`, { ...init, headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' } })
 
-test('consulta com a fila cheia responde 408 e diz para tentar de novo', async () => {
+test('consulta com a fila cheia responde 408 dizendo que há consultas demais', async () => {
   const { POST } = await import('./consulta/route')
   const res = await POST(pedido('/api/jarvis/consulta', { method: 'POST', body: JSON.stringify({ sql: 'select 1' }) }))
   assert.equal(res.status, 408)
