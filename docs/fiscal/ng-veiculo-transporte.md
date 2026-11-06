@@ -86,6 +86,10 @@ No MOVA (`src/lib/notagateway/entrega.ts`, `payload.ts`):
 - **Retira na loja**: `cliente.endereco` com o endereço real e `transporte: { frete: { modalidade } }`, sem
   `enderecoEntrega`. Cliente de outra UF sai interestadual só com moto ciclomotor ou indicador "contribuinte".
 - Venda com Entrega e sem modalidade não monta a nota; a prévia lista a pendência.
+- Rejeição 773 (MOC 7.0, Anexo I, regra E12-40, p. 84-85 do [PDF oficial](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf)):
+  *"operação é Interna no Estado (tag:idDest = 1) e operação não é com Consumidor final: UF do destinatário [...] difere
+  da UF do emitente"*. A retirada interna de cliente de outra UF não cai nela porque o MOVA manda sempre
+  `consumidorFinal: true`. Mudou isso, rever o ADR-0021.
 - Venda sem Entrega: payload igual ao de antes (teste com o payload gravado em `payload-sem-entrega.golden.json`).
 - Faturamento direto: o frete e o endereço continuam vindo do formulário da nota até o #728.
 

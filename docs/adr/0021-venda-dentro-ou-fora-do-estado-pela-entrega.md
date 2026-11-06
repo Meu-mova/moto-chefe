@@ -60,3 +60,10 @@ Entrega na venda tira o CEP falso do endereço do cliente.
 
 Se o contador ou a SEFAZ de outro estado mudarem a regra da retirada por cliente de outra UF, ou se a
 alíquota por UF de destino (#150) mudar o que a nota interestadual leva.
+
+Se o MOVA deixar de mandar `consumidorFinal: true` (`payload.ts`): a retirada de cliente de outra UF como
+venda dentro do estado passaria a cair na rejeição 773. O MOC 7.0, Anexo I, regra E12-40 (p. 84-85 do
+[PDF oficial](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf)),
+rejeita a NF de saída com *"operação é Interna no Estado (tag:idDest = 1) e operação não é com Consumidor
+final: UF do destinatário (tag: enderDest/UF) difere da UF do emitente"* (773: *"Operação Interna e UF de
+destino difere da UF de origem"*). Hoje toda nota vai como consumidor final, e a regra não se aplica.
