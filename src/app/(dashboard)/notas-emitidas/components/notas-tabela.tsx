@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { diaBrt } from '@/lib/data-venda'
+import { marcarVarias } from '@/lib/selecao'
 import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
 import { colunaMotivoVisivel, linkDaVenda, marcarNota, selecaoDaPagina, temDocumento, vendaQueNaoExisteMais, type Situacao, type TipoArquivo } from '@/lib/notas-emitidas'
 import { AcoesDaNota } from './acoes-da-nota'
@@ -75,11 +76,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
 
   function marcarPagina(marcar: boolean) {
     setTodasDoFiltro(false)
-    setMarcadas(prev => {
-      const novo = new Set(prev)
-      for (const id of idsDaPagina) if (marcar) novo.add(id); else novo.delete(id)
-      return novo
-    })
+    setMarcadas(prev => marcarVarias(prev, idsDaPagina, marcar))
   }
 
   function marcar(id: string, marcar: boolean) {
