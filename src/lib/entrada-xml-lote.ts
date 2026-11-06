@@ -12,11 +12,12 @@
  */
 import { extrairDaNfe, mapearModelo, parseMotosInfCpl, type MotoNfe } from './nfe-entrada'
 import {
-  extrairEmitenteDaNfe, extrairFiscalDaNfe, ligarFichasAosChassis,
+  extrairCnpjDoDestinatario, extrairEmitenteDaNfe, extrairFiscalDaNfe, ligarFichasAosChassis,
   type EmitenteNfe, type FichaFiscal, type NomeDeModelo,
 } from './nfe-fiscal'
 import { casarModelo, precoDaPlanilha, type ModeloSugestao } from './entrada-preco'
 import type { MotoEntradaLote } from './entrada-motos'
+import { soDigitosDoc } from './documento'
 
 /** Id do modelo cadastrado para o nome que veio na nota, ou '' (o mesmo de-para da tela). */
 export function modeloDaNota(nomeNaNota: string, modelos: ModeloSugestao[]): string {
@@ -42,9 +43,11 @@ export type PlanoDeEntrada = {
   problemas: string[]
   /** Moto que entra, mas sem ficha fiscal: a emissão da NF vai pedir conferência. */
   semFicha: string[]
+  /** CNPJ que comprou cada moto do lote (destinatário da nota), na ordem de `motos`. */
+  compradores: { chassi: string; cnpj: string }[]
 }
 
-type MotoDaNota = { moto: MotoNfe; nNF: string; emitente: EmitenteNfe; ficha?: FichaFiscal }
+type MotoDaNota = { moto: MotoNfe; nNF: string; emitente: EmitenteNfe; comprador: string; ficha?: FichaFiscal }
 
 const chave = (s: string) => s.trim().toUpperCase()
 
@@ -59,14 +62,15 @@ export function planejarEntradaDeXmls(
     const { nNF, infCpl } = extrairDaNfe(xml)
     const motos = parseMotosInfCpl(infCpl)
     const emitente = extrairEmitenteDaNfe(xml)
+    const comprador = extrairCnpjDoDestinatario(xml)
     const fichas = ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), [...modelos.map(m => m.modelo), ...apelidos])
     for (const moto of motos) {
       const k = chave(moto.chassi)
-      daNota.set(k, [...(daNota.get(k) ?? []), { moto, nNF, emitente, ficha: fichas.get(k) }])
+      daNota.set(k, [...(daNota.get(k) ?? []), { moto, nNF, emitente, comprador, ficha: fichas.get(k) }])
     }
   }
 
-  const plano: PlanoDeEntrada = { motos: [], fiscais: [], problemas: [], semFicha: [] }
+  const plano: PlanoDeEntrada = { motos: [], fiscais: [], problemas: [], semFicha: [], compradores: [] }
   const vistos = new Set<string>()
   // Moto do XML já usada por outra linha (chassi da nota → chassi que entra): sem isso, uma
   // carta de correção mais o chassi antigo na lista gravariam a mesma moto duas vezes.
@@ -86,7 +90,7 @@ export function planejarEntradaDeXmls(
     }
     const jaUsadaPor = usadasDaNota.get(naNota)
     if (jaUsadaPor) { plano.problemas.push(`${chassi}: a moto ${naNota} do XML já entra como ${jaUsadaPor}`); continue }
-    const [{ moto, nNF, emitente, ficha }] = achados
+    const [{ moto, nNF, emitente, comprador, ficha }] = achados
 
     const modeloId = e.modelo ? casarModelo(e.modelo, modelos) : modeloDaNota(moto.modelo, modelos)
     if (!modeloId) {
@@ -98,10 +102,20 @@ export function planejarEntradaDeXmls(
 
     usadasDaNota.set(naNota, chassi)
     plano.motos.push({ chassi, cor: moto.cor, motor: moto.motor, modeloId, precoCompra, notaFiscal: nNF })
+    plano.compradores.push({ chassi, cnpj: comprador })
     if (ficha) plano.fiscais.push({ chassi, emitente, ficha })
     else plano.semFicha.push(chassi)
   }
   return plano
+}
+
+/**
+ * Motos do lote compradas por outro CNPJ que o do grupo da loja. A NF de saída sai pelo grupo
+ * de entrada da moto (#552); entrar por outro CNPJ é exceção que alguém precisa aceitar (#731).
+ */
+export function motosDeOutroCnpj(plano: Pick<PlanoDeEntrada, 'compradores'>, cnpjDoGrupo: string): string[] {
+  const doGrupo = soDigitosDoc(cnpjDoGrupo)
+  return plano.compradores.filter(c => soDigitosDoc(c.cnpj) !== doGrupo).map(c => c.chassi)
 }
 
 /**

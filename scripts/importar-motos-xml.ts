@@ -16,6 +16,11 @@
  * - modelo: nome no catálogo da Conta, só quando o de-para da nota não acha.
  * - preco: preço de compra (6400.00 ou 6.400,00).
  * Os XMLs e a lista têm dado fiscal: ficam fora do repositório.
+ *
+ * Moto comprada por outro CNPJ que o do grupo da loja: a NF de saída sai pelo grupo de entrada
+ * da moto (#552), então o --aplicar recusa, salvo com --aceito-cnpj-de-outro-grupo. Essa flag
+ * existe para a exceção do onboarding de Pinda (#731: decisão do Cesar aceita pelo Luis, com o OK
+ * do contador antes de aplicar), não como caminho normal de entrada.
  */
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -25,9 +30,10 @@ const args = process.argv.slice(2)
 const arg = (nome: string) => { const i = args.indexOf(nome); return i >= 0 ? args[i + 1] : undefined }
 const [lojaId, email, pastaXmls, arquivoLista] = ['--loja', '--usuario', '--xmls', '--lista'].map(arg)
 const aplicar = args.includes('--aplicar')
+const aceitoOutroCnpj = args.includes('--aceito-cnpj-de-outro-grupo')
 
 if (!lojaId || !email || !pastaXmls || !arquivoLista) {
-  console.error('Uso: scripts/importar-motos-xml.ts --loja <id> --usuario <e-mail> --xmls <pasta> --lista <arquivo.csv> [--aplicar] [--prod]')
+  console.error('Uso: scripts/importar-motos-xml.ts --loja <id> --usuario <e-mail> --xmls <pasta> --lista <arquivo.csv> [--aplicar] [--aceito-cnpj-de-outro-grupo] [--prod]')
   process.exit(1)
 }
 if (!process.env.DATABASE_URL) {
@@ -42,14 +48,15 @@ async function main() {
   // Depois da checagem do alvo: o db abre o pool com a DATABASE_URL.
   const { db } = await import('../src/lib/db')
   const { and, eq, or, sql } = await import('drizzle-orm')
-  const { lojas, usuarios } = await import('../src/lib/db/schema')
+  const { grupos, lojas, usuarios } = await import('../src/lib/db/schema')
   const { contaDaLoja } = await import('../src/lib/conta')
   const { listarApelidosDaConta, listarModelosDaConta } = await import('../src/lib/modelos-da-conta')
-  const { lerListaDeChassis, planejarEntradaDeXmls } = await import('../src/lib/entrada-xml-lote')
+  const { lerListaDeChassis, motosDeOutroCnpj, planejarEntradaDeXmls } = await import('../src/lib/entrada-xml-lote')
   const { gravarLoteDeEntrada } = await import('../src/lib/entrada-motos')
   const { preencherGruposComPrecoPadrao } = await import('../src/lib/tabela-preco-padrao')
 
-  const [loja] = await db.select({ id: lojas.id, nome: lojas.nome, grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, lojaId!)).limit(1)
+  const [loja] = await db.select({ id: lojas.id, nome: lojas.nome, grupoId: lojas.grupoId, cnpjDoGrupo: grupos.cnpj })
+    .from(lojas).innerJoin(grupos, eq(grupos.id, lojas.grupoId)).where(eq(lojas.id, lojaId!)).limit(1)
   if (!loja) throw new Error('Loja não encontrada')
   const contaId = await contaDaLoja(loja.id)
 
@@ -71,11 +78,17 @@ async function main() {
   )
 
   const nomeDoModelo = new Map(modelos.map(m => [m.id, m.modelo]))
-  console.log(`\nLoja: ${loja.nome} · ${xmls.length} XMLs · ${escolhidas.length} chassis na lista · histórico em nome de ${usuario.nome}\n`)
+  const compradorDe = new Map(plano.compradores.map(c => [c.chassi, c.cnpj]))
+  const deOutroCnpj = new Set(motosDeOutroCnpj(plano, loja.cnpjDoGrupo))
+  console.log(`\nLoja: ${loja.nome} (grupo do CNPJ ${loja.cnpjDoGrupo}) · ${xmls.length} XMLs · ${escolhidas.length} chassis na lista · histórico em nome de ${usuario.nome}\n`)
   for (const m of plano.motos) {
-    console.log(`  ${m.chassi.padEnd(20)} ${String(nomeDoModelo.get(m.modeloId)).padEnd(12)} ${m.cor.padEnd(10)} NF ${m.notaFiscal.padEnd(6)} R$ ${m.precoCompra}${plano.semFicha.includes(m.chassi) ? '  (sem ficha fiscal)' : ''}`)
+    const marcas = [
+      deOutroCnpj.has(m.chassi) ? 'COMPRADA POR OUTRO CNPJ' : '',
+      plano.semFicha.includes(m.chassi) ? 'sem ficha fiscal' : '',
+    ].filter(Boolean)
+    console.log(`  ${m.chassi.padEnd(20)} ${String(nomeDoModelo.get(m.modeloId)).padEnd(12)} ${m.cor.padEnd(10)} NF ${m.notaFiscal.padEnd(6)} R$ ${m.precoCompra.padEnd(9)} comprador ${compradorDe.get(m.chassi) || '(sem CNPJ)'}${marcas.length ? `  (${marcas.join(', ')})` : ''}`)
   }
-  console.log(`\n${plano.motos.length} moto(s) no lote, ${plano.fiscais.length} com ficha fiscal.`)
+  console.log(`\n${plano.motos.length} moto(s) no lote, ${plano.fiscais.length} com ficha fiscal, ${deOutroCnpj.size} comprada(s) por outro CNPJ que o do grupo.`)
   if (plano.problemas.length) {
     console.log(`\n${plano.problemas.length} fora do lote:`)
     plano.problemas.forEach(p => console.log(`  - ${p}`))
@@ -86,6 +99,13 @@ async function main() {
     return
   }
   if (plano.problemas.length) throw new Error('Há chassis fora do lote: corrija a lista (ou tire as linhas) antes de gravar')
+  if (deOutroCnpj.size) {
+    const aviso = `${deOutroCnpj.size} moto(s) compradas por outro CNPJ entram com o grupo desta loja como grupo de entrada, e a NF de saída sai por ele (contra a regra do #552).`
+    if (!aceitoOutroCnpj) {
+      throw new Error(`${aviso} Só com a exceção aceita (#731) e o OK do contador: repita com --aceito-cnpj-de-outro-grupo.`)
+    }
+    console.warn(`\nATENÇÃO: ${aviso} Exceção aceita com --aceito-cnpj-de-outro-grupo (#731).`)
+  }
 
   const r = await db.transaction(async tx => {
     const gravado = await gravarLoteDeEntrada(tx, { lojaId: loja.id, usuarioId: usuario.id, motos: plano.motos, fiscais: plano.fiscais })

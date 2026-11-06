@@ -227,6 +227,11 @@ export function extrairEmitenteDaNfe(xml: string): EmitenteNfe {
   }
 }
 
+/** CNPJ de quem comprou (`<dest>`), só dígitos; '' se a nota foi para CPF ou não tem destinatário. */
+export function extrairCnpjDoDestinatario(xml: string): string {
+  return tag(grupo(xml ?? '', 'dest'), 'CNPJ')
+}
+
 /**
  * Acha a ficha do modelo dentro de uma nota, sem passar pelo chassi.
  *

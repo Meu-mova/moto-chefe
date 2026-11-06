@@ -1,11 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lerListaDeChassis, modeloDaNota, planejarEntradaDeXmls } from './entrada-xml-lote'
+import { lerListaDeChassis, modeloDaNota, motosDeOutroCnpj, planejarEntradaDeXmls } from './entrada-xml-lote'
 
 const det = (n: number, cProd: string, xProd: string, q: number, cest: string, orig: string) =>
   `<det nItem="${n}"><prod><cProd>${cProd}</cProd><xProd>${xProd}</xProd><NCM>87116000</NCM><CEST>${cest}</CEST><CFOP>5405</CFOP><uCom>UN</uCom><qCom>${q}.0000</qCom><vUnCom>6400.0000000000</vUnCom></prod><imposto><ICMS><ICMS60><orig>${orig}</orig><CST>60</CST></ICMS60></ICMS><PIS><PISAliq><CST>01</CST></PISAliq></PIS><COFINS><COFINSAliq><CST>01</CST></COFINSAliq></COFINS></imposto></det>`
-const nota = (nNF: string, dets: string, infCpl: string) =>
-  `<nfeProc><NFe><infNFe Id="NFe352610112223330001815500100000${nNF.padStart(5, '0')}1000000001"><ide><nNF>${nNF}</nNF></ide><emit><CNPJ>11222333000181</CNPJ><xNome>Fornecedor Teste</xNome></emit>${dets}<infAdic><infCpl>${infCpl}</infCpl></infAdic></infNFe></NFe></nfeProc>`
+const nota = (nNF: string, dets: string, infCpl: string, dest = '33333333000191') =>
+  `<nfeProc><NFe><infNFe Id="NFe352610112223330001815500100000${nNF.padStart(5, '0')}1000000001"><ide><nNF>${nNF}</nNF></ide><emit><CNPJ>11222333000181</CNPJ><xNome>Fornecedor Teste</xNome></emit><dest><CNPJ>${dest}</CNPJ></dest>${dets}<infAdic><infCpl>${infCpl}</infCpl></infAdic></infNFe></NFe></nfeProc>`
 
 // Nota de 3 motos: 2 vão para a loja, 1 não. A GIGA tem carta de correção de chassi.
 const NF_9901 = nota('9901',
@@ -87,4 +87,18 @@ test('o chassi do XML usado por uma carta de correção não entra de novo com o
   ], MODELOS)
   assert.deepEqual(p.motos.map(m => m.chassi), ['TESTEGIGA0000009'])
   assert.deepEqual(p.problemas, ['TESTEGIGA0000001: a moto TESTEGIGA0000001 do XML já entra como TESTEGIGA0000009'])
+})
+
+test('compra por outro CNPJ (#731): cada moto leva o CNPJ que comprou, e as de outro CNPJ que o do grupo são apontadas', () => {
+  const deOutro = nota('9903', det(1, 'GIGA', 'GIGA MOTO CHEFE', 1, '2600100', '4'), 'GIGA TESTEGIGA0000005 AZUL', '44444444000191')
+  const p = planejarEntradaDeXmls([NF_9901, deOutro], [
+    { chassi: 'TESTEGIGA0000002', precoCompra: '6400' },
+    { chassi: 'TESTEGIGA0000005', precoCompra: '6400' },
+  ], MODELOS)
+  assert.deepEqual(p.compradores, [
+    { chassi: 'TESTEGIGA0000002', cnpj: '33333333000191' },
+    { chassi: 'TESTEGIGA0000005', cnpj: '44444444000191' },
+  ])
+  assert.deepEqual(motosDeOutroCnpj(p, '33.333.333/0001-91'), ['TESTEGIGA0000005'])
+  assert.deepEqual(motosDeOutroCnpj(p, '44444444000191'), ['TESTEGIGA0000002'])
 })
