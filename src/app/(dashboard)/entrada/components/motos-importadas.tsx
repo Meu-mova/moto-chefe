@@ -41,6 +41,13 @@ function CaixaDoModelo({ estado, rotulo, onMarcar }: { estado: EstadoDaSelecao; 
 /** Lista das motos lidas do XML ou da planilha, antes do "Registrar entrada" (#686). */
 export function MotosImportadas({ linhas, modelos, marcadas, onMarcar, onTrocarModelo, onPreco, onExcluir, onLimpar, travado }: Props) {
   const qtdMarcadas = marcadas.size
+  if (linhas.length === 0) {
+    return (
+      <div className="bg-card rounded-lg border p-6 text-center text-sm text-muted-foreground">
+        Nenhuma moto na lista. Carregue os XMLs ou a planilha de novo.
+      </div>
+    )
+  }
   return (
     <div className="bg-card rounded-lg border p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">

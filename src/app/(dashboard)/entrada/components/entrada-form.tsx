@@ -40,6 +40,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   const [linhasPlanilha, setLinhasPlanilha] = useState<MotoImportada[]>([])
   // Posições marcadas na lista para excluir antes de registrar (#686).
   const [marcadas, setMarcadas] = useState<ReadonlySet<number>>(new Set())
+  // A exclusão esvaziou a lista: mostra o aviso de lista vazia em vez de sumir com o quadro.
+  const [listaEsvaziada, setListaEsvaziada] = useState(false)
   // De onde vieram as motos da lista: o contador aparece no quadro que as carregou.
   const [origemDasLinhas, setOrigemDasLinhas] = useState<'xml' | 'planilha'>('xml')
 
@@ -164,6 +166,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   function substituirLista(novas: MotoImportada[]) {
     setLinhasPlanilha(novas)
     setMarcadas(new Set())
+    setListaEsvaziada(false)
     toast.dismiss(AVISO_DESFAZER)
   }
 
@@ -177,6 +180,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     const { tiradas } = exclusao
     setLinhasPlanilha(ficam)
     setMarcadas(new Set())
+    setListaEsvaziada(ficam.length === 0)
     toast(tiradas.length === 1 ? `Moto ${tiradas[0].moto.chassi} tirada da lista.` : `${tiradas.length} motos tiradas da lista.`, {
       id: AVISO_DESFAZER,
       duration: 6000,
@@ -561,7 +565,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             </div>
           </div>
 
-          {linhasPlanilha.length > 0 && (
+          {(linhasPlanilha.length > 0 || listaEsvaziada) && (
             <MotosImportadas
               linhas={linhasPlanilha}
               modelos={modelos}

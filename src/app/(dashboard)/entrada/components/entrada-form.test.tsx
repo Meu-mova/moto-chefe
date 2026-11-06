@@ -212,19 +212,33 @@ test('Desfazer devolve as motos tiradas na mesma ordem', async () => {
   assert.equal(botao('Registrar entrada')?.textContent?.trim(), 'Registrar entrada (7 motos)')
 })
 
-test('excluir todas esconde a lista e o Registrar; Desfazer traz de volta', async () => {
+const LISTA_VAZIA = 'Nenhuma moto na lista. Carregue os XMLs ou a planilha de novo.'
+
+test('excluir todas troca a lista pelo aviso de lista vazia e esconde o Registrar; Desfazer traz de volta', async () => {
   await montarComPlanilha()
   for (const rotulo of ['Marcar todas as R10 da NF 43440', 'Marcar todas as X12 da NF 43440', 'Marcar todas as GIGA da NF 43512']) {
     await clicar(caixa(rotulo))
   }
   await clicar(botao('Excluir selecionadas (7)'))
   assert.equal(titulo(), undefined)
+  assert.match(textoDaTela(), new RegExp(LISTA_VAZIA))
   assert.equal(botao('Registrar entrada'), undefined)
   assert.equal(avisos.at(-1)?.mensagem, '7 motos tiradas da lista.')
 
   const { act } = await import('react')
   await act(async () => { avisos.at(-1)?.acao?.onClick() })
   assert.equal(titulo(), 'Motos importadas (7)')
+  assert.doesNotMatch(textoDaTela(), new RegExp(LISTA_VAZIA))
+})
+
+test('o aviso de lista vazia não aparece antes de carregar nada nem depois de registrar', async () => {
+  await montar()
+  assert.doesNotMatch(textoDaTela(), new RegExp(LISTA_VAZIA))
+  await carregarPlanilha(PLANILHA)
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => titulo() === undefined)
+  assert.doesNotMatch(textoDaTela(), new RegExp(LISTA_VAZIA))
 })
 
 test('Limpar tira todas com Desfazer, como o excluir; Desfazer devolve a lista e as fichas fiscais', async () => {
