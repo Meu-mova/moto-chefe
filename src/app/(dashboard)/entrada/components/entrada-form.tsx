@@ -295,8 +295,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         }
         for (const m of motos) {
           const modelo = mapearModelo(m.modelo, nomesMova) ?? m.modelo // de-para NF → MOVA
-          // Ficha fiscal (NCM, CEST, origem…) dos <det>: não aparece na tela, vai no envio para
-          // preencher o cadastro de quem ainda não tem (cadastrarFichaFiscalFaltante na action).
+          // Ficha fiscal (NCM, CEST, origem…) dos <det>: não aparece na tela; vai no envio e é
+          // gravada por moto (gravarFichaFiscalDasMotos, em src/lib/entrada-motos.ts).
           const ficha = fichaPorChassi.get(chaveDoChassi(m.chassi))
           novas.push({
             chassi: m.chassi,
