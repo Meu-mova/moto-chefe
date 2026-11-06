@@ -11,3 +11,13 @@ alter table motos add constraint motos_arquivo_completo check (
   (arquivada_em is null and arquivada_por is null and motivo_arquivo is null)
   or (arquivada_em is not null and arquivada_por is not null and coalesce(btrim(motivo_arquivo), '') <> '')
 );
+
+-- Cada moto arquivada vai para o log de ações sensíveis (#688).
+alter table log_acoes drop constraint log_acoes_tipo_check;
+alter table log_acoes add constraint log_acoes_tipo_check check (tipo in (
+  'login', 'troca_grupo', 'acesso_dia',
+  'venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada',
+  'certificado_aplicado', 'portal_aplicado', 'notas_enviadas_contador',
+  'logo_danfe_enviada', 'preco_compra_alterado', 'grupo_movido_de_conta',
+  'transferencia_grupos_alterada', 'moto_arquivada'
+));
