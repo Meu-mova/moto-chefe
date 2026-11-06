@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, ExternalLink, FileDown, Loader2, RefreshCw, Send } from 'lucide-react'
+import { MarcadorDePassos } from '@/components/marcador-de-passos'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -478,31 +479,13 @@ function transporteDoComprador(c: Previa['correcao']['comprador']): DadosTranspo
 
 /** As etapas do ciclomotor, com quantos campos faltam em cada uma. Clicar leva à etapa. */
 function Passos({ nomes, faltam, atual, onIr }: { nomes: string[]; faltam: number[]; atual: number; onIr: (i: number) => void }) {
+  const ultimo = nomes.length - 1
   return (
-    <ol className={cn('grid gap-1.5', nomes.length === 5 ? 'grid-cols-5' : 'grid-cols-4')}>
-      {nomes.map((nome, i) => {
-        const ultimo = i === nomes.length - 1
-        const f = faltam[i]
-        return (
-          <li key={nome}>
-            <button
-              type="button"
-              onClick={() => onIr(i)}
-              aria-current={i === atual ? 'step' : undefined}
-              className={cn(
-                'w-full rounded-md px-1 py-1.5 text-center text-xs',
-                i === atual ? 'bg-primary font-semibold text-primary-foreground' : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {i + 1}. {nome}
-              <span className={cn('block text-[11px]', f && i !== atual && 'text-destructive')}>
-                {f ? (ultimo ? `faltam ${f} no total` : `faltam ${f}`) : (ultimo ? 'pronto' : 'completo')}
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ol>
+    <MarcadorDePassos nomes={nomes} atual={atual} onIr={onIr} legenda={i => (
+      <span className={cn('block text-[11px]', faltam[i] && i !== atual && 'text-destructive')}>
+        {faltam[i] ? (i === ultimo ? `faltam ${faltam[i]} no total` : `faltam ${faltam[i]}`) : (i === ultimo ? 'pronto' : 'completo')}
+      </span>
+    )} />
   )
 }
 
