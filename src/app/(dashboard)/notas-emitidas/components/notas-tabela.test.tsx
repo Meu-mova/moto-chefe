@@ -389,6 +389,16 @@ test('venda que não existe mais (#690): a linha e o cartão dizem isso no lugar
   await t.desmontar()
 })
 
+test('cartão sem venda (#690, variante C): a venda aparece só no título; o rodapé fica com NF, série e data', async () => {
+  const t = await montar()
+  await t.desenhar([NOTA, COM_VENDA], true, { ...FILTRO, situacao: 'todas' })
+  const [semVenda, comVenda] = [...lista().querySelectorAll(':scope > li')].map(li => li.textContent ?? '')
+  assert.equal(semVenda!.split('Venda').length - 1, 1, semVenda)
+  assert.ok(semVenda!.includes(SEM_VENDA) && semVenda!.includes('NF 974') && semVenda!.includes('Série 1') && semVenda!.includes('29/10'), semVenda)
+  assert.ok(comVenda!.includes('Maria Oliveira') && comVenda!.includes('Venda #31602'), comVenda)
+  await t.desmontar()
+})
+
 test('celular: cartão com o cliente em destaque, os selos, o motivo da SEFAZ em bloco só na recusada e os fatos da nota (C8)', async () => {
   const t = await montar()
   await t.desenhar([NOTA, { ...AUTORIZADA, clienteNome: 'Maria Oliveira' }], true, { ...FILTRO, situacao: 'todas' })

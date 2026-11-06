@@ -87,7 +87,7 @@ function Cartao({ nota: n, selecionando, marcada, onMarcar, children }: {
 }) {
   const doc = temDocumento(n)
   const venda = linkDaVenda(n)
-  // No lugar do cliente: na linha de baixo o texto não cabe ao lado da NF e da série.
+  // No lugar do cliente, e o rodapé fica sem a venda (variante C, decisão do Luis): o texto não cabe ao lado da NF e da série.
   const semVenda = vendaQueNaoExisteMais(n)
   const motivo = n.categoria === 'recusada' ? motivoDaSefaz(n.motivoStatus) : null
   return (
@@ -112,9 +112,11 @@ function Cartao({ nota: n, selecionando, marcada, onMarcar, children }: {
         <div className="flex items-center gap-3 border-t border-border pt-3 text-[13px]/5 text-muted-foreground tabular-nums">
           <span className={fato}>NF <b className={valor}>{n.numero ?? '-'}</b></span>
           <span className={fato}>Série <b className={valor}>{n.serie ?? '-'}</b></span>
-          <span className={fato}>
-            Venda <b className={valor}>{venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : `#${n.vendaNumero}`}</b>
-          </span>
+          {!semVenda && (
+            <span className={fato}>
+              Venda <b className={valor}>{venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : `#${n.vendaNumero}`}</b>
+            </span>
+          )}
           <span className="ml-auto">{diaCurtoBrt(n.criadoEm)}</span>
         </div>
       </div>
