@@ -8,7 +8,7 @@
  * qual chassi o XML os conhece), e o resto segue a regra da tela: cor e motor do XML,
  * modelo pelo de-para da nota, ficha fiscal por chassi, preço de compra confirmado.
  *
- * Puro (sem banco). A gravação é a do registrarEntradaLote (src/lib/entrada-motos.ts).
+ * Puro (sem banco). A gravação é a do gravarLoteDeEntrada (src/lib/entrada-motos.ts).
  */
 import { extrairDaNfe, mapearModelo, parseMotosInfCpl, type MotoNfe } from './nfe-entrada'
 import {

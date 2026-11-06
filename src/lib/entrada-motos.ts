@@ -1,7 +1,9 @@
 /**
- * Gravação das motos de uma nota de entrada, comum ao lote (parcial, direto no banco)
- * e à nota com peças (#429, tudo ou nada numa transação). Quem chama confere a loja
- * com lojaDestinoDaEntrada.
+ * Gravação das motos de uma nota de entrada, comum a três caminhos: o lote da tela
+ * (parcial, direto no banco), a nota com peças (#429) e o lote do onboarding
+ * (scripts/importar-motos-xml.ts). Os dois últimos são tudo ou nada numa transação e
+ * conferem as motos por conferirMotosDaEntrada. A tela confere a loja com
+ * lojaDestinoDaEntrada.
  */
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
