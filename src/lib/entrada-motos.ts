@@ -6,7 +6,9 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
-import { historicoEstoque, lojas, motos, motosFiscal } from '@/lib/db/schema'
+import { contaDaLoja } from '@/lib/conta'
+import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
+import { grupos, historicoEstoque, lojas, motos, motosFiscal } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 
@@ -113,10 +115,67 @@ export async function gravarFichaFiscalDasMotos(
   return gravadas.length
 }
 
+export type MotoConferida = { chassi: string; moto: MotoEntradaLote; precoCompra: string }
+
 /**
- * Lote inteiro ou nada, para o onboarding de uma loja (scripts/importar-motos-xml.ts):
- * chassi que já existe recusa o lote antes de gravar qualquer moto. Quem chama abre a
- * transação. A loja precisa existir e estar ativa; o usuário fica no histórico.
+ * Confere as motos de uma entrada tudo ou nada, sem gravar: chassi repetido, modelo que a
+ * Conta da loja não usa, preço vazio e chassi já cadastrado viram erro. Conferido antes de
+ * gravar porque um insert que falha dentro da transação a invalida inteira.
+ */
+export async function conferirMotosDaEntrada(
+  exec: Pick<typeof db, 'select'>,
+  lojaId: string,
+  motosDaNota: MotoEntradaLote[],
+): Promise<{ prontas: MotoConferida[]; erros: string[] }> {
+  const contaId = await contaDaLoja(lojaId, exec)
+  const modelosValidos = await modelosUsaveisPelaConta(
+    contaId,
+    [...new Set(motosDaNota.map(m => m.modeloId).filter(Boolean))],
+    exec,
+  )
+  const vistos = new Set<string>()
+  const erros: string[] = []
+  const prontas: MotoConferida[] = []
+  for (const moto of motosDaNota) {
+    const chassi = moto.chassi.trim().toUpperCase()
+    if (!chassi) continue
+    const precoCompra = (moto.precoCompra || '').replace(',', '.').trim()
+    if (vistos.has(chassi)) erros.push(`${chassi}: chassi repetido na nota`)
+    else if (!moto.modeloId || !modelosValidos.has(moto.modeloId)) erros.push(`${chassi}: selecione o modelo antes de registrar`)
+    else if (!precoCompra) erros.push(`${chassi}: informe o preço de compra`)
+    else prontas.push({ chassi, moto, precoCompra })
+    vistos.add(chassi)
+  }
+  if (!prontas.length) return { prontas, erros }
+
+  const existentes = await exec.select({ chassi: motos.chassi, contaId: grupos.contaId }).from(motos)
+    .innerJoin(lojas, eq(lojas.id, motos.lojaId)).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
+    .where(inArray(motos.chassi, prontas.map(p => p.chassi)))
+  // Chassi de outra Conta recusa sem dizer onde está (#456).
+  const jaCadastrados = existentes.map(m => m.contaId === contaId
+    ? `${m.chassi}: chassi já existe no sistema`
+    : `${m.chassi}: não deu para registrar este chassi. Confira o número.`)
+  return { prontas, erros: [...erros, ...jaCadastrados] }
+}
+
+/** Grava as motos já conferidas e a ficha fiscal de cada uma. Devolve quantas fichas entraram. */
+export async function gravarMotosConferidas(
+  exec: Executor,
+  e: { lojaId: string; usuarioId: string; prontas: MotoConferida[]; fiscais: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[] },
+): Promise<number> {
+  const idPorChassi = new Map<string, string>()
+  for (const p of e.prontas) {
+    idPorChassi.set(p.chassi, await inserirMotoDaEntrada(exec, { lojaId: e.lojaId, usuarioId: e.usuarioId, ...p }))
+  }
+  return gravarFichaFiscalDasMotos(exec, e.fiscais
+    .map(f => ({ ...f, motoId: idPorChassi.get(f.chassi.trim().toUpperCase()) }))
+    .filter((f): f is typeof f & { motoId: string } => !!f.motoId))
+}
+
+/**
+ * Lote inteiro ou nada, para o onboarding de uma loja (scripts/importar-motos-xml.ts), com a
+ * mesma conferência da nota com peças. Quem chama abre a transação. A loja precisa existir e
+ * estar ativa; o usuário fica no histórico.
  */
 export async function gravarLoteDeEntrada(
   exec: Pick<typeof db, 'select' | 'insert'>,
@@ -132,19 +191,8 @@ export async function gravarLoteDeEntrada(
   if (!loja) throw new Error('Loja não encontrada')
   if (!e.motos.length) return { motos: 0, fichas: 0 }
 
-  const chassis = e.motos.map(m => m.chassi.trim().toUpperCase())
-  const existentes = await exec.select({ chassi: motos.chassi }).from(motos).where(inArray(motos.chassi, chassis))
-  if (existentes.length) {
-    throw new Error(`Chassi já cadastrado, nada foi gravado: ${existentes.map(x => x.chassi).join(', ')}`)
-  }
-
-  const idPorChassi = new Map<string, string>()
-  for (const moto of e.motos) {
-    const chassi = moto.chassi.trim().toUpperCase()
-    idPorChassi.set(chassi, await inserirMotoDaEntrada(exec, { lojaId: e.lojaId, usuarioId: e.usuarioId, chassi, moto, precoCompra: moto.precoCompra }))
-  }
-  const fichas = await gravarFichaFiscalDasMotos(exec, e.fiscais
-    .map(f => ({ ...f, motoId: idPorChassi.get(f.chassi.trim().toUpperCase()) }))
-    .filter((f): f is typeof f & { motoId: string } => !!f.motoId))
-  return { motos: idPorChassi.size, fichas }
+  const { prontas, erros } = await conferirMotosDaEntrada(exec, e.lojaId, e.motos)
+  if (erros.length) throw new Error(`Nada foi gravado:\n${erros.join('\n')}`)
+  const fichas = await gravarMotosConferidas(exec, { lojaId: e.lojaId, usuarioId: e.usuarioId, prontas, fiscais: e.fiscais })
+  return { motos: prontas.length, fichas }
 }

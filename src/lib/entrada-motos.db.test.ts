@@ -71,6 +71,16 @@ const motosDoLote = async (tx: Tx, chassis: string[]) => ((await tx.execute(sql`
   from motos m left join motos_fiscal f on f.moto_id = m.id
   where m.chassi = any(${sql.param(chassis)}::text[]) order by m.chassi`)) as unknown as { rows: Record<string, unknown>[] }).rows
 
+// Mensagem da recusa do lote; falha o teste se o lote entrar.
+async function recusaDoLote(tx: Tx, e: Parameters<typeof entrada.gravarLoteDeEntrada>[1]): Promise<string> {
+  try {
+    await entrada.gravarLoteDeEntrada(tx, e)
+  } catch (erro) {
+    return erro instanceof Error ? erro.message : String(erro)
+  }
+  throw new Error('o lote deveria ter sido recusado')
+}
+
 test('lote do onboarding: grava as motos na loja, com ficha fiscal e histórico de entrada', async () => {
   await emTransacaoDesfeita(async tx => {
     const c = await cenarioLote(tx)
@@ -87,20 +97,40 @@ test('lote do onboarding: grava as motos na loja, com ficha fiscal e histórico 
   })
 })
 
-test('lote do onboarding: um chassi já cadastrado (até em outra Conta) recusa o lote inteiro', async () => {
+test('lote do onboarding: chassi de outra Conta recusa o lote sem dizer que existe lá (#456)', async () => {
   await emTransacaoDesfeita(async tx => {
     const c = await cenarioLote(tx)
     await entrada.gravarLoteDeEntrada(tx, { lojaId: c.b.lojaId, usuarioId: c.usuarioId, motos: [c.moto('EMLOTE0000000009')], fiscais: [] })
-    await assert.rejects(
-      entrada.gravarLoteDeEntrada(tx, {
-        lojaId: c.a.lojaId, usuarioId: c.usuarioId,
-        motos: [c.moto('EMLOTE0000000003'), c.moto('EMLOTE0000000009')],
-        fiscais: [{ chassi: 'EMLOTE0000000009', emitente, ficha }],
-      }),
-      /Chassi já cadastrado, nada foi gravado: EMLOTE0000000009/,
-    )
+    const erro = await recusaDoLote(tx, {
+      lojaId: c.a.lojaId, usuarioId: c.usuarioId,
+      motos: [c.moto('EMLOTE0000000003'), c.moto('EMLOTE0000000009')],
+      fiscais: [{ chassi: 'EMLOTE0000000009', emitente, ficha }],
+    })
+    assert.match(erro, /EMLOTE0000000009: não deu para registrar este chassi\. Confira o número\./)
+    assert.doesNotMatch(erro, /já existe|cadastrado/)
     const gravadas = await motosDoLote(tx, ['EMLOTE0000000003', 'EMLOTE0000000009'])
     assert.deepEqual(gravadas.map(m => [m.chassi, m.loja_id, m.cest]), [['EMLOTE0000000009', c.b.lojaId, null]], 'a da B ficou como estava, sem a ficha do lote da A')
+  })
+})
+
+test('lote do onboarding: chassi já na própria Conta recusa o lote dizendo que já existe', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await cenarioLote(tx)
+    await entrada.gravarLoteDeEntrada(tx, { lojaId: c.a.lojaId, usuarioId: c.usuarioId, motos: [c.moto('EMLOTE0000000008')], fiscais: [] })
+    const erro = await recusaDoLote(tx, { lojaId: c.a.lojaId, usuarioId: c.usuarioId, motos: [c.moto('EMLOTE0000000005'), c.moto('EMLOTE0000000008')], fiscais: [] })
+    assert.match(erro, /EMLOTE0000000008: chassi já existe no sistema/)
+    assert.deepEqual(await motosDoLote(tx, ['EMLOTE0000000005']), [])
+  })
+})
+
+test('lote do onboarding: modelo de outra Conta recusa o lote', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await cenarioLote(tx)
+    const r = (await tx.execute(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id) values ('M', 'EMLOTE SO DA B', 'autopropelido', '1000', 'hub', '32', ${c.b.contaId}) returning id`)) as unknown as { rows: { id: string }[] }
+    const daB = { ...c.moto('EMLOTE0000000006'), modeloId: r.rows[0].id }
+    const erro = await recusaDoLote(tx, { lojaId: c.a.lojaId, usuarioId: c.usuarioId, motos: [c.moto('EMLOTE0000000007'), daB], fiscais: [] })
+    assert.match(erro, /EMLOTE0000000006: selecione o modelo antes de registrar/)
+    assert.deepEqual(await motosDoLote(tx, ['EMLOTE0000000006', 'EMLOTE0000000007']), [])
   })
 })
 
