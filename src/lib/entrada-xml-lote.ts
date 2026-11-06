@@ -97,7 +97,7 @@ export function planejarEntradaDeXmls(
       plano.problemas.push(`${chassi}: modelo "${e.modelo || moto.modelo}" da NF ${nNF} não está no catálogo da Conta`)
       continue
     }
-    const precoCompra = e.precoCompra.replace(',', '.').trim()
+    const precoCompra = e.precoCompra.trim()
     if (!(Number(precoCompra) > 0)) { plano.problemas.push(`${chassi}: preço de compra inválido`); continue }
 
     usadasDaNota.set(naNota, chassi)

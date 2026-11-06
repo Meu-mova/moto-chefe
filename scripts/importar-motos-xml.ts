@@ -51,7 +51,7 @@ async function main() {
   const { and, eq, or, sql } = await import('drizzle-orm')
   const { grupos, lojas, usuarios } = await import('../src/lib/db/schema')
   const { contaDaLoja } = await import('../src/lib/conta')
-  const { listarApelidosDaConta, listarModelosDaConta } = await import('../src/lib/modelos-da-conta')
+  const { apelidosDosModelos, listarApelidosDaConta, listarModelosDaConta } = await import('../src/lib/modelos-da-conta')
   const { lerListaDeChassis, motosDeOutroCnpj, planejarEntradaDeXmls } = await import('../src/lib/entrada-xml-lote')
   const { gravarLoteDeEntrada } = await import('../src/lib/entrada-motos')
   const { preencherGruposComPrecoPadrao } = await import('../src/lib/tabela-preco-padrao')
@@ -70,12 +70,11 @@ async function main() {
   const xmls = readdirSync(pastaXmls!).filter(n => n.toLowerCase().endsWith('.xml')).map(n => lerXml(join(pastaXmls!, n)))
   const escolhidas = lerListaDeChassis(readFileSync(arquivoLista!, 'utf8'))
   const [modelos, apelidos] = await Promise.all([listarModelosDaConta(contaId), listarApelidosDaConta(contaId)])
-  const visiveis = new Set(modelos.map(m => m.id))
   const plano = planejarEntradaDeXmls(
     xmls,
     escolhidas,
     modelos.map(m => ({ id: m.id, modelo: m.modelo })),
-    apelidos.filter(a => visiveis.has(a.modeloId)).map(({ nome, canonico }) => ({ nome, canonico })),
+    apelidosDosModelos(apelidos, modelos),
   )
 
   const nomeDoModelo = new Map(modelos.map(m => [m.id, m.modelo]))

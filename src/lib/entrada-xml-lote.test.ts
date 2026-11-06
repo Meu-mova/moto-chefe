@@ -18,7 +18,7 @@ const MODELOS = [{ id: 'm-giga', modelo: 'GIGA' }, { id: 'm-soma', modelo: 'SOMA
 test('só as motos escolhidas entram, com cor, motor e NF do XML e ficha por chassi', () => {
   const p = planejarEntradaDeXmls([NF_9901, NF_9902], [
     { chassi: 'testegiga0000002', precoCompra: '6400' },
-    { chassi: 'TESTEFAM00000004', precoCompra: '2410,41' },
+    { chassi: 'TESTEFAM00000004', precoCompra: '2410.41' },
   ], MODELOS)
   assert.deepEqual(p.problemas, [])
   assert.deepEqual(p.motos, [
