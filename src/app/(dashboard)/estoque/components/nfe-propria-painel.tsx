@@ -2,6 +2,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, ExternalLink, FileDown, Loader2, RefreshCw, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -631,9 +632,7 @@ function SeloDaOperacao({ operacao }: { operacao: OperacaoDaVenda }) {
   const { selo, porque } = textoDaOperacao(operacao)
   return (
     <div className="mb-3 space-y-1">
-      <span className={cn('inline-flex rounded-full px-2.5 py-0.5 text-sm font-semibold', operacao.interestadual ? 'bg-warning/10 text-warning' : 'bg-primary-soft text-primary-text')}>
-        {selo}
-      </span>
+      <Badge className={operacao.interestadual ? 'bg-warning/10 text-warning' : 'bg-primary-soft text-primary-text'}>{selo}</Badge>
       <p className="text-sm text-muted-foreground">{porque}</p>
     </div>
   )
