@@ -26,9 +26,6 @@ type Modelo = {
 type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
 
-// Um aviso de Desfazer por vez: excluir de novo troca o aviso, e trocar a lista o fecha.
-const AVISO_DESFAZER = 'entrada-desfazer-exclusao'
-
 export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo[]; lojas: Loja[]; apelidos?: NomeDeModelo[] }) {
   const [modo, setModo] = useState<'manual' | 'planilha'>('planilha')
 
@@ -93,6 +90,10 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
 
   const [loading, setLoading] = useState(false)
   const enviando = useRef(false)
+  // Um aviso de Desfazer por vez, cada um com id novo: o sonner não mostra um aviso que reusa o id
+  // de outro já fechado pelo próprio botão (achado no navegador, #686).
+  const avisoDesfazer = useRef<string | null>(null)
+  const avisosCriados = useRef(0)
   const fileRef = useRef<HTMLInputElement>(null)
   const xlsxRef = useRef<HTMLInputElement>(null)
   const xmlRef = useRef<HTMLInputElement>(null)
@@ -171,7 +172,12 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     setLinhasPlanilha(novas)
     setMarcadas(new Set())
     setListaEsvaziada(false)
-    toast.dismiss(AVISO_DESFAZER)
+    fecharAvisoDesfazer()
+  }
+
+  function fecharAvisoDesfazer() {
+    if (avisoDesfazer.current) toast.dismiss(avisoDesfazer.current)
+    avisoDesfazer.current = null
   }
 
   function marcar(indices: number[], ligar: boolean) {
@@ -185,8 +191,11 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     setLinhasPlanilha(ficam)
     setMarcadas(new Set())
     setListaEsvaziada(ficam.length === 0)
+    fecharAvisoDesfazer()
+    avisosCriados.current += 1
+    avisoDesfazer.current = `entrada-desfazer-${avisosCriados.current}`
     toast(tiradas.length === 1 ? `Moto ${tiradas[0].moto.chassi} tirada da lista.` : `${tiradas.length} motos tiradas da lista.`, {
-      id: AVISO_DESFAZER,
+      id: avisoDesfazer.current,
       duration: 6000,
       action: { label: 'Desfazer', onClick: () => desfazerExclusao(exclusao) },
     })
@@ -203,7 +212,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   // sair da tela depois do dismiss e o botão ainda responde: por isso a ref, além de fechá-lo.
   function comecarEnvio() {
     enviando.current = true
-    toast.dismiss(AVISO_DESFAZER)
+    fecharAvisoDesfazer()
     setLoading(true)
   }
 

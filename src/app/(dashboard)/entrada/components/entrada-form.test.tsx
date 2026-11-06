@@ -450,3 +450,22 @@ test('depois de um erro no registro, o Desfazer de uma nova exclusão devolve a 
   await act(async () => { avisos.at(-1)?.acao?.onClick() })
   assert.equal(titulo(), 'Motos importadas (7)')
 })
+
+// O sonner (2.0.8) trata um aviso com o id de outro já fechado pelo botão como atualização dele, e
+// nada aparece: no navegador, depois de um Desfazer, a exclusão seguinte ficava sem aviso (Etapa 6).
+test('cada exclusão abre um aviso novo, com id próprio, e fecha o anterior', async () => {
+  await montarComPlanilha()
+  await clicar(caixa('Marcar R1'))
+  await clicar(botao('Excluir selecionadas'))
+  const primeiro = avisos.at(-1)
+  const { act } = await import('react')
+  await act(async () => { primeiro?.acao?.onClick() })
+
+  await clicar(caixa('Marcar R2'))
+  await clicar(botao('Excluir selecionadas'))
+  const segundo = avisos.at(-1)
+  assert.ok(primeiro?.id && segundo?.id)
+  assert.notEqual(segundo.id, primeiro.id)
+  assert.ok(fechados.includes(primeiro.id), 'o aviso anterior foi fechado')
+  assert.equal(segundo.acao?.label, 'Desfazer')
+})
