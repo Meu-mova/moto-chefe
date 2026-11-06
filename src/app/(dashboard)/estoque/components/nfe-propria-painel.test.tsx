@@ -34,7 +34,8 @@ const preview: Extract<PreviaNfe, { ok: true }> = {
     cliente: { nome: 'Comprador de teste', documento: '35281765043', endereco: 'Rua de teste, 10', email: null },
     produto: { descricao: 'Ciclomotor de teste', ncm: '87116000', cest: '', cfop: '5102', cst: '102', origemEntrada: '0', origemSaida: '0' },
     valor: 1000, pagamentos: [{ tipo: 'Dinheiro', valor: 1000 }],
-    tributos: { pis: '49', cofins: '49', aproximado: null }, observacao: '', interestadual: false,
+    tributos: { pis: '49', cofins: '49', aproximado: null }, observacao: '',
+    operacao: { interestadual: false, motivo: 'retira', ufOrigem: 'MG', ufDestino: 'MG' },
   },
   notas: [],
   correcao: {
@@ -258,4 +259,21 @@ test('nova recusa depois do reenvio mantém o RENAVE que o operador digitou (#67
   await click(/^Salvar e reenviar nº 9/)
   assert.match(container.textContent ?? '', /espécie/)
   assert.equal(container.querySelector<HTMLSelectElement>('select#renave-tipoCombustivel')?.value, '06')
+})
+
+test('a prévia mostra se a nota é dentro ou fora do estado e por quê, com o que o servidor decidiu (#725)', async () => {
+  const semRenave = { ...preview, exigeRenave: false, renave: null }
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({
+    ...semRenave, resumo: { ...semRenave.resumo!, operacao: { interestadual: true, motivo: 'retira_contribuinte', ufOrigem: 'PI', ufDestino: 'MA' } },
+  }) }
+  const { container } = await abrirPainel()
+  assert.match(container.textContent ?? '', /Para outro estado \(PI para MA\)/)
+  assert.match(container.textContent ?? '', /O cliente retira na loja, mas tem inscrição estadual em outro estado: a venda é para outro estado\./)
+})
+
+test('venda dentro do estado mostra o selo de dentro do estado', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...preview, exigeRenave: false, renave: null }) }
+  const { container } = await abrirPainel()
+  assert.match(container.textContent ?? '', /Dentro do estado \(MG para MG\)/)
+  assert.match(container.textContent ?? '', /O cliente retira a moto na loja: vale a regra de dentro do estado\./)
 })

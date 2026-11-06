@@ -13,7 +13,7 @@ import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { normalizarCest } from '@/lib/nfe-fiscal'
 import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
-import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
+import { montarNfeVendaMoto, operacaoDosDados, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { escolherTentativa, gravarEnvio, registrarEnvio } from '@/lib/notagateway/tentativa'
 import { cancelarNfe, configNotaGateway, consultarNfe, enviarNfe, ufDaEmpresa, CancelamentoRecusado, NfeRecusada, type ConfigNotaGateway, type NfeConsultada } from '@/lib/notagateway/client'
@@ -32,6 +32,7 @@ import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { recusaSemVenda } from '@/lib/notas-emitidas'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
+import type { OperacaoDaVenda } from '@/lib/notagateway/entrega'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -96,7 +97,8 @@ export type PreviaNfe =
         pagamentos: { tipo: string; valor: number }[]
         tributos: { pis: string; cofins: string; aproximado: number | null }
         observacao: string
-        interestadual: boolean
+        /** Dentro ou fora do estado, pela mesma função do payload (#725). */
+        operacao: OperacaoDaVenda
       } | null
       notas: NotaResumo[]
       /** Valores atuais do cadastro, para corrigir a nota recusada (#347). */
@@ -296,7 +298,8 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
     if (e.ficha && e.regra && !e.pendencias.length) {
       const uf = await ufDaEmpresa(e.cfg)
       // O veículo ainda vai ser preenchido na tela: a prévia é o resto da nota.
-      const p = montarNfeVendaMoto(dadosDaVenda({ ...e, renave: null }, uf, 'previa'), e.regra)
+      const dados = dadosDaVenda({ ...e, renave: null }, uf, 'previa')
+      const p = montarNfeVendaMoto(dados, e.regra)
       const item = p.itens[0]
       const v = e.venda
       resumo = {
@@ -329,7 +332,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
           aproximado: item.impostos.percentualAproximadoTributos?.detalhado.valorTotal ?? null,
         },
         observacao: e.observacao,
-        interestadual: item.cfop === e.regra.cfopInterestadual && e.regra.cfopInterestadual !== e.regra.cfopInterno,
+        operacao: operacaoDosDados(dados),
       }
     }
 
