@@ -1,5 +1,6 @@
 import { codigoRecusa, ehRecusada } from '@/lib/notagateway/status'
 import { hojeBrt, mesBrt, parseDataInput } from '@/lib/data-venda'
+import { estadoDaSelecao, marcarVarias } from '@/lib/selecao'
 
 /** Filtros da tela Notas Emitidas (#348). A Denegada separada da Recusada vem da #347. */
 export type CategoriaNota = 'autorizada' | 'cancelada' | 'recusada' | 'em_andamento' | 'descartada'
@@ -89,17 +90,14 @@ export function nomeDoArquivo(n: { id: string; numero: string | null; serie: str
  */
 export function marcarNota(marcadas: Set<string>, todasDoFiltro: boolean, id: string, marcar: boolean): Set<string> {
   if (todasDoFiltro) return marcadas
-  const novo = new Set(marcadas)
-  if (marcar) novo.add(id); else novo.delete(id)
-  return novo
+  return marcarVarias(marcadas, [id], marcar)
 }
 
 /** Seleção estilo Gmail: "filtro" é todas as notas do filtro, inclusive as de outras páginas e além do teto da lista. */
 export function selecaoDaPagina(pagina: string[], marcadas: Set<string>, todasDoFiltro: boolean): 'nenhuma' | 'parte' | 'pagina' | 'filtro' {
   if (todasDoFiltro) return 'filtro'
-  const naPagina = pagina.filter(id => marcadas.has(id)).length
-  if (naPagina === 0) return 'nenhuma'
-  return naPagina === pagina.length ? 'pagina' : 'parte'
+  const estado = estadoDaSelecao(pagina, marcadas)
+  return estado === 'todas' ? 'pagina' : estado
 }
 
 const dataBr = (iso: string) => iso.split('-').reverse().join('/')
