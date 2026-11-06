@@ -68,6 +68,9 @@ export function planejarEntradaDeXmls(
 
   const plano: PlanoDeEntrada = { motos: [], fiscais: [], problemas: [], semFicha: [] }
   const vistos = new Set<string>()
+  // Moto do XML já usada por outra linha (chassi da nota → chassi que entra): sem isso, uma
+  // carta de correção mais o chassi antigo na lista gravariam a mesma moto duas vezes.
+  const usadasDaNota = new Map<string, string>()
   for (const e of escolhidas) {
     const chassi = chave(e.chassi)
     const naNota = chave(e.chassiNaNota || e.chassi)
@@ -81,6 +84,8 @@ export function planejarEntradaDeXmls(
       plano.problemas.push(`${chassi}: aparece em mais de uma nota (${achados.map(a => a.nNF).join(', ')})`)
       continue
     }
+    const jaUsadaPor = usadasDaNota.get(naNota)
+    if (jaUsadaPor) { plano.problemas.push(`${chassi}: a moto ${naNota} do XML já entra como ${jaUsadaPor}`); continue }
     const [{ moto, nNF, emitente, ficha }] = achados
 
     const modeloId = e.modelo ? casarModelo(e.modelo, modelos) : modeloDaNota(moto.modelo, modelos)
@@ -91,6 +96,7 @@ export function planejarEntradaDeXmls(
     const precoCompra = e.precoCompra.replace(',', '.').trim()
     if (!(Number(precoCompra) > 0)) { plano.problemas.push(`${chassi}: preço de compra inválido`); continue }
 
+    usadasDaNota.set(naNota, chassi)
     plano.motos.push({ chassi, cor: moto.cor, motor: moto.motor, modeloId, precoCompra, notaFiscal: nNF })
     if (ficha) plano.fiscais.push({ chassi, emitente, ficha })
     else plano.semFicha.push(chassi)

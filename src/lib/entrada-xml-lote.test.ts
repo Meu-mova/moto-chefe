@@ -79,3 +79,12 @@ test('lista do onboarding: colunas em qualquer ordem, preço nos dois formatos, 
   ])
   assert.throws(() => lerListaDeChassis('chassi;modelo\nX;Y'), /colunas chassi e preco/)
 })
+
+test('o chassi do XML usado por uma carta de correção não entra de novo com outra linha', () => {
+  const p = planejarEntradaDeXmls([NF_9901], [
+    { chassi: 'TESTEGIGA0000009', chassiNaNota: 'TESTEGIGA0000001', precoCompra: '6400' },
+    { chassi: 'TESTEGIGA0000001', precoCompra: '6400' },
+  ], MODELOS)
+  assert.deepEqual(p.motos.map(m => m.chassi), ['TESTEGIGA0000009'])
+  assert.deepEqual(p.problemas, ['TESTEGIGA0000001: a moto TESTEGIGA0000001 do XML já entra como TESTEGIGA0000009'])
+})
