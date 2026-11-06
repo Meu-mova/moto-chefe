@@ -88,7 +88,8 @@ export default async function EstoquePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      {/* Celular: os botões descem para baixo do título (com o "Mais ações" a linha estourava a tela, #688). */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h1 className="text-2xl font-bold">Showroom</h1>
         <p className="text-muted-foreground text-sm">
