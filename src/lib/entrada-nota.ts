@@ -6,7 +6,7 @@
  */
 import type { db } from '@/lib/db'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
-import { conferirMotosDaEntrada, gravarMotosConferidas, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { conferirMotosDaEntrada, gravarMotosConferidas, type MotoEntradaLote, type QuemDaEntrada } from '@/lib/entrada-motos'
 import { conferirLinhasPecas, gravarEntradaPecas, type EntradaPecas, type LinhaEntradaPeca } from '@/lib/entrada-pecas'
 import type { FichaDaMoto } from '@/lib/nfe-fiscal'
 
@@ -20,7 +20,7 @@ export class NotaRecusada extends Error {
 }
 
 export type NotaComPecas = {
-  usuario: EntradaPecas['usuario']
+  usuario: EntradaPecas['usuario'] & QuemDaEntrada
   lojaId: string
   nota: EntradaPecas['nota']
   motos: MotoEntradaLote[]

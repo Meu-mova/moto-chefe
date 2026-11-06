@@ -120,8 +120,11 @@ export async function gravarFichaFiscalDasMotos(
 
 export type MotoConferida = { chassi: string; moto: MotoEntradaLote; precoCompra: string }
 
-/** Quem dá a entrada: só o grupo liberado da persona do admin_rede muda a frase do chassi. */
-type QuemDaEntrada = { grupoLiberado?: string | null }
+/**
+ * Quem dá a entrada: só o grupo liberado da persona do admin_rede muda a frase do chassi.
+ * Obrigatório de propósito: quem esquecer de passar não volta a revelar o grupo irmão.
+ */
+export type QuemDaEntrada = { grupoLiberado: string | null }
 
 /**
  * Confere as motos de uma entrada tudo ou nada, sem gravar: chassi repetido, modelo que a
@@ -133,7 +136,7 @@ export async function conferirMotosDaEntrada(
   lojaId: string,
   motosDaNota: MotoEntradaLote[],
   /** Quem dá a entrada. Na persona do admin_rede (#517), chassi fora do grupo liberado recebe a frase neutra. */
-  usuario: QuemDaEntrada = {},
+  usuario: QuemDaEntrada,
 ): Promise<{ prontas: MotoConferida[]; erros: string[] }> {
   const contaId = await contaDaLoja(lojaId, exec)
   const modelosValidos = await modelosUsaveisPelaConta(
@@ -258,7 +261,8 @@ export async function gravarLoteDeEntrada(
   if (!loja) throw new Error('Loja não encontrada')
   if (!e.motos.length) return { motos: 0, fichas: 0 }
 
-  const { prontas, erros } = await conferirMotosDaEntrada(exec, e.lojaId, e.motos)
+  // Onboarding pelo operador do MOVA, fora de persona.
+  const { prontas, erros } = await conferirMotosDaEntrada(exec, e.lojaId, e.motos, { grupoLiberado: null })
   if (erros.length) throw new Error(`Nada foi gravado:\n${erros.join('\n')}`)
   const fichas = await gravarMotosConferidas(exec, { lojaId: e.lojaId, usuarioId: e.usuarioId, prontas, fiscais: e.fiscais })
   return { motos: prontas.length, fichas }

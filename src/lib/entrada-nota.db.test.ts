@@ -46,7 +46,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max, conta_id)
     values ('M', ${'EN429 ' + nome}, 'autopropelido', '1000', 'hub', '32', ${base.contaId}) returning id`)
   const peca = await catalogo.inserirPeca(tx, base.contaId, { nome: 'Capacete ' + nome, valor: 90 })
-  const usuario = { id: auxId, papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId }
+  const usuario = { id: auxId, papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId, grupoLiberado: null }
   return { base, contaId: base.contaId, lojaId: base.lojaId, usuario, modeloId: modelo.id as string, pecaId: peca.id }
 }
 
