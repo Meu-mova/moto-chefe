@@ -1,5 +1,6 @@
 import { percentualDesconto, type SomaDescontos } from '@/lib/desconto'
 import { calcularPremiacao } from '@/lib/premiacao'
+import { plural } from '@/lib/texto'
 
 // Que números o topo do dashboard mostra para cada papel (#281). Regras copiadas dos
 // cards antigos (kpi-cards.tsx); módulo puro para dar para testar sem banco.
@@ -35,8 +36,6 @@ export type Indicador = { rotulo: string; valor: string; alerta: boolean; href?:
 const ADMINS = ['admin_geral', 'admin_socio']
 // Taxa fixa herdada do card antigo; SimuladorComissaoOTE usa a do cadastro do vendedor.
 const COMISSAO_PADRAO = 0.005
-
-const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
 
 // toLocaleString põe espaço sem quebra (U+00A0) depois do R$; troca por espaço comum para o texto e os testes compararem igual.
 export const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/ /g, ' ')
