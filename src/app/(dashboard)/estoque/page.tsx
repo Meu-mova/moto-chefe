@@ -16,6 +16,8 @@ import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { PrintButton } from '../relatorio-fabrica/print-button'
+import { MaisAcoesShowroom } from './components/mais-acoes-showroom'
+import { podeArquivarMotos } from '@/lib/arquivar-moto-regras'
 import { motoVendidaSemVendaPorChassi } from '@/lib/motos-vendidas-sem-venda'
 import { filtrosDoShowroom, paramsDoShowroom, type ParamsShowroom } from '@/lib/showroom-filtros'
 
@@ -96,7 +98,11 @@ export default async function EstoquePage({
         </p>
       </div>
         {/* Imprime o que está filtrado: os mesmos parâmetros da URL (#512). */}
-        <PrintButton href={`/estoque/imprimir?${new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][])}`} rotulo="Imprimir" />
+        <div className="flex shrink-0 gap-2">
+          <PrintButton href={`/estoque/imprimir?${new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][])}`} rotulo="Imprimir" />
+          {/* Mesma regra do servidor; o admin_rede no grupo liberado chega aqui como admin_socio. */}
+          {podeArquivarMotos(usuario.papel) && <MaisAcoesShowroom />}
+        </div>
       </div>
       <StatusCards counts={counts} />
       <EstoqueFiltros
