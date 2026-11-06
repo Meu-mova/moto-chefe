@@ -1,7 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
-import { lojaDaMotoParaGravar } from '@/lib/moto-do-usuario'
+import { lojaDaMotoParaGravar, travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
@@ -9,7 +9,7 @@ import { motoDaContaPorChassi } from '@/lib/busca-chassi'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
-import { and, eq, ilike, inArray, isNotNull } from 'drizzle-orm'
+import { and, eq, ilike, inArray, isNotNull, sql } from 'drizzle-orm'
 import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia } from '@/lib/fabrica-scraper'
 import { escolherMotoPorChassi, garantiaEmAndamento, normalizarNumeroPedido, MIN_DIGITOS_SUFIXO_CHASSI } from '@/lib/garantia-importacao'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
@@ -63,19 +63,13 @@ async function abrirGarantia(params: {
   fim.setDate(fim.getDate() + 30)
   const dataFim = fim.toISOString().split('T')[0]
 
-  const supabase = await createClient()
-  const { error } = await supabase.rpc('abrir_garantia', {
-    p_moto_id: params.motoId,
-    p_loja_id: moto.lojaId,
-    p_aberta_por: usuario.id,
-    p_os_id: params.osId ?? null,
-    p_descricao: params.descricao,
-    p_data_inicio: params.dataInicio,
-    p_data_fim: dataFim,
-    p_data_pedido_peca: params.dataPedidoPeca ?? null,
-    p_numero_pedido_fabrica: params.numeroPedidoFabrica ?? null,
+  // A função do banco roda na transação que já travou a moto: um arquivar no meio faz recusar (#688).
+  await db.transaction(async tx => {
+    await travarMotoNaoArquivada(tx, params.motoId)
+    await tx.execute(sql`select abrir_garantia(${params.motoId}::uuid, ${moto.lojaId}::uuid, ${usuario.id}::uuid,
+      ${params.osId ?? null}::uuid, ${params.descricao}::text, ${params.dataInicio}::date, ${dataFim}::date,
+      ${params.dataPedidoPeca ?? null}::date, ${params.numeroPedidoFabrica ?? null}::text)`)
   })
-  if (error) throw new Error(error.message)
   revalidatePath('/garantias')
   revalidatePath('/vendas')
   revalidatePath(`/estoque/${params.motoId}`)

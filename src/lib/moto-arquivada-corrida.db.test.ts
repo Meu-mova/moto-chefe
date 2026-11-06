@@ -175,3 +175,10 @@ test('transferência: o arquivar que termina no meio faz a transferência recusa
     sql`select count(*) from transferencias where moto_id = ${moto} and status = 'pendente'`)
   assert.deepEqual(r, { resposta: { ...recusou, erro: MOTO_ARQUIVADA }, arquivar: true, arquivada: true, pendencias: 0 })
 })
+
+test('garantia: o arquivar que termina no meio faz a garantia recusar; nenhuma garantia fica ativa', async () => {
+  const moto = await novaMoto('GAR')
+  const r = await corrida(moto, () => acoes.abrirGarantia({ motoId: moto, descricao: 'bateria', dataInicio: '2026-11-05' }),
+    sql`select count(*) from garantias where moto_id = ${moto} and status = 'ativa'`)
+  assert.deepEqual(r, { resposta: { ...recusou, erro: MOTO_ARQUIVADA }, arquivar: true, arquivada: true, pendencias: 0 })
+})

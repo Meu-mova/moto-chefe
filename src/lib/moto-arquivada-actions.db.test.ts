@@ -1,7 +1,7 @@
 // Teste de banco: Postgres descartável. Transferir e abrir garantia em moto arquivada (#688):
 // as Server Actions devolvem a frase como { ok: false, erro } (em produção o React troca a
-// mensagem de um throw, #404) e não gravam nada. Fronteira de fora mockada: sessão,
-// Supabase (a garantia ainda chama o rpc) e next/cache.
+// mensagem de um throw, #404) e não gravam nada; a moto viva grava pela função do banco.
+// Fronteira de fora mockada: sessão, Supabase (não é mais chamado aqui) e next/cache.
 import { after, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
@@ -16,10 +16,9 @@ process.env.DATABASE_URL = url
 
 const P = 'MAA688'
 let usuarioDaSessao: Record<string, unknown> = {}
-const rpcs: string[] = []
 const mocks = [
   mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => usuarioDaSessao } }),
-  mock.module('@/lib/supabase/server', { namedExports: { createClient: async () => ({ rpc: async (nome: string) => { rpcs.push(nome); return { error: null } } }) } }),
+  mock.module('@/lib/supabase/server', { namedExports: { createClient: async () => ({}) } }),
   mock.module('next/cache', { namedExports: { revalidatePath: () => {} } }),
 ]
 
@@ -76,10 +75,8 @@ test('transferir moto arquivada devolve a frase e não grava; a viva fica com a 
   assert.deepEqual(await pendentes('transferencias', 'pendente'), { arquivada: 0, viva: 1 })
 })
 
-test('abrir garantia em moto arquivada devolve a frase e não chama o banco de garantia; a viva segue', async () => {
-  rpcs.length = 0
+test('abrir garantia em moto arquivada devolve a frase e não grava; a viva fica com a garantia ativa', async () => {
   assert.deepEqual(await abrirGarantiaAction(garantia(semente.arquivada)), { ok: false, erro: MOTO_ARQUIVADA })
-  assert.deepEqual(rpcs, [])
   assert.deepEqual(await abrirGarantiaAction(garantia(semente.viva)), { ok: true, dados: undefined })
-  assert.deepEqual(rpcs, ['abrir_garantia'])
+  assert.deepEqual(await pendentes('garantias', 'ativa'), { arquivada: 0, viva: 1 })
 })
