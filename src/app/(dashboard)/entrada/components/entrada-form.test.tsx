@@ -277,3 +277,49 @@ test('XML excluído e a NF certa importada depois: a ficha fiscal enviada é só
 
   assert.deepEqual(enviados[0].dados.fiscais?.map(f => [f.chassi, f.emitente.nfNumero]), [['TESTE0000GG000001', '222']])
 })
+
+test('XML acrescentado depois de marcar não muda o que está marcado; excluir tira só a marcada', async () => {
+  await montar()
+  await carregarXml(notaXml('111', ['TESTE0000GG000001', 'TESTE0000GG000002']), 2)
+  await clicar(caixa('Marcar TESTE0000GG000002'))
+  await carregarXml(notaXml('222', ['TESTE0000GG000003']), 3)
+
+  assert.ok(caixa('Marcar TESTE0000GG000002')?.checked)
+  assert.ok(!caixa('Marcar TESTE0000GG000003')?.checked)
+  await clicar(botao('Excluir selecionadas (1)'))
+
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1)
+  assert.deepEqual(enviados[0].dados.motos.map(m => m.chassi), ['TESTE0000GG000001', 'TESTE0000GG000003'])
+  assert.deepEqual(enviados[0].dados.fiscais?.map(f => f.chassi), ['TESTE0000GG000001', 'TESTE0000GG000003'])
+})
+
+test('nota com motos e peças: o registro da nota leva só as motos que ficaram e as fichas delas', async () => {
+  await montar()
+  await carregarXml(notaXml('333', ['TESTE0000GG000001', 'TESTE0000GG000002'], true), 2)
+  await clicar(caixa('Marcar TESTE0000GG000001'))
+  await clicar(botao('Excluir selecionadas'))
+  await escolherLoja()
+  await esperar(() => botao('Registrar entrada')?.textContent?.trim() === 'Registrar entrada (1 motos e 1 peças)')
+
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1)
+  assert.equal(enviados[0].action, 'nota')
+  assert.deepEqual(enviados[0].dados.motos.map(m => m.chassi), ['TESTE0000GG000002'])
+  assert.deepEqual(enviados[0].dados.fiscais?.map(f => f.chassi), ['TESTE0000GG000002'])
+})
+
+test('erro do servidor no registro: a lista fica como estava, sem as motos excluídas', async () => {
+  respostaDoEnvio = { error: 'Falhou' }
+  await montarComPlanilha()
+  await clicar(caixa('Marcar G1'))
+  await clicar(botao('Excluir selecionadas'))
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1 && botao('Registrar entrada') !== undefined && !botao('Registrar entrada')?.textContent?.includes('Registrando'))
+
+  assert.equal(titulo(), 'Motos importadas (6)')
+  assert.equal(caixa('Marcar G1'), null)
+  assert.equal(botao('Registrar entrada')?.textContent?.trim(), 'Registrar entrada (6 motos)')
+})
