@@ -24,3 +24,9 @@ export async function motoDoUsuario(
   if (!moto || !(await podeVenderMotoDaLoja(usuario, moto.lojaId, exec))) return null
   return moto
 }
+
+/** Loja da moto que a ação vai gravar (transferência, garantia); null se não existe. A Conta quem chama confere. */
+export async function lojaDaMotoParaGravar(motoId: string, exec: Executor = db): Promise<{ lojaId: string } | null> {
+  const [moto] = await exec.select({ lojaId: motos.lojaId }).from(motos).where(eq(motos.id, motoId)).limit(1)
+  return moto ?? null
+}
