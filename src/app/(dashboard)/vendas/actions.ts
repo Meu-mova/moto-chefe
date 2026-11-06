@@ -32,6 +32,7 @@ import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
+import { conferirEntrega } from '@/lib/notagateway/entrega'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
@@ -139,18 +140,21 @@ export async function criarPedidoVendaAction(...a: Parameters<typeof criarPedido
   return acao(() => criarPedidoVenda(...a))
 }
 
-async function criarPedidoVenda(motoId: string, observacao?: string) {
+async function criarPedidoVenda(motoId: string, observacao: string, entregaDaTela: unknown) {
   const usuario = await getUsuarioLogado()
   if (!podeCriarPedido(usuario.papel)) {
     throw new RecusaUsuario('Sem permissão para criar pedido de venda')
   }
 
   if (!(await motoDoUsuario(usuario, motoId))) throw new RecusaUsuario('Moto não encontrada')
+  const entrega = conferirEntrega(entregaDaTela)
+  if (!entrega.ok) throw new RecusaUsuario(entrega.erro)
 
   await db.transaction(tx => criarPedidoTx(tx, {
     motoId,
     vendedorId: usuario.id,
-    observacao: observacao?.trim() || null,
+    observacao: observacao.trim() || null,
+    entrega: entrega.entrega,
   }))
 
   revalidatePath('/vendas')

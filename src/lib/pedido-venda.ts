@@ -4,6 +4,7 @@ import { historicoEstoque, motos, pedidosVenda, reservas, transferencias } from 
 import { motivoBloqueioCriarPedido, podeCancelarPedido, type QuemCancela } from '@/lib/pedido-venda-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
+import type { EntregaVenda } from '@/lib/notagateway/entrega'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -18,7 +19,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
  */
 export async function criarPedidoTx(
   tx: Tx,
-  d: { motoId: string; vendedorId: string; observacao: string | null },
+  d: { motoId: string; vendedorId: string; observacao: string | null; entrega: EntregaVenda },
 ): Promise<{ pedidoId: string; lojaId: string }> {
   const moto = await travarMotoNaoArquivada(tx, d.motoId)
 
@@ -38,6 +39,7 @@ export async function criarPedidoTx(
     vendedorId: d.vendedorId,
     status: 'pendente',
     observacao: d.observacao,
+    entrega: d.entrega,
   }).returning({ id: pedidosVenda.id })
 
   await tx.insert(historicoEstoque).values({

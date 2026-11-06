@@ -33,6 +33,9 @@ after(async () => {
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
+// A Entrega não muda o que estes cenários conferem; vai a mais simples que o servidor aceita.
+const RETIRA_SEM_MODALIDADE = { modo: 'retira', modalidade: '' } as const
+
 class Desfazer extends Error {}
 
 // Roda `fn` numa transação e a desfaz no fim, mesmo quando passa.
@@ -199,7 +202,7 @@ describe('criarPedidoTx (#181)', () => {
       const s = await semear(tx)
       for (const status of ['montada', 'em_garantia']) {
         const motoId = await outraMoto(s, status, 'disponivel')
-        const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+        const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
         assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: 'reservada', status, pedido: 'pendente' })
       }
     })
@@ -216,7 +219,7 @@ describe('criarPedidoTx (#181)', () => {
       ]
       for (const [status, disp, erro] of casos) {
         const motoId = await outraMoto(s, status, disp)
-        await assert.rejects(criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null }), erro)
+        await assert.rejects(criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE }), erro)
       }
     })
   })
@@ -227,7 +230,7 @@ describe('criarPedidoTx (#181)', () => {
       const motoId = await outraMoto(s, 'montada', 'disponivel')
       await s.linha(sql`insert into transferencias (moto_id, loja_origem_id, loja_destino_id, solicitado_por)
         values (${motoId}, ${s.lojaId}, ${s.lojaId}, ${s.auxId}) returning id`)
-      await assert.rejects(criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null }), /transferência/)
+      await assert.rejects(criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE }), /transferência/)
     })
   })
 })
@@ -242,7 +245,7 @@ describe('cancelarPedidoTx (#181)', () => {
       ]
       for (const usuario of quem) {
         const motoId = await outraMoto(s, 'montada', 'disponivel')
-        const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+        const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
         await cancelarPedidoTx(tx, { pedidoId, usuario, observacao: 'desistiu' })
         assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: 'disponivel', status: 'montada', pedido: 'cancelado' })
       }
@@ -253,7 +256,7 @@ describe('cancelarPedidoTx (#181)', () => {
     await emTransacaoDesfeita(async tx => {
       const s = await semear(tx)
       const motoId = await outraMoto(s, 'montada', 'disponivel')
-      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
       await cancelarPedidoTx(tx, { pedidoId, usuario: { id: s.auxId, papel: 'admin_socio', lojaId: null }, observacao: null })
       assert.equal((await estado(s, motoId, pedidoId)).pedido, 'cancelado')
     })
@@ -263,7 +266,7 @@ describe('cancelarPedidoTx (#181)', () => {
     await emTransacaoDesfeita(async tx => {
       const s = await semear(tx)
       const motoId = await outraMoto(s, 'montada', 'disponivel')
-      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
       await assert.rejects(
         cancelarPedidoTx(tx, { pedidoId, usuario: { id: s.auxId, papel: 'vendedor', lojaId: s.lojaId }, observacao: null }),
         /Sem permissão/,
@@ -280,7 +283,7 @@ describe('cancelarPedidoTx (#181)', () => {
     await emTransacaoDesfeita(async tx => {
       const s = await semear(tx)
       const motoId = await outraMoto(s, 'montada', 'disponivel')
-      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
       await s.linha(sql`update motos set disponibilidade = 'aguardando_aprovacao' where id = ${motoId} returning id`)
       await cancelarPedidoTx(tx, { pedidoId, usuario: { id: s.auxId, papel: 'aux_adm', lojaId: s.lojaId }, observacao: null })
       assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: 'aguardando_aprovacao', status: 'montada', pedido: 'cancelado' })
@@ -293,7 +296,7 @@ describe('ciclo do pedido (#181)', () => {
     await emTransacaoDesfeita(async tx => {
       const s = await semear(tx)
       const motoId = await outraMoto(s, 'montada', 'disponivel')
-      const { pedidoId, lojaId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      const { pedidoId, lojaId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
       await efetivarPedidoTx(tx, {
         pedidoId, lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
         clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 1000, formaPagamento: 'pix',
@@ -307,9 +310,9 @@ describe('ciclo do pedido (#181)', () => {
     await emTransacaoDesfeita(async tx => {
       const s = await semear(tx)
       const motoId = await outraMoto(s, 'montada', 'disponivel')
-      const primeiro = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      const primeiro = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
       await cancelarPedidoTx(tx, { pedidoId: primeiro.pedidoId, usuario: { id: s.vendedorId, papel: 'vendedor', lojaId: s.lojaId }, observacao: null })
-      const segundo = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null })
+      const segundo = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
       assert.deepEqual(await estado(s, motoId, segundo.pedidoId), { disponibilidade: 'reservada', status: 'montada', pedido: 'pendente' })
     })
   })

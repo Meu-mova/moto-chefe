@@ -30,7 +30,7 @@ export type DadosEfetivarPedido = {
  */
 export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<{ vendaId: string }> {
   const [pedido] = await tx
-    .select({ motoId: pedidosVenda.motoId, lojaId: pedidosVenda.lojaId, vendedorId: pedidosVenda.vendedorId, status: pedidosVenda.status })
+    .select({ motoId: pedidosVenda.motoId, lojaId: pedidosVenda.lojaId, vendedorId: pedidosVenda.vendedorId, status: pedidosVenda.status, entrega: pedidosVenda.entrega })
     .from(pedidosVenda)
     .where(eq(pedidosVenda.id, d.pedidoId))
     .for('update')
@@ -97,6 +97,8 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     dataVenda: agora,
     origemId: d.origem.origemId,
     origemDetalhe: d.origem.origemDetalhe,
+    // A Entrega vem do pedido, lido aqui sob a trava: a efetivação não a recebe do navegador.
+    entrega: pedido.entrega,
   }).returning({ id: vendas.id })
 
   if (reservaAtiva) {

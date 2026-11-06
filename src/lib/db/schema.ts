@@ -9,6 +9,7 @@ import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 import type { PapelBase } from '@/lib/gestao-usuarios'
 import type { PadraoSimulador } from '@/lib/simulador-padrao'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
+import type { EntregaVenda } from '@/lib/notagateway/entrega'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -579,7 +580,7 @@ export const pedidosVenda = pgTable('pedidos_venda', {
   dataAtualizacao: timestamp('data_atualizacao', { withTimezone: true }).notNull().defaultNow(),
   observacao: text('observacao'),
   /** Entrega da venda (retira na loja ou entregar) e modalidade do frete; vai para a venda na efetivação. Nulo = pedido anterior (#725). */
-  entrega: jsonb('entrega'),
+  entrega: jsonb('entrega').$type<EntregaVenda>(),
 })
 
 // ─── vendas ──────────────────────────────────────────────────────────────────
@@ -626,7 +627,7 @@ export const vendas = pgTable('vendas', {
   nfLiberadaPor: uuid('nf_liberada_por'),
   nfLiberacaoMotivo: text('nf_liberacao_motivo'),
   /** Entrega da venda, copiada do pedido: decide se a NF é dentro ou fora do estado. Nulo = venda anterior, regra antiga (#725). */
-  entrega: jsonb('entrega'),
+  entrega: jsonb('entrega').$type<EntregaVenda>(),
 })
 
 // ─── origens_venda ───────────────────────────────────────────────────────────
