@@ -422,3 +422,14 @@ test('com uma moto só, o botão diz "Registrar entrada (1 moto)"', async () => 
   await clicar(botao('Excluir selecionadas (6)'))
   assert.equal(botao('Registrar entrada')?.textContent?.trim(), 'Registrar entrada (1 moto)')
 })
+
+test('Limpar, Desfazer e registrar: depois de gravar não aparece o aviso de lista vazia', async () => {
+  await montarComPlanilha()
+  await clicar(botao('Limpar'))
+  const { act } = await import('react')
+  await act(async () => { avisos.at(-1)?.acao?.onClick() })
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1 && titulo() === undefined)
+  assert.doesNotMatch(textoDaTela(), new RegExp(LISTA_VAZIA))
+})
