@@ -1,7 +1,8 @@
 'use client'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DADOS_TRANSPORTE_VAZIOS, MODALIDADES_FRETE, type DadosTransporte, type EnderecoEntrega } from '@/lib/notagateway/transporte'
+import { ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
+import { DADOS_TRANSPORTE_VAZIOS, type DadosTransporte, type EnderecoEntrega } from '@/lib/notagateway/transporte'
 import { tipoPessoa } from '@/lib/notagateway/venda'
 
 type Props = {
@@ -36,10 +37,7 @@ export function TransporteForm({ dados, onChange }: Props) {
       </div>
       <div className="space-y-1">
         <Label htmlFor="modalidade-frete">Modalidade do frete</Label>
-        <select id="modalidade-frete" value={dados.modalidade} onChange={e => setFrete(e.target.value as DadosTransporte['modalidade'])} className="h-10 w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm">
-          <option value="">Selecione a modalidade</option>
-          {MODALIDADES_FRETE.map(m => <option key={m.token} value={m.token}>{m.texto}</option>)}
-        </select>
+        <ModalidadeFreteSelect id="modalidade-frete" valor={dados.modalidade} onChange={setFrete} placeholder="Selecione a modalidade" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1 sm:col-span-2">
