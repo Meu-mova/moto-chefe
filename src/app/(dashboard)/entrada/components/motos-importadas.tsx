@@ -16,6 +16,8 @@ type Props = {
   onPreco: (idx: number, preco: string) => void
   onExcluir: () => void
   onLimpar: () => void
+  /** Durante o envio do registro. */
+  travado: boolean
 }
 
 const caixinha = 'size-4 cursor-pointer accent-primary'
@@ -37,7 +39,7 @@ function CaixaDoModelo({ estado, rotulo, onMarcar }: { estado: EstadoDaSelecao; 
 }
 
 /** Lista das motos lidas do XML ou da planilha, antes do "Registrar entrada" (#686). */
-export function MotosImportadas({ linhas, modelos, marcadas, onMarcar, onTrocarModelo, onPreco, onExcluir, onLimpar }: Props) {
+export function MotosImportadas({ linhas, modelos, marcadas, onMarcar, onTrocarModelo, onPreco, onExcluir, onLimpar, travado }: Props) {
   const qtdMarcadas = marcadas.size
   return (
     <div className="bg-card rounded-lg border p-4 space-y-4">
@@ -47,12 +49,12 @@ export function MotosImportadas({ linhas, modelos, marcadas, onMarcar, onTrocarM
           <button
             type="button"
             onClick={onExcluir}
-            disabled={qtdMarcadas === 0}
+            disabled={travado || qtdMarcadas === 0}
             className="min-h-9 rounded-md border border-destructive px-3 text-sm text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Excluir selecionadas ({qtdMarcadas})
           </button>
-          <button type="button" onClick={onLimpar} className="px-1 py-1.5 text-sm text-destructive hover:opacity-80">
+          <button type="button" onClick={onLimpar} disabled={travado} className="px-1 py-1.5 text-sm text-destructive hover:opacity-80 disabled:opacity-40">
             Limpar
           </button>
         </div>

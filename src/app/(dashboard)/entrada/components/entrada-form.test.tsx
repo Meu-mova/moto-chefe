@@ -11,7 +11,9 @@ after(desmontar)
 type Envio = { lojaId: string; motos: { chassi: string }[]; fiscais?: { chassi: string; emitente: { nfNumero: string } }[] }
 const enviados: { action: 'lote' | 'nota'; dados: Envio }[] = []
 let respostaDoEnvio: { success?: string; error?: string } = { success: 'ok' }
-const registrarEntradaLote = async (dados: Envio) => { enviados.push({ action: 'lote', dados }); return respostaDoEnvio }
+// Segura a resposta para o teste olhar a tela enquanto o registro está sendo enviado.
+let segurarEnvio: Promise<void> = Promise.resolve()
+const registrarEntradaLote = async (dados: Envio) => { enviados.push({ action: 'lote', dados }); await segurarEnvio; return respostaDoEnvio }
 const registrarEntradaNota = async (dados: Envio) => { enviados.push({ action: 'nota', dados }); return respostaDoEnvio }
 // Conferência de peças: o item da nota já tem peça no catálogo, então a linha entra sem correção.
 const carregarConferenciaPecas = async () => ({
@@ -39,6 +41,7 @@ afterEach(async () => {
   document.body.innerHTML = ''
   enviados.length = 0
   respostaDoEnvio = { success: 'ok' }
+  segurarEnvio = Promise.resolve()
   avisos.length = 0
   fechados.length = 0
 })
@@ -322,4 +325,24 @@ test('erro do servidor no registro: a lista fica como estava, sem as motos exclu
   assert.equal(titulo(), 'Motos importadas (6)')
   assert.equal(caixa('Marcar G1'), null)
   assert.equal(botao('Registrar entrada')?.textContent?.trim(), 'Registrar entrada (6 motos)')
+})
+
+test('enquanto registra, Excluir e Limpar ficam travados e o Desfazer some', async () => {
+  let soltar = () => {}
+  segurarEnvio = new Promise(r => { soltar = r })
+  await montarComPlanilha()
+  await clicar(caixa('Marcar R1'))
+  await clicar(botao('Excluir selecionadas'))
+  const idDoAviso = avisos.at(-1)?.id
+  await clicar(caixa('Marcar R2'))
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1)
+
+  assert.ok((botao('Excluir selecionadas') as HTMLButtonElement).disabled, 'Excluir travado')
+  assert.ok((botao('Limpar') as HTMLButtonElement).disabled, 'Limpar travado')
+  assert.ok(fechados.includes(idDoAviso), 'Desfazer fechado')
+
+  const { act } = await import('react')
+  await act(async () => { soltar() })
 })

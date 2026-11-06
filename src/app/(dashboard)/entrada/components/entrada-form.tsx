@@ -188,6 +188,12 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     setMarcadas(new Set())
   }
 
+  // Desfazer no meio do envio devolveria motos que o sucesso apaga sem gravar.
+  function comecarEnvio() {
+    toast.dismiss(AVISO_DESFAZER)
+    setLoading(true)
+  }
+
   // --- Planilha XLSX handler ---
   function handleXLSX(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -397,7 +403,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         toast.error('Esta nota já entrou. Marque "Lançar mesmo assim" para continuar.')
         return
       }
-      setLoading(true)
+      comecarEnvio()
       try {
         const { fornecedorNome: _, ...nota } = notaPecas.nota
         const result = await registrarEntradaNota({
@@ -424,7 +430,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       return
     }
 
-    setLoading(true)
+    comecarEnvio()
     try {
       const result = await registrarEntradaLote({
         lojaId,
@@ -559,6 +565,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               onPreco={updatePreco}
               onExcluir={excluirMarcadas}
               onLimpar={() => substituirLista([])}
+              travado={loading}
             />
           )}
 
