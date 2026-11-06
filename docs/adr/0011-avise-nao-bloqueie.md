@@ -20,6 +20,8 @@ Exceções:
   ([ADR-0014](0014-venda-com-nf-autorizada-nao-se-cancela.md)).
 - CPF/CNPJ inválido do comprador bloqueia venda, reserva e demanda
   ([ADR-0015](0015-documento-invalido-do-comprador-bloqueia.md)).
+- Moto cuja venda tem NF de saída viva ou autorizada, ou número de NF de fora do MOVA, não se
+  remove ([ADR-0020](0020-remover-moto-apaga-dependentes.md)).
 
 ## Por quê
 

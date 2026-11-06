@@ -1,6 +1,6 @@
 import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { getUsuarioLogado } from '@/lib/auth'
-import { contaDoEditor } from '@/lib/grupo'
+import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { listarDadosFuncionarios } from '@/lib/dados-funcionarios'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { recusaCorrecaoPix, TIPOS_CHAVE_PIX, type TipoChavePix } from '@/lib/dados-funcionario'
@@ -20,8 +20,8 @@ function formatData(iso: string) {
 export default async function DadosFuncionariosPage() {
   await exigirAcessoPagina('/admin/dados-funcionarios')
   const usuario = await getUsuarioLogado()
-  const contaId = await contaDoEditor(usuario)
-  const linhas = await listarDadosFuncionarios(contaId)
+  const grupo = await grupoAtivoDaRequisicao(usuario)
+  const linhas = await listarDadosFuncionarios(grupo.id)
 
   const rotulo = (t: string | null) => TIPOS_CHAVE_PIX.find(x => x.valor === t)?.rotulo ?? '—'
   const faltando = linhas.filter(l => !l.cpf).length
@@ -32,7 +32,7 @@ export default async function DadosFuncionariosPage() {
         <div>
           <h1 className="text-2xl font-bold">Dados dos funcionários</h1>
           <p className="text-muted-foreground text-sm">
-            Preenchidos pelo próprio funcionário no primeiro acesso. A chave PIX pode ser corrigida aqui.
+            Funcionários de {grupo.nome}. Preenchidos pelo próprio funcionário no primeiro acesso. A chave PIX pode ser corrigida aqui.
             {faltando > 0 && ` ${faltando} ainda não preencheram.`}
           </p>
         </div>
@@ -58,7 +58,7 @@ export default async function DadosFuncionariosPage() {
                 <TableCell>{rotulo(l.pixTipo)}</TableCell>
                 <TableCell>{l.pixChave ?? '—'}</TableCell>
                 <TableCell>{l.dataNascimento ? formatData(l.dataNascimento) : '—'}</TableCell>
-                {/* Mesma regra do servidor; a Conta já veio filtrada na lista. */}
+                {/* Mesma regra do servidor; o grupo já veio filtrado na lista. */}
                 <TableCell>
                   {l.pixTipo && l.pixChave && !recusaCorrecaoPix(usuario, { papel: l.papel, temDados: !!l.cpf }) && (
                     <EditarPixDialog usuarioId={l.id} nome={l.nome}

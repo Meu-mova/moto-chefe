@@ -1,4 +1,4 @@
-import { esc } from '@/lib/assinatura/documento'
+import { esc } from '@/lib/html'
 import { formatarNumeroBR } from '@/lib/numero-br'
 
 function dataBR(aaaaMmDd: string): string {

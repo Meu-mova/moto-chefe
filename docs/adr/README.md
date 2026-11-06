@@ -54,3 +54,4 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 | [0017](0017-documento-da-plataforma-fora-das-tabelas-por-grupo.md) | Documento da plataforma fica fora das tabelas por grupo | Aceita |
 | [0018](0018-conta-acima-do-grupo.md) | Conta acima do grupo: isolamento por cliente do MOVA | Revisada por 0019 |
 | [0019](0019-admin-rede-acesso-entre-contas.md) | admin_rede: acesso a grupos de outras Contas liberado pelo admin_geral | Aceita |
+| [0020](0020-remover-moto-apaga-dependentes.md) | Remover moto apaga a moto e tudo o que depende dela | Aceita |

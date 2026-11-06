@@ -92,7 +92,7 @@ test('formato fora de YYYY-MM-DD é recusado', () => {
 })
 
 // ─── Quem corrige o PIX de outro funcionário ─────────────────────────────
-// A Conta já vem filtrada na consulta (dados-funcionarios.db.test.ts); aqui, papel e dados.
+// O grupo já vem filtrado na consulta (dados-funcionarios.db.test.ts); aqui, papel e dados.
 test('sócio corrige o PIX de vendedor que já preencheu os dados', () => {
   assert.equal(recusaCorrecaoPix({ papel: 'admin_socio' }, { papel: 'vendedor', temDados: true }), null)
 })

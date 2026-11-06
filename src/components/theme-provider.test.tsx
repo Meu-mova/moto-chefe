@@ -1,7 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createElement } from 'react'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { listarArquivos } from '@/test/listar-arquivos'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { BotaoTema, ThemeProvider } from './theme-provider'
 
@@ -37,9 +39,8 @@ test('páginas de documento (src/app/(print)) não renderizam nem importam o bot
   const { default: PrintLayout } = await import('../app/(print)/layout')
   const html = renderToStaticMarkup(createElement(PrintLayout, null, 'documento'))
   assert.ok(!html.includes('data-botao-tema'))
-  const dir = new URL('../app/(print)/', import.meta.url)
-  const arquivos = (readdirSync(dir, { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f))
+  const arquivos = listarArquivos(fileURLToPath(new URL('../app/(print)/', import.meta.url)), (f) => /\.tsx?$/.test(f))
   assert.ok(arquivos.length > 0)
-  const comBotao = arquivos.filter((f) => /<BotaoTema|from '@\/components\/theme-provider'/.test(readFileSync(new URL(f, dir), 'utf8')))
+  const comBotao = arquivos.filter((f) => /<BotaoTema|from '@\/components\/theme-provider'/.test(readFileSync(f, 'utf8')))
   assert.deepEqual(comBotao, [])
 })
