@@ -28,6 +28,7 @@ export function vendaQueNaoExisteMais(n: { vendaId: string | null; vendaNumero: 
   return n.vendaId ? null : textoSemVenda(n.vendaNumero)
 }
 
+// Sem número é só rede: venda_numero é NOT NULL desde a 0144, mas a decisão do Luis (#690) pede o texto.
 function textoSemVenda(vendaNumero: number | null): string {
   return vendaNumero == null ? 'Venda não existe mais' : `Venda #${vendaNumero} (não existe mais)`
 }
