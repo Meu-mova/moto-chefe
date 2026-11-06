@@ -578,6 +578,8 @@ export const pedidosVenda = pgTable('pedidos_venda', {
   dataPedido: timestamp('data_pedido', { withTimezone: true }).notNull().defaultNow(),
   dataAtualizacao: timestamp('data_atualizacao', { withTimezone: true }).notNull().defaultNow(),
   observacao: text('observacao'),
+  /** Entrega da venda (retira na loja ou entregar) e modalidade do frete; vai para a venda na efetivação. Nulo = pedido anterior (#725). */
+  entrega: jsonb('entrega'),
 })
 
 // ─── vendas ──────────────────────────────────────────────────────────────────
@@ -623,6 +625,8 @@ export const vendas = pgTable('vendas', {
   nfLiberadaEm: timestamp('nf_liberada_em', { withTimezone: true }),
   nfLiberadaPor: uuid('nf_liberada_por'),
   nfLiberacaoMotivo: text('nf_liberacao_motivo'),
+  /** Entrega da venda, copiada do pedido: decide se a NF é dentro ou fora do estado. Nulo = venda anterior, regra antiga (#725). */
+  entrega: jsonb('entrega'),
 })
 
 // ─── origens_venda ───────────────────────────────────────────────────────────
