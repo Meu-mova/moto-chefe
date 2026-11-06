@@ -108,3 +108,10 @@ test('moto arquivada aparece como ação sensível, com rótulo próprio', () =>
   assert.equal(ehSensivel('moto_arquivada'), true)
   assert.equal(ROTULO_TIPO.moto_arquivada, 'Arquivou moto')
 })
+
+test('moto desarquivada (#691): rótulo próprio, sensível, com chassi, modelo e o motivo', () => {
+  const resumo = resumoDoEvento(ev({ tipo: 'moto_desarquivada', detalhe: { motoId: 'm1', chassi: 'ABC123', modelo: 'JET', loja: 'Lavras', nfEntrada: '123', motivo: 'achamos o dono' } }))
+  assert.equal(resumo, 'ABC123 · JET · “achamos o dono”')
+  assert.equal(ehSensivel('moto_desarquivada'), true)
+  assert.equal(ROTULO_TIPO.moto_desarquivada, 'Desarquivou moto')
+})

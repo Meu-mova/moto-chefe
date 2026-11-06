@@ -10,9 +10,9 @@ export const ROTULO_TIPO: Record<string, string> = {
   notas_enviadas_contador: 'Enviou notas ao contador', logo_danfe_enviada: 'Enviou logo do DANFE',
   preco_compra_alterado: 'Corrigiu preço de compra', grupo_movido_de_conta: 'Moveu grupo de Conta',
   transferencia_grupos_alterada: 'Mudou transferência entre grupos',
-  moto_arquivada: 'Arquivou moto',
+  moto_arquivada: 'Arquivou moto', moto_desarquivada: 'Desarquivou moto',
 }
-export const TIPOS_SENSIVEIS = ['venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada', 'certificado_aplicado', 'portal_aplicado', 'notas_enviadas_contador', 'logo_danfe_enviada', 'preco_compra_alterado', 'grupo_movido_de_conta', 'transferencia_grupos_alterada', 'moto_arquivada']
+export const TIPOS_SENSIVEIS = ['venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada', 'certificado_aplicado', 'portal_aplicado', 'notas_enviadas_contador', 'logo_danfe_enviada', 'preco_compra_alterado', 'grupo_movido_de_conta', 'transferencia_grupos_alterada', 'moto_arquivada', 'moto_desarquivada']
 /** Desfazem algo já feito: a tela pinta de vermelho. */
 export const TIPOS_DESTRUTIVOS = ['venda_cancelada', 'nf_cancelada']
 export const ehSensivel = (tipo: string) => TIPOS_SENSIVEIS.includes(tipo)
@@ -141,7 +141,8 @@ export function resumoDoEvento(e: EventoLog): string {
     case 'preco_compra_alterado': return `${v('chassi')} · ${d.de == null ? '?' : brl(d.de)} → ${brl(d.para)}`
     case 'grupo_movido_de_conta': return `${v('grupoNome')} · ${v('origemNome')} → ${v('destinoNome')}`
     case 'transferencia_grupos_alterada': return `${v('contaNome')} · ${d.para ? 'ligou' : 'desligou'}`
-    case 'moto_arquivada': return `${v('chassi')} · ${v('modelo')} · “${v('motivo')}”`
+    case 'moto_arquivada':
+    case 'moto_desarquivada': return `${v('chassi')} · ${v('modelo')} · “${v('motivo')}”`
     default: return `${dispositivoLegivel(e.userAgent)} · IP ${e.ip ?? '?'}`
   }
 }

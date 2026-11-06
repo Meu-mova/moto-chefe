@@ -12,7 +12,7 @@ export const TIPOS_LOG = [
   'venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada',
   'certificado_aplicado', 'portal_aplicado', 'notas_enviadas_contador',
   'logo_danfe_enviada', 'preco_compra_alterado', 'grupo_movido_de_conta',
-  'transferencia_grupos_alterada', 'moto_arquivada',
+  'transferencia_grupos_alterada', 'moto_arquivada', 'moto_desarquivada',
 ] as const
 export type TipoLog = (typeof TIPOS_LOG)[number]
 
@@ -68,7 +68,7 @@ export async function apagarLogAntigo(executor: Executor = db): Promise<number> 
 }
 
 export type AcaoSensivel = {
-  tipo: Extract<TipoLog, 'venda_cancelada' | 'nf_emitida' | 'nf_cancelada' | 'permissao_alterada' | 'certificado_aplicado' | 'portal_aplicado' | 'notas_enviadas_contador' | 'logo_danfe_enviada' | 'preco_compra_alterado' | 'transferencia_grupos_alterada' | 'moto_arquivada'>
+  tipo: Extract<TipoLog, 'venda_cancelada' | 'nf_emitida' | 'nf_cancelada' | 'permissao_alterada' | 'certificado_aplicado' | 'portal_aplicado' | 'notas_enviadas_contador' | 'logo_danfe_enviada' | 'preco_compra_alterado' | 'transferencia_grupos_alterada' | 'moto_arquivada' | 'moto_desarquivada'>
   usuarioId: string
   /** Grupo do registro (grupo da nota); nunca o grupo ativo da sessão. */
   grupoId?: string | null
