@@ -183,6 +183,19 @@ test('Entrada manual e por planilha (#691): grava a moto nova; duplicada de outr
   })
 })
 
+test('Entrada manual e por planilha (#691): moto e histórico entram juntos; se o histórico falha, a moto também não fica', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await cenarioLote(tx)
+    // Usuário que não existe: a FK do histórico de estoque recusa depois de a moto ter sido inserida.
+    const fantasma = { id: '0f8fad5b-d9cb-469f-a165-70867728950e', grupoLiberado: null }
+    const r = await entrada.inserirMotosUmaAUma(tx, { lojaId: c.a.lojaId, usuario: fantasma, motos: [pronta(c, 'EMLOTE00000000H1')] })
+    assert.equal(r.idPorChassi.size, 0)
+    assert.equal(r.erros.length, 1)
+    assert.match(r.erros[0], /^EMLOTE00000000H1: /)
+    assert.deepEqual(await motosDoLote(tx, ['EMLOTE00000000H1']), [], 'a moto não fica sem o histórico')
+  })
+})
+
 /** Conta A com o grupo liberado ao admin_rede da Conta B e um grupo irmão que não foi liberado. */
 async function cenarioPersona(tx: Tx) {
   const { usuarioDaRede } = await import('@/lib/grupos-liberados')
