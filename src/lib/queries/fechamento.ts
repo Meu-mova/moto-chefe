@@ -142,7 +142,7 @@ export async function dadosFechamento(opts: {
     execRows(sql`
       select count(*)::int as qtd
       from motos m join lojas l on l.id=m.loja_id
-      where l.grupo_id = ${g} and m.disponibilidade is distinct from 'vendida'`),
+      where l.grupo_id = ${g} and m.disponibilidade is distinct from 'vendida' and m.arquivada_em is null`),
     metasDoMes(lojaIds, ano, mes),
     dreDoMes({ grupoId, lojaIds, ano, mes }),
   ])

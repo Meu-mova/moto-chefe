@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 import { transferencias, motos, lojas, usuarios, modelos } from '@/lib/db/schema'
 import { eq, or, and, ilike, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
@@ -90,5 +91,5 @@ export async function listarMotosTransferiveis(lojaIds: string[], exec: Executor
     .select({ id: motos.id, chassi: motos.chassi, marca: modelos.marca, modelo: nomeDoModeloNaLoja(motos.lojaId), lojaId: motos.lojaId })
     .from(motos)
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-    .where(and(inArray(motos.status, [...STATUS_TRANSFERIVEIS]), inArray(motos.lojaId, lojaIds)))
+    .where(and(inArray(motos.status, [...STATUS_TRANSFERIVEIS]), inArray(motos.lojaId, lojaIds), motoNaoArquivada()))
 }

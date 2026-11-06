@@ -3,7 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { hojeBrt } from '@/lib/data-venda'
 import { getUsuarioLogado } from '@/lib/auth'
-import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
+import { lojaDaMotoParaGravar, travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { motos, usuarios, reservas, vendas } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
@@ -18,6 +19,7 @@ import {
   type VendaVinculada,
 } from '@/lib/estado-moto'
 import { revalidatePath } from 'next/cache'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { modeloUsavelNaLoja } from '@/lib/modelos-da-conta'
 import { garantias, historicoEstoque } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
@@ -213,15 +215,19 @@ export async function editarMotoAction(
   revalidatePath('/estoque')
 }
 
-export async function resolverGarantiaSemRegistroAction(motoId: string, observacao?: string) {
+export async function resolverGarantiaSemRegistroAction(...a: Parameters<typeof resolverGarantiaSemRegistro>) {
+  return acao(() => resolverGarantiaSemRegistro(...a))
+}
+
+async function resolverGarantiaSemRegistro(motoId: string, observacao?: string) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão')
+    throw new RecusaUsuario('Sem permissão')
   }
 
-  const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
-  if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
-  if (moto.status !== 'em_garantia') throw new Error('Moto não está em garantia')
+  const moto = await lojaDaMotoParaGravar(usuario, motoId)
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
+  if (moto.status !== 'em_garantia') throw new RecusaUsuario('Moto não está em garantia')
 
   const [garantiaAtiva] = await db
     .select({ id: garantias.id })
@@ -229,19 +235,22 @@ export async function resolverGarantiaSemRegistroAction(motoId: string, observac
     .where(eq(garantias.motoId, motoId))
     .limit(1)
 
-  if (garantiaAtiva) throw new Error('Esta moto tem garantia formal registrada. Use o fluxo de encerramento de garantia.')
+  if (garantiaAtiva) throw new RecusaUsuario('Esta moto tem garantia formal registrada. Use o fluxo de encerramento de garantia.')
 
-  await db.update(motos)
-    .set({ status: 'montada', disponibilidade: 'disponivel' })
-    .where(eq(motos.id, motoId))
+  await db.transaction(async tx => {
+    await travarMotoNaoArquivada(tx, motoId)
+    await tx.update(motos)
+      .set({ status: 'montada', disponibilidade: 'disponivel' })
+      .where(eq(motos.id, motoId))
 
-  await db.insert(historicoEstoque).values({
-    motoId,
-    usuarioId: usuario.id,
-    tipo: 'mudanca_status',
-    statusAnterior: 'em_garantia',
-    statusNovo: 'montada',
-    observacao: observacao || 'Garantia resolvida (sem registro formal)',
+    await tx.insert(historicoEstoque).values({
+      motoId,
+      usuarioId: usuario.id,
+      tipo: 'mudanca_status',
+      statusAnterior: 'em_garantia',
+      statusNovo: 'montada',
+      observacao: observacao || 'Garantia resolvida (sem registro formal)',
+    })
   })
 
   revalidatePath(`/estoque/${motoId}`)

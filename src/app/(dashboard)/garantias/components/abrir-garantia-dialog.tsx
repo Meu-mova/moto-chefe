@@ -47,13 +47,14 @@ export function AbrirGarantiaDialog({ ordens, papel, modelos, lojas, isAdmin, lo
     if (!veiculo || !descricao || !dataPedido) return
     setLoading(true)
     try {
-      await abrirGarantiaAction({
+      const r = await abrirGarantiaAction({
         motoId: veiculo.motoId,
         osId: osId || undefined,
         descricao,
         dataInicio: dataPedido,
         numeroPedidoFabrica: numeroPedidoFabrica || undefined,
       })
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Garantia aberta! Prazo: 30 dias.')
       setOpen(false)
       resetForm()

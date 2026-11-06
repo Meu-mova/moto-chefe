@@ -10,6 +10,7 @@ import { podeGravarCredencialNg } from '@/lib/notagateway/credencial'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { caminhoLogoDanfe, gruposParaLogo } from '@/lib/logo-danfe'
 import { LogoDanfeCard, type LinhaLogo } from './components/logo-danfe-card'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 /** Miniatura da logo atual: link assinado de 10 min, só para os grupos que o usuário já pode ver. */
 async function linhasDaLogo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<LinhaLogo[]> {
@@ -63,7 +64,7 @@ export default async function NotasFiscaisPage() {
       .from(motos)
       .innerJoin(lojas, eq(lojas.id, motos.lojaId))
       .leftJoin(motosFiscal, eq(motosFiscal.motoId, motos.id))
-      .where(eq(motos.disponibilidade, 'disponivel'))
+      .where(and(eq(motos.disponibilidade, 'disponivel'), motoNaoArquivada()))
       .groupBy(lojas.grupoId),
     linhasDaLogo(usuario),
   ])
