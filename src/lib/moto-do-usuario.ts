@@ -7,6 +7,8 @@ import { RecusaUsuario } from '@/lib/resultado-action'
 import { MOTO_ARQUIVADA } from '@/lib/arquivar-moto-regras'
 
 type Executor = Pick<typeof db, 'select'>
+// Só dentro de transação: fora dela o FOR UPDATE soltaria a moto logo depois da leitura.
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /** Conta no where: undefined = admin_geral (todas), null = sem Conta (nenhuma). */
 const daContaDo = (usuario: { papel: string; contaId: string | null; grupoLiberado?: string | null }) =>
@@ -39,7 +41,7 @@ export async function motoDoUsuario(
  * conferência feita antes da transação não segura um arquivar que termine no meio. Lê só
  * pelo id; quem chama já conferiu a Conta (motoDoUsuario, lojaDaMotoParaGravar).
  */
-export async function travarMotoNaoArquivada(tx: Executor, motoId: string) {
+export async function travarMotoNaoArquivada(tx: Tx, motoId: string) {
   const [moto] = await tx
     .select({ lojaId: motos.lojaId, status: motos.status, disponibilidade: motos.disponibilidade, arquivadaEm: motos.arquivadaEm })
     .from(motos)
