@@ -95,7 +95,8 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* Celular: os cards empilham; lado a lado só do md para cima (#688). */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Informações</CardTitle>
