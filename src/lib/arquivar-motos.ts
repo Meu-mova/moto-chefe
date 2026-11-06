@@ -98,6 +98,19 @@ export async function motosParaArquivar(usuario: UsuarioQueArquiva, termo: strin
   }))
 }
 
+/**
+ * Trava as motos pedidas que estão no estado esperado (arquivada ou não) e no alcance de quem pede.
+ * Faltou uma: "Moto não encontrada", igual para outra Conta, fora do alcance e inexistente.
+ * Devolve o where para a gravação repetir. Lote vazio passa: quem chama dá a frase dele.
+ */
+async function travarDoAlcance(tx: Exec, usuario: UsuarioQueArquiva, ids: string[], estado: SQL): Promise<SQL | undefined> {
+  const onde = await alcance(usuario, tx)
+  const doLote = and(estado, onde ?? undefined, inArray(motos.id, ids))
+  const travadas = onde === null || ids.length === 0 ? [] : await tx.select({ id: motos.id }).from(motos).where(doLote).for('update')
+  if (travadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
+  return doLote
+}
+
 /** Arquiva o lote inteiro ou nada. Uma linha no log por moto. */
 export async function arquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[], motivo: string, exec: Exec = db) {
   if (!podeArquivarMotos(usuario.papel)) throw new RecusaUsuario('Sem permissão para arquivar motos.')
@@ -105,10 +118,7 @@ export async function arquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[
   if (!ids.every(ehUuid)) throw new RecusaUsuario(NAO_ENCONTRADA)
 
   return exec.transaction(async tx => {
-    const onde = await alcance(usuario, tx)
-    const travadas = onde === null || ids.length === 0 ? [] : await tx.select({ id: motos.id }).from(motos)
-      .where(and(motoNaoArquivada(), onde, inArray(motos.id, ids))).for('update')
-    if (travadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
+    const doLote = await travarDoAlcance(tx, usuario, ids, motoNaoArquivada())
     // Pendências num comando depois da trava: o snapshot dele já vê a reserva ou o pedido que
     // quem segurava a moto gravou (no mesmo comando do lock, a subconsulta ficaria no snapshot antigo).
     const achadas = await motosComPendencias(tx, inArray(motos.id, ids))
@@ -120,7 +130,7 @@ export async function arquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[
     // A gravação repete a Conta e o alcance no where (AGENTS.md, isolamento), e confere as linhas.
     const gravadas = await tx.update(motos)
       .set({ arquivadaEm: new Date(), arquivadaPor: usuario.id, motivoArquivo: texto })
-      .where(and(inArray(motos.id, ids), motoNaoArquivada(), onde ?? undefined))
+      .where(doLote)
       .returning({ id: motos.id })
     if (gravadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
     await registrarNoLog(tx, 'moto_arquivada', usuario.id, achadas, texto)
@@ -159,11 +169,7 @@ export async function desarquivarMotos(usuario: UsuarioQueArquiva, motoIds: stri
   if (ids.length === 0 || !ids.every(ehUuid)) throw new RecusaUsuario(NAO_ENCONTRADA)
 
   return exec.transaction(async tx => {
-    const onde = await alcance(usuario, tx)
-    if (onde === null) throw new RecusaUsuario(NAO_ENCONTRADA)
-    const doLote = and(motoArquivada(), onde, inArray(motos.id, ids))
-    const travadas = await tx.select({ id: motos.id }).from(motos).where(doLote).for('update')
-    if (travadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
+    const doLote = await travarDoAlcance(tx, usuario, ids, motoArquivada())
     const achadas = await tx.select(dadosDaMoto()).from(motos)
       .innerJoin(lojas, eq(lojas.id, motos.lojaId))
       .innerJoin(modelos, eq(modelos.id, motos.modeloId))
