@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
+import { CLASSE_SELECT_NATIVO, ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
 import { criarPedidoVendaAction } from '../actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { textoDaModalidade } from '@/lib/notagateway/transporte'
@@ -66,7 +66,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
                   id="pedido-moto"
                   value={motoId}
                   onChange={e => setMotoId(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-1 text-base shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:text-sm"
+                  className={CLASSE_SELECT_NATIVO}
                 >
                   <option value="">Selecionar moto</option>
                   {motos.map(m => <option key={m.id} value={m.id}>{nomeDaMoto(m)}</option>)}
