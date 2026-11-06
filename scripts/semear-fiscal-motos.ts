@@ -19,8 +19,9 @@
  * Reentrante: a ficha é um snapshot da entrada, então moto que já tem não é
  * tocada (`onConflictDoNothing`).
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { lerXml } from './lib/ler-xml'
 import { db } from '../src/lib/db'
 import { motos, motosFiscal, nfeRecebidas, modelos, modeloApelidos } from '../src/lib/db/schema'
 import { isNull } from 'drizzle-orm'
@@ -41,13 +42,6 @@ function listarXmls(dir: string): string[] {
     else if (nome.toLowerCase().endsWith('.xml')) out.push(p)
   }
   return out
-}
-
-/** Notas antigas saem em ISO-8859-1; ler tudo como UTF-8 corrompe o acento. */
-function lerXml(caminho: string): string {
-  const buf = readFileSync(caminho)
-  const utf8 = buf.toString('utf8')
-  return utf8.includes('\uFFFD') ? buf.toString('latin1') : utf8
 }
 
 async function main() {

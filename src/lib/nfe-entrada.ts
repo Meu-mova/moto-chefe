@@ -23,9 +23,10 @@ export type MotoNfe = { modelo: string; chassi: string; motor: string; cor: stri
 const RE_CHASSI = /^(?=.*\d)[A-Z0-9]{10,}$/i
 
 // Número de motor: mesmo formato do chassi, mas aceita barra
-// (HRD48/60V1000W202604120315, do BIG TRI). O que não casa é cor: nome de cor
-// não tem dígito nem chega a 10 letras.
-const RE_MOTOR = /^(?=.*\d)(?=.*[A-Z])[A-Z0-9/-]{10,}$/i
+// (HRD48/60V1000W202604120315, do BIG TRI) e aspas da medida da roda (o 24" de
+// um motor de FAMILY). O que não casa é cor: nome de cor não tem dígito nem chega
+// a 10 letras.
+const RE_MOTOR = /^(?=.*\d)(?=.*[A-Z])[A-Z0-9/"-]{10,}$/i
 
 // Marcador de variante da fábrica: "(RC)", "(RP)" — e "(RP" sem fechar, que
 // aparece nas notas 40743 e 40957. Não é modelo, nem chassi, nem cor.
@@ -138,7 +139,10 @@ export const ehNcmDeMoto = (ncm: string): boolean => ncm.startsWith('8711')
 
 const ENTIDADES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
 
-/** `&amp;` → `&` etc. Só para exibir; o que casa e o que vai para a NF fica como veio. */
+/**
+ * `&amp;` → `&` etc. Para exibir, e no infCpl do lote do onboarding (entrada-xml-lote.ts), onde o
+ * `;` da entidade cortaria a moto. O nome fiscal (xProd) que vai para a NF fica como veio.
+ */
 export function decodificarEntidadesXml(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (inteira, e: string) => {
     if (e[0] === '#') {

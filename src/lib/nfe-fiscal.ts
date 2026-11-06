@@ -216,6 +216,9 @@ export function ligarFichasAosChassis(
 /** Cabeçalho da nota: de quem veio e qual é. Explica duas fichas do mesmo modelo. */
 export type EmitenteNfe = { cnpj: string; nome: string; nfNumero: string; nfChave: string }
 
+/** Ficha fiscal de uma moto da nota, com quem a emitiu: o que a entrada grava em motos_fiscal. */
+export type FichaDaMoto = { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }
+
 export function extrairEmitenteDaNfe(xml: string): EmitenteNfe {
   const emit = grupo(xml ?? '', 'emit')
   return {
@@ -225,6 +228,11 @@ export function extrairEmitenteDaNfe(xml: string): EmitenteNfe {
     // O Id do infNFe é "NFe" + os 44 dígitos da chave de acesso.
     nfChave: ((xml ?? '').match(/<infNFe[^>]*\bId="NFe(\d{44})"/) || [])[1] ?? '',
   }
+}
+
+/** CNPJ de quem comprou (`<dest>`), só dígitos; '' se a nota foi para CPF ou não tem destinatário. */
+export function extrairCnpjDoDestinatario(xml: string): string {
+  return tag(grupo(xml ?? '', 'dest'), 'CNPJ')
 }
 
 /**
