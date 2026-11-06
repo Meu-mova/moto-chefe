@@ -49,6 +49,10 @@ O mesmo artigo mantém os nomes da versão 3.10: `"PorContaDoEmitente"= 0`, `"Po
 - Da v1.21.1 até o #723 o MOVA mandava `SemTransporte` para a 9 e os nomes 3.10 `PorContaDoDestinatario` e
   `PorContaDeTerceiros` para a 1 e a 2. Nota recusada gravada com um desses três nomes reabre com o nome 4.0 do
   mesmo código, e o reenvio sai com ele. Outro nome antigo (que o MOVA nunca gravou) reabre sem modalidade.
+- De onde veio o `SemTransporte`: da 1ª resposta escrita do suporte (Hermes, #650), que listou `PorContaDoRemetente`,
+  `PorContaDoDestinatario`, `PorContaDeTerceiros`, `TransporteProprioPorContaDoRemetente`,
+  `TransporteProprioPorContaDoDestinatario` e `SemTransporte` para os códigos 0, 1, 2, 3, 4 e 9. Essa lista diverge da
+  KB 170207 e do manual; em 05/11/2026 o próprio Hermes mandou seguir a doc, e o #723 trocou para os nomes 4.0.
 - Omitir a modalidade não é possível no faturamento direto: o suporte escreveu (05/11/2026) que a API manda 0 à
   SEFAZ quando ela falta.
 
