@@ -155,3 +155,9 @@ test('reserva: o arquivar que termina entre a checagem e a gravação faz a rese
   sql`select count(*) from reservas where moto_id = ${moto} and status = 'ativa'`)
   assert.deepEqual(r, { resposta: { ...recusou, erro: MOTO_ARQUIVADA }, arquivar: true, arquivada: true, pendencias: 0 })
 })
+
+test('venda: o arquivar que termina entre a checagem e a gravação faz a venda recusar; nenhuma venda fica', async () => {
+  const moto = await novaMoto('VEN')
+  const r = await corrida(moto, () => acoes.vender(venda(moto)), sql`select count(*) from vendas where moto_id = ${moto}`)
+  assert.deepEqual(r, { resposta: { ...recusou, erro: MOTO_ARQUIVADA }, arquivar: true, arquivada: true, pendencias: 0 })
+})
