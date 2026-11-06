@@ -46,7 +46,8 @@ export function SolicitarDialog({ lojas, motos, lojaUsuarioId, papel }: Props) {
     if (!motoId || !lojaDestinoId) return
     setLoading(true)
     try {
-      await solicitarTransferenciaAction(motoId, lojaDestinoId, observacao || undefined)
+      const r = await solicitarTransferenciaAction(motoId, lojaDestinoId, observacao || undefined)
+      if (!r.ok) { toast.error(r.erro); return }
       setOpen(false)
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao solicitar transferência')

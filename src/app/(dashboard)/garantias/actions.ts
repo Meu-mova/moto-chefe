@@ -16,6 +16,7 @@ import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
 import { listarContasFabrica, lojaDaContaDaGarantia } from '@/lib/fabrica-contas'
 import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 import { motoNaoArquivada } from '@/lib/queries/showroom'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
 
 export async function exportarRelatorioGarantiasAction(filtros: {
   lojaId?: string
@@ -33,7 +34,12 @@ export async function exportarRelatorioGarantiasAction(filtros: {
   return exportarRelatorioGarantias({ ...resto, lojaIds: await lojasDoEscopoDeGarantias(u, lojaId) })
 }
 
-export async function abrirGarantiaAction(params: {
+// Recusa volta como valor ({ ok: false, erro }): em produção o React troca a mensagem do throw (#404).
+export async function abrirGarantiaAction(...a: Parameters<typeof abrirGarantia>) {
+  return acao(() => abrirGarantia(...a))
+}
+
+async function abrirGarantia(params: {
   motoId: string
   osId?: string
   descricao: string
@@ -43,13 +49,13 @@ export async function abrirGarantiaAction(params: {
 }) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
-    throw new Error('Sem permissão para abrir garantia')
+    throw new RecusaUsuario('Sem permissão para abrir garantia')
   }
 
   // O RPC valida que moto.loja_id == p_loja_id; admins não têm lojaId próprio,
   // então sempre buscamos a loja da moto para passar ao RPC.
   const moto = await lojaDaMotoParaGravar(usuario, params.motoId)
-  if (!moto) throw new Error('Moto não encontrada')
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
   await conferirVinculosDaConta(moto.lojaId, { osId: params.osId }, usuario.grupoLiberado)
 
   // Prazo fixo de 30 dias a partir da data de abertura

@@ -81,13 +81,14 @@ export function StatusActions({
     setLoading(true)
     try {
       if (exigeGarantia) {
-        await abrirGarantiaAction({
+        const r = await abrirGarantiaAction({
           motoId,
           descricao: garantiaDescricao,
           dataInicio: garantiaDataPedido,
           dataPedidoPeca: garantiaDataPedido,
           numeroPedidoFabrica: garantiaNumeroPedido || undefined,
         })
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Garantia aberta! Prazo: 30 dias.')
       } else if (alvo.tipo === 'status') {
         await alterarStatusAction(motoId, alvo.valor, observacao, mecanicoId || undefined, dataMontagem || undefined)
