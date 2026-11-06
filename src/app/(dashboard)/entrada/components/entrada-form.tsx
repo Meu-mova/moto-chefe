@@ -12,7 +12,7 @@ import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
 import { PecasPorPlanilha } from './pecas-por-planilha'
 import { MotosImportadas } from './motos-importadas'
-import { chaveDoChassi, devolverTiradas, fichasDoEnvio, tirarMarcadas, type Exclusao, type MotoImportada } from '@/lib/entrada-lista'
+import { acrescentarDoXml, chaveDoChassi, devolverTiradas, fichasDoEnvio, tirarMarcadas, type Exclusao, type MotoImportada } from '@/lib/entrada-lista'
 import { marcarVarias } from '@/lib/selecao'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type NomeDeModelo } from '@/lib/nfe-fiscal'
@@ -308,11 +308,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       return
     }
 
-    setLinhasPlanilha(prev => {
-      const vistos = new Set(prev.map(l => chaveDoChassi(l.chassi)))
-      const add = novas.filter(n => n.chassi && !vistos.has(chaveDoChassi(n.chassi)))
-      return [...prev, ...add]
-    })
+    setLinhasPlanilha(prev => acrescentarDoXml(prev, novas))
     setOrigemDasLinhas('xml')
     toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
     // Fixo até fechar: moto a menos na leitura passava despercebida em 9 s (#289).

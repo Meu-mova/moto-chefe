@@ -78,3 +78,17 @@ export function devolverTiradas(linhas: readonly MotoImportada[], { tiradas, cha
 export function fichasDoEnvio(linhas: readonly MotoImportada[]) {
   return linhas.flatMap(({ chassi, fiscal }) => (fiscal ? [{ chassi, ...fiscal }] : []))
 }
+
+/**
+ * Motos lidas de XMLs entram no fim da lista. Chassi que já está nela não se repete; se veio da
+ * planilha (sem ficha fiscal), ganha a ficha do XML e o resto da linha fica como estava.
+ */
+export function acrescentarDoXml(linhas: readonly MotoImportada[], novas: readonly MotoImportada[]): MotoImportada[] {
+  const fichaDoXml = new Map(novas.flatMap(n => (n.fiscal ? [[chaveDoChassi(n.chassi), n.fiscal] as const] : [])))
+  const presentes = new Set(linhas.map(l => chaveDoChassi(l.chassi)))
+  const completadas = linhas.map(l => {
+    const fiscal = l.fiscal ? undefined : fichaDoXml.get(chaveDoChassi(l.chassi))
+    return fiscal ? { ...l, fiscal } : l
+  })
+  return [...completadas, ...novas.filter(n => n.chassi && !presentes.has(chaveDoChassi(n.chassi)))]
+}

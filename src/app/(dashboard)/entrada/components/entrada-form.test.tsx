@@ -27,9 +27,11 @@ const acoesMock = mock.module('../actions', { namedExports: {
 type Acao = { label: string; onClick: () => void }
 const avisos: { mensagem: string; acao?: Acao; id?: string }[] = []
 const fechados: (string | undefined)[] = []
+// Avisos de sucesso: a importação do XML termina com um deles.
+const sucessos: string[] = []
 const toast = Object.assign(
   (mensagem: string, opcoes?: { action?: Acao; id?: string }) => { avisos.push({ mensagem, acao: opcoes?.action, id: opcoes?.id }) },
-  { success: () => {}, error: () => {}, warning: () => {}, dismiss: (id?: string) => { fechados.push(id) } },
+  { success: (m: string) => { sucessos.push(m) }, error: () => {}, warning: () => {}, dismiss: (id?: string) => { fechados.push(id) } },
 )
 const toastMock = mock.module('sonner', { namedExports: { toast } })
 after(() => { acoesMock.restore(); toastMock.restore() })
@@ -44,6 +46,7 @@ afterEach(async () => {
   segurarEnvio = Promise.resolve()
   avisos.length = 0
   fechados.length = 0
+  sucessos.length = 0
 })
 
 const modelos = [
@@ -104,8 +107,10 @@ async function enviarArquivos(seletor: string, arquivos: File[]) {
 }
 
 async function carregarXml(xml: string, motosNaLista: number) {
+  const antes = sucessos.length
   await enviarArquivos('input[accept=".xml"]', [new dom.window.File([xml], 'nota.xml', { type: 'text/xml' })])
-  await esperar(() => titulo() === `Motos importadas (${motosNaLista})`)
+  await esperar(() => sucessos.length > antes)
+  assert.equal(titulo(), `Motos importadas (${motosNaLista})`)
 }
 
 async function escolherLoja() {
@@ -363,4 +368,15 @@ test('enquanto registra, Excluir e Limpar ficam travados e o Desfazer some', asy
 
   const { act } = await import('react')
   await act(async () => { soltar() })
+})
+
+test('planilha e depois o XML das mesmas motos: a moto não se repete e a ficha fiscal do XML vai no registro', async () => {
+  await montarComPlanilha([linha('111', 'GIGA', 'TESTE0000GG000001')])
+  await carregarXml(notaXml('111', ['TESTE0000GG000001']), 1)
+
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1)
+  assert.deepEqual(enviados[0].dados.motos.map(m => m.chassi), ['TESTE0000GG000001'])
+  assert.deepEqual(enviados[0].dados.fiscais?.map(f => [f.chassi, f.emitente.nfNumero]), [['TESTE0000GG000001', '111']])
 })

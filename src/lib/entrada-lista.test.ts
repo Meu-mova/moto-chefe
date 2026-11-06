@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { agruparPorNfEModelo, devolverTiradas, fichasDoEnvio, tirarMarcadas, type MotoImportada } from './entrada-lista'
+import { acrescentarDoXml, agruparPorNfEModelo, devolverTiradas, fichasDoEnvio, tirarMarcadas, type MotoImportada } from './entrada-lista'
 
 const moto = (chassi: string, nf: string, modelo: string): MotoImportada =>
   ({ chassi, nf, modelo, cor: 'PRETO', motor: `M-${chassi}`, modeloId: 'id', preco: '100,00' })
@@ -63,4 +63,26 @@ test('planilha com chassi repetido: tirar uma das cópias e desfazer devolve a c
   const comRepetido = [moto('A1', '1', 'R10'), moto('A1', '1', 'R10'), moto('B1', '1', 'R10')]
   const { ficam, exclusao } = tirarMarcadas(comRepetido, new Set([1]))
   assert.deepEqual(chassis(devolverTiradas(ficam, exclusao)), ['A1', 'A1', 'B1'])
+})
+
+test('acrescentar do XML: moto nova vai para o fim; chassi já na lista sem ficha só ganha a ficha', () => {
+  const emitente = { cnpj: '00000000000191', nome: 'Fabrica', nfNumero: '111', nfChave: '1'.padStart(44, '0') }
+  const ficha = { codigo: 'GIGA' } as unknown as NonNullable<MotoImportada['fiscal']>['ficha']
+  const daPlanilha = { ...moto('G1', '111', 'GIGA'), preco: '5.000,00' }
+  const doXml = (chassi: string): MotoImportada => ({ ...moto(chassi, '111', 'GIGA'), preco: '6400.00', fiscal: { emitente, ficha } })
+
+  const lista = acrescentarDoXml([daPlanilha], [doXml('g1'), doXml('G2')])
+
+  assert.deepEqual(chassis(lista), ['G1', 'G2'])
+  assert.equal(lista[0].preco, '5.000,00', 'a linha da planilha fica como estava')
+  assert.deepEqual(lista[0].fiscal, { emitente, ficha })
+})
+
+test('acrescentar do XML: chassi que já tem ficha fica com a dele', () => {
+  const emitente = (nfNumero: string) => ({ cnpj: '00000000000191', nome: 'Fabrica', nfNumero, nfChave: nfNumero.padStart(44, '0') })
+  const ficha = { codigo: 'GIGA' } as unknown as NonNullable<MotoImportada['fiscal']>['ficha']
+  const comFicha = (nf: string): MotoImportada => ({ ...moto('G1', nf, 'GIGA'), fiscal: { emitente: emitente(nf), ficha } })
+  const lista = acrescentarDoXml([comFicha('111')], [comFicha('222')])
+  assert.equal(lista.length, 1)
+  assert.equal(lista[0].fiscal?.emitente.nfNumero, '111')
 })
