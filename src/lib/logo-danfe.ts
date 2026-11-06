@@ -5,6 +5,7 @@ import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { montarImagemDanfe, type ImagemDanfe } from '@/lib/notagateway/logo'
 import type { EmitenteDanfe } from '@/lib/notagateway/emitente-danfe'
 import type { ConfigNotaGateway } from '@/lib/notagateway/client'
+import { ehUuid } from '@/lib/uuid'
 
 /**
  * Logo do DANFE por grupo (#428). Só admin_geral (todos os grupos) e admin_socio
@@ -26,7 +27,6 @@ export type DependenciasLogo = {
 export type ResultadoLogo = { ok: true; kb: number } | { ok: false; erro: string }
 
 const PAPEIS = ['admin_geral', 'admin_socio']
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Caminho no bucket privado `logos-danfe`: sempre do grupoId, nunca de entrada do usuário. */
 export const caminhoLogoDanfe = (grupoId: string) => `${grupoId}/logo.png`
@@ -62,7 +62,7 @@ export async function gruposParaLogo(usuario: UsuarioLogo, exec: Executor = db) 
 async function grupoDoUsuario(usuario: UsuarioLogo, grupoId: string, exec: Executor) {
   const daConta = filtroDaConta(usuario)
   // Id que não é uuid faria o Postgres lançar; responde como grupo inexistente.
-  if (daConta === null || !UUID.test(grupoId)) return null
+  if (daConta === null || !ehUuid(grupoId)) return null
   const [g] = await exec.select({ id: grupos.id, cnpj: grupos.cnpj }).from(grupos).where(and(eq(grupos.id, grupoId), daConta)).limit(1)
   return g ?? null
 }

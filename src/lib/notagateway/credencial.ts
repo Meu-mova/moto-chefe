@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { grupos, notagatewayConfig } from '@/lib/db/schema'
 import { cifrar, decifrar } from '@/lib/cripto'
 import type { ConfigNotaGateway } from './client'
+import { ehUuid } from '@/lib/uuid'
 
 /**
  * Credencial da Nota Gateway do grupo (#446). Só o admin_geral grava: o token
@@ -29,7 +30,6 @@ export type DependenciasCredencial = {
 
 export const podeGravarCredencialNg = (papel: string) => papel === 'admin_geral'
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // A doc da NG diz só 'string': não depende de uuid, mas nada que mude o caminho da URL.
 const ID_EMPRESA_NG = /^[A-Za-z0-9_-]{1,64}$/
 const digitos = (s: string) => s.replace(/\D/g, '')
@@ -41,7 +41,7 @@ export async function salvarCredencial(
   exec: Executor = db,
 ): Promise<{ ok: true } | { ok: false; erro: string }> {
   if (!podeGravarCredencialNg(usuario.papel)) return { ok: false, erro: 'Acesso restrito ao Admin Geral' }
-  const [g] = UUID.test(data.grupoId)
+  const [g] = ehUuid(data.grupoId)
     ? await exec.select({ id: grupos.id, cnpj: grupos.cnpj }).from(grupos).where(eq(grupos.id, data.grupoId)).limit(1)
     : []
   if (!g) return { ok: false, erro: 'Grupo não encontrado' }
