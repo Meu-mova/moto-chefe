@@ -108,7 +108,7 @@ test('Notas Emitidas: nota cuja venda foi apagada segue na lista com o número d
       await tx.execute(sql`insert into notas_fiscais_saida (venda_id, grupo_id, id_externo, ambiente, status, numero, serie, payload)
         values (${venda.id}, ${a.grupoId}, ${'ext690-' + nf}, 'Producao', ${status}, ${nf}, '1', '{}'::jsonb)`)
     }
-    // Cancelar venda e Remover moto apagam a linha da venda; a FK da nota vira nulo (0144).
+    // Apagar a venda deixa a FK nula (0144).
     await tx.execute(sql`delete from vendas where id = ${venda.id}`)
 
     const filtro = { grupoId: a.grupoId, contaId: a.contaId, ambiente: 'Producao' as const, ...HOJE }
