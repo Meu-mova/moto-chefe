@@ -135,7 +135,7 @@ test('trava enquanto envia: duplo clique envia uma vez, botões desabilitados e 
   await t.act(async () => { clicar(botao('Arquivar 2 motos')); clicar(botao('Arquivar 2 motos')); await esperar(20) })
   assert.equal(api.arquivar.mock.callCount(), 1)
   assert.ok(botao('Arquivando...')!.disabled, 'o botão de enviar trava')
-  assert.ok(botao('Voltar')!.disabled)
+  assert.ok(botao('Voltar')!.disabled && botao('Cancelar')!.disabled)
   assert.ok((document.querySelector('[aria-label="Fechar"]') as HTMLButtonElement).disabled)
   await t.act(async () => { document.querySelector('[data-slot="dialog-content"]')!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await esperar(DEPOIS_DA_ANIMACAO_MS) })
   assert.equal(t.onFechar.mock.callCount(), 0, 'Escape não fecha enquanto envia')

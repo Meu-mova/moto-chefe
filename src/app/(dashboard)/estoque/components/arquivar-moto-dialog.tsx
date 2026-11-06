@@ -93,7 +93,7 @@ export function ArquivarMotoDialog({ aberto, onFechar }: { aberto: boolean; onFe
         rodape={<Button variant="outline" onClick={onFechar} className="h-12 w-full text-base">Fechar</Button>}>
         <div role="status" className="flex flex-col items-center gap-2 py-8 text-center">
           <CheckCircle2 className="size-10 text-primary-text" />
-          <p className="text-base font-semibold">{motos(arquivadas)} {arquivadas === 1 ? 'arquivada' : 'arquivadas'}</p>
+          <p className="text-base font-semibold">{plural(arquivadas, 'moto arquivada', 'motos arquivadas')}</p>
           <p className="text-sm text-muted-foreground">Ficou registrado no log com seu nome, a data e o motivo.</p>
         </div>
       </DialogoPassoAPasso>
@@ -114,6 +114,7 @@ export function ArquivarMotoDialog({ aberto, onFechar }: { aberto: boolean; onFe
         {enviando ? <><Loader2 className="size-4 animate-spin" />Arquivando...</> : `Arquivar ${motos(n)}`}
       </Button>
       <Button variant="ghost" onClick={() => irPara(1)} disabled={enviando} className="h-10 w-full text-muted-foreground">Voltar</Button>
+      <Button variant="ghost" onClick={onFechar} disabled={enviando} className="h-10 w-full text-muted-foreground">Cancelar</Button>
     </>,
   ]
 
@@ -122,7 +123,7 @@ export function ArquivarMotoDialog({ aberto, onFechar }: { aberto: boolean; onFe
       descricao={n > 0 ? plural(n, 'escolhida', 'escolhidas') : 'Esconde de todas as telas, sem apagar'} rodape={rodapes[passo]}>
       {passo === 0 && (
         <>
-          <p className="text-sm text-muted-foreground">Para moto que deixou de ser da loja sem ter sido vendida. Ela some de todas as telas e só o RADAR a acha.</p>
+          <p className="text-sm text-muted-foreground">Para moto que deixou de ser da loja sem ter sido vendida. Ela some de todas as telas e só o RADAR a acha. Volta pelo Desarquivar, no RADAR.</p>
           <form onSubmit={buscar} className="space-y-1.5">
             <Label htmlFor="busca-arquivar">Buscar por chassi ou NF de entrada</Label>
             <div className="flex gap-2">
