@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { DADOS_TRANSPORTE_VAZIOS, MODALIDADES_FRETE, transporteDoPayload, validarDadosTransporte } from './transporte'
+import { DADOS_TRANSPORTE_VAZIOS, MODALIDADES_FRETE, textoDaModalidade, transporteDoPayload, validarDadosTransporte } from './transporte'
 
 test('oferece as 6 modalidades da NF-e 4.0 com o texto da tela, o código do DANFE e o nome da KB 170207 da NG', () => {
   assert.deepEqual(MODALIDADES_FRETE, [
@@ -132,4 +132,11 @@ test('transporteDoPayload não traduz nome antigo que o MOVA nunca gravou nem Po
   for (const nome of ['SemFrete', 'PorContaDoEmitente', 'PorContaDoRemetente']) {
     assert.equal(transporteDoPayload({ transporte: { frete: { modalidade: nome } } }), null, nome)
   }
+})
+
+test('o texto da modalidade é o da lista da tela; vazia ou fora da lista não tem texto', () => {
+  assert.equal(textoDaModalidade('TransporteProprioPorContaDoDestinatario'), 'Cliente leva com veículo próprio')
+  assert.equal(textoDaModalidade('SemOcorrenciaDeTransporte'), 'Sem frete')
+  assert.equal(textoDaModalidade(''), undefined)
+  assert.equal(textoDaModalidade('SemTransporte'), undefined)
 })
