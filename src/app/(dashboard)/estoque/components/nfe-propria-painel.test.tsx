@@ -145,6 +145,22 @@ test('o envio inicial leva a modalidade escolhida e a entrega que veio do compra
   assert.deepEqual(chamadas, [['moto-teste', RENAVE_COMPLETO_FATURAMENTO_DIRETO, { modalidade: modalidade4, enderecoEntrega: entregaDoComprador }]])
 })
 
+test('a modalidade 0 (loja contrata a transportadora) chega à transmissão com o nome da KB 170207', async () => {
+  const chamadas: unknown[][] = []
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => preview,
+    transmitirNfePropriaAction: async (...args: unknown[]) => { chamadas.push(args); return { ok: true } } }
+  const { container, click, escolherFrete } = await abrirPainel()
+  await click(/^Avançar/); await click(/^Avançar/); await click(/^Avançar/)
+  await escolherFrete('ContratacaoPorContaDoRemetente')
+  await click(/^Conferir nota$/)
+  const conferi = container.querySelector<HTMLInputElement>('input[type=checkbox]')
+  assert.ok(conferi, 'a escolha da 0 deve levar à conferência')
+  await act(async () => conferi.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+  await click(/Transmitir teste/)
+
+  assert.deepEqual(chamadas, [['moto-teste', RENAVE_COMPLETO_FATURAMENTO_DIRETO, { modalidade: 'ContratacaoPorContaDoRemetente', enderecoEntrega: entregaDoComprador }]])
+})
+
 test('reabrir a recusa mostra o transporte do envio anterior e o reenvio leva o que o operador deixar', async () => {
   const chamadas: unknown[][] = []
   const anterior: DadosTransporte = { modalidade: modalidade4, enderecoEntrega: { ...entregaDoComprador, logradouro: 'Rua da entrega', uf: 'PR', cidade: '4106902' } }
@@ -156,14 +172,14 @@ test('reabrir a recusa mostra o transporte do envio anterior e o reenvio leva o 
   const select = container.querySelector<HTMLSelectElement>('select#modalidade-frete')
   assert.equal(select?.value, modalidade4)
   assert.equal(container.querySelector<HTMLInputElement>('#entrega-logradouro')?.value, 'Rua da entrega')
-  await escolherFrete('SemTransporte')
+  await escolherFrete('SemOcorrenciaDeTransporte')
   await click(/^Salvar e reenviar/)
 
   assert.equal(chamadas.length, 1)
   const [motoId, , renave, transporte] = chamadas[0]
   assert.equal(motoId, 'moto-teste')
   assert.deepEqual(renave, RENAVE_COMPLETO_FATURAMENTO_DIRETO)
-  assert.deepEqual(transporte, { ...anterior, modalidade: 'SemTransporte' })
+  assert.deepEqual(transporte, { ...anterior, modalidade: 'SemOcorrenciaDeTransporte' })
 })
 
 test('operação que não é faturamento direto vai da etapa da operação direto para a conferência, sem etapa de frete', async () => {

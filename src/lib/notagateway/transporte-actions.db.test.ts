@@ -169,6 +169,23 @@ test('salvar e reenviar leva o transporte no mesmo id, na mesma linha e com o me
   assert.deepEqual(notes[0].payload.transporte, expectedTransport)
 })
 
+test('recusa gravada com SemTransporte reabre com SemOcorrenciaDeTransporte e o reenvio sai com o nome 4.0 (#723)', async () => {
+  const gravado = { transporte: { frete: { modalidade: 'SemTransporte' }, enderecoEntrega: expectedTransport.enderecoEntrega } }
+  const f = await fixture(true, gravado)
+  user = f.user
+  const net = network(f)
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.equal(previa.ok, true, JSON.stringify(previa))
+  const anterior = previa.ok ? previa.transporteAnterior : null
+  assert.deepEqual(anterior, { ...transport, modalidade: 'SemOcorrenciaDeTransporte' })
+
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87116000', cest: '' } }, renave, anterior!)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.deepEqual(net.payloads.map(p => p.transporte?.frete.modalidade), ['SemOcorrenciaDeTransporte'])
+  const notes = (await snapshot(f)).notes as { id: string; numero: string; payload: Payload }[]
+  assert.deepEqual(notes.map(n => [n.id, n.numero, n.payload.transporte?.frete.modalidade]), [[f.noteId, '650', 'SemOcorrenciaDeTransporte']])
+})
+
 test('recusa 841: reenviar com o RENAVE editado leva o veículo novo no mesmo id, linha e número (#673)', async () => {
   const f = await fixture(true)
   user = f.user

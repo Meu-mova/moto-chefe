@@ -213,25 +213,21 @@ test('ciclomotor leva o grupo veiculoNovo no item; sem ele, o item sai como ante
   assert.equal('veiculoNovo' in sem.itens[0], false)
 })
 
+const ENTREGA_MG = {
+  tipoPessoaDestinatario: 'F' as const, cpfCnpjDestinatario: '35281765043',
+  logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG',
+}
+const FATURAMENTO_DIRETO = { tipoOperacao: 'FaturamentoDiretoConsumidorFinal', chassi: '9C2ABC12345678901' } as DadosVendaMoto['moto']['veiculo']
+
 test('faturamento direto envia código IBGE em cidade e não inventa chaves NG', () => {
-  const veiculo = { tipoOperacao: 'FaturamentoDiretoConsumidorFinal', chassi: '9C2ABC12345678901' } as DadosVendaMoto['moto']['veiculo']
   const p = montarNfeVendaMoto({
     ...VENDA,
-    moto: { ...VENDA.moto, veiculo },
-    transporte: {
-      modalidade: 'TransporteProprioPorContaDoDestinatario',
-      enderecoEntrega: {
-        tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043',
-        logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG',
-      },
-    },
+    moto: { ...VENDA.moto, veiculo: FATURAMENTO_DIRETO },
+    transporte: { modalidade: 'TransporteProprioPorContaDoDestinatario', enderecoEntrega: ENTREGA_MG },
   }, REGRA)
   assert.deepEqual(p.transporte, {
     frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' },
-    enderecoEntrega: {
-      tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043', pais: null,
-      logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG',
-    },
+    enderecoEntrega: { ...ENTREGA_MG, pais: null },
   })
   assert.equal('codigoMunicipio' in p.transporte.enderecoEntrega, false)
 })
@@ -241,30 +237,35 @@ test('tpOp de revenda preserva o tipo e não envia transporte: segue como antes'
   const p = montarNfeVendaMoto({
     ...VENDA,
     moto: { ...VENDA.moto, veiculo },
-    transporte: { modalidade: 'PorContaDoDestinatario' },
+    transporte: { modalidade: 'ContratacaoPorContaDoDestinatario' },
   }, REGRA)
   assert.equal(p.itens[0].veiculoNovo?.tipoOperacao, 'VendaConcessionaria')
   assert.equal('transporte' in p, false)
 })
 
-test('frete 9 mantém endereço no faturamento direto', () => {
-  const veiculo = { tipoOperacao: 'FaturamentoDiretoConsumidorFinal', chassi: '9C2ABC12345678901' } as DadosVendaMoto['moto']['veiculo']
+test('frete 9 sai como SemOcorrenciaDeTransporte e mantém o endereço no faturamento direto', () => {
   const p = montarNfeVendaMoto({
-    ...VENDA,
-    moto: { ...VENDA.moto, veiculo },
-    transporte: {
-      modalidade: 'SemTransporte',
-      enderecoEntrega: {
-        tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043',
-        logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG',
-      },
-    },
+    ...VENDA, moto: { ...VENDA.moto, veiculo: FATURAMENTO_DIRETO },
+    transporte: { modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: ENTREGA_MG },
   }, REGRA)
-  assert.equal(p.transporte?.frete.modalidade, 'SemTransporte')
+  assert.equal(p.transporte?.frete.modalidade, 'SemOcorrenciaDeTransporte')
   assert.equal(p.transporte?.enderecoEntrega?.cidade, '3170701')
 })
 
+test('frete 0 sai como ContratacaoPorContaDoRemetente no faturamento direto', () => {
+  const p = montarNfeVendaMoto({
+    ...VENDA, moto: { ...VENDA.moto, veiculo: FATURAMENTO_DIRETO },
+    transporte: { modalidade: 'ContratacaoPorContaDoRemetente', enderecoEntrega: ENTREGA_MG },
+  }, REGRA)
+  assert.equal(p.transporte?.frete.modalidade, 'ContratacaoPorContaDoRemetente')
+})
+
+test('SemTransporte não chega ao payload: a montagem recusa', () => {
+  const transporte = { modalidade: 'SemTransporte', enderecoEntrega: ENTREGA_MG } as unknown as DadosVendaMoto['transporte']
+  assert.throws(() => montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, veiculo: FATURAMENTO_DIRETO }, transporte }, REGRA),
+    /Modalidade do frete inválida/)
+})
+
 test('faturamento direto não monta payload sem transporte e endereço de entrega', () => {
-  const veiculo = { tipoOperacao: 'FaturamentoDiretoConsumidorFinal', chassi: '9C2ABC12345678901' } as DadosVendaMoto['moto']['veiculo']
-  assert.throws(() => montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, veiculo } }, REGRA), /Selecione a modalidade do frete/)
+  assert.throws(() => montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, veiculo: FATURAMENTO_DIRETO } }, REGRA), /Selecione a modalidade do frete/)
 })
