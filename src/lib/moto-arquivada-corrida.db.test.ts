@@ -3,8 +3,8 @@
 // gravar. Uma sessão segura a linha da moto; o arquivar entra na fila primeiro e o gravador
 // depois (a fila da linha é por ordem de chegada). Ao soltar, o arquivar grava e o gravador
 // tem de recusar com a frase da arquivada, sem deixar pendência na moto arquivada.
-// Fronteira de fora mockada: sessão, Supabase (repassa a função SQL ao banco), next/cache,
-// Kommo e WhatsApp.
+// Fronteira de fora mockada: sessão, Supabase (nenhum gravador o chama mais; o módulo das
+// actions só o importa), next/cache, Kommo e WhatsApp.
 import { after, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import pg from 'pg'
@@ -26,20 +26,7 @@ type Db = typeof import('@/lib/db')
 let db: Db['db']
 const mocks = [
   mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => usuarioDaSessao } }),
-  // O cliente do Supabase é a fronteira; a função SQL roda de verdade no banco do teste.
-  mock.module('@/lib/supabase/server', {
-    namedExports: {
-      createClient: async () => ({
-        rpc: async (nome: string, args: Record<string, unknown>) => {
-          const nomeados = sql.join(Object.entries(args).map(([k, v]) => sql`${sql.raw(k)} => ${v}`), sql`, `)
-          try { await db.execute(sql`select ${sql.raw(nome)}(${nomeados})`) } catch (e) {
-            return { error: { message: String((e as { cause?: Error }).cause?.message ?? e) } }
-          }
-          return { error: null }
-        },
-      }),
-    },
-  }),
+  mock.module('@/lib/supabase/server', { namedExports: { createClient: async () => ({}) } }),
   mock.module('next/cache', { namedExports: { revalidatePath: () => {} } }),
   mock.module('@/lib/kommo', { namedExports: { virarLeadKommo: async () => ({ resultado: 'sem_lead' }) } }),
   mock.module('@/lib/whatsapp/venda', { namedExports: { notificarVendaWhatsapp: async () => ({ resultado: 'desligado' }) } }),
