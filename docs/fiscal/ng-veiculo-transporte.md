@@ -39,15 +39,16 @@ ao `<modFrete>` do XML, por exemplo `"modalidade": "ContratacaoPorContaDoRemeten
 | 9 | `SemOcorrenciaDeTransporte` | Sem frete |
 
 O mesmo artigo mantém os nomes da versão 3.10: `"PorContaDoEmitente"= 0`, `"PorContaDoDestinatario" = 1`,
-`"PorContaDeTerceiros" = 2` e `"SemFrete" = 9`. O manual da NG para NF-e modelo 55 (fora do repo) lista as mesmas
-opções. `SemTransporte` não está em nenhuma das duas listas.
+`"PorContaDeTerceiros" = 2` e `"SemFrete" = 9`. O manual da NG para NF-e modelo 55 (fora do repo) lista como
+"Opções válidas" os 6 nomes 4.0 e `"SemFrete"`, sem os `PorConta...` da 3.10. `SemTransporte` não está na KB nem no manual.
 
 - O MOVA envia só os nomes 4.0. A lista mora em `MODALIDADES_FRETE` (`src/lib/notagateway/transporte.ts`), com
   texto, código e nome; tela, validação e payload saem dela (#723).
 - A modalidade 0 entrou depois da resposta escrita do suporte (Hermes, 05/11/2026: "Pode seguir conforme a
   documentação"; #662).
-- Até o #723 o MOVA mandava `SemTransporte` para a 9 e os nomes 3.10 para a 1 e a 2. Nota recusada gravada com
-  um desses nomes reabre com o nome 4.0 do mesmo código, e o reenvio sai com ele.
+- Da v1.21.1 até o #723 o MOVA mandava `SemTransporte` para a 9 e os nomes 3.10 `PorContaDoDestinatario` e
+  `PorContaDeTerceiros` para a 1 e a 2. Nota recusada gravada com um desses três nomes reabre com o nome 4.0 do
+  mesmo código, e o reenvio sai com ele. Outro nome antigo (que o MOVA nunca gravou) reabre sem modalidade.
 - Omitir a modalidade não é possível no faturamento direto: o suporte escreveu (05/11/2026) que a API manda 0 à
   SEFAZ quando ela falta.
 
