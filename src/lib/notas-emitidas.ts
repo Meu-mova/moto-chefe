@@ -21,6 +21,30 @@ export function linkDaVenda(v: { chassi: string | null; dataVenda: string | null
   return `/vendas?${new URLSearchParams({ q: v.chassi, de: hojeBrt(new Date(v.dataVenda)) })}`
 }
 
+/**
+ * Venda cancelada ou removida: a nota fica com venda_id nulo e guarda o número (#347). Pela nota
+ * os dois casos são iguais, por isso um texto só (decisão do Luis, #690). Null: a venda existe.
+ */
+export function vendaQueNaoExisteMais(n: { vendaId: string | null; vendaNumero: number | null }): string | null {
+  return n.vendaId ? null : textoSemVenda(n.vendaNumero)
+}
+
+// Sem número é só rede: venda_numero é NOT NULL desde a 0144, mas a decisão do Luis (#690) pede o texto.
+function textoSemVenda(vendaNumero: number | null): string {
+  return vendaNumero == null ? 'Venda não existe mais' : `Venda #${vendaNumero} (não existe mais)`
+}
+
+/** Recusa da ação na nota que precisa da venda (consultar, cancelar, descartar) quando ela não existe mais. */
+export function recusaSemVenda(vendaNumero: number): string {
+  return `${textoSemVenda(vendaNumero)}: esta ação precisa da venda. Recarregue a tela.`
+}
+
+/** O fim de "Nota 974, série 1" nos diálogos: ", venda #N", ou uma frase própria se a venda não existe mais. */
+export function vendaNaDescricao(n: { vendaId: string | null; vendaNumero: number }): string {
+  const semVenda = vendaQueNaoExisteMais(n)
+  return semVenda ? `. ${semVenda}` : `, venda #${n.vendaNumero}`
+}
+
 // O formato do <input type="date"> pode trazer dia que não existe (30/02): a volta pelo Date denuncia.
 function diaValido(v: string | undefined): v is string {
   if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false
