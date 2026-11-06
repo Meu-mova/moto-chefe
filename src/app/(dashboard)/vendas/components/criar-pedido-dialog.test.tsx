@@ -82,7 +82,7 @@ test('sem modalidade o pedido sai assim mesmo (avisa, não bloqueia) com a modal
   assert.deepEqual(criar.mock.calls.map(c => c.arguments), [[MOTO.id, '', { modo: 'retira', modalidade: '' }]])
 })
 
-test('o cabeçalho mostra a loja da moto escolhida, que é onde o pedido nasce', async () => {
+test('o cabeçalho mostra a loja da moto escolhida', async () => {
   await montar()
   const subtitulo = () => document.querySelector('[data-slot="dialog-description"]')?.textContent ?? ''
   assert.equal(subtitulo(), 'Escolha a moto para ver a loja do pedido.')
