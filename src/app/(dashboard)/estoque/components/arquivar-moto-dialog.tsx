@@ -51,6 +51,8 @@ export function ArquivarMotoDialog({ aberto, onFechar }: { aberto: boolean; onFe
       if (vez === ultimaBusca.current) {
         setAchadas(lista)
         setConhecidas(antes => new Map([...antes, ...lista.map(m => [m.id, m] as const)]))
+        // Escolhida que agora tem pendência sai da escolha: a caixinha travada não teria como desmarcar.
+        setMarcadas(antes => marcarVarias(antes, lista.filter(m => m.bloqueio).map(m => m.id), false))
       }
     } catch {
       if (vez === ultimaBusca.current) setErro('Não deu para buscar. Tente de novo.')

@@ -94,6 +94,15 @@ test('as escolhidas ficam marcadas de uma busca para outra e vão juntas para a 
   assert.match(textoDaTela(), /TESTE00ARQ000007/)
 })
 
+test('moto escolhida que volta travada numa busca nova sai da escolha', async () => {
+  const t = await montar()
+  await t.buscar('43440'); await t.marcar('Marcar todas que podem (2)')
+  api.buscar.mock.mockImplementation(async () => [moto(1, TRAVADA)])
+  await t.buscar('ARQ000001')
+  assert.equal(caixa('TESTE00ARQ000001')!.checked, false, 'travada não fica marcada sem como desmarcar')
+  assert.ok(botao('Continuar com 1 moto'), 'só a outra continua escolhida')
+})
+
 test('sem motivo não envia; com motivo envia os ids escolhidos e termina em "N motos arquivadas"', async () => {
   const t = await montar()
   await t.ateConfirmar('   ')
