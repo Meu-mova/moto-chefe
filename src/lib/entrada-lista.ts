@@ -84,7 +84,11 @@ export function fichasDoEnvio(linhas: readonly MotoImportada[]) {
  * planilha (sem ficha fiscal), ganha a ficha do XML e o resto da linha fica como estava.
  */
 export function acrescentarDoXml(linhas: readonly MotoImportada[], novas: readonly MotoImportada[]): MotoImportada[] {
-  const fichaDoXml = new Map(novas.flatMap(n => (n.fiscal ? [[chaveDoChassi(n.chassi), n.fiscal] as const] : [])))
+  // A primeira ficha de cada chassi vence, como na gravação (onConflictDoNothing).
+  const fichaDoXml = novas.reduce((mapa, n) => {
+    const chave = chaveDoChassi(n.chassi)
+    return n.fiscal && !mapa.has(chave) ? new Map([...mapa, [chave, n.fiscal]]) : mapa
+  }, new Map<string, NonNullable<MotoImportada['fiscal']>>())
   const presentes = new Set(linhas.map(l => chaveDoChassi(l.chassi)))
   const completadas = linhas.map(l => {
     const fiscal = l.fiscal ? undefined : fichaDoXml.get(chaveDoChassi(l.chassi))

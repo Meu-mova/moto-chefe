@@ -86,3 +86,12 @@ test('acrescentar do XML: chassi que já tem ficha fica com a dele', () => {
   assert.equal(lista.length, 1)
   assert.equal(lista[0].fiscal?.emitente.nfNumero, '111')
 })
+
+test('acrescentar do XML: dois XMLs com o mesmo chassi completam a linha sem ficha com a ficha do primeiro', () => {
+  const emitente = (nfNumero: string) => ({ cnpj: '00000000000191', nome: 'Fabrica', nfNumero, nfChave: nfNumero.padStart(44, '0') })
+  const ficha = { codigo: 'GIGA' } as unknown as NonNullable<MotoImportada['fiscal']>['ficha']
+  const doXml = (nf: string): MotoImportada => ({ ...moto('G1', nf, 'GIGA'), fiscal: { emitente: emitente(nf), ficha } })
+  const lista = acrescentarDoXml([moto('G1', '111', 'GIGA')], [doXml('111'), doXml('222')])
+  assert.equal(lista.length, 1)
+  assert.equal(lista[0].fiscal?.emitente.nfNumero, '111')
+})
