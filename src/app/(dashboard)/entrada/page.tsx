@@ -1,7 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
 import { listarLojasDoGrupoAtivo, contaDoGrupoAtivo } from '@/lib/grupo'
-import { listarApelidosDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
+import { apelidosDosModelos, listarApelidosDaConta, listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { redirect } from 'next/navigation'
 import { EntradaForm } from './components/entrada-form'
 
@@ -20,8 +20,7 @@ export default async function EntradaPage() {
     listarApelidosDaConta(conta),
   ])
 
-  const visiveis = new Set(modelosCadastrados.map(m => m.id))
-  const apelidosVisiveis = apelidos.filter(a => visiveis.has(a.modeloId)).map(({ nome, canonico }) => ({ nome, canonico }))
+  const apelidosVisiveis = apelidosDosModelos(apelidos, modelosCadastrados)
 
   const modelosOpts = modelosCadastrados.map(({ id, modelo, marca }) => ({ id, modelo, marca }))
 

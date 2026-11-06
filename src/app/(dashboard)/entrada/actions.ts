@@ -10,7 +10,7 @@ import { contaDaLoja } from '@/lib/conta'
 import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
-import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
+import { type FichaDaMoto } from '@/lib/nfe-fiscal'
 import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
@@ -137,7 +137,7 @@ export async function registrarEntradaLote(formData: {
   motos: MotoEntradaLote[]
   // Fichas fiscais lidas dos XMLs, uma por CHASSI. Opcional: entrada por
   // planilha e entrada manual não têm XML.
-  fiscais?: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
+  fiscais?: FichaDaMoto[]
 }) {
   const usuario = await getUsuarioLogado()
   if (!acessaModulo(usuario, 'entrada')) {

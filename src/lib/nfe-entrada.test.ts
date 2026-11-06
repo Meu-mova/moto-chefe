@@ -270,3 +270,9 @@ test('itens de peça: linha sem qCom sai com quantidade 0 marcada como não inte
   assert.equal(item.quantidade, 0)
   assert.equal(item.quantidadeInteira, false)
 })
+
+test('motor com aspas da medida da roda não vira cor', () => {
+  assert.deepEqual(parseMotosInfCpl('FAMILY 350W TESTEFAM00000004 TSTM0348V350W24"99990001 AMARELO'), [
+    { modelo: 'FAMILY', chassi: 'TESTEFAM00000004', motor: 'TSTM0348V350W24"99990001', cor: 'AMARELO' },
+  ])
+})
