@@ -128,7 +128,7 @@ export async function arquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[
   })
 }
 
-type MotoDoLog = { id: string; chassi: string | null; modelo: string | null; loja: string; lojaId: string; nfEntrada: string | null }
+type MotoDoLog = { id: string; chassi: string; modelo: string | null; loja: string; lojaId: string; nfEntrada: string | null }
 
 async function registrarNoLog(tx: NonNullable<Parameters<typeof registrarAcaoSensivel>[1]>, tipo: 'moto_arquivada' | 'moto_desarquivada', usuarioId: string, achadas: MotoDoLog[], motivo: string) {
   for (const m of achadas) {

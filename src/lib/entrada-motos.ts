@@ -155,8 +155,11 @@ export async function conferirMotosDaEntrada(
   return { prontas, erros: [...erros, ...jaCadastrados] }
 }
 
+/** Chassi de outra Conta: a frase não diz que ele existe lá (#456). */
+export const CHASSI_RECUSADO = 'não deu para registrar este chassi. Confira o número.'
+
 const fraseDoChassiCadastrado = (m: { daConta: boolean; arquivada: boolean }) =>
-  !m.daConta ? 'não deu para registrar este chassi. Confira o número.'
+  !m.daConta ? CHASSI_RECUSADO
     : m.arquivada ? CHASSI_ARQUIVADO
       : 'chassi já existe no sistema'
 

@@ -11,7 +11,7 @@ import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-co
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaDaMoto } from '@/lib/nfe-fiscal'
-import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, recusasDeChassiCadastrado, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, recusasDeChassiCadastrado, CHASSI_RECUSADO, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import {
@@ -36,7 +36,7 @@ async function erroDoInsert(e: { code?: string; cause?: { code?: string }; messa
     e.message?.includes('unique') || e.message?.includes('duplicate key')
   if (!duplicado) return `${chassi}: ${e.message}`
   const [recusa] = await recusasDeChassiCadastrado(db, await contaDaLoja(lojaId), [chassi])
-  return recusa ?? `${chassi}: não deu para registrar este chassi. Confira o número.`
+  return recusa ?? `${chassi}: ${CHASSI_RECUSADO}`
 }
 
 type MotoEntrada = {
