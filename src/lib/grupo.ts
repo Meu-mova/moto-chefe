@@ -39,6 +39,8 @@ type UsuarioAprovadorComConta = UsuarioAprovador & { contaId: string | null; gru
 
 export type Grupo = typeof grupos.$inferSelect
 
+type Leitor = Pick<typeof db, 'select'>
+
 const ADMIN_PAPEIS = ['admin_geral', 'admin_socio']
 
 // Grupo legado, criado na migração multi-grupo (0011) a partir dos dados que já existiam.
@@ -50,9 +52,9 @@ const GRUPO_PADRAO_ID = '00000000-0000-4000-8000-000000000001'
 // mesmo espírito de fail-open do resto deste arquivo. Usado por getGrupoAtivo,
 // listarGruposVisiveis e pela action de troca de grupo (todos precisam da
 // mesma base para decidir posse).
-export async function grupoIdDaPropriaLoja(lojaId: string | null): Promise<string | null> {
+export async function grupoIdDaPropriaLoja(lojaId: string | null, exec: Leitor = db): Promise<string | null> {
   const [lojaDoUsuario] = lojaId
-    ? await db.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, lojaId)).limit(1)
+    ? await exec.select({ grupoId: lojas.grupoId }).from(lojas).where(eq(lojas.id, lojaId)).limit(1)
     : []
   return lojaDoUsuario?.grupoId ?? null
 }
@@ -157,8 +159,8 @@ export async function getGrupoIdDaLoja(lojaId: string): Promise<string> {
   return loja.grupoId
 }
 
-export async function listarGruposAtivos(): Promise<Grupo[]> {
-  return db.select().from(grupos).where(eq(grupos.ativo, true)).orderBy(grupos.nome)
+export async function listarGruposAtivos(exec: Leitor = db): Promise<Grupo[]> {
+  return exec.select().from(grupos).where(eq(grupos.ativo, true)).orderBy(grupos.nome)
 }
 
 // Para o seletor de empresa (GroupSwitcher): só os grupos que o usuário tem
@@ -174,11 +176,12 @@ export async function listarGruposAtivos(): Promise<Grupo[]> {
 export async function listarGruposVisiveis(
   usuario: UsuarioComConta,
   opts?: { comLiberados?: boolean },
+  exec: Leitor = db,
 ): Promise<Grupo[]> {
   usuario = opts?.comLiberados ? identidadeDeOrigem(usuario) : { ...usuario, gruposLiberados: [] }
   const [todos, grupoDaPropriaLoja] = await Promise.all([
-    listarGruposAtivos(),
-    grupoIdDaPropriaLoja(usuario.lojaId),
+    listarGruposAtivos(exec),
+    grupoIdDaPropriaLoja(usuario.lojaId, exec),
   ])
 
   const idsVisiveis = new Set(gruposVisiveis(usuario, grupoDaPropriaLoja, todos))
