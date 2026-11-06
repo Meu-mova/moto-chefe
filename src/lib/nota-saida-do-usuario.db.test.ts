@@ -110,3 +110,19 @@ test('nota que saiu pelo grupo de entrada (#552): quem pode na loja da venda ach
     }
   })
 })
+
+test('nota cuja venda foi apagada (#690): a própria Conta acha pelo grupo da nota; a Conta B não, igual a id inexistente', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069011')
+    const b = await semearConta(tx, 'B', '00000000069012')
+    await linhas(tx, sql`delete from vendas where id = ${a.vendaId}`)
+    for (const usuario of [a.aux, a.socio]) {
+      const nota = await notaSaidaDoUsuario(usuario, a.notaId, tx)
+      assert.deepEqual([nota?.id, nota?.vendaId], [a.notaId, null])
+    }
+    for (const usuario of [b.aux, b.socio]) {
+      assert.equal(await notaSaidaDoUsuario(usuario, a.notaId, tx), null)
+      assert.equal(await notaSaidaDoUsuario(usuario, crypto.randomUUID(), tx), null)
+    }
+  })
+})
