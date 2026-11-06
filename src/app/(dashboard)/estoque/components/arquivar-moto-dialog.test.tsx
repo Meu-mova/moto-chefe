@@ -168,7 +168,7 @@ test('envio sem resposta avisa para conferir antes de tentar de novo e destrava'
   assert.equal(t.onFechar.mock.callCount(), 0)
 })
 
-test('"Moto não encontrada" do servidor (outra Conta, já arquivada ou sumiu) aparece como veio', async () => {
+test('a recusa "Moto não encontrada" do servidor aparece como veio', async () => {
   api.arquivar.mock.mockImplementationOnce(async () => ({ ok: false, erro: 'Moto não encontrada' }))
   const t = await montar()
   await t.ateConfirmar()
