@@ -9,6 +9,7 @@ import {
   notasEntrada, pecasCatalogo, pecasVinculoFornecedor, usuarios, veiculosHistorico,
 } from '@/lib/db/schema'
 import { registrarAcao, type Origem } from '@/lib/log-acoes'
+import { ehUuid } from '@/lib/uuid'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type Leitor = Pick<typeof db, 'select' | 'execute'>
@@ -37,7 +38,6 @@ export type PreviaMover = {
   conflitos: ConflitosMover
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const contar = async (exec: Leitor, q: ReturnType<typeof sql>) =>
   Number(((await exec.execute(q)) as unknown as { rows: { n: number }[] }).rows[0].n)
@@ -48,7 +48,7 @@ export function temConflito(c: ConflitosMover): boolean {
 
 /** O que a mudança faria, sem gravar nada. null = grupo ou Conta de destino inexistente. */
 export async function previaMoverGrupo(exec: Leitor, grupoId: string, destinoId: string): Promise<PreviaMover | null> {
-  if (!UUID.test(grupoId) || !UUID.test(destinoId)) return null
+  if (!ehUuid(grupoId) || !ehUuid(destinoId)) return null
   const [g] = await exec.select({ id: grupos.id, nome: grupos.nome, contaId: grupos.contaId, contaNome: contas.nome })
     .from(grupos).innerJoin(contas, eq(contas.id, grupos.contaId)).where(eq(grupos.id, grupoId)).limit(1)
   const [d] = await exec.select({ id: contas.id, nome: contas.nome, desativadaEm: contas.desativadaEm })
@@ -123,7 +123,7 @@ export async function moverGrupo(
   origemRequisicao: Origem = { ip: null, userAgent: null },
 ): Promise<ResultadoMover> {
   if (gestor.papel !== 'admin_geral') return { ok: false, erro: 'Só o Admin Geral move grupo de Conta', previa: null }
-  if (!UUID.test(grupoId) || !UUID.test(destinoId)) return { ok: false, erro: 'Grupo ou Conta não encontrado', previa: null }
+  if (!ehUuid(grupoId) || !ehUuid(destinoId)) return { ok: false, erro: 'Grupo ou Conta não encontrado', previa: null }
   const [g] = await tx.select({ contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1)
   if (!g) return { ok: false, erro: 'Grupo ou Conta não encontrado', previa: null }
   // Trava as duas Contas (em ordem de id, para duas mudanças cruzadas não se travarem).

@@ -6,6 +6,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { geoDaLoja } from '@/lib/frete'
 import { cifrarSenhaFabrica } from '@/lib/fabrica-senha'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 async function assertAdmin() {
   const u = await getUsuarioLogado()
@@ -59,7 +60,7 @@ export async function desativarLojaAction(id: string) {
   const [{ total: motosAtivas }] = await db
     .select({ total: count() })
     .from(motos)
-    .where(and(eq(motos.lojaId, id), ne(motos.status, 'vendida')))
+    .where(and(eq(motos.lojaId, id), ne(motos.status, 'vendida'), motoNaoArquivada()))
 
   if (motosAtivas > 0) {
     throw new Error(`Loja possui ${motosAtivas} moto(s) ativa(s). Transfira-as antes de desativar.`)

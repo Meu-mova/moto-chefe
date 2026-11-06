@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { motos, modelos } from '@/lib/db/schema'
 import { eq, and, inArray } from 'drizzle-orm'
 import { ReatribuirLojaForm } from './components/reatribuir-loja-form'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 export default async function AcoesAdminPage() {
   await exigirAcessoPagina('/admin/acoes')
@@ -16,7 +17,7 @@ export default async function AcoesAdminPage() {
       .select({ id: motos.id, chassi: motos.chassi, lojaId: motos.lojaId, marca: modelos.marca, modelo: modelos.modelo })
       .from(motos)
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
-      .where(and(eq(motos.status, 'faturada'), inArray(motos.lojaId, lojaIdsGrupo))),
+      .where(and(eq(motos.status, 'faturada'), motoNaoArquivada(), inArray(motos.lojaId, lojaIdsGrupo))),
     listarLojasDoGrupoAtivo(usuario),
   ])
 

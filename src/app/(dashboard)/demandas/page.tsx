@@ -9,10 +9,10 @@ import { listarModelosDaConta, nomeDoModeloNaLoja } from '@/lib/modelos-da-conta
 import { NovaDemandaForm } from './components/nova-demanda-form'
 import { DemandasTable } from './components/demandas-table'
 import { DemandasFiltros } from './components/demandas-filtros'
+import { ehUuid } from '@/lib/uuid'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function parseParam(v?: string): string[] {
   if (!v) return []
@@ -55,7 +55,7 @@ export default async function DemandasPage({
   }
 
   // UUID inválido na URL derruba a query no Postgres — filtra antes.
-  const modeloSel = parseParam(params.modelo).filter(id => UUID_RE.test(id))
+  const modeloSel = parseParam(params.modelo).filter(ehUuid)
 
   // Só demandas abertas — atendidas saem da lista (histórico fica ligado à venda)
   const where = and(

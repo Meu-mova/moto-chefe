@@ -34,7 +34,8 @@ export function LogisticaButton({ motoId, descricao, lojaAtualId, lojas, showLab
     if (!lojaDestinoId) return
     setLoading(true)
     try {
-      await solicitarTransferenciaAction(motoId, lojaDestinoId, undefined)
+      const r = await solicitarTransferenciaAction(motoId, lojaDestinoId, undefined)
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Transferência solicitada!')
       setOpen(false)
     } catch (e: unknown) {

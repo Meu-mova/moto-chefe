@@ -5,10 +5,10 @@ import { mensalidades, mensalidadeWebhookEventos } from '@/lib/db/schema'
 import { assinaturaValida, ambienteConfere, falhaDefinitiva } from '@/lib/mercadopago/webhook'
 import { aplicarBaixa } from '@/lib/mensalidade/baixa'
 import { consultarPagamento, ErroMercadoPago } from '@/lib/mercadopago/cliente'
+import { ehUuid } from '@/lib/uuid'
 
 export const dynamic = 'force-dynamic'
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type Corpo = { id?: string | number; type?: string; action?: string; live_mode?: boolean; data?: { id?: string | number } }
 
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const pg = await consultarPagamento(dataId)
     const ref = pg.external_reference
     // Referência que não é uuid não acha mensalidade; falha do banco precisa cair no 500.
-    const [m] = ref && UUID.test(ref)
+    const [m] = ref && ehUuid(ref)
       ? await db.select().from(mensalidades).where(eq(mensalidades.id, ref)).limit(1)
       : []
     // O ambiente do pagamento consultado é a fonte confiável; o do corpo, não.

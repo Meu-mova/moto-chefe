@@ -35,7 +35,7 @@ import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
-import { motoDoUsuario } from '@/lib/moto-do-usuario'
+import { motoDoUsuario, travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
 import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
 import { voltarMotoAoEstoque } from '@/lib/motos-vendidas-sem-venda'
 import { vendedorDaConta } from '@/lib/vendedor-da-conta'
@@ -273,6 +273,7 @@ async function criarVendaTx(
   }
 ): Promise<{ vendaId: string }> {
   const { moto, data, vendedorId, efetivadoPor, dataVendaFinal, origem, grupoLiberado } = params
+  await travarMotoNaoArquivada(tx, moto.id)
   // Aqui, e não só na action: a aprovação guardada chega direto (#460).
   await conferirMaquininhas(tx, moto.lojaId, data.pagamentos)
   const valorNum = parseFloat(data.valorTotal)
@@ -1112,6 +1113,7 @@ async function registrarReserva(data: DadosReserva) {
   let reservaId = ''
 
   await db.transaction(async (tx) => {
+    await travarMotoNaoArquivada(tx, data.motoId)
     const valorTotalNum = parseFloat(data.valorTotalVenda)
 
     const dataReservaFinal = data.dataReserva ? new Date(data.dataReserva + 'T12:00:00') : new Date()
@@ -1666,6 +1668,7 @@ async function solicitarAprovacaoVenda(
   }
 
   await db.transaction(async (tx) => {
+    await travarMotoNaoArquivada(tx, moto.id)
     await tx.insert(aprovacoesVenda).values({
       motoId: moto.id,
       lojaId: moto.lojaId,
