@@ -121,7 +121,7 @@ test('o diálogo mostra a nota, o motivo da SEFAZ e o ambiente da nota, não o d
   await t.desenhar([NOTA])
   await t.abrir()
   assert.ok(dialogoDeInutilizar(), 'o diálogo abre')
-  assert.ok(textoDaTela().includes('Nota 974, série 1, venda #31601'))
+  assert.ok(textoDaTela().includes('Nota 974, série 1. Venda #31601 (não existe mais)'), 'a NOTA não tem venda (#690)')
   assert.ok(textoDaTela().includes('Teste (homologação)'), 'ambiente da nota, com o filtro da tela em Produção')
   assert.ok(textoDaTela().includes('Nota de teste: sem valor fiscal'))
   assert.ok(!textoDaTela().includes('nunca mais vai ser usado'))
@@ -248,7 +248,7 @@ test('"Ver motivo completo" mostra o motivo da SEFAZ com o código separado, e F
   assert.ok(textoDaTela().includes('Motivo da nota 974'))
   assert.ok(textoDaTela().includes('Motivo da SEFAZ (539)'))
   assert.ok(textoDaTela().includes('Duplicidade de NF-e, com diferenca na Chave de Acesso [chNFe: 3126]'))
-  assert.ok(textoDaTela().includes('Série 1, venda #31601. Recusada em 29/10/2026'))
+  assert.ok(textoDaTela().includes('Série 1. Venda #31601 (não existe mais). Recusada em 29/10/2026'), 'a NOTA não tem venda (#690)')
   await t.fechar()
   assert.ok(!textoDaTela().includes('Motivo da nota 974'))
   await t.desenhar([{ ...NOTA, status: 'Processando', categoria: 'em_andamento' }], true, { ...FILTRO, situacao: 'em_andamento' })
@@ -369,13 +369,34 @@ test('a lista esvazia com o diálogo aberto: ele continua na tela (C6)', async (
 
 const lista = () => document.querySelector('ul[aria-label="Notas emitidas"]')!
 
+// NOTA não tem venda (cancelada ou removida); esta tem, com o link para Vendas.
+const COM_VENDA: NotaEmitidaComInutilizacao = { ...AUTORIZADA, vendaId: 'venda-2', vendaNumero: 31602, clienteNome: 'Maria Oliveira', chassi: 'LXY690', dataVenda: '2026-10-29T12:00:00Z' }
+const SEM_VENDA = 'Venda #31601 (não existe mais)'
+
+test('venda que não existe mais (#690): a linha e o cartão dizem isso no lugar da venda; com venda, o número com link', async () => {
+  const t = await montar()
+  const todas = { ...FILTRO, situacao: 'todas' as const }
+  await t.desenhar([NOTA, COM_VENDA], true, todas)
+  const [semVenda, comVenda] = [...document.querySelectorAll('tbody > tr')]
+  assert.ok(semVenda!.textContent!.includes(SEM_VENDA), semVenda!.textContent!)
+  assert.equal(comVenda!.querySelector('a[href^="/vendas?"]')?.textContent, '#31602')
+  assert.ok(!comVenda!.textContent!.includes('não existe mais'))
+
+
+  const [cartaoSemVenda, cartaoComVenda] = [...lista().querySelectorAll(':scope > li')]
+  assert.ok(cartaoSemVenda!.textContent!.includes(SEM_VENDA), cartaoSemVenda!.textContent!)
+  assert.equal(cartaoComVenda!.querySelector('a[href^="/vendas?"]')?.textContent, '#31602')
+  assert.ok(!cartaoComVenda!.textContent!.includes('não existe mais'))
+  await t.desmontar()
+})
+
 test('celular: cartão com o cliente em destaque, os selos, o motivo da SEFAZ em bloco só na recusada e os fatos da nota (C8)', async () => {
   const t = await montar()
   await t.desenhar([NOTA, { ...AUTORIZADA, clienteNome: 'Maria Oliveira' }], true, { ...FILTRO, situacao: 'todas' })
   const cartoes = [...lista().querySelectorAll(':scope > li')].map(li => li.textContent ?? '')
   assert.equal(cartoes.length, 2)
   const [recusada, autorizada] = cartoes as [string, string]
-  assert.ok(recusada.includes('Sem cliente') && recusada.includes('Recusada'))
+  assert.ok(recusada.includes(SEM_VENDA) && recusada.includes('Recusada'), 'sem venda, o lugar do cliente diz isso (#690)')
   assert.ok(recusada.includes('Motivo da SEFAZ (225)') && recusada.includes('Falha no schema'), 'recusada: bloco do motivo')
   assert.ok(recusada.includes('NF 974') && recusada.includes('Série 1') && recusada.includes('Venda #31601') && recusada.includes('29/10'))
   assert.ok(autorizada.includes('Maria Oliveira') && autorizada.includes('Autorizada') && autorizada.includes('NF 975'))
