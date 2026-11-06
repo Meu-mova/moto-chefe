@@ -23,15 +23,39 @@ O exemplo do Hermes mostra o código IBGE em `cidade` e um XML com as tags `cMun
 
 ### Modalidade de frete
 
-O MOC (Grupo X/X02) define os códigos DANFE 0, 1, 2, 3, 4 e 9. A resposta anterior do Hermes listou os tokens JSON `PorContaDoRemetente`, `PorContaDoDestinatario`, `PorContaDeTerceiros`, `TransporteProprioPorContaDoRemetente`, `TransporteProprioPorContaDoDestinatario` e `SemTransporte`, respectivamente, e disse que omitir modalidade resulta em 0. O token do código 4, utilizado no caso inicial, foi confirmado como `TransporteProprioPorContaDoDestinatario`.
+O MOC (Grupo X/X02) define os códigos DANFE 0, 1, 2, 3, 4 e 9. O nome JSON de cada código está no artigo da
+base de conhecimento da NG [170207, "Como os campos do grupo de transporte devem ser informados no JSON?"](https://atendimento.notagateway.com.br/kb/pt-br/article/170207/duvidas-sobre-nf-e-como-os-campos-do-grupo-de-transporte-devem-s)
+("Atualizado por Joana Castro em 29/10/2024"). A tabela "versão 4.0 da NFe" do artigo liga `transporte.frete.modalidade`
+ao `<modFrete>` do XML, por exemplo `"modalidade": "ContratacaoPorContaDoRemetente"` a
+`<modFrete>0</modFrete>` ("0 - Contratação do Frete por conta do Remetente (CIF)"):
 
-**Modalidade 0 fora deste hotfix (decisão do Luis, 04/11/2026).** Há três nomes conflitantes para o código 0: `PorContaDoRemetente` (primeira resposta do Hermes), `ContratacaoPorContaDoRemetente` (exemplo posterior do Hermes) e `PorContaDoEmitente` (exemplo público da NG). A 0 só volta com confirmação escrita da NG do token e do XML `modFrete=0` resultante. Até lá o MOVA oferece 1, 2, 3, 4 e 9, e a omissão de modalidade não é possível (a NG assume 0 quando omitida).
+| Código | Nome JSON (4.0) | Texto na tela do MOVA |
+|---|---|---|
+| 0 | `ContratacaoPorContaDoRemetente` | Loja contrata e paga a transportadora |
+| 1 | `ContratacaoPorContaDoDestinatario` | Cliente contrata e paga a transportadora |
+| 2 | `ContratacaoPorContaDeTerceiros` | Outra pessoa contrata o frete |
+| 3 | `TransporteProprioPorContaDoRemetente` | Loja leva com veículo próprio |
+| 4 | `TransporteProprioPorContaDoDestinatario` | Cliente leva com veículo próprio |
+| 9 | `SemOcorrenciaDeTransporte` | Sem frete |
+
+O mesmo artigo mantém os nomes da versão 3.10: `"PorContaDoEmitente"= 0`, `"PorContaDoDestinatario" = 1`,
+`"PorContaDeTerceiros" = 2` e `"SemFrete" = 9`. O manual da NG para NF-e modelo 55 (fora do repo) lista as mesmas
+opções. `SemTransporte` não está em nenhuma das duas listas.
+
+- O MOVA envia só os nomes 4.0. A lista mora em `MODALIDADES_FRETE` (`src/lib/notagateway/transporte.ts`), com
+  texto, código e nome; tela, validação e payload saem dela (#723).
+- A modalidade 0 entrou depois da resposta escrita do suporte (Hermes, 05/11/2026: "Pode seguir conforme a
+  documentação"; #662).
+- Até o #723 o MOVA mandava `SemTransporte` para a 9 e os nomes 3.10 para a 1 e a 2. Nota recusada gravada com
+  um desses nomes reabre com o nome 4.0 do mesmo código, e o reenvio sai com ele.
+- Omitir a modalidade não é possível no faturamento direto: o suporte escreveu (05/11/2026) que a API manda 0 à
+  SEFAZ quando ela falta.
 
 ## Escopo no MOVA
 
 - O tipo RENAVE continua sendo uma escolha do operador. Este hotfix não sobrescreve `VendaConcessionaria`, `Outros` ou outros valores salvos com `FaturamentoDiretoConsumidorFinal`.
 - Para `FaturamentoDiretoConsumidorFinal` (2), a tela exige endereço de entrega e envia CPF/CNPJ, logradouro, número, bairro, código IBGE em `cidade` e UF. A NG completa o nome do município no XML conforme a orientação de suporte.
-- A modalidade de frete é obrigatória no faturamento direto e escolhida sem valor pré-selecionado. `SemTransporte` não desativa o endereço quando `tpOp=2`.
+- A modalidade de frete é obrigatória no faturamento direto e escolhida sem valor pré-selecionado. "Sem frete" (`SemOcorrenciaDeTransporte`) não dispensa o endereço quando `tpOp=2`.
 - Fora de `tpOp=2` (decisão do Luis: não generalizar para outras revendas), nada muda: a tela não pede frete nem entrega e o payload não leva `transporte`. O hotfix não define a regra comercial/fiscal da operação de revenda.
 - O payload segue no JSON já armazenado por `notas_fiscais_saida`; não há migração. O reenvio reaproveita o fluxo existente de tentativa e recebe o payload corrigido.
 
