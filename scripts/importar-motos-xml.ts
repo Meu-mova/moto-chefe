@@ -25,6 +25,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { exigirAlvoPermitido } from './lib/alvo-banco'
+import { lerXml } from './lib/ler-xml'
 
 const args = process.argv.slice(2)
 const arg = (nome: string) => { const i = args.indexOf(nome); return i >= 0 ? args[i + 1] : undefined }
@@ -66,7 +67,7 @@ async function main() {
     .limit(1)
   if (!usuario) throw new Error('Usuário não encontrado na Conta da loja')
 
-  const xmls = readdirSync(pastaXmls!).filter(n => n.toLowerCase().endsWith('.xml')).map(n => readFileSync(join(pastaXmls!, n), 'utf8'))
+  const xmls = readdirSync(pastaXmls!).filter(n => n.toLowerCase().endsWith('.xml')).map(n => lerXml(join(pastaXmls!, n)))
   const escolhidas = lerListaDeChassis(readFileSync(arquivoLista!, 'utf8'))
   const [modelos, apelidos] = await Promise.all([listarModelosDaConta(contaId), listarApelidosDaConta(contaId)])
   const visiveis = new Set(modelos.map(m => m.id))
