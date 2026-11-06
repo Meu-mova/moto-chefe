@@ -1,6 +1,7 @@
 // Teste de banco: Postgres descartável. Transferir e abrir garantia em moto arquivada (#688):
 // as Server Actions devolvem a frase como { ok: false, erro } (em produção o React troca a
-// mensagem de um throw, #404). Fronteira de fora mockada: sessão, Supabase e next/cache.
+// mensagem de um throw, #404) e não gravam nada. Fronteira de fora mockada: sessão,
+// Supabase (a garantia ainda chama o rpc) e next/cache.
 import { after, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
@@ -50,6 +51,9 @@ before(async () => {
 })
 
 after(async () => {
+  await db.execute(sql`delete from transferencias where moto_id in (select id from motos where chassi like ${P + '%'})`)
+  await db.execute(sql`delete from garantias where moto_id in (select id from motos where chassi like ${P + '%'})`)
+  await db.execute(sql`delete from historico_estoque where moto_id in (select id from motos where chassi like ${P + '%'})`)
   await db.execute(sql`delete from motos where chassi like ${P + '%'}`)
   await db.execute(sql`delete from modelos where modelo = ${P}`)
   await db.execute(sql`delete from usuarios where email like ${'%-' + P.toLowerCase() + '-%'}`)
@@ -62,12 +66,14 @@ after(async () => {
 
 const garantia = (motoId: string) => ({ motoId, descricao: 'bateria', dataInicio: '2026-11-05' })
 
-test('transferir moto arquivada devolve a frase e não chama o banco de transferência; a viva segue', async () => {
-  rpcs.length = 0
+const pendentes = async (tabela: 'transferencias' | 'garantias', status: string) => Object.fromEntries((await linhas(sql`
+  select m.id, count(t.id)::int as n from motos m left join ${sql.raw(tabela)} t on t.moto_id = m.id and t.status = ${status}
+  where m.id in (${semente.arquivada}, ${semente.viva}) group by m.id`)).map(r => [r.id === semente.arquivada ? 'arquivada' : 'viva', r.n]))
+
+test('transferir moto arquivada devolve a frase e não grava; a viva fica com a transferência pendente', async () => {
   assert.deepEqual(await solicitarTransferenciaAction(semente.arquivada, semente.destinoId), { ok: false, erro: MOTO_ARQUIVADA })
-  assert.deepEqual(rpcs, [])
   assert.deepEqual(await solicitarTransferenciaAction(semente.viva, semente.destinoId), { ok: true, dados: undefined })
-  assert.deepEqual(rpcs, ['solicitar_transferencia'])
+  assert.deepEqual(await pendentes('transferencias', 'pendente'), { arquivada: 0, viva: 1 })
 })
 
 test('abrir garantia em moto arquivada devolve a frase e não chama o banco de garantia; a viva segue', async () => {

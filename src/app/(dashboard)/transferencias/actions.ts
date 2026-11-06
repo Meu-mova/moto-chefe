@@ -1,13 +1,13 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
-import { lojaDaMotoParaGravar } from '@/lib/moto-do-usuario'
+import { lojaDaMotoParaGravar, travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { transferencias } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { destinoDeTransferenciaPermitido } from '@/lib/transferencia-grupos'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -56,14 +56,11 @@ async function solicitarTransferencia(
   if (!destinoOk) {
     throw new RecusaUsuario('Loja de destino fora do seu grupo')
   }
-  const supabase = await createClient()
-  const { error } = await supabase.rpc('solicitar_transferencia', {
-    p_moto_id: motoId,
-    p_loja_destino_id: lojaDestinoId,
-    p_solicitado_por: usuario.id,
-    p_observacao: observacao ?? null,
+  // A função do banco roda na transação que já travou a moto: um arquivar no meio faz recusar (#688).
+  await db.transaction(async tx => {
+    await travarMotoNaoArquivada(tx, motoId)
+    await tx.execute(sql`select solicitar_transferencia(${motoId}::uuid, ${lojaDestinoId}::uuid, ${usuario.id}::uuid, ${observacao ?? null}::text)`)
   })
-  if (error) throw new Error(error.message)
   revalidatePath('/transferencias')
   revalidatePath('/estoque')
 }
