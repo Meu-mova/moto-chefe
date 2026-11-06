@@ -5,6 +5,9 @@ const GLOBAIS_DA_JANELA = [
   'HTMLElement', 'HTMLButtonElement', 'HTMLInputElement', 'HTMLSelectElement', 'HTMLTextAreaElement', 'HTMLAnchorElement',
   'Element', 'Node', 'NodeList', 'Event', 'InputEvent', 'MouseEvent', 'KeyboardEvent', 'FocusEvent',
   'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame',
+  // Upload de arquivo. O File fica o do Node (o FormData do Node só aceita o dele); quem lê com o
+  // FileReader cria o arquivo com `dom.window.File`.
+  'FileReader',
 ] as const
 
 const g = globalThis as Record<string, unknown>

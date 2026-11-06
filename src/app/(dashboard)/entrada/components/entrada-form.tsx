@@ -11,8 +11,12 @@ import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } fr
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
 import { PecasPorPlanilha } from './pecas-por-planilha'
+import { MotosImportadas } from './motos-importadas'
+import { acrescentarDoXml, chaveDoChassi, devolverTiradas, fichasDoEnvio, tirarMarcadas, type Exclusao, type MotoImportada } from '@/lib/entrada-lista'
+import { marcarVarias } from '@/lib/selecao'
+import { plural } from '@/lib/texto'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
-import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
+import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
 type Modelo = {
   id: string
@@ -21,17 +25,6 @@ type Modelo = {
 }
 type Loja = { id: string; nome: string }
 type MotoLinha = { chassi: string; cor: string; motor: string }
-// `modelo` guarda o nome cru que veio do XML/planilha (é a chave de agrupamento da
-// tela); `modeloId` e `preco` são o que de fato vai pro banco, e ambos ficam editáveis.
-type MotoLinhaPlanilha = {
-  chassi: string
-  cor: string
-  motor: string
-  modelo: string
-  nf: string
-  modeloId: string
-  preco: string
-}
 
 export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo[]; lojas: Loja[]; apelidos?: NomeDeModelo[] }) {
   const [modo, setModo] = useState<'manual' | 'planilha'>('planilha')
@@ -42,13 +35,13 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   const [lojaId, setLojaId] = useState('')
   const [linhas, setLinhas] = useState<MotoLinha[]>([{ chassi: '', cor: '', motor: '' }])
 
-  const [linhasPlanilha, setLinhasPlanilha] = useState<MotoLinhaPlanilha[]>([])
+  const [linhasPlanilha, setLinhasPlanilha] = useState<MotoImportada[]>([])
+  // Posições marcadas na lista para excluir antes de registrar (#686).
+  const [marcadas, setMarcadas] = useState<ReadonlySet<number>>(new Set())
+  // A exclusão esvaziou a lista: mostra o aviso de lista vazia em vez de sumir com o quadro.
+  const [listaEsvaziada, setListaEsvaziada] = useState(false)
   // De onde vieram as motos da lista: o contador aparece no quadro que as carregou.
   const [origemDasLinhas, setOrigemDasLinhas] = useState<'xml' | 'planilha'>('xml')
-  // Ficha fiscal (NCM, CEST, origem…) lida dos <det> dos XMLs importados. Não
-  // aparece na tela: é cadastro do modelo, e vai junto no envio para preencher
-  // quem ainda não tem — ver cadastrarFichaFiscalFaltante na action.
-  const [fiscais, setFiscais] = useState<{ chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]>([])
 
   // Peças da nota (#427): uma nota com peças por vez, conferida contra o catálogo
   // da Conta da loja de destino.
@@ -85,6 +78,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     return () => { vale = false }
   }, [notaPecas, lojaId])
 
+  const qtdMotos = plural(linhasPlanilha.length, 'moto', 'motos')
+  const qtdPecas = plural(linhasPecas.filter(l => l.destino !== 'ignorar').length, 'peça', 'peças')
+
   // O botão fica travado com o motivo na própria linha (estoque inteiro, preço da peça nova).
   const pecasComProblema = notaPecas ? linhasPecas.filter(l => problemaDaLinha(l)).length : 0
 
@@ -93,6 +89,11 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   }
 
   const [loading, setLoading] = useState(false)
+  const enviando = useRef(false)
+  // Um aviso de Desfazer por vez, cada um com id novo: o sonner não mostra um aviso que reusa o id
+  // de outro já fechado pelo próprio botão (achado no navegador, #686).
+  const avisoDesfazer = useRef<string | null>(null)
+  const avisosCriados = useRef(0)
   const fileRef = useRef<HTMLInputElement>(null)
   const xlsxRef = useRef<HTMLInputElement>(null)
   const xmlRef = useRef<HTMLInputElement>(null)
@@ -164,6 +165,62 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     setLinhasPlanilha(prev => prev.map((l, i) => i === idx ? { ...l, preco } : l))
   }
 
+  // --- Tirar motos da lista antes de registrar (#686) ---
+  // Lista trocada inteira (planilha nova, registrada): as posições marcadas e o
+  // Desfazer pendente valiam para a lista antiga.
+  function substituirLista(novas: MotoImportada[]) {
+    setLinhasPlanilha(novas)
+    setMarcadas(new Set())
+    setListaEsvaziada(false)
+    fecharAvisoDesfazer()
+  }
+
+  function fecharAvisoDesfazer() {
+    if (avisoDesfazer.current) toast.dismiss(avisoDesfazer.current)
+    avisoDesfazer.current = null
+  }
+
+  function marcar(indices: number[], ligar: boolean) {
+    setMarcadas(prev => marcarVarias(prev, indices, ligar))
+  }
+
+  // O Limpar passa por aqui com a lista inteira: também tem Desfazer.
+  function excluir(indices: ReadonlySet<number>) {
+    const { ficam, exclusao } = tirarMarcadas(linhasPlanilha, indices)
+    const { tiradas } = exclusao
+    setLinhasPlanilha(ficam)
+    setMarcadas(new Set())
+    setListaEsvaziada(ficam.length === 0)
+    fecharAvisoDesfazer()
+    avisosCriados.current += 1
+    avisoDesfazer.current = `entrada-desfazer-${avisosCriados.current}`
+    toast(tiradas.length === 1 ? `Moto ${tiradas[0].moto.chassi} tirada da lista.` : `${tiradas.length} motos tiradas da lista.`, {
+      id: avisoDesfazer.current,
+      duration: 6000,
+      action: { label: 'Desfazer', onClick: () => desfazerExclusao(exclusao) },
+    })
+  }
+
+  // Zera as marcas: as posições mudam ao devolver.
+  function desfazerExclusao(exclusao: Exclusao) {
+    if (enviando.current) return
+    setLinhasPlanilha(prev => devolverTiradas(prev, exclusao))
+    setMarcadas(new Set())
+  }
+
+  // Desfazer no meio do envio devolveria motos que o sucesso apaga sem gravar. O aviso demora a
+  // sair da tela depois do dismiss e o botão ainda responde: por isso a ref, além de fechá-lo.
+  function comecarEnvio() {
+    enviando.current = true
+    fecharAvisoDesfazer()
+    setLoading(true)
+  }
+
+  function terminarEnvio() {
+    enviando.current = false
+    setLoading(false)
+  }
+
   // --- Planilha XLSX handler ---
   function handleXLSX(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -181,7 +238,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         return
       }
 
-      const novas: MotoLinhaPlanilha[] = rows
+      const novas: MotoImportada[] = rows
         .filter(r => r['CHASSI'])
         .map(r => {
           const modelo = String(r['MODELO'] || '').trim()
@@ -200,7 +257,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         return
       }
 
-      setLinhasPlanilha(novas)
+      substituirLista(novas)
       setOrigemDasLinhas('planilha')
       toast.success(`${novas.length} moto(s) importada(s) da planilha`)
     }
@@ -215,8 +272,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     if (!files.length) return
 
     const nomesMova = modelos.map(m => m.modelo)
-    const novas: MotoLinhaPlanilha[] = []
-    const fichasNovas: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[] = []
+    const novas: MotoImportada[] = []
     const avisos: string[] = []
     let pecasNovas: typeof notaPecas = null
 
@@ -242,9 +298,6 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           }
         }
         const fichaPorChassi = ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), [...nomesMova, ...apelidos])
-        for (const [chassi, ficha] of fichaPorChassi) {
-          fichasNovas.push({ chassi, emitente, ficha })
-        }
         // Conferência: o nº de motos lidas tem que bater com a qtd de motos da nota
         // (as linhas de peça vão para a conferência de peças).
         const qtdMotosNaNota = lerItensDaNfe(xml)
@@ -255,6 +308,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         }
         for (const m of motos) {
           const modelo = mapearModelo(m.modelo, nomesMova) ?? m.modelo // de-para NF → MOVA
+          // Ficha fiscal (NCM, CEST, origem…) dos <det>: não aparece na tela; vai no envio e é
+          // gravada por moto (gravarFichaFiscalDasMotos, em src/lib/entrada-motos.ts).
+          const ficha = fichaPorChassi.get(chaveDoChassi(m.chassi))
           novas.push({
             chassi: m.chassi,
             cor: m.cor,
@@ -262,7 +318,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             modelo,
             nf: nNF,
             // vUnCom do item desta moto na própria nota (#513).
-            ...sugerirModelo(modelo, fichaPorChassi.get(m.chassi.trim().toUpperCase())?.valorUnitario ?? ''),
+            ...sugerirModelo(modelo, ficha?.valorUnitario ?? ''),
+            ...(ficha ? { fiscal: { emitente, ficha } } : {}),
           })
         }
       } catch {
@@ -277,12 +334,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       return
     }
 
-    setLinhasPlanilha(prev => {
-      const vistos = new Set(prev.map(l => l.chassi.toUpperCase()))
-      const add = novas.filter(n => n.chassi && !vistos.has(n.chassi.toUpperCase()))
-      return [...prev, ...add]
-    })
-    setFiscais(prev => [...prev, ...fichasNovas])
+    setLinhasPlanilha(prev => acrescentarDoXml(prev, novas))
     setOrigemDasLinhas('xml')
     toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
     // Fixo até fechar: moto a menos na leitura passava despercebida em 9 s (#289).
@@ -374,7 +426,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         toast.error('Esta nota já entrou. Marque "Lançar mesmo assim" para continuar.')
         return
       }
-      setLoading(true)
+      comecarEnvio()
       try {
         const { fornecedorNome: _, ...nota } = notaPecas.nota
         const result = await registrarEntradaNota({
@@ -383,25 +435,25 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           motos: linhasPlanilha.map(l => ({
             chassi: l.chassi, cor: l.cor, motor: l.motor, modeloId: l.modeloId, precoCompra: l.preco, notaFiscal: l.nf,
           })),
-          fiscais,
+          fiscais: fichasDoEnvio(linhasPlanilha),
           pecas: paraGravacao(linhasPecas),
         })
         if (result.error) {
           toast.error(result.error, { duration: Infinity, closeButton: true })
         } else {
           toast.success(result.success)
-          setLinhasPlanilha([])
+          substituirLista([])
           setNotaPecas(null)
           setLinhasPecas([])
           setLojaId('')
         }
       } finally {
-        setLoading(false)
+        terminarEnvio()
       }
       return
     }
 
-    setLoading(true)
+    comecarEnvio()
     try {
       const result = await registrarEntradaLote({
         lojaId,
@@ -413,32 +465,20 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           precoCompra: l.preco,
           notaFiscal: l.nf,
         })),
-        fiscais,
+        fiscais: fichasDoEnvio(linhasPlanilha),
       })
 
       if (result.error) {
         toast.error(result.error)
       } else {
         toast.success(result.success)
-        setLinhasPlanilha([])
+        substituirLista([])
         setLojaId('')
       }
     } finally {
-      setLoading(false)
+      terminarEnvio()
     }
   }
-
-  // --- Agrupar motos por NF > Modelo para exibição ---
-  // Guarda o índice de cada linha junto: a chave do grupo é o nome cru do XML, então
-  // trocar o modelo de um bloco não o faz saltar de lugar embaixo do clique.
-  const nfsAgrupadas = linhasPlanilha.reduce<Record<string, Record<string, { moto: MotoLinhaPlanilha; idx: number }[]>>>((acc, m, idx) => {
-    const nfKey = m.nf || 'SEM NF'
-    const modeloKey = m.modelo.toUpperCase()
-    if (!acc[nfKey]) acc[nfKey] = {}
-    if (!acc[nfKey][modeloKey]) acc[nfKey][modeloKey] = []
-    acc[nfKey][modeloKey].push({ moto: m, idx })
-    return acc
-  }, {})
 
   return (
     <div className="space-y-6">
@@ -511,7 +551,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               >
                 <Upload size={16} />
                 {linhasPlanilha.length > 0 && origemDasLinhas === 'xml'
-                  ? `${linhasPlanilha.length} moto(s) carregada(s) — clique para adicionar mais XMLs`
+                  ? `${plural(linhasPlanilha.length, 'moto carregada', 'motos carregadas')}. Clique para adicionar mais XMLs`
                   : 'Selecionar XMLs das notas (.xml) — pode escolher vários'}
               </button>
             </div>
@@ -532,104 +572,24 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               >
                 <Upload size={16} />
                 {linhasPlanilha.length > 0 && origemDasLinhas === 'planilha'
-                  ? `${linhasPlanilha.length} moto(s) carregada(s) da planilha`
+                  ? `${plural(linhasPlanilha.length, 'moto carregada', 'motos carregadas')} da planilha`
                   : 'Selecionar planilha (.xlsx)'}
               </button>
             </div>
           </div>
 
-          {/* Motos importadas agrupadas por modelo */}
-          {linhasPlanilha.length > 0 && (
-            <div className="bg-card rounded-lg border p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-foreground">
-                  Motos importadas ({linhasPlanilha.length})
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setLinhasPlanilha([])}
-                  className="text-sm text-destructive hover:opacity-80"
-                >
-                  Limpar
-                </button>
-              </div>
-
-              {Object.entries(nfsAgrupadas).map(([nf, modelosGrupo]) => {
-                const totalNf = Object.values(modelosGrupo).reduce((s, arr) => s + arr.length, 0)
-                return (
-                  <div key={nf} className="space-y-3">
-                    <div className="flex items-center gap-2 border-b pb-2">
-                      <span className="text-sm font-semibold text-foreground">NF {nf}</span>
-                      <span className="text-xs bg-info/10 text-info px-2 py-0.5 rounded-full">
-                        {totalNf} moto(s)
-                      </span>
-                    </div>
-
-                    {Object.entries(modelosGrupo).map(([modelo, motosGrupo]) => {
-                      const indices = motosGrupo.map(g => g.idx)
-                      // O bloco só tem um modelo escolhido quando todas as suas motos
-                      // apontam pro mesmo — senão o select abre vazio, esperando escolha.
-                      const idsNoGrupo = new Set(motosGrupo.map(g => g.moto.modeloId))
-                      const modeloIdDoGrupo = idsNoGrupo.size === 1 ? [...idsNoGrupo][0] : ''
-                      return (
-                        <div key={`${nf}-${modelo}`} className="border rounded-md p-3 space-y-2 ml-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-sm">{modelo}</span>
-                            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                              {motosGrupo.length} un.
-                            </span>
-                            <select
-                              value={modeloIdDoGrupo}
-                              onChange={e => trocarModeloDoGrupo(indices, e.target.value)}
-                              className={`border rounded px-2 py-1 text-xs ${modeloIdDoGrupo ? '' : 'border-destructive/50 text-destructive bg-destructive/10'}`}
-                            >
-                              <option value="">Escolha o modelo cadastrado...</option>
-                              {modelos.map(m => (
-                                <option key={m.id} value={m.id}>{m.marca} — {m.modelo}</option>
-                              ))}
-                            </select>
-                            {!modeloIdDoGrupo && (
-                              <span className="text-xs text-destructive font-medium">
-                                Modelo não cadastrado — escolha o equivalente
-                              </span>
-                            )}
-                          </div>
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b text-muted-foreground">
-                                <th className="text-left px-2 py-1 w-8">#</th>
-                                <th className="text-left px-2 py-1">Chassi</th>
-                                <th className="text-left px-2 py-1">Motor</th>
-                                <th className="text-left px-2 py-1">Cor</th>
-                                <th className="text-left px-2 py-1 w-32">Preço de compra</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {motosGrupo.map(({ moto: m, idx }, i) => (
-                                <tr key={idx} className="border-b last:border-0">
-                                  <td className="px-2 py-1 text-muted-foreground">{i + 1}</td>
-                                  <td className="px-2 py-1 font-mono">{m.chassi}</td>
-                                  <td className="px-2 py-1 font-mono">{m.motor}</td>
-                                  <td className="px-2 py-1">{m.cor}</td>
-                                  <td className="px-2 py-1">
-                                    <CurrencyInput
-                                      value={m.preco}
-                                      onChange={v => updatePreco(idx, v)}
-                                      placeholder="0,00"
-                                      className="h-7 text-xs"
-                                    />
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
+          {(linhasPlanilha.length > 0 || listaEsvaziada) && (
+            <MotosImportadas
+              linhas={linhasPlanilha}
+              modelos={modelos}
+              marcadas={marcadas}
+              onMarcar={marcar}
+              onTrocarModelo={trocarModeloDoGrupo}
+              onPreco={updatePreco}
+              onExcluir={() => excluir(marcadas)}
+              onLimpar={() => excluir(new Set(linhasPlanilha.keys()))}
+              travado={loading}
+            />
           )}
 
           {notaPecas && (
@@ -679,7 +639,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           )}
 
           {(linhasPlanilha.length > 0 || notaPecas) && (
-            <div className="flex items-center justify-end gap-4">
+            <div className="flex flex-wrap items-center justify-end gap-4">
               {pecasComProblema > 0 && (
                 <span className="text-sm text-destructive">
                   {pecasComProblema === 1 ? '1 linha de peça precisa de correção.' : `${pecasComProblema} linhas de peça precisam de correção.`}
@@ -688,13 +648,13 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               <button
                 type="submit"
                 disabled={loading || pecasComProblema > 0 || (!!conferencia?.notaJaLancada && !lancarRepetida)}
-                className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 font-medium"
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 font-medium max-md:w-full"
               >
                 {loading
                   ? 'Registrando...'
                   : notaPecas
-                    ? `Registrar entrada (${linhasPlanilha.length} motos e ${linhasPecas.filter(l => l.destino !== 'ignorar').length} peças)`
-                    : `Registrar entrada (${linhasPlanilha.length} motos)`}
+                    ? `Registrar entrada (${qtdMotos} e ${qtdPecas})`
+                    : `Registrar entrada (${qtdMotos})`}
               </button>
             </div>
           )}
