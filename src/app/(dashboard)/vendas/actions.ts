@@ -140,7 +140,7 @@ export async function criarPedidoVendaAction(...a: Parameters<typeof criarPedido
   return acao(() => criarPedidoVenda(...a))
 }
 
-async function criarPedidoVenda(motoId: string, observacao: string, entregaDaTela: unknown) {
+async function criarPedidoVenda(motoId: string, observacao: string | undefined, entregaDaTela: unknown) {
   const usuario = await getUsuarioLogado()
   if (!podeCriarPedido(usuario.papel)) {
     throw new RecusaUsuario('Sem permissão para criar pedido de venda')
@@ -153,7 +153,7 @@ async function criarPedidoVenda(motoId: string, observacao: string, entregaDaTel
   await db.transaction(tx => criarPedidoTx(tx, {
     motoId,
     vendedorId: usuario.id,
-    observacao: observacao.trim() || null,
+    observacao: observacao?.trim() || null,
     entrega: entrega.entrega,
   }))
 
