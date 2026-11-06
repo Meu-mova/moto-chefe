@@ -141,10 +141,11 @@ export function MotosImportadas({ linhas, modelos, marcadas, onMarcar, onTrocarM
                             />
                           </td>
                           <td className={`${celula} text-muted-foreground max-md:hidden`}>{i + 1}</td>
-                          <td className={`${celula} font-mono`}><span className={rotuloCelular}>Chassi: </span>{m.chassi}</td>
-                          <td className={`${celula} font-mono`}><span className={rotuloCelular}>Motor: </span>{m.motor}</td>
+                          <td className={celula}><span className={rotuloCelular}>Chassi: </span><span className="font-mono">{m.chassi}</span></td>
+                          <td className={celula}><span className={rotuloCelular}>Motor: </span><span className="font-mono">{m.motor}</span></td>
                           <td className={celula}><span className={rotuloCelular}>Cor: </span>{m.cor}</td>
-                          <td className={celula}>
+                          <td className={`${celula} max-md:flex max-md:items-center max-md:gap-1`}>
+                            <span className={rotuloCelular}>Preço: </span>
                             <CurrencyInput
                               value={m.preco}
                               onChange={v => onPreco(idx, v)}

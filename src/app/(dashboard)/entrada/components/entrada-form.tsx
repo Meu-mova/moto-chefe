@@ -639,7 +639,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           )}
 
           {(linhasPlanilha.length > 0 || notaPecas) && (
-            <div className="flex items-center justify-end gap-4">
+            <div className="flex flex-wrap items-center justify-end gap-4">
               {pecasComProblema > 0 && (
                 <span className="text-sm text-destructive">
                   {pecasComProblema === 1 ? '1 linha de peça precisa de correção.' : `${pecasComProblema} linhas de peça precisam de correção.`}
@@ -648,7 +648,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               <button
                 type="submit"
                 disabled={loading || pecasComProblema > 0 || (!!conferencia?.notaJaLancada && !lancarRepetida)}
-                className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 font-medium"
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover disabled:opacity-50 font-medium max-md:w-full"
               >
                 {loading
                   ? 'Registrando...'
