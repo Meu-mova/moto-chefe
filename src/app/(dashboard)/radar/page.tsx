@@ -79,7 +79,13 @@ export default async function RadarPage({
             <TableBody>
               {motos.map((moto) => (
                 <TableRow key={moto.id}>
-                  <TableCell className="font-mono text-xs">{moto.chassi}</TableCell>
+                  <TableCell>
+                    {/* Selo junto do chassi (#688): no celular a tabela rola e as colunas do fim ficam fora da tela. */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono text-xs">{moto.chassi}</span>
+                      {moto.arquivadaEm && <Badge variant="outline" className="whitespace-nowrap">Arquivada</Badge>}
+                    </div>
+                  </TableCell>
                   <TableCell className="font-medium">{moto.marca} {moto.modelo}</TableCell>
                   <TableCell>{moto.cor}</TableCell>
                   <TableCell>{moto.lojaNome}</TableCell>
@@ -94,8 +100,6 @@ export default async function RadarPage({
                         {disponibilidadeLabel[moto.disponibilidade] ?? moto.disponibilidade}
                       </Badge>
                     )}
-                    {/* Arquivada (0174): só o RADAR mostra; some do resto do MOVA. */}
-                    {moto.arquivadaEm && <Badge variant="outline">Arquivada</Badge>}
                   </TableCell>
                   <TableCell>
                     <Link
