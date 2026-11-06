@@ -56,10 +56,7 @@ test('normaliza endereço direto completo e conserva código do frete', () => {
     ok: true,
     dados: {
       modalidade: 'SemOcorrenciaDeTransporte',
-      enderecoEntrega: {
-        tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A',
-        numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG',
-      },
+      enderecoEntrega: ENTREGA_COMPLETA,
     },
   })
 })
