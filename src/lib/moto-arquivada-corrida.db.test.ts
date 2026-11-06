@@ -2,7 +2,8 @@
 // Cenário da demo 2: o arquivar termina DEPOIS que o gravador conferiu a moto e ANTES de ele
 // gravar. Uma sessão segura a linha da moto; o arquivar entra na fila primeiro e o gravador
 // depois (a fila da linha é por ordem de chegada). Ao soltar, o arquivar grava e o gravador
-// tem de recusar com a frase da arquivada, sem deixar pendência na moto arquivada.
+// tem de recusar com a frase da arquivada, sem deixar pendência na moto arquivada. No fim, a
+// moto viva: com a trava nova, reserva, venda direta, pedido de aprovação e aprovar venda gravam.
 // Fronteira de fora mockada: sessão, Supabase (nenhum gravador o chama mais; o módulo das
 // actions só o importa), next/cache, Kommo e WhatsApp.
 import { after, before, mock, test } from 'node:test'
@@ -36,6 +37,7 @@ type Acoes = {
   reservar: typeof import('@/app/(dashboard)/vendas/actions')['registrarReservaAction']
   vender: typeof import('@/app/(dashboard)/vendas/actions')['registrarVendaCompletaAction']
   pedirAprovacao: typeof import('@/app/(dashboard)/vendas/actions')['solicitarAprovacaoVendaAction']
+  aprovar: typeof import('@/app/(dashboard)/vendas/actions')['aprovarVendaAction']
   transferir: typeof import('@/app/(dashboard)/transferencias/actions')['solicitarTransferenciaAction']
   abrirGarantia: typeof import('@/app/(dashboard)/garantias/actions')['abrirGarantiaAction']
 }
@@ -54,7 +56,7 @@ before(async () => {
   const garant = await import('@/app/(dashboard)/garantias/actions')
   acoes = {
     reservar: vendas.registrarReservaAction, vender: vendas.registrarVendaCompletaAction,
-    pedirAprovacao: vendas.solicitarAprovacaoVendaAction, transferir: transf.solicitarTransferenciaAction,
+    pedirAprovacao: vendas.solicitarAprovacaoVendaAction, aprovar: vendas.aprovarVendaAction, transferir: transf.solicitarTransferenciaAction,
     abrirGarantia: garant.abrirGarantiaAction,
   }
   ;({ arquivarMotos } = await import('@/lib/arquivar-motos'))
@@ -168,4 +170,46 @@ test('garantia: o arquivar que termina no meio faz a garantia recusar; nenhuma g
   const r = await corrida(moto, () => acoes.abrirGarantia({ motoId: moto, descricao: 'bateria', dataInicio: '2026-11-05' }),
     sql`select count(*) from garantias where moto_id = ${moto} and status = 'ativa'`)
   assert.deepEqual(r, { resposta: { ...recusou, erro: MOTO_ARQUIVADA }, arquivar: true, arquivada: true, pendencias: 0 })
+})
+
+const reserva = (motoId: string) => ({ motoId, ...cliente, valorReserva: '300', valorTotalVenda: '1000',
+  pagamentos: [{ tipo: 'pix', valor: 300 }], dataPrevistaFinalizacao: '2026-11-30' })
+const estadoDa = async (motoId: string) => (await linhas(sql`select m.status, m.disponibilidade,
+  (select count(*)::int from reservas r where r.moto_id = m.id and r.status = 'ativa') as reservas,
+  (select count(*)::int from vendas v where v.moto_id = m.id) as vendas,
+  (select count(*)::int from aprovacoes_venda a where a.moto_id = m.id and a.status = 'pendente') as aprovacoes
+  from motos m where m.id = ${motoId}`))[0]
+
+test('moto viva: a reserva grava e a moto fica reservada', async () => {
+  const moto = await novaMoto('VIVARES')
+  assert.equal((await acoes.reservar(reserva(moto))).ok, true)
+  assert.deepEqual(await estadoDa(moto), { status: 'montada', disponibilidade: 'reservada', reservas: 1, vendas: 0, aprovacoes: 0 })
+})
+
+test('moto viva: a venda direta grava e a moto fica vendida', async () => {
+  const moto = await novaMoto('VIVAVEN')
+  assert.equal((await acoes.vender(venda(moto))).ok, true)
+  // Vendida fica sem disponibilidade até a NF de saída (criarVendaTx).
+  assert.deepEqual(await estadoDa(moto), { status: 'vendida', disponibilidade: null, reservas: 0, vendas: 1, aprovacoes: 0 })
+})
+
+test('moto viva: o pedido de aprovação grava e a moto fica aguardando', async () => {
+  const moto = await novaMoto('VIVAAPR')
+  assert.deepEqual(await acoes.pedirAprovacao(venda(moto, 'transferencia'), '', 'pagamento_sensivel'), { ok: true, dados: undefined })
+  assert.deepEqual(await estadoDa(moto), { status: 'montada', disponibilidade: 'aguardando_aprovacao', reservas: 0, vendas: 0, aprovacoes: 1 })
+})
+
+test('moto viva: aprovar a venda grava a venda pela trava nova', async () => {
+  const moto = await novaMoto('VIVAOK')
+  await acoes.pedirAprovacao(venda(moto, 'transferencia'), '', 'pagamento_sensivel')
+  const [{ id }] = await linhas(sql`select id from aprovacoes_venda where moto_id = ${moto} and status = 'pendente'`)
+  // Quem aprova transferência bancária tem a permissão ligada no cadastro, para o grupo da loja.
+  const sessao = usuarioDaSessao
+  usuarioDaSessao = { ...sessao, aprovaPagamentoSensivel: true, gruposAprovacao: [semente.grupoId] }
+  try {
+    assert.deepEqual(await acoes.aprovar(id), { ok: true, dados: undefined })
+  } finally {
+    usuarioDaSessao = sessao
+  }
+  assert.deepEqual(await estadoDa(moto), { status: 'vendida', disponibilidade: null, reservas: 0, vendas: 1, aprovacoes: 0 })
 })
