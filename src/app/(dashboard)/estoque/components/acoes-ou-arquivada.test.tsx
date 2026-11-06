@@ -1,5 +1,6 @@
-// Detalhe da moto arquivada (#688, decisão de 06/11): a barra de ações some inteira e no lugar
-// aparece o aviso com data, quem arquivou e o motivo. Editar e Corrigir preço ficam fora da barra.
+// AcoesOuArquivada (#688): com moto arquivada, o que vier dentro (na página, a barra de ações) não
+// aparece e no lugar vem o aviso com data, quem arquivou e o motivo; sem arquivada, aparece o de dentro.
+// Que a página põe a barra inteira aqui e deixa Editar e Corrigir preço fora se confere no navegador.
 import { createElement } from 'react'
 import test, { after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
