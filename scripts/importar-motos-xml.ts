@@ -20,7 +20,7 @@
  * Moto comprada por outro CNPJ que o do grupo da loja: a NF de saída sai pelo grupo de entrada
  * da moto (#552), então o --aplicar recusa, salvo as compradas pelo CNPJ dado em
  * --aceito-cnpj-de-outro-grupo <CNPJ> (qualquer outro CNPJ, ou nota sem CNPJ, recusa sempre). Essa flag
- * existe para a exceção do onboarding de Pinda (#731: decisão do Cesar aceita pelo Luis, com o OK
+ * existe para a exceção da #731 (decisão do Cesar aceita pelo Luis, com o OK
  * do contador antes de aplicar), não como caminho normal de entrada.
  */
 import { readFileSync, readdirSync } from 'node:fs'
