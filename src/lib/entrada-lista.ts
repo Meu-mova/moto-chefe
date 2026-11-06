@@ -6,8 +6,8 @@
 import type { EmitenteNfe, FichaFiscal } from './nfe-fiscal'
 
 // `modelo` é o nome cru do XML/planilha (chave de agrupamento); `modeloId` e `preco` vão ao banco.
-// `fiscal` é a ficha lida do XML que trouxe esta moto: viaja com a linha para sair junto quando ela
-// é tirada da lista. Separada, a ficha de um XML excluído ia junto e vencia a da NF certa (#686).
+// `fiscal` é a ficha lida de um XML com o chassi desta moto: viaja com a linha para sair junto
+// quando ela é tirada da lista. Separada, a ficha de um XML excluído ia junto e vencia a da NF certa (#686).
 export type MotoImportada = {
   chassi: string
   cor: string
@@ -80,8 +80,9 @@ export function fichasDoEnvio(linhas: readonly MotoImportada[]) {
 }
 
 /**
- * Motos lidas de XMLs entram no fim da lista. Chassi que já está nela não se repete; se veio da
- * planilha (sem ficha fiscal), ganha a ficha do XML e o resto da linha fica como estava.
+ * Motos lidas de XMLs entram no fim da lista. Chassi que já está nela não se repete; se a linha
+ * não tem ficha fiscal (veio da planilha, ou de um XML sem ficha para ela), ganha a do XML novo
+ * e o resto da linha fica como estava.
  */
 export function acrescentarDoXml(linhas: readonly MotoImportada[], novas: readonly MotoImportada[]): MotoImportada[] {
   // A primeira ficha de cada chassi vence, como na gravação (onConflictDoNothing).
