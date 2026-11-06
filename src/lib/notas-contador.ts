@@ -1,6 +1,7 @@
 // Envio das notas ao contador (#402): regras sem banco nem rede.
 import { periodoBr, type CategoriaNota } from '@/lib/notas-emitidas'
 import { zipDasNotas, type Baixar } from '@/lib/notas-emitidas-arquivos'
+import { plural } from '@/lib/texto'
 
 // O Resend aceita até 40 MB por e-mail já em base64, que cresce 4/3; a folga cobre o texto e os cabeçalhos.
 export const LIMITE_ANEXO_BYTES = 28 * 1024 * 1024
@@ -15,8 +16,6 @@ export function tamanhoEstimado(notas: number): { texto: string; porLink: boolea
   const mb = Math.round(bytes / (1024 * 1024))
   return { texto: mb < 1 ? 'menos de 1 MB' : `cerca de ${mb} MB`, porLink: bytes > LIMITE_ANEXO_BYTES }
 }
-
-const plural = (n: number, singular: string, pluralTxt: string) => `${n} ${n === 1 ? singular : pluralTxt}`
 
 export function emailAoContador(p: {
   grupo: string
