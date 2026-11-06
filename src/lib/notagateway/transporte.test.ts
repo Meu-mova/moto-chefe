@@ -66,10 +66,7 @@ test('código IBGE precisa ter sete dígitos', () => {
   const resultado = validarDadosTransporte({
     ...DADOS_TRANSPORTE_VAZIOS,
     modalidade: 'ContratacaoPorContaDoDestinatario',
-    enderecoEntrega: {
-      ...DADOS_TRANSPORTE_VAZIOS.enderecoEntrega,
-      cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: 'Varginha', uf: 'MG',
-    },
+    enderecoEntrega: { ...ENTREGA_COMPLETA, cidade: 'Varginha' },
   })
   assert.deepEqual(resultado, { ok: false, erro: 'Código IBGE do município deve ter 7 dígitos.' })
 })
@@ -78,10 +75,7 @@ test('rejeita CPF com dígitos verificadores inválidos no local de entrega', ()
   const resultado = validarDadosTransporte({
     ...DADOS_TRANSPORTE_VAZIOS,
     modalidade: 'TransporteProprioPorContaDoDestinatario',
-    enderecoEntrega: {
-      ...DADOS_TRANSPORTE_VAZIOS.enderecoEntrega,
-      cpfCnpjDestinatario: '11111111111', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG',
-    },
+    enderecoEntrega: { ...ENTREGA_COMPLETA, cpfCnpjDestinatario: '11111111111' },
   })
   assert.deepEqual(resultado, { ok: false, erro: 'CPF do destinatário inválido.' })
 })
@@ -94,9 +88,8 @@ test('recusa modalidade desconhecida recebida fora das opções da tela', () => 
 })
 
 test('transporteDoPayload devolve a modalidade e a entrega que foram enviadas, sem o país', () => {
-  const entrega = { tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG' }
-  const payload = { transporte: { frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' }, enderecoEntrega: { ...entrega, pais: null } } }
-  assert.deepEqual(transporteDoPayload(payload), { modalidade: 'TransporteProprioPorContaDoDestinatario', enderecoEntrega: entrega })
+  const payload = { transporte: { frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' }, enderecoEntrega: { ...ENTREGA_COMPLETA, pais: null } } }
+  assert.deepEqual(transporteDoPayload(payload), { modalidade: 'TransporteProprioPorContaDoDestinatario', enderecoEntrega: ENTREGA_COMPLETA })
 })
 
 test('transporteDoPayload não presume nada de payload antigo, vazio ou com modalidade desconhecida', () => {
@@ -110,19 +103,18 @@ test('transporteDoPayload sem endereço de entrega devolve só a modalidade', ()
 })
 
 test('o tipo de pessoa do destinatário vem do documento, não do que a tela mandou', () => {
-  const entrega = { tipoPessoaDestinatario: 'J' as const, cpfCnpjDestinatario: '352.817.650-43', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG' }
+  const entrega = { ...ENTREGA_COMPLETA, tipoPessoaDestinatario: 'J' as const, cpfCnpjDestinatario: '352.817.650-43' }
   const resultado = validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: entrega })
   assert.equal(resultado.ok && resultado.dados.enderecoEntrega?.tipoPessoaDestinatario, 'F')
 })
 
 test('logradouro, número e bairro de entrega aceitam no máximo 60 caracteres (limite do XML)', () => {
-  const base = { tipoPessoaDestinatario: 'F' as const, cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG' }
   const longo = 'x'.repeat(61)
   for (const [campo, rotulo] of [['logradouro', 'logradouro'], ['numero', 'número'], ['bairro', 'bairro']] as const) {
-    assert.deepEqual(validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: { ...base, [campo]: longo } }),
+    assert.deepEqual(validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: { ...ENTREGA_COMPLETA, [campo]: longo } }),
       { ok: false, erro: `O ${rotulo} da entrega aceita no máximo 60 caracteres.` })
   }
-  assert.equal(validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: { ...base, logradouro: 'x'.repeat(60) } }).ok, true)
+  assert.equal(validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: { ...ENTREGA_COMPLETA, logradouro: 'x'.repeat(60) } }).ok, true)
 })
 
 test('transporteDoPayload lê o nome antigo de nota já gravada como o nome 4.0 do mesmo código', () => {
