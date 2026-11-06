@@ -70,6 +70,14 @@ test('abre pelo botão com o chassi; sem motivo (ou só espaços) não envia', a
   assert.equal(enviar().disabled, false)
 })
 
+test('controle do Escape: fora do envio, Escape fecha o diálogo', async () => {
+  const t = await montar()
+  await t.clique('Desarquivar')
+  assert.ok(dialogoAberto())
+  await t.act(async () => { document.querySelector('[data-slot="dialog-content"]')!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await esperar(DEPOIS_DA_ANIMACAO_MS) })
+  assert.equal(dialogoAberto(), false)
+})
+
 test('envia o id e o motivo uma vez, trava enquanto envia, e no fim avisa "Moto desarquivada" e fecha', async () => {
   let liberar: () => void = () => {}
   api.desarquivar.mock.mockImplementation(() => new Promise(ok => { liberar = () => ok(OK) }))
