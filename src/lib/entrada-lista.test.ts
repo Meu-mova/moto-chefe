@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { agruparPorNfEModelo, devolverTiradas, tirarMarcadas, type MotoImportada } from './entrada-lista'
+import { agruparPorNfEModelo, devolverTiradas, fichasDoEnvio, tirarMarcadas, type MotoImportada } from './entrada-lista'
 
 const moto = (chassi: string, nf: string, modelo: string): MotoImportada =>
   ({ chassi, nf, modelo, cor: 'PRETO', motor: `M-${chassi}`, modeloId: 'id', preco: '100,00' })
@@ -49,4 +49,12 @@ test('desfazer não duplica chassi que voltou à lista por outro XML', () => {
   const { ficam, tiradas } = tirarMarcadas(lista, new Set([1, 2]))
   const reimportada = [...ficam, moto('r2', '43440', 'R10')]
   assert.deepEqual(chassis(devolverTiradas(reimportada, tiradas)), ['R1', 'R3', 'X1', 'X2', 'G1', 'G2', 'r2'])
+})
+
+test('fichas do envio: só das motos que estão na lista, uma por moto, na ordem da lista', () => {
+  const emitente = (nfNumero: string) => ({ cnpj: '00000000000191', nome: 'Fabrica', nfNumero, nfChave: nfNumero.padStart(44, '0') })
+  const ficha = { codigo: 'GIGA' } as unknown as NonNullable<MotoImportada['fiscal']>['ficha']
+  const comFicha = (chassi: string, nf: string): MotoImportada => ({ ...moto(chassi, nf, 'GIGA'), fiscal: { emitente: emitente(nf), ficha } })
+  const linhas = [comFicha('G1', '222'), moto('P1', '9', 'R10'), comFicha('G2', '222')]
+  assert.deepEqual(fichasDoEnvio(linhas).map(f => [f.chassi, f.emitente.nfNumero]), [['G1', '222'], ['G2', '222']])
 })

@@ -3,7 +3,11 @@
  * A moto é identificada pela posição na lista, porque a planilha pode trazer chassi repetido.
  */
 
+import type { EmitenteNfe, FichaFiscal } from './nfe-fiscal'
+
 // `modelo` é o nome cru do XML/planilha (chave de agrupamento); `modeloId` e `preco` vão ao banco.
+// `fiscal` é a ficha lida do XML que trouxe esta moto: viaja com a linha para sair junto quando ela
+// é tirada da lista. Separada, a ficha de um XML excluído ia junto e vencia a da NF certa (#686).
 export type MotoImportada = {
   chassi: string
   cor: string
@@ -12,6 +16,7 @@ export type MotoImportada = {
   nf: string
   modeloId: string
   preco: string
+  fiscal?: { emitente: EmitenteNfe; ficha: FichaFiscal }
 }
 
 export type MotoNaLista = { moto: MotoImportada; idx: number }
@@ -57,4 +62,9 @@ export function devolverTiradas(linhas: readonly MotoImportada[], tiradas: reado
     const pos = idx - puladas
     return { lista: [...lista.slice(0, pos), moto, ...lista.slice(pos)], puladas }
   }, { lista: [...linhas], puladas: 0 }).lista
+}
+
+/** Fichas fiscais que vão no "Registrar entrada": só as das motos que estão na lista. */
+export function fichasDoEnvio(linhas: readonly MotoImportada[]) {
+  return linhas.flatMap(({ chassi, fiscal }) => (fiscal ? [{ chassi, ...fiscal }] : []))
 }

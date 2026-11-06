@@ -7,14 +7,18 @@ import { montarDom } from '@/test/montar-dom'
 const { dom, desmontar } = montarDom()
 after(desmontar)
 
-const enviados: { lojaId: string; motos: { chassi: string }[] }[] = []
-const registrarEntradaLote = async (dados: { lojaId: string; motos: { chassi: string }[] }) => {
-  enviados.push(dados)
-  return { success: 'ok' }
-}
-const nada = async () => ({})
+// O que cada "Registrar entrada" mandou ao servidor, e por qual action.
+type Envio = { lojaId: string; motos: { chassi: string }[]; fiscais?: { chassi: string; emitente: { nfNumero: string } }[] }
+const enviados: { action: 'lote' | 'nota'; dados: Envio }[] = []
+let respostaDoEnvio: { success?: string; error?: string } = { success: 'ok' }
+const registrarEntradaLote = async (dados: Envio) => { enviados.push({ action: 'lote', dados }); return respostaDoEnvio }
+const registrarEntradaNota = async (dados: Envio) => { enviados.push({ action: 'nota', dados }); return respostaDoEnvio }
+// Conferência de peças: o item da nota já tem peça no catálogo, então a linha entra sem correção.
+const carregarConferenciaPecas = async () => ({
+  conferencia: { pecas: [{ id: 'p1', nome: 'Carregador', valor: '50.00' }], sugestoes: ['p1'], notaJaLancada: null },
+})
 const acoesMock = mock.module('../actions', { namedExports: {
-  registrarEntrada: nada, registrarEntradaLote, registrarEntradaNota: nada, carregarConferenciaPecas: nada,
+  registrarEntrada: async () => ({}), registrarEntradaLote, registrarEntradaNota, carregarConferenciaPecas,
 } })
 
 // Aviso com "Desfazer": guarda o botão do último aviso e quais avisos foram fechados.
@@ -34,6 +38,7 @@ afterEach(async () => {
   await act(async () => { for (const r of raizes.splice(0)) r.unmount() })
   document.body.innerHTML = ''
   enviados.length = 0
+  respostaDoEnvio = { success: 'ok' }
   avisos.length = 0
   fechados.length = 0
 })
@@ -43,6 +48,17 @@ const modelos = [
   { id: 'm-x12', modelo: 'X12', marca: 'MotoChefe' },
   { id: 'm-giga', modelo: 'GIGA', marca: 'MotoChefe' },
 ]
+
+// NF-e mínima: motos nas Informações Complementares, um <det> de moto (NCM 8711) e, se pedido,
+// um de peça. Chassis e números são fictícios.
+const detMoto = (qtd: number) => `<det nItem="1"><prod><cProd>GIGA</cProd><xProd>GIGA MOTO CHEFE</xProd><NCM>87116000</NCM><CFOP>5405</CFOP><uCom>UN</uCom><qCom>${qtd}.0000</qCom><vUnCom>6400.00</vUnCom><vProd>6400.00</vProd></prod><imposto><ICMS><ICMS60><orig>4</orig><CST>60</CST></ICMS60></ICMS></imposto></det>`
+const detPeca = `<det nItem="2"><prod><cProd>CARR</cProd><xProd>Carregador 60V</xProd><NCM>85044010</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom><vUnCom>50.00</vUnCom><vProd>50.00</vProd></prod><imposto><ICMS><ICMS00><orig>0</orig><CST>00</CST></ICMS00></ICMS></imposto></det>`
+function notaXml(nNF: string, chassis: string[], comPeca = false) {
+  const infCpl = chassis.map(c => `GIGA C/ BAU 1000W ${c} QS60V30H${c.slice(-8)} AZUL`).join(';')
+  return `<?xml version="1.0"?><nfeProc><NFe><infNFe Id="NFe${nNF.padStart(44, '0')}"><ide><nNF>${nNF}</nNF></ide>` +
+    `<emit><CNPJ>00000000000191</CNPJ><xNome>Fabrica Teste</xNome></emit>${detMoto(chassis.length)}${comPeca ? detPeca : ''}` +
+    `<infAdic><infCpl>${infCpl}</infCpl></infAdic></infNFe></NFe></nfeProc>`
+}
 const linha = (nf: string, modelo: string, chassi: string) => ({ 'NF ENTRADA': nf, MODELO: modelo, CHASSI: chassi, MOTOR: `M${chassi}`, COR: 'PRETO', 'PREÇO': '1000' })
 // A lista do protótipo aprovado: NF 43440 com R10 (3) e X12 (2), NF 43512 com GIGA (2).
 const PLANILHA = [
@@ -57,7 +73,7 @@ async function esperar(condicao: () => boolean) {
   assert.ok(condicao(), 'a tela não chegou ao estado esperado')
 }
 
-async function montarComPlanilha(linhas = PLANILHA) {
+async function montar() {
   const React = (await import('react')).default
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
@@ -69,18 +85,42 @@ async function montarComPlanilha(linhas = PLANILHA) {
   await act(async () => {
     raiz.render(React.createElement(EntradaForm, { modelos, lojas: [{ id: 'l1', nome: 'Loja Centro' }] }))
   })
+}
+
+async function montarComPlanilha(linhas = PLANILHA) {
+  await montar()
   await carregarPlanilha(linhas)
 }
 
-async function carregarPlanilha(linhas: object[]) {
+async function enviarArquivos(seletor: string, arquivos: File[]) {
   const { act } = await import('react')
+  const input = document.querySelector<HTMLInputElement>(seletor)
+  assert.ok(input)
+  Object.defineProperty(input, 'files', { value: arquivos, configurable: true })
+  await act(async () => { input.dispatchEvent(new dom.window.Event('change', { bubbles: true })) })
+}
+
+async function carregarXml(xml: string, motosNaLista: number) {
+  await enviarArquivos('input[accept=".xml"]', [new dom.window.File([xml], 'nota.xml', { type: 'text/xml' })])
+  await esperar(() => titulo() === `Motos importadas (${motosNaLista})`)
+}
+
+async function escolherLoja() {
+  const { act } = await import('react')
+  const loja = document.querySelector<HTMLSelectElement>('select[required]')
+  assert.ok(loja)
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, 'value')?.set
+    setter?.call(loja, 'l1')
+    loja.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+  })
+}
+
+async function carregarPlanilha(linhas: object[]) {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(linhas), 'Motos')
   const arquivo = new dom.window.File([XLSX.write(wb, { type: 'array', bookType: 'xlsx' })], 'motos.xlsx')
-  const input = document.querySelector<HTMLInputElement>('input[accept=".xlsx,.xls"]')
-  assert.ok(input)
-  Object.defineProperty(input, 'files', { value: [arquivo], configurable: true })
-  await act(async () => { input.dispatchEvent(new dom.window.Event('change', { bubbles: true })) })
+  await enviarArquivos('input[accept=".xlsx,.xls"]', [arquivo])
   await esperar(() => !!titulo()?.startsWith(`Motos importadas (${linhas.length})`))
 }
 
@@ -203,19 +243,12 @@ test('"Registrar entrada" envia só as motos que ficaram na lista', async () => 
   await clicar(caixa('Marcar todas as GIGA da NF 43512'))
   await clicar(botao('Excluir selecionadas'))
 
-  const { act } = await import('react')
-  const loja = document.querySelector<HTMLSelectElement>('select[required]')
-  assert.ok(loja)
-  await act(async () => {
-    const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, 'value')?.set
-    setter?.call(loja, 'l1')
-    loja.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
-  })
+  await escolherLoja()
   await clicar(botao('Registrar entrada'))
   await esperar(() => enviados.length === 1)
 
-  assert.equal(enviados[0].lojaId, 'l1')
-  assert.deepEqual(enviados[0].motos.map(m => m.chassi), ['R1', 'R2', 'R3', 'X1', 'X2'])
+  assert.equal(enviados[0].dados.lojaId, 'l1')
+  assert.deepEqual(enviados[0].dados.motos.map(m => m.chassi), ['R1', 'R2', 'R3', 'X1', 'X2'])
 })
 
 test('Desfazer tira a marca feita depois da exclusão: as posições mudam e ela apontaria para outra moto', async () => {
@@ -229,4 +262,18 @@ test('Desfazer tira a marca feita depois da exclusão: as posições mudam e ela
 
   assert.equal(botao('Excluir selecionadas')?.textContent?.trim(), 'Excluir selecionadas (0)')
   assert.ok(!caixa('Marcar R1')?.checked && !caixa('Marcar R2')?.checked)
+})
+
+test('XML excluído e a NF certa importada depois: a ficha fiscal enviada é só a da NF que ficou', async () => {
+  await montar()
+  await carregarXml(notaXml('111', ['TESTE0000GG000001']), 1)
+  await clicar(caixa('Marcar TESTE0000GG000001'))
+  await clicar(botao('Excluir selecionadas'))
+  await carregarXml(notaXml('222', ['TESTE0000GG000001']), 1)
+
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1)
+
+  assert.deepEqual(enviados[0].dados.fiscais?.map(f => [f.chassi, f.emitente.nfNumero]), [['TESTE0000GG000001', '222']])
 })

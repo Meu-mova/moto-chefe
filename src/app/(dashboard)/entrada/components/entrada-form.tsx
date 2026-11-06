@@ -12,10 +12,10 @@ import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
 import { PecasPorPlanilha } from './pecas-por-planilha'
 import { MotosImportadas } from './motos-importadas'
-import { devolverTiradas, tirarMarcadas, type MotoImportada, type MotoNaLista } from '@/lib/entrada-lista'
+import { devolverTiradas, fichasDoEnvio, tirarMarcadas, type MotoImportada, type MotoNaLista } from '@/lib/entrada-lista'
 import { marcarVarias } from '@/lib/selecao'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
-import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type FichaFiscal, type EmitenteNfe, type NomeDeModelo } from '@/lib/nfe-fiscal'
+import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
 type Modelo = {
   id: string
@@ -42,10 +42,6 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   const [marcadas, setMarcadas] = useState<ReadonlySet<number>>(new Set())
   // De onde vieram as motos da lista: o contador aparece no quadro que as carregou.
   const [origemDasLinhas, setOrigemDasLinhas] = useState<'xml' | 'planilha'>('xml')
-  // Ficha fiscal (NCM, CEST, origem…) lida dos <det> dos XMLs importados. Não
-  // aparece na tela: é cadastro do modelo, e vai junto no envio para preencher
-  // quem ainda não tem — ver cadastrarFichaFiscalFaltante na action.
-  const [fiscais, setFiscais] = useState<{ chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]>([])
 
   // Peças da nota (#427): uma nota com peças por vez, conferida contra o catálogo
   // da Conta da loja de destino.
@@ -243,7 +239,6 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
 
     const nomesMova = modelos.map(m => m.modelo)
     const novas: MotoImportada[] = []
-    const fichasNovas: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[] = []
     const avisos: string[] = []
     let pecasNovas: typeof notaPecas = null
 
@@ -269,9 +264,6 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           }
         }
         const fichaPorChassi = ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), [...nomesMova, ...apelidos])
-        for (const [chassi, ficha] of fichaPorChassi) {
-          fichasNovas.push({ chassi, emitente, ficha })
-        }
         // Conferência: o nº de motos lidas tem que bater com a qtd de motos da nota
         // (as linhas de peça vão para a conferência de peças).
         const qtdMotosNaNota = lerItensDaNfe(xml)
@@ -282,6 +274,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         }
         for (const m of motos) {
           const modelo = mapearModelo(m.modelo, nomesMova) ?? m.modelo // de-para NF → MOVA
+          // Ficha fiscal (NCM, CEST, origem…) dos <det>: não aparece na tela, vai no envio para
+          // preencher o cadastro de quem ainda não tem (cadastrarFichaFiscalFaltante na action).
+          const ficha = fichaPorChassi.get(m.chassi.trim().toUpperCase())
           novas.push({
             chassi: m.chassi,
             cor: m.cor,
@@ -289,7 +284,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
             modelo,
             nf: nNF,
             // vUnCom do item desta moto na própria nota (#513).
-            ...sugerirModelo(modelo, fichaPorChassi.get(m.chassi.trim().toUpperCase())?.valorUnitario ?? ''),
+            ...sugerirModelo(modelo, ficha?.valorUnitario ?? ''),
+            ...(ficha ? { fiscal: { emitente, ficha } } : {}),
           })
         }
       } catch {
@@ -309,7 +305,6 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
       const add = novas.filter(n => n.chassi && !vistos.has(n.chassi.toUpperCase()))
       return [...prev, ...add]
     })
-    setFiscais(prev => [...prev, ...fichasNovas])
     setOrigemDasLinhas('xml')
     toast.success(`${novas.length} moto(s) de ${files.length} nota(s) importadas`)
     // Fixo até fechar: moto a menos na leitura passava despercebida em 9 s (#289).
@@ -410,7 +405,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           motos: linhasPlanilha.map(l => ({
             chassi: l.chassi, cor: l.cor, motor: l.motor, modeloId: l.modeloId, precoCompra: l.preco, notaFiscal: l.nf,
           })),
-          fiscais,
+          fiscais: fichasDoEnvio(linhasPlanilha),
           pecas: paraGravacao(linhasPecas),
         })
         if (result.error) {
@@ -440,7 +435,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           precoCompra: l.preco,
           notaFiscal: l.nf,
         })),
-        fiscais,
+        fiscais: fichasDoEnvio(linhasPlanilha),
       })
 
       if (result.error) {
