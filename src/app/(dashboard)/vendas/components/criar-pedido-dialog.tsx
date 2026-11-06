@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CLASSE_SELECT_NATIVO, ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
@@ -54,7 +54,10 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
       <Button onClick={() => setOpen(true)}>Criar Pedido de Venda</Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-          <DialogHeader><DialogTitle>Novo pedido de venda</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Novo pedido de venda</DialogTitle>
+            <DialogDescription>{moto ? moto.lojaNome : 'Escolha a moto para ver a loja do pedido.'}</DialogDescription>
+          </DialogHeader>
           <div className="grid gap-6 md:grid-cols-[1.2fr_1fr]">
             <section className="space-y-4">
               <h3 className="text-sm font-semibold">Itens do pedido</h3>
@@ -105,7 +108,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
               </div>
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold">Resumo</h3>
-                <dl aria-label="Resumo do pedido" className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg bg-muted p-3 text-sm">
+                <dl aria-label="Resumo do pedido" className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg border border-border bg-muted p-3 text-sm">
                   <dt className="text-muted-foreground">Moto</dt>
                   <dd className="text-right">{moto ? `${moto.marca} ${moto.modelo}` : 'Nenhuma'}</dd>
                   <dt className="text-muted-foreground">Entrega</dt>
