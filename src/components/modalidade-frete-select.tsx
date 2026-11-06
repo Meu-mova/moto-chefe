@@ -1,8 +1,6 @@
 'use client'
+import { CLASSE_SELECT_NATIVO } from '@/components/ui/select-nativo'
 import { MODALIDADES_FRETE, type ModalidadeFrete } from '@/lib/notagateway/transporte'
-
-/** Estilo do `<select>` nativo do formulário; o Novo pedido usa o mesmo na lista de motos. */
-export const CLASSE_SELECT_NATIVO = 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-1 text-base shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:text-sm'
 
 type Props = {
   id: string
