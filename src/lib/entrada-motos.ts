@@ -3,9 +3,10 @@
  * e à nota com peças (#429, tudo ou nada numa transação). Quem chama confere a loja
  * com lojaDestinoDaEntrada.
  */
+import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
-import { historicoEstoque, motos, motosFiscal } from '@/lib/db/schema'
+import { historicoEstoque, lojas, motos, motosFiscal } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
 
@@ -110,4 +111,40 @@ export async function gravarFichaFiscalDasMotos(
     .returning({ motoId: motosFiscal.motoId })
 
   return gravadas.length
+}
+
+/**
+ * Lote inteiro ou nada, para o onboarding de uma loja (scripts/importar-motos-xml.ts):
+ * chassi que já existe recusa o lote antes de gravar qualquer moto. Quem chama abre a
+ * transação. A loja precisa existir e estar ativa; o usuário fica no histórico.
+ */
+export async function gravarLoteDeEntrada(
+  exec: Pick<typeof db, 'select' | 'insert'>,
+  e: {
+    lojaId: string
+    usuarioId: string
+    motos: MotoEntradaLote[]
+    fiscais: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
+  },
+): Promise<{ motos: number; fichas: number }> {
+  const [loja] = await exec.select({ id: lojas.id }).from(lojas)
+    .where(and(eq(lojas.id, e.lojaId), eq(lojas.ativa, true))).limit(1)
+  if (!loja) throw new Error('Loja não encontrada')
+  if (!e.motos.length) return { motos: 0, fichas: 0 }
+
+  const chassis = e.motos.map(m => m.chassi.trim().toUpperCase())
+  const existentes = await exec.select({ chassi: motos.chassi }).from(motos).where(inArray(motos.chassi, chassis))
+  if (existentes.length) {
+    throw new Error(`Chassi já cadastrado, nada foi gravado: ${existentes.map(x => x.chassi).join(', ')}`)
+  }
+
+  const idPorChassi = new Map<string, string>()
+  for (const moto of e.motos) {
+    const chassi = moto.chassi.trim().toUpperCase()
+    idPorChassi.set(chassi, await inserirMotoDaEntrada(exec, { lojaId: e.lojaId, usuarioId: e.usuarioId, chassi, moto, precoCompra: moto.precoCompra }))
+  }
+  const fichas = await gravarFichaFiscalDasMotos(exec, e.fiscais
+    .map(f => ({ ...f, motoId: idPorChassi.get(f.chassi.trim().toUpperCase()) }))
+    .filter((f): f is typeof f & { motoId: string } => !!f.motoId))
+  return { motos: idPorChassi.size, fichas }
 }

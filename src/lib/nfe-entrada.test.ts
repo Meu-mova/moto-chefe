@@ -270,3 +270,9 @@ test('itens de peça: linha sem qCom sai com quantidade 0 marcada como não inte
   assert.equal(item.quantidade, 0)
   assert.equal(item.quantidadeInteira, false)
 })
+
+test('motor com aspas da medida da roda (FAMILY da LAIOUNS, NF 37527) não vira cor', () => {
+  assert.deepEqual(parseMotosInfCpl('FAMILY 350W MTBX150070012 SOFG0348V350W24"25080122 AMARELO'), [
+    { modelo: 'FAMILY', chassi: 'MTBX150070012', motor: 'SOFG0348V350W24"25080122', cor: 'AMARELO' },
+  ])
+})

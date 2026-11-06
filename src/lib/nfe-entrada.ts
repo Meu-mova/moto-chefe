@@ -23,9 +23,10 @@ export type MotoNfe = { modelo: string; chassi: string; motor: string; cor: stri
 const RE_CHASSI = /^(?=.*\d)[A-Z0-9]{10,}$/i
 
 // Número de motor: mesmo formato do chassi, mas aceita barra
-// (HRD48/60V1000W202604120315, do BIG TRI). O que não casa é cor: nome de cor
-// não tem dígito nem chega a 10 letras.
-const RE_MOTOR = /^(?=.*\d)(?=.*[A-Z])[A-Z0-9/-]{10,}$/i
+// (HRD48/60V1000W202604120315, do BIG TRI) e aspas da medida da roda
+// (SOFG0348V350W24"25080122, da FAMILY na NF 37527). O que não casa é cor: nome
+// de cor não tem dígito nem chega a 10 letras.
+const RE_MOTOR = /^(?=.*\d)(?=.*[A-Z])[A-Z0-9/"-]{10,}$/i
 
 // Marcador de variante da fábrica: "(RC)", "(RP)" — e "(RP" sem fechar, que
 // aparece nas notas 40743 e 40957. Não é modelo, nem chassi, nem cor.
