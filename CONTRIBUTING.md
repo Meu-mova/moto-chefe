@@ -19,7 +19,12 @@ dúvida, aquele documento é a fonte — isto aqui é o resumo prático do dia a
   no repo: sem proteção de branch, ele apaga a `dev` no PR `dev → main` (ADR 0013).
 - Hotfix: nasce de `main`, PR para `main`, depois PR `main → dev` para não perder o fix
   na próxima vez que `dev` for pra produção.
-- Ninguém dá push direto em `dev` ou `main`, incluindo quem tem acesso de admin.
+- Feature de vários tickets que só pode chegar à `dev` inteira: branch `feature/<nome>` criada da
+  `dev`. Cada ticket nasce dela e abre PR para ela (squash); o CI e a revisão por IA rodam igual
+  aos PRs para a `dev`. A `dev` entra na `feature/<nome>` por merge sempre que andar. No fim, um
+  PR `feature/<nome> → dev` com **merge commit**, para cada ticket continuar um commit na `dev`.
+  Trocar a base de um PR aberto não dispara o CI: feche e reabra o PR.
+- Ninguém dá push direto em `dev`, `main` ou `feature/*`, incluindo quem tem acesso de admin.
 
 ## Antes de abrir o PR
 
