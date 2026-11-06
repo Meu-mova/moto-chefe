@@ -29,6 +29,7 @@ import { conferirRenave, exigeRenave, montarVeiculoNovo, operacaoExigeEntrega, t
 import { gravarRenaveDaMoto, renaveComOrigem, SEM_VENDA } from '@/lib/renave-da-moto'
 import { gravarCorrecaoDaNf, type CorrecaoNf } from '@/lib/notagateway/correcao'
 import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
+import { recusaSemVenda } from '@/lib/notas-emitidas'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
 
@@ -663,8 +664,9 @@ async function carregarNota(notaId: string, usuario: Usuario) {
   const cfg = await configNotaGateway(r.grupoId)
   if (!cfg) throw new Error('Emissão pelo MOVA não configurada para este grupo')
   const vendaId = r.vendaId
-  if (!vendaId) throw new Error(`A venda ${r.vendaNumero} desta nota foi cancelada`)
-  const [v] = await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1)
+  const [v] = vendaId ? await db.select({ motoId: vendas.motoId }).from(vendas).where(eq(vendas.id, vendaId)).limit(1) : []
+  // Venda cancelada ou removida; ou apagada entre a leitura da nota e esta.
+  if (!vendaId || !v) throw new Error(recusaSemVenda(r.vendaNumero))
   return { r: { ...r, vendaId }, cfg, motoId: v.motoId }
 }
 

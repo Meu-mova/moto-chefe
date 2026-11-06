@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { classificarNota, colunaMotivoVisivel, linkDaVenda, motivoDaSefaz, nomeDoArquivo, notasDoLote, periodoEmissao, marcarNota, selecaoDaPagina, vendaNaDescricao, vendaQueNaoExisteMais } from './notas-emitidas'
+import { classificarNota, colunaMotivoVisivel, linkDaVenda, motivoDaSefaz, nomeDoArquivo, notasDoLote, periodoEmissao, marcarNota, recusaSemVenda, selecaoDaPagina, vendaNaDescricao, vendaQueNaoExisteMais } from './notas-emitidas'
 
 test('classificarNota agrupa os status da Nota Gateway nos filtros da tela', () => {
   assert.equal(classificarNota('Autorizada'), 'autorizada')
@@ -25,6 +25,10 @@ test('vendaQueNaoExisteMais: texto da venda apagada (cancelada ou removida), com
   assert.equal(vendaQueNaoExisteMais({ vendaId: null, vendaNumero: 31601 }), 'Venda #31601 (não existe mais)')
   assert.equal(vendaQueNaoExisteMais({ vendaId: null, vendaNumero: null }), 'Venda não existe mais')
   assert.equal(vendaQueNaoExisteMais({ vendaId: 'v1', vendaNumero: 31601 }), null, 'a venda existe: a tela mostra o número com o link')
+})
+
+test('recusaSemVenda: a ação que precisa da venda diz que ela não existe mais (#690)', () => {
+  assert.equal(recusaSemVenda(31601), 'Venda #31601 (não existe mais): esta ação precisa da venda')
 })
 
 test('vendaNaDescricao: complemento de "Nota 974, série 1" com e sem a venda (#690)', () => {

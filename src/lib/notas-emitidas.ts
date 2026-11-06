@@ -25,8 +25,16 @@ export function linkDaVenda(v: { chassi: string | null; dataVenda: string | null
  * os dois casos são iguais, por isso um texto só (decisão do Luis, #690). Null: a venda existe.
  */
 export function vendaQueNaoExisteMais(n: { vendaId: string | null; vendaNumero: number | null }): string | null {
-  if (n.vendaId) return null
-  return n.vendaNumero == null ? 'Venda não existe mais' : `Venda #${n.vendaNumero} (não existe mais)`
+  return n.vendaId ? null : textoSemVenda(n.vendaNumero)
+}
+
+function textoSemVenda(vendaNumero: number | null): string {
+  return vendaNumero == null ? 'Venda não existe mais' : `Venda #${vendaNumero} (não existe mais)`
+}
+
+/** Recusa da ação na nota que precisa da venda (consultar, cancelar, descartar) quando ela não existe mais. */
+export function recusaSemVenda(vendaNumero: number): string {
+  return `${textoSemVenda(vendaNumero)}: esta ação precisa da venda`
 }
 
 /** O fim de "Nota 974, série 1" nos diálogos: ", venda #N", ou uma frase própria se a venda não existe mais. */
