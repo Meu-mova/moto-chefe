@@ -5,12 +5,12 @@
  * conferem as motos por conferirMotosDaEntrada. A tela confere a loja com
  * lojaDestinoDaEntrada.
  */
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
-import { contaDaLoja } from '@/lib/conta'
+import { contaDaLoja, lojasDoEscopo, type EscopoDoUsuario } from '@/lib/conta'
 import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
-import { grupos, historicoEstoque, lojas, motos, motosFiscal } from '@/lib/db/schema'
+import { historicoEstoque, lojas, motos, motosFiscal } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
 import { CHASSI_ARQUIVADO } from '@/lib/arquivar-moto-regras'
 import { type FichaFiscal, type EmitenteNfe, type FichaDaMoto } from '@/lib/nfe-fiscal'
@@ -129,6 +129,8 @@ export async function conferirMotosDaEntrada(
   exec: Pick<typeof db, 'select'>,
   lojaId: string,
   motosDaNota: MotoEntradaLote[],
+  /** Persona do admin_rede (#517): chassi fora do grupo liberado recebe a frase neutra. */
+  grupoLiberado: string | null = null,
 ): Promise<{ prontas: MotoConferida[]; erros: string[] }> {
   const contaId = await contaDaLoja(lojaId, exec)
   const modelosValidos = await modelosUsaveisPelaConta(
@@ -151,31 +153,34 @@ export async function conferirMotosDaEntrada(
   }
   if (!prontas.length) return { prontas, erros }
 
-  const jaCadastrados = await recusasDeChassiCadastrado(exec, contaId, prontas.map(p => p.chassi))
+  const jaCadastrados = await recusasDeChassiCadastrado(exec, { contaId, grupoLiberado }, prontas.map(p => p.chassi))
   return { prontas, erros: [...erros, ...jaCadastrados] }
 }
 
 /** Chassi de outra Conta: a frase não diz que ele existe lá (#456). */
 export const CHASSI_RECUSADO = 'não deu para registrar este chassi. Confira o número.'
 
-const fraseDoChassiCadastrado = (m: { daConta: boolean; arquivada: boolean }) =>
-  !m.daConta ? CHASSI_RECUSADO
+const fraseDoChassiCadastrado = (m: { noEscopo: boolean; arquivada: boolean }) =>
+  !m.noEscopo ? CHASSI_RECUSADO
     : m.arquivada ? CHASSI_ARQUIVADO
       : 'chassi já existe no sistema'
 
 /**
- * A recusa de cada chassi da lista que já é moto, na ordem da lista. Chassi de outra Conta recusa
- * sem dizer onde está (#456), arquivado ou não; o arquivado da própria Conta orienta o RADAR (#691).
+ * A recusa de cada chassi da lista que já é moto, na ordem da lista. Fora do escopo de quem dá a
+ * entrada (outra Conta, ou grupo não liberado na persona do admin_rede) recusa sem dizer que existe,
+ * arquivado ou não (#456, #517); o arquivado do escopo orienta o RADAR (#691).
  */
-export async function recusasDeChassiCadastrado(exec: Pick<typeof db, 'select'>, contaId: string, chassis: string[]): Promise<string[]> {
+export async function recusasDeChassiCadastrado(exec: Pick<typeof db, 'select'>, escopo: EscopoDoUsuario, chassis: string[]): Promise<string[]> {
   if (!chassis.length) return []
-  const existentes = await exec.select({ chassi: motos.chassi, contaId: grupos.contaId, arquivadaEm: motos.arquivadaEm }).from(motos)
-    .innerJoin(lojas, eq(lojas.id, motos.lojaId)).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
-    .where(inArray(motos.chassi, chassis))
+  const existentes = await exec.select({
+    chassi: motos.chassi,
+    arquivadaEm: motos.arquivadaEm,
+    noEscopo: sql<boolean>`${inArray(motos.lojaId, lojasDoEscopo(escopo))}`,
+  }).from(motos).where(inArray(motos.chassi, chassis))
   const porChassi = new Map(existentes.map(m => [m.chassi, m]))
   return chassis.flatMap(chassi => {
     const m = porChassi.get(chassi)
-    return m ? [`${chassi}: ${fraseDoChassiCadastrado({ daConta: m.contaId === contaId, arquivada: m.arquivadaEm !== null })}`] : []
+    return m ? [`${chassi}: ${fraseDoChassiCadastrado({ noEscopo: m.noEscopo, arquivada: m.arquivadaEm !== null })}`] : []
   })
 }
 
@@ -186,10 +191,10 @@ const ehChaveDuplicada = (e: { code?: string; cause?: { code?: string }; message
  * Frase do insert que falhou na Entrada manual ou por planilha, moto a moto. Chave duplicada
  * recebe a mesma recusa da conferência da nota (#456, #691); outro erro vai com a mensagem.
  */
-export async function recusaDoInsertDaMoto(exec: Pick<typeof db, 'select'>, lojaId: string, chassi: string, erro: unknown): Promise<string> {
+export async function recusaDoInsertDaMoto(exec: Pick<typeof db, 'select'>, destino: { lojaId: string; grupoLiberado?: string | null }, chassi: string, erro: unknown): Promise<string> {
   const e = (erro ?? {}) as { code?: string; cause?: { code?: string }; message?: string }
   if (!ehChaveDuplicada(e)) return `${chassi}: ${e.message}`
-  const [recusa] = await recusasDeChassiCadastrado(exec, await contaDaLoja(lojaId, exec), [chassi])
+  const [recusa] = await recusasDeChassiCadastrado(exec, { contaId: await contaDaLoja(destino.lojaId, exec), grupoLiberado: destino.grupoLiberado }, [chassi])
   return recusa ?? `${chassi}: ${CHASSI_RECUSADO}`
 }
 

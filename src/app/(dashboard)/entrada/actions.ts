@@ -105,7 +105,7 @@ export async function registrarEntrada(formData: {
 
       inseridos++
     } catch (e) {
-      erros.push(await recusaDoInsertDaMoto(db, loja.id, chassi, e))
+      erros.push(await recusaDoInsertDaMoto(db, { lojaId: loja.id, grupoLiberado: usuario.grupoLiberado }, chassi, e))
     }
   }
 
@@ -200,7 +200,7 @@ export async function registrarEntradaLote(formData: {
       idPorChassi.set(chassi, motoId)
       inseridos++
     } catch (e) {
-      erros.push(await recusaDoInsertDaMoto(db, loja.id, chassi, e))
+      erros.push(await recusaDoInsertDaMoto(db, { lojaId: loja.id, grupoLiberado: usuario.grupoLiberado }, chassi, e))
     }
   }
 
