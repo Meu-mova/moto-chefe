@@ -3,13 +3,13 @@
  * a acha. Busca com a Conta e os grupos que a pessoa vê no where; moto de outra Conta, fora do
  * alcance, no estado errado ou inexistente recebe a mesma frase. As recusas vêm da regra pura.
  */
-import { and, eq, exists, ilike, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm'
+import { and, eq, exists, ilike, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { aprovacoesVenda, garantias, lojas, modelos, motos, ordensServico, pedidosVenda, reservas, transferencias, vendas } from '@/lib/db/schema'
 import { lojasDoEscopo } from '@/lib/conta'
 import { listarGruposVisiveis } from '@/lib/grupo'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
-import { motoNaoArquivada } from '@/lib/queries/showroom'
+import { motoArquivada, motoNaoArquivada } from '@/lib/queries/showroom'
 import { STATUS_OS_ABERTA } from '@/lib/os-transicao'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { RecusaUsuario } from '@/lib/resultado-action'
@@ -105,7 +105,8 @@ export async function motosParaArquivar(usuario: UsuarioQueArquiva, termo: strin
  */
 async function travarDoAlcance(tx: Exec, usuario: UsuarioQueArquiva, ids: string[], estado: SQL): Promise<SQL | undefined> {
   const onde = await alcance(usuario, tx)
-  const doLote = and(estado, onde ?? undefined, inArray(motos.id, ids))
+  // Sem alcance, o where não acha nada, nem com o lote vazio que passa daqui.
+  const doLote = and(estado, onde === null ? sql`false` : onde, inArray(motos.id, ids))
   const travadas = onde === null || ids.length === 0 ? [] : await tx.select({ id: motos.id }).from(motos).where(doLote).for('update')
   if (travadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
   return doLote
@@ -149,8 +150,6 @@ async function registrarNoLog(tx: NonNullable<Parameters<typeof registrarAcaoSen
   }
 }
 
-const motoArquivada = () => isNotNull(motos.arquivadaEm)
-
 /** Das motos pedidas, as que a pessoa pode desarquivar: o RADAR mostra o botão pela mesma regra do servidor. */
 export async function idsQuePodeDesarquivar(usuario: UsuarioQueArquiva, motoIds: string[], exec: Exec = db): Promise<string[]> {
   const ids = motoIds.filter(ehUuid)
@@ -173,7 +172,7 @@ export async function desarquivarMotos(usuario: UsuarioQueArquiva, motoIds: stri
     const achadas = await tx.select(dadosDaMoto()).from(motos)
       .innerJoin(lojas, eq(lojas.id, motos.lojaId))
       .innerJoin(modelos, eq(modelos.id, motos.modeloId))
-      .where(inArray(motos.id, ids))
+      .where(doLote)
 
     // Os três juntos (check motos_arquivo_completo), com a Conta e o alcance repetidos no where.
     const devolvidas = await tx.update(motos)
