@@ -38,7 +38,7 @@ export function TransporteForm({ dados, onChange }: Props) {
         <Label htmlFor="modalidade-frete">Modalidade do frete</Label>
         <select id="modalidade-frete" value={dados.modalidade} onChange={e => setFrete(e.target.value as DadosTransporte['modalidade'])} className="h-10 w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm">
           <option value="">Selecione a modalidade</option>
-          {MODALIDADES_FRETE.map(([valor, rotulo]) => <option key={valor} value={valor}>{rotulo}</option>)}
+          {MODALIDADES_FRETE.map(m => <option key={m.token} value={m.token}>{m.texto}</option>)}
         </select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
