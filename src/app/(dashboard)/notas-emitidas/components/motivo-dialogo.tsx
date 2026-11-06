@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { diaBrt } from '@/lib/data-venda'
 import type { DecisaoInutilizacao } from '@/lib/notagateway/inutilizacao'
-import { motivoDaSefaz } from '@/lib/notas-emitidas'
+import { motivoDaSefaz, vendaNaDescricao } from '@/lib/notas-emitidas'
 import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
 import { STATUS } from './selo-status'
 
@@ -33,7 +33,7 @@ export function MotivoDialogo({ nota, onFechar }: { nota: NotaEmitidaComInutiliz
             <DialogHeader>
               <DialogTitle>Motivo da nota {nota.numero ?? ''}</DialogTitle>
               <DialogDescription>
-                Série {nota.serie ?? '-'}{nota.vendaNumero != null && `, venda #${nota.vendaNumero}`}. {quandoDaNota(nota)}
+                Série {nota.serie ?? '-'}{vendaNaDescricao(nota)}. {quandoDaNota(nota)}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 rounded-lg border border-border bg-muted px-3 py-2.5 text-sm">

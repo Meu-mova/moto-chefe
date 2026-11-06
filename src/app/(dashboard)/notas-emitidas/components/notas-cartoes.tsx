@@ -5,7 +5,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { diaCurtoBrt } from '@/lib/data-venda'
-import { linkDaVenda, motivoDaSefaz, temDocumento, type selecaoDaPagina } from '@/lib/notas-emitidas'
+import { linkDaVenda, motivoDaSefaz, temDocumento, vendaQueNaoExisteMais, type selecaoDaPagina } from '@/lib/notas-emitidas'
 import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
 import { SeloStatus } from './selo-status'
 import { SituacaoInutilizacao } from './situacao-inutilizacao'
@@ -87,6 +87,8 @@ function Cartao({ nota: n, selecionando, marcada, onMarcar, children }: {
 }) {
   const doc = temDocumento(n)
   const venda = linkDaVenda(n)
+  // No lugar do cliente, e o rodapé fica sem a venda (variante C, decisão do Luis): o texto não cabe ao lado da NF e da série.
+  const semVenda = vendaQueNaoExisteMais(n)
   const motivo = n.categoria === 'recusada' ? motivoDaSefaz(n.motivoStatus) : null
   return (
     <li className={`grid gap-x-1 rounded-xl border border-border bg-card py-4 pr-1 ${selecionando ? 'grid-cols-[44px_1fr_44px] pl-1' : 'grid-cols-[1fr_44px] pl-4'}`}>
@@ -98,7 +100,7 @@ function Cartao({ nota: n, selecionando, marcada, onMarcar, children }: {
       )}
       <div className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <p className={`truncate text-base leading-6 font-semibold ${n.clienteNome ? '' : 'text-muted-foreground'}`}>{n.clienteNome ?? 'Sem cliente'}</p>
+          <p className={`truncate text-base leading-6 font-semibold ${n.clienteNome ? '' : 'text-muted-foreground'}`}>{n.clienteNome ?? semVenda ?? 'Sem cliente'}</p>
           <div className="flex gap-2"><SeloStatus nota={n} /><SituacaoInutilizacao decisao={n.inutilizacao} /></div>
         </div>
         {motivo && (
@@ -110,9 +112,11 @@ function Cartao({ nota: n, selecionando, marcada, onMarcar, children }: {
         <div className="flex items-center gap-3 border-t border-border pt-3 text-[13px]/5 text-muted-foreground tabular-nums">
           <span className={fato}>NF <b className={valor}>{n.numero ?? '-'}</b></span>
           <span className={fato}>Série <b className={valor}>{n.serie ?? '-'}</b></span>
-          <span className={fato}>
-            Venda <b className={valor}>{n.vendaNumero == null ? '-' : venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : `#${n.vendaNumero}`}</b>
-          </span>
+          {!semVenda && (
+            <span className={fato}>
+              Venda <b className={valor}>{venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : `#${n.vendaNumero}`}</b>
+            </span>
+          )}
           <span className="ml-auto">{diaCurtoBrt(n.criadoEm)}</span>
         </div>
       </div>
