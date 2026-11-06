@@ -52,7 +52,7 @@ export async function listarTransferencias(filtros?: {
     .leftJoin(respondente,   eq(transferencias.respondidoPor,  respondente.id))
     .where(
       and(
-        // Moto arquivada (0172) some também do histórico de transferências.
+        // Moto arquivada (0174) some também do histórico de transferências.
         motoNaoArquivada(),
         filtros?.lojaId
           ? or(eq(transferencias.lojaOrigemId, filtros.lojaId), eq(transferencias.lojaDestinoId, filtros.lojaId))

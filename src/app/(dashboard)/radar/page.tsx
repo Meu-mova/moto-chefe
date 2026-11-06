@@ -94,7 +94,7 @@ export default async function RadarPage({
                         {disponibilidadeLabel[moto.disponibilidade] ?? moto.disponibilidade}
                       </Badge>
                     )}
-                    {/* Arquivada (0172): só o RADAR mostra; some do resto do MOVA. */}
+                    {/* Arquivada (0174): só o RADAR mostra; some do resto do MOVA. */}
                     {moto.arquivadaEm && <Badge variant="outline">Arquivada</Badge>}
                   </TableCell>
                   <TableCell>

@@ -1,5 +1,5 @@
 // Teste de banco: roda contra o Postgres descartável do CI (job `banco` do ci.yml).
-// Moto arquivada (0172): some do estoque, do quadro "vendida sem venda", das
+// Moto arquivada (0174): some do estoque, do quadro "vendida sem venda", das
 // transferências e da busca de Garantias/OS; só o RADAR a acha, e só na própria Conta.
 // As consultas usam o db global, então os dados são gravados e apagados no after.
 import { after, before, test } from 'node:test'

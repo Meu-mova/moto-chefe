@@ -38,7 +38,7 @@ export async function buscarMotosPorChassi(
     .leftJoin(clientes, and(eq(vendas.clienteId, clientes.id), eq(clientes.contaId, opcoes.contaDoComprador)))
     .where(and(
       ilike(motos.chassi, `%${termo}%`),
-      // Arquivada (0172) não abre garantia nem OS; só o RADAR a acha.
+      // Arquivada (0174) não abre garantia nem OS; só o RADAR a acha.
       motoNaoArquivada(),
       opcoes.contaDasMotos ? inArray(motos.lojaId, lojasDoEscopo({ contaId: opcoes.contaDasMotos, grupoLiberado: opcoes.grupoLiberado })) : undefined,
     ))

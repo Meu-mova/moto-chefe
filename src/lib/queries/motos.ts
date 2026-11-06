@@ -16,7 +16,7 @@ export async function listarMotos(filtros?: {
   status?: string[]
   disponibilidade?: string[]
   excluirVendidas?: boolean   // true = modo padrão: mostra null + disponivel + reservada, oculta vendida
-  incluirArquivadas?: boolean // só o RADAR: moto arquivada (0172) não aparece em mais nada
+  incluirArquivadas?: boolean // só o RADAR: moto arquivada (0174) não aparece em mais nada
   chassiBusca?: string
   lojaId?: string[]
   contaId?: string   // só motos de lojas da Conta (#320); omitido = todas

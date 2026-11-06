@@ -6,7 +6,7 @@ import { motos } from '@/lib/db/schema'
 // diferente de vendida); moto só de garantia de veículo externo nunca é estoque.
 export const motoNaoVendida = () => sql`${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto`
 
-// Moto arquivada (0172) não aparece em tela nenhuma; só o RADAR a acha.
+// Moto arquivada (0174) não aparece em tela nenhuma; só o RADAR a acha.
 export const motoNaoArquivada = () => isNull(motos.arquivadaEm)
 
 export const motoNoShowroom = () => and(eq(motos.somenteGarantia, false), motoNaoVendida(), motoNaoArquivada())!

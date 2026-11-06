@@ -524,7 +524,7 @@ export const motos = pgTable('motos', {
   // estava na base). NUNCA é estoque — fica fora do Showroom. Ver
   // cadastrarVeiculoGarantiaAction e o filtro em listarMotos.
   somenteGarantia: boolean('somente_garantia').notNull().default(false),
-  // Arquivada (migração 0172): sai de toda tela, lista e contagem; só o RADAR a acha.
+  // Arquivada (migração 0174): sai de toda tela, lista e contagem; só o RADAR a acha.
   // Filtro em motoNaoArquivada (src/lib/queries/showroom.ts).
   arquivadaEm: timestamp('arquivada_em', { withTimezone: true }),
   arquivadaPor: uuid('arquivada_por').references(() => usuarios.id),
