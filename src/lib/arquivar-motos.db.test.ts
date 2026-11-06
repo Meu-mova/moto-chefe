@@ -57,8 +57,6 @@ async function semearConta(tx: Tx, nome: string, cnpj: string, cnpj2: string) {
     socio: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId, outro.grupoId], contaId: base.contaId },
     socioParcial: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId },
     aux: { id: auxId, papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: [], contaId: base.contaId },
-    // Persona do admin_rede no grupo liberado: a sessão já o traduz assim (usuarioDaRede).
-    redeNoLiberado: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId, grupoLiberado: base.grupoId },
   }
 }
 
@@ -200,19 +198,41 @@ test('aux_adm é recusado no servidor e não vê a lista', async () => {
   })
 })
 
-test('sócio sem o grupo marcado e admin_rede fora do grupo liberado não alcançam a moto', async () => {
+test('sócio sem o grupo marcado não alcança a moto desse grupo; com os dois marcados, alcança', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000068817', '00000000068818')
     const doOutroGrupo = await a.novaMoto('OUT', a.outro.lojaId)
-    const doGrupoBase = await a.novaMoto('BASE')
-    for (const usuario of [a.socioParcial, a.redeNoLiberado]) {
-      assert.deepEqual((await motosParaArquivar(usuario, `${P}A`, tx)).map(m => m.chassi), [`${P}ABASE`])
-      await assert.rejects(arquivarMotos(usuario, [doOutroGrupo], 'motivo', tx), recusa('Moto não encontrada'))
-    }
+    await a.novaMoto('BASE')
+    assert.deepEqual((await motosParaArquivar(a.socioParcial, `${P}A`, tx)).map(m => m.chassi), [`${P}ABASE`])
+    await assert.rejects(arquivarMotos(a.socioParcial, [doOutroGrupo], 'motivo', tx), recusa('Moto não encontrada'))
     assert.equal((await arquivada(tx, doOutroGrupo)).sim, false)
-    assert.deepEqual(await arquivarMotos(a.redeNoLiberado, [doGrupoBase], 'motivo', tx), { arquivadas: 1 })
-    // O sócio com os dois grupos marcados alcança os dois.
     assert.deepEqual((await motosParaArquivar(a.socio, `${P}AOUT`, tx)).map(m => m.chassi), [`${P}AOUT`])
+  })
+})
+
+test('admin_rede arquiva só no grupo liberado, com ele ativo; nem em casa nem sem liberação alcança a Conta dona', async () => {
+  const { usuarioDaRede } = await import('@/lib/grupos-liberados')
+  await emTransacaoDesfeita(async tx => {
+    const dona = await semearConta(tx, 'A', '00000000068831', '00000000068832')
+    const casa = await semearConta(tx, 'R', '00000000068833', '00000000068834')
+    const redeId = await semearUsuario(tx, casa.base, { papel: 'admin_rede', rotulo: 'rede' })
+    const rede = { id: redeId, papel: 'admin_rede', lojaId: casa.base.lojaId, gruposAcesso: [], gruposAprovacao: [], contaId: casa.base.contaId }
+    const liberados = [{ grupoId: dona.base.grupoId, contaId: dona.base.contaId }]
+    const noLiberado = usuarioDaRede(rede, liberados, dona.base.grupoId)
+    const emCasa = usuarioDaRede(rede, liberados, casa.base.grupoId)
+    const semLiberacao = usuarioDaRede(rede, [], dona.base.grupoId)
+    const liberada = await dona.novaMoto('LIB')
+    const naoLiberada = await dona.novaMoto('NLIB', dona.outro.lojaId)
+
+    assert.deepEqual((await motosParaArquivar(noLiberado, `${P}A`, tx)).map(m => m.chassi), [`${P}ALIB`])
+    await assert.rejects(arquivarMotos(noLiberado, [naoLiberada], 'motivo', tx), recusa('Moto não encontrada'))
+    for (const [rotulo, usuario] of [['em casa', emCasa], ['sem liberação', semLiberacao]] as const) {
+      assert.deepEqual(await motosParaArquivar(usuario, `${P}A`, tx), [], rotulo)
+      await assert.rejects(arquivarMotos(usuario, [liberada], 'motivo', tx), recusa('Moto não encontrada'), rotulo)
+    }
+    assert.equal((await arquivada(tx, naoLiberada)).sim, false)
+    assert.deepEqual(await arquivarMotos(noLiberado, [liberada], 'acordo da rede', tx), { arquivadas: 1 })
+    assert.deepEqual(await arquivada(tx, liberada), { sim: true, arquivada_por: redeId, motivo_arquivo: 'acordo da rede' })
   })
 })
 
