@@ -7,7 +7,7 @@ name: Revisão por IA
 # Doc: https://code.claude.com/docs/en/github-actions ("Run a skill").
 on:
   pull_request:
-    branches: [dev]
+    branches: [dev, 'feature/**']
     types: [opened, synchronize, ready_for_review, reopened]
 
 concurrency:
