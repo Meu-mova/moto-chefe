@@ -75,6 +75,14 @@ test('o Novo pedido grava a Entrega e a efetivação a leva para a venda sem o n
   assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: RETIRA }])
 })
 
+test('pedido de antes da Entrega (coluna vazia) vira venda sem Entrega: a NF segue a regra antiga', async () => {
+  const a = await semearConta()
+  const pedidoId = await idDe(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${a.motoId}, ${a.aux.lojaId}, ${a.vendedor.id}) returning id`)
+  usuario = a.aux
+  assert.deepEqual(await efetivar(pedidoId, a.origemId), { ok: true, dados: undefined })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: null }])
+})
+
 test('modalidade fora da lista é recusada e nada é gravado: a moto continua disponível', async () => {
   const a = await semearConta()
   usuario = a.vendedor
