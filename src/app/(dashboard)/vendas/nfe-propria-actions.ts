@@ -149,7 +149,7 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
     clienteBairro: venda.clienteBairro, clienteCidade: venda.clienteCidade,
     clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
     clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
-    valor, pagamentos: pagamentosMova, temFicha: !!ficha,
+    valor, pagamentos: pagamentosMova, temFicha: !!ficha, entrega: venda.entrega,
   })
   if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
 
