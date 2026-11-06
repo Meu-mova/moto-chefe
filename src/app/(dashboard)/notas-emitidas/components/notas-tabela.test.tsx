@@ -382,7 +382,6 @@ test('venda que não existe mais (#690): a linha e o cartão dizem isso no lugar
   assert.equal(comVenda!.querySelector('a[href^="/vendas?"]')?.textContent, '#31602')
   assert.ok(!comVenda!.textContent!.includes('não existe mais'))
 
-
   const [cartaoSemVenda, cartaoComVenda] = [...lista().querySelectorAll(':scope > li')]
   assert.ok(cartaoSemVenda!.textContent!.includes(SEM_VENDA), cartaoSemVenda!.textContent!)
   assert.equal(cartaoComVenda!.querySelector('a[href^="/vendas?"]')?.textContent, '#31602')
