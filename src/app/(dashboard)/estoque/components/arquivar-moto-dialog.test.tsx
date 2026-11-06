@@ -92,6 +92,7 @@ test('as escolhidas ficam marcadas de uma busca para outra e vão juntas para a 
   await t.clique('Continuar')
   assert.match(textoDaTela(), /TESTE00ARQ000001/)
   assert.match(textoDaTela(), /TESTE00ARQ000007/)
+  assert.doesNotMatch(textoDaTela(), /TESTE00ARQ000002/, 'vista na busca mas não marcada: fora da confirmação')
 })
 
 test('moto escolhida que volta travada numa busca nova sai da escolha', async () => {
@@ -101,6 +102,9 @@ test('moto escolhida que volta travada numa busca nova sai da escolha', async ()
   await t.buscar('ARQ000001')
   assert.equal(caixa('TESTE00ARQ000001')!.checked, false, 'travada não fica marcada sem como desmarcar')
   assert.ok(botao('Continuar com 1 moto'), 'só a outra continua escolhida')
+  await t.clique('Continuar com 1 moto'); await t.clique('Continuar')
+  assert.match(textoDaTela(), /TESTE00ARQ000002/)
+  assert.doesNotMatch(textoDaTela(), /TESTE00ARQ000001/, 'a travada não vai para a confirmação')
 })
 
 test('sem motivo não envia; com motivo envia os ids escolhidos e termina em "N motos arquivadas"', async () => {
