@@ -12,7 +12,7 @@ import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
 import { PecasPorPlanilha } from './pecas-por-planilha'
 import { MotosImportadas } from './motos-importadas'
-import { chaveDoChassi, devolverTiradas, fichasDoEnvio, tirarMarcadas, type MotoImportada, type MotoNaLista } from '@/lib/entrada-lista'
+import { chaveDoChassi, devolverTiradas, fichasDoEnvio, tirarMarcadas, type Exclusao, type MotoImportada } from '@/lib/entrada-lista'
 import { marcarVarias } from '@/lib/selecao'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type NomeDeModelo } from '@/lib/nfe-fiscal'
@@ -171,19 +171,20 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   }
 
   function excluirMarcadas() {
-    const { ficam, tiradas } = tirarMarcadas(linhasPlanilha, marcadas)
+    const { ficam, exclusao } = tirarMarcadas(linhasPlanilha, marcadas)
+    const { tiradas } = exclusao
     setLinhasPlanilha(ficam)
     setMarcadas(new Set())
     toast(tiradas.length === 1 ? `Moto ${tiradas[0].moto.chassi} tirada da lista.` : `${tiradas.length} motos tiradas da lista.`, {
       id: AVISO_DESFAZER,
       duration: 6000,
-      action: { label: 'Desfazer', onClick: () => desfazerExclusao(tiradas) },
+      action: { label: 'Desfazer', onClick: () => desfazerExclusao(exclusao) },
     })
   }
 
   // As posições mudam ao devolver: marca feita depois da exclusão apontaria para outra moto.
-  function desfazerExclusao(tiradas: MotoNaLista[]) {
-    setLinhasPlanilha(prev => devolverTiradas(prev, tiradas))
+  function desfazerExclusao(exclusao: Exclusao) {
+    setLinhasPlanilha(prev => devolverTiradas(prev, exclusao))
     setMarcadas(new Set())
   }
 

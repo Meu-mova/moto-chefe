@@ -14,9 +14,9 @@ const lista = [
 const chassis = (ms: MotoImportada[]) => ms.map(m => m.chassi)
 
 test('tirar uma moto deixa as outras na mesma ordem e guarda a posição da tirada', () => {
-  const { ficam, tiradas } = tirarMarcadas(lista, new Set([1]))
+  const { ficam, exclusao } = tirarMarcadas(lista, new Set([1]))
   assert.deepEqual(chassis(ficam), ['R1', 'R3', 'X1', 'X2', 'G1', 'G2'])
-  assert.deepEqual(tiradas.map(t => [t.idx, t.moto.chassi]), [[1, 'R2']])
+  assert.deepEqual(exclusao.tiradas.map(t => [t.idx, t.moto.chassi]), [[1, 'R2']])
 })
 
 test('tirar um modelo inteiro some com ele do agrupamento e baixa a contagem da NF', () => {
@@ -35,20 +35,20 @@ test('agrupamento guarda o índice de cada moto na lista e junta modelo sem dife
 })
 
 test('desfazer devolve as tiradas na ordem original', () => {
-  const { ficam, tiradas } = tirarMarcadas(lista, new Set([0, 3, 6]))
-  assert.deepEqual(chassis(devolverTiradas(ficam, tiradas)), chassis(lista))
+  const { ficam, exclusao } = tirarMarcadas(lista, new Set([0, 3, 6]))
+  assert.deepEqual(chassis(devolverTiradas(ficam, exclusao)), chassis(lista))
 })
 
 test('desfazer depois de acrescentar XML devolve na posição original e as novas ficam no fim', () => {
-  const { ficam, tiradas } = tirarMarcadas(lista, new Set([1, 4]))
+  const { ficam, exclusao } = tirarMarcadas(lista, new Set([1, 4]))
   const comNovas = [...ficam, moto('N1', '50000', 'R10')]
-  assert.deepEqual(chassis(devolverTiradas(comNovas, tiradas)), [...chassis(lista), 'N1'])
+  assert.deepEqual(chassis(devolverTiradas(comNovas, exclusao)), [...chassis(lista), 'N1'])
 })
 
 test('desfazer não duplica chassi que voltou à lista por outro XML', () => {
-  const { ficam, tiradas } = tirarMarcadas(lista, new Set([1, 2]))
+  const { ficam, exclusao } = tirarMarcadas(lista, new Set([1, 2]))
   const reimportada = [...ficam, moto('r2', '43440', 'R10')]
-  assert.deepEqual(chassis(devolverTiradas(reimportada, tiradas)), ['R1', 'R3', 'X1', 'X2', 'G1', 'G2', 'r2'])
+  assert.deepEqual(chassis(devolverTiradas(reimportada, exclusao)), ['R1', 'R3', 'X1', 'X2', 'G1', 'G2', 'r2'])
 })
 
 test('fichas do envio: só das motos que estão na lista, uma por moto, na ordem da lista', () => {
@@ -57,4 +57,10 @@ test('fichas do envio: só das motos que estão na lista, uma por moto, na ordem
   const comFicha = (chassi: string, nf: string): MotoImportada => ({ ...moto(chassi, nf, 'GIGA'), fiscal: { emitente: emitente(nf), ficha } })
   const linhas = [comFicha('G1', '222'), moto('P1', '9', 'R10'), comFicha('G2', '222')]
   assert.deepEqual(fichasDoEnvio(linhas).map(f => [f.chassi, f.emitente.nfNumero]), [['G1', '222'], ['G2', '222']])
+})
+
+test('planilha com chassi repetido: tirar uma das cópias e desfazer devolve a cópia', () => {
+  const comRepetido = [moto('A1', '1', 'R10'), moto('A1', '1', 'R10'), moto('B1', '1', 'R10')]
+  const { ficam, exclusao } = tirarMarcadas(comRepetido, new Set([1]))
+  assert.deepEqual(chassis(devolverTiradas(ficam, exclusao)), ['A1', 'A1', 'B1'])
 })

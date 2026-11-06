@@ -42,24 +42,33 @@ export function agruparPorNfEModelo(linhas: readonly MotoImportada[]): GrupoDaNf
   })
 }
 
-export function tirarMarcadas(linhas: readonly MotoImportada[], marcadas: ReadonlySet<number>) {
+/** O que uma exclusão tirou, com o que precisa para desfazer. */
+export type Exclusao = {
+  tiradas: MotoNaLista[]
+  /** Chassis que continuaram na lista: a planilha pode trazer o mesmo chassi duas vezes. */
+  chassisQueFicaram: ReadonlySet<string>
+}
+
+export function tirarMarcadas(linhas: readonly MotoImportada[], marcadas: ReadonlySet<number>): { ficam: MotoImportada[]; exclusao: Exclusao } {
   const comIdx = linhas.map((moto, idx) => ({ moto, idx }))
+  const ficam = comIdx.filter(m => !marcadas.has(m.idx)).map(m => m.moto)
   return {
-    ficam: comIdx.filter(m => !marcadas.has(m.idx)).map(m => m.moto),
-    tiradas: comIdx.filter(m => marcadas.has(m.idx)),
+    ficam,
+    exclusao: { tiradas: comIdx.filter(m => marcadas.has(m.idx)), chassisQueFicaram: new Set(ficam.map(m => chaveDoChassi(m.chassi))) },
   }
 }
 
 /**
  * Desfazer: cada tirada volta à posição que tinha. O que entrou depois (outro XML) vai para o fim
- * da lista, então as posições antigas continuam valendo. Chassi que já voltou por outro XML
- * não se duplica, e as seguintes sobem uma casa para manter a ordem.
+ * da lista, então as posições antigas continuam valendo. Chassi que voltou por outro XML depois
+ * da exclusão não se duplica, e as seguintes sobem uma casa para manter a ordem; cópia que já
+ * estava na lista (planilha com chassi repetido) não impede a devolução.
  */
-export function devolverTiradas(linhas: readonly MotoImportada[], tiradas: readonly MotoNaLista[]): MotoImportada[] {
-  const presentes = new Set(linhas.map(m => chaveDoChassi(m.chassi)))
+export function devolverTiradas(linhas: readonly MotoImportada[], { tiradas, chassisQueFicaram }: Exclusao): MotoImportada[] {
+  const voltouDepois = new Set(linhas.map(m => chaveDoChassi(m.chassi)).filter(c => !chassisQueFicaram.has(c)))
   const aDevolver = [...tiradas].sort((a, b) => a.idx - b.idx)
   return aDevolver.reduce<{ lista: MotoImportada[]; puladas: number }>(({ lista, puladas }, { moto, idx }) => {
-    if (presentes.has(chaveDoChassi(moto.chassi))) return { lista, puladas: puladas + 1 }
+    if (voltouDepois.has(chaveDoChassi(moto.chassi))) return { lista, puladas: puladas + 1 }
     const pos = idx - puladas
     return { lista: [...lista.slice(0, pos), moto, ...lista.slice(pos)], puladas }
   }, { lista: [...linhas], puladas: 0 }).lista
