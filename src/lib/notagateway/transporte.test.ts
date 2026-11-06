@@ -2,11 +2,30 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { DADOS_TRANSPORTE_VAZIOS, MODALIDADES_FRETE, transporteDoPayload, validarDadosTransporte } from './transporte'
 
-test('oferece só as modalidades confirmadas; a 0 fica de fora até a NG confirmar token e XML', () => {
-  assert.deepEqual(MODALIDADES_FRETE.map(([token]) => token), [
-    'PorContaDoDestinatario', 'PorContaDeTerceiros',
-    'TransporteProprioPorContaDoRemetente', 'TransporteProprioPorContaDoDestinatario', 'SemTransporte',
+test('oferece as 6 modalidades da NF-e 4.0 com o texto da tela, o código do DANFE e o nome da KB 170207 da NG', () => {
+  assert.deepEqual(MODALIDADES_FRETE, [
+    { texto: 'Sem frete', codigo: 9, token: 'SemOcorrenciaDeTransporte' },
+    { texto: 'Cliente leva com veículo próprio', codigo: 4, token: 'TransporteProprioPorContaDoDestinatario' },
+    { texto: 'Loja leva com veículo próprio', codigo: 3, token: 'TransporteProprioPorContaDoRemetente' },
+    { texto: 'Cliente contrata e paga a transportadora', codigo: 1, token: 'ContratacaoPorContaDoDestinatario' },
+    { texto: 'Loja contrata e paga a transportadora', codigo: 0, token: 'ContratacaoPorContaDoRemetente' },
+    { texto: 'Outra pessoa contrata o frete', codigo: 2, token: 'ContratacaoPorContaDeTerceiros' },
   ])
+})
+
+const ENTREGA_COMPLETA = {
+  tipoPessoaDestinatario: 'F' as const, cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10',
+  bairro: 'Centro', cidade: '3170701', uf: 'MG',
+}
+
+test('aceita a modalidade 0 (loja contrata a transportadora) com o nome da KB 170207', () => {
+  const resultado = validarDadosTransporte({ modalidade: 'ContratacaoPorContaDoRemetente', enderecoEntrega: ENTREGA_COMPLETA })
+  assert.deepEqual(resultado, { ok: true, dados: { modalidade: 'ContratacaoPorContaDoRemetente', enderecoEntrega: ENTREGA_COMPLETA } })
+})
+
+test('recusa SemTransporte, nome que não existe na doc da NG', () => {
+  const dados = { modalidade: 'SemTransporte', enderecoEntrega: ENTREGA_COMPLETA } as unknown as Parameters<typeof validarDadosTransporte>[0]
+  assert.deepEqual(validarDadosTransporte(dados), { ok: false, erro: 'Modalidade do frete inválida.' })
 })
 
 test('bloqueia a transmissão quando a modalidade não foi escolhida', () => {
@@ -15,7 +34,7 @@ test('bloqueia a transmissão quando a modalidade não foi escolhida', () => {
 })
 
 test('faturamento direto bloqueia a transmissão enquanto faltam dados de entrega', () => {
-  const resultado = validarDadosTransporte({ ...DADOS_TRANSPORTE_VAZIOS, modalidade: 'SemTransporte' })
+  const resultado = validarDadosTransporte({ ...DADOS_TRANSPORTE_VAZIOS, modalidade: 'SemOcorrenciaDeTransporte' })
   assert.deepEqual(resultado, {
     ok: false,
     erro: 'Preencha os dados de entrega: CPF ou CNPJ do destinatário, logradouro, número, bairro, código IBGE do município, UF.',
@@ -25,7 +44,7 @@ test('faturamento direto bloqueia a transmissão enquanto faltam dados de entreg
 test('normaliza endereço direto completo e conserva código do frete', () => {
   const resultado = validarDadosTransporte({
     ...DADOS_TRANSPORTE_VAZIOS,
-    modalidade: 'SemTransporte',
+    modalidade: 'SemOcorrenciaDeTransporte',
     enderecoEntrega: {
       tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '352.817.650-43', logradouro: ' Rua A ',
       numero: ' 10 ', bairro: ' Centro ', cidade: '3170701', uf: 'mg',
@@ -34,7 +53,7 @@ test('normaliza endereço direto completo e conserva código do frete', () => {
   assert.deepEqual(resultado, {
     ok: true,
     dados: {
-      modalidade: 'SemTransporte',
+      modalidade: 'SemOcorrenciaDeTransporte',
       enderecoEntrega: {
         tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A',
         numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG',
@@ -46,7 +65,7 @@ test('normaliza endereço direto completo e conserva código do frete', () => {
 test('código IBGE precisa ter sete dígitos', () => {
   const resultado = validarDadosTransporte({
     ...DADOS_TRANSPORTE_VAZIOS,
-    modalidade: 'PorContaDoDestinatario',
+    modalidade: 'ContratacaoPorContaDoDestinatario',
     enderecoEntrega: {
       ...DADOS_TRANSPORTE_VAZIOS.enderecoEntrega,
       cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: 'Varginha', uf: 'MG',
@@ -87,12 +106,12 @@ test('transporteDoPayload não presume nada de payload antigo, vazio ou com moda
 })
 
 test('transporteDoPayload sem endereço de entrega devolve só a modalidade', () => {
-  assert.deepEqual(transporteDoPayload({ transporte: { frete: { modalidade: 'SemTransporte' } } }), { modalidade: 'SemTransporte' })
+  assert.deepEqual(transporteDoPayload({ transporte: { frete: { modalidade: 'SemOcorrenciaDeTransporte' } } }), { modalidade: 'SemOcorrenciaDeTransporte' })
 })
 
 test('o tipo de pessoa do destinatário vem do documento, não do que a tela mandou', () => {
   const entrega = { tipoPessoaDestinatario: 'J' as const, cpfCnpjDestinatario: '352.817.650-43', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG' }
-  const resultado = validarDadosTransporte({ modalidade: 'SemTransporte', enderecoEntrega: entrega })
+  const resultado = validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: entrega })
   assert.equal(resultado.ok && resultado.dados.enderecoEntrega?.tipoPessoaDestinatario, 'F')
 })
 
@@ -100,8 +119,22 @@ test('logradouro, número e bairro de entrega aceitam no máximo 60 caracteres (
   const base = { tipoPessoaDestinatario: 'F' as const, cpfCnpjDestinatario: '35281765043', logradouro: 'Rua A', numero: '10', bairro: 'Centro', cidade: '3170701', uf: 'MG' }
   const longo = 'x'.repeat(61)
   for (const [campo, rotulo] of [['logradouro', 'logradouro'], ['numero', 'número'], ['bairro', 'bairro']] as const) {
-    assert.deepEqual(validarDadosTransporte({ modalidade: 'SemTransporte', enderecoEntrega: { ...base, [campo]: longo } }),
+    assert.deepEqual(validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: { ...base, [campo]: longo } }),
       { ok: false, erro: `O ${rotulo} da entrega aceita no máximo 60 caracteres.` })
   }
-  assert.equal(validarDadosTransporte({ modalidade: 'SemTransporte', enderecoEntrega: { ...base, logradouro: 'x'.repeat(60) } }).ok, true)
+  assert.equal(validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: { ...base, logradouro: 'x'.repeat(60) } }).ok, true)
+})
+
+test('transporteDoPayload lê o nome antigo de nota já gravada como o nome 4.0 do mesmo código', () => {
+  const casos = [
+    ['SemTransporte', 'SemOcorrenciaDeTransporte'],
+    ['SemFrete', 'SemOcorrenciaDeTransporte'],
+    ['PorContaDoEmitente', 'ContratacaoPorContaDoRemetente'],
+    ['PorContaDoDestinatario', 'ContratacaoPorContaDoDestinatario'],
+    ['PorContaDeTerceiros', 'ContratacaoPorContaDeTerceiros'],
+  ] as const
+  for (const [antigo, atual] of casos) {
+    const payload = { transporte: { frete: { modalidade: antigo }, enderecoEntrega: { ...ENTREGA_COMPLETA, pais: null } } }
+    assert.deepEqual(transporteDoPayload(payload), { modalidade: atual, enderecoEntrega: ENTREGA_COMPLETA }, antigo)
+  }
 })
