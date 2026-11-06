@@ -113,3 +113,10 @@ test('aplicar com compra de outro CNPJ (#731): só passa o CNPJ aceito pela flag
   assert.match(recusaPorCnpjComprador(compradores(ACEITO, '55555555000191'), GRUPO, ACEITO) ?? '', /TESTECNPJ0000001 \(comprador 55555555000191\)/, '3º CNPJ recusa')
   assert.match(recusaPorCnpjComprador(compradores(ACEITO, ''), GRUPO, ACEITO) ?? '', /TESTECNPJ0000001 \(comprador sem CNPJ\)/, 'nota sem CNPJ no destinatário recusa')
 })
+
+test('aspas do motor escritas como &quot; no XML: o motor não vira cor', () => {
+  const xml = nota('9904', det(1, 'MT-FAMILY', 'MOTO ELETRICA FAMILY', 1, '2600101', '1'),
+    'FAMILY 350W TESTEFAM00000006 TSTM0348V350W24&quot;99990002 AMARELO')
+  const p = planejarEntradaDeXmls([xml], [{ chassi: 'TESTEFAM00000006', precoCompra: '2410.41' }], MODELOS)
+  assert.deepEqual(p.motos.map(m => [m.motor, m.cor]), [['TSTM0348V350W24"99990002', 'AMARELO']])
+})

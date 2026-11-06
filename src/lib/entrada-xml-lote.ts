@@ -10,7 +10,7 @@
  *
  * Puro (sem banco). A gravação é a do gravarLoteDeEntrada (src/lib/entrada-motos.ts).
  */
-import { extrairDaNfe, mapearModelo, parseMotosInfCpl, type MotoNfe } from './nfe-entrada'
+import { decodificarEntidadesXml, extrairDaNfe, mapearModelo, parseMotosInfCpl, type MotoNfe } from './nfe-entrada'
 import {
   extrairCnpjDoDestinatario, extrairEmitenteDaNfe, extrairFiscalDaNfe, ligarFichasAosChassis,
   type EmitenteNfe, type FichaDaMoto, type FichaFiscal, type NomeDeModelo,
@@ -60,7 +60,8 @@ export function planejarEntradaDeXmls(
   const daNota = new Map<string, MotoDaNota[]>()
   for (const xml of xmls) {
     const { nNF, infCpl } = extrairDaNfe(xml)
-    const motos = parseMotosInfCpl(infCpl)
+    // O infCpl vem com as entidades do XML: o `;` de um &quot; cortaria a moto ao meio.
+    const motos = parseMotosInfCpl(decodificarEntidadesXml(infCpl))
     const emitente = extrairEmitenteDaNfe(xml)
     const comprador = extrairCnpjDoDestinatario(xml)
     const fichas = ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), [...modelos.map(m => m.modelo), ...apelidos])
