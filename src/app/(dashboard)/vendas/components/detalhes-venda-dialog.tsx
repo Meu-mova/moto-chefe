@@ -3,8 +3,8 @@
 import { toast } from 'sonner'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { ArrowLeft, Eye, FileText, X } from 'lucide-react'
+import { DialogoTelaCheia } from '@/components/dialogo-tela-cheia'
+import { Eye, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import type { DescontoDaVenda } from '@/lib/queries/descontos'
@@ -132,22 +132,7 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto, gatilho }: Prop
       </Button>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        {/* Celular: tela cheia, como uma página. Do sm para cima: diálogo largo. */}
-        <DialogContent
-          showCloseButton={false}
-          className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
-        >
-          <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border px-2">
-            <button type="button" onClick={() => setOpen(false)} aria-label="Voltar" className="rounded-md p-2 hover:bg-muted sm:hidden">
-              <ArrowLeft className="size-5" />
-            </button>
-            <DialogTitle className="flex-1 px-2 text-base font-semibold">Venda #{v.numero}</DialogTitle>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground sm:block">
-              <X className="size-5" />
-            </button>
-          </header>
-
+      <DialogoTelaCheia aberto={open} onFechar={() => setOpen(false)} titulo={`Venda #${v.numero}`} fechaClicandoFora className="sm:max-w-2xl">
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="px-4 pt-4 pb-3">
               <p className="text-sm text-muted-foreground">{v.marca} {v.modelo} · {v.cor}</p>
@@ -297,8 +282,7 @@ export function DetalhesVendaDialog({ venda: v, papel, desconto, gatilho }: Prop
               />
             </footer>
           )}
-        </DialogContent>
-      </Dialog>
+      </DialogoTelaCheia>
     </>
   )
 }
