@@ -281,3 +281,52 @@ test('busca acha por trecho do chassi e pela NF de entrada, e traz o motivo de n
     assert.deepEqual(await motosParaArquivar(a.socio, '   ', tx), [])
   })
 })
+
+test('reserva gravada por quem segurava a moto aparece para quem arquiva logo depois', async () => {
+  // Fora de transação desfeita: são duas conexões e a semente precisa estar gravada para as duas.
+  type Pool = { connect(): Promise<{ query(q: string, p?: unknown[]): Promise<{ rows: { n: number }[] }>; release(): void }> }
+  const pool = (globalThis as unknown as { __pgPool: Pool }).__pgPool
+  let contaIds: string[] = []
+  const desfazerSemente = async () => {
+    await db.execute(sql`delete from reservas where moto_id in (select id from motos where chassi like ${P + 'CORRIDA%'})`)
+    await db.execute(sql`delete from motos where chassi like ${P + 'CORRIDA%'}`)
+    await db.execute(sql`delete from modelos where modelo = ${P + ' CORRIDA'}`)
+    await db.execute(sql`delete from usuarios where email like ${'%-' + P.toLowerCase() + '-corrida@teste.invalid'}`)
+    for (const id of contaIds) {
+      await db.execute(sql`delete from log_acoes where conta_id = ${id}`)
+      await db.execute(sql`delete from lojas where grupo_id in (select id from grupos where conta_id = ${id})`)
+      await db.execute(sql`delete from grupos where conta_id = ${id}`)
+      await db.execute(sql`delete from contas where id = ${id}`)
+    }
+  }
+  const segura = await pool.connect()
+  try {
+    const a = await db.transaction(async tx => {
+      const s = await semearConta(tx, 'CORRIDA', '00000000068835', '00000000068836')
+      const [m] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${P + ' CORRIDA'}, 'autopropelido', '1000', 'hub', '32') returning id`)
+      const [moto] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
+        values (${P + 'CORRIDA1'}, ${m.id}, ${s.base.lojaId}, 'CINZA', '1', 'montada', 'disponivel') returning id`)
+      return { ...s, motoId: moto.id as string }
+    })
+    contaIds = [a.base.contaId]
+
+    // Quem reserva trava a moto, grava a reserva e só confirma depois de o arquivar estar esperando.
+    await segura.query('begin')
+    await segura.query('select id from motos where id = $1 for update', [a.motoId])
+    await segura.query(`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao) values ($1, $2, $3, 100, 'pix', '2026-12-01')`, [a.motoId, a.base.lojaId, a.auxId])
+    const arquivando = arquivarMotos(a.socio, [a.motoId], 'motivo').then(() => 'arquivou', (e: Error) => e.message)
+    for (let i = 0; i < 200; i++) {
+      const { rows } = await segura.query(`select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query ilike '%for update%' and pid <> pg_backend_pid()`)
+      if (rows[0].n > 0) break
+      await new Promise(r => setImmediate(r))
+    }
+    await segura.query('commit')
+
+    assert.equal(await arquivando, `${P}CORRIDA1: Tem reserva em aberto. Cancele ou finalize a reserva antes de arquivar.`)
+    assert.equal((await linhas(db as unknown as Tx, sql`select arquivada_em is not null as sim from motos where id = ${a.motoId}`))[0].sim, false)
+  } finally {
+    await segura.query('rollback').catch(() => {})
+    segura.release()
+    await desfazerSemente()
+  }
+})

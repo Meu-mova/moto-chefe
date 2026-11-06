@@ -101,8 +101,12 @@ export async function arquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[
 
   return exec.transaction(async tx => {
     const onde = await alcance(usuario, tx)
-    const achadas = onde === null || ids.length === 0 ? [] : await motosComPendencias(tx, and(onde, inArray(motos.id, ids))).for('update', { of: motos })
-    if (achadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
+    const travadas = onde === null || ids.length === 0 ? [] : await tx.select({ id: motos.id }).from(motos)
+      .where(and(motoNaoArquivada(), onde, inArray(motos.id, ids))).for('update')
+    if (travadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
+    // Pendências num comando depois da trava: o snapshot dele já vê a reserva ou o pedido que
+    // quem segurava a moto gravou (no mesmo comando do lock, a subconsulta ficaria no snapshot antigo).
+    const achadas = await motosComPendencias(tx, inArray(motos.id, ids))
 
     const recusa = recusaDoLote({ motivo, motos: achadas.map(m => ({ chassi: m.chassi, pendencias: pendenciasDa(m) })) })
     if (recusa) throw new RecusaUsuario(recusa)
