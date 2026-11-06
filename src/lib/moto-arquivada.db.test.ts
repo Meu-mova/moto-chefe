@@ -112,6 +112,8 @@ test('transferência e busca de Garantias/OS: arquivada não aparece', async () 
 })
 
 test('arquivar exige quem e por quê', async () => {
-  await assert.rejects(db.execute(sql`update motos set arquivada_em = now() where id = ${motoId.ARQ172VIVA}`), /motos_arquivo_completo/)
-  await assert.rejects(db.execute(sql`update motos set arquivada_em = now(), arquivada_por = ${usuarioId}, motivo_arquivo = '  ' where id = ${motoId.ARQ172VIVA}`), /motos_arquivo_completo/)
+  // O drizzle embrulha o erro do Postgres: a constraint vem no cause.
+  const peloCheck = (e: { cause?: { constraint?: string } }) => e.cause?.constraint === 'motos_arquivo_completo'
+  await assert.rejects(db.execute(sql`update motos set arquivada_em = now() where id = ${motoId.ARQ172VIVA}`), peloCheck)
+  await assert.rejects(db.execute(sql`update motos set arquivada_em = now(), arquivada_por = ${usuarioId}, motivo_arquivo = '  ' where id = ${motoId.ARQ172VIVA}`), peloCheck)
 })
