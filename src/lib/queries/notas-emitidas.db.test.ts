@@ -3,6 +3,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -95,29 +96,27 @@ test('Notas Emitidas: a Conta B não vê nota da Conta A, e cada lista fica no g
 test('Notas Emitidas: nota cuja venda foi apagada segue na lista com o número da venda; a Conta B não a vê (#690)', async () => {
   await assert.rejects(db.transaction(async tx => {
     const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
+    const a = await semearContaBase(tx, { prefixo: 'NE690', nome: 'A', cnpj: '00000000069001' })
+    const b = await semearContaBase(tx, { prefixo: 'NE690', nome: 'B', cnpj: '00000000069002' })
+    const vendedor = await semearUsuario(tx, a, { papel: 'vendedor' })
     const modelo = await linha(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', 'N690', 'autopropelido', '1000', 'hub', '32') returning id`)
-    const contaB = await linha(sql`insert into contas (nome) values ('Notas 690 B') returning id`)
-    const conta = await linha(sql`insert into contas (nome) values ('Notas 690 A') returning id`)
-    const grupo = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Notas 690 A', '00000000069001', ${conta.id}) returning id`)
-    const loja = await linha(sql`insert into lojas (nome, cidade, endereco, grupo_id) values ('Loja 690', 'C', 'R', ${grupo.id}) returning id`)
-    const vendedor = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), 'Vend 690', 'vend690@teste.invalid', 'vendedor', ${loja.id}) returning id`)
-    const moto = await linha(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade) values ('NOTAS690', ${modelo.id}, ${loja.id}, 'CINZA', '1', 'vendida', 'vendida') returning id`)
-    const pedido = await linha(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${moto.id}, ${loja.id}, ${vendedor.id}) returning id`)
+    const moto = await linha(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade) values ('NOTAS690', ${modelo.id}, ${a.lojaId}, 'CINZA', '1', 'vendida', 'vendida') returning id`)
+    const pedido = await linha(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${moto.id}, ${a.lojaId}, ${vendedor}) returning id`)
     const venda = await linha(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
-      values (${pedido.id}, ${moto.id}, ${loja.id}, ${vendedor.id}, ${vendedor.id}, 'Cliente 690', '52998224725', 10000, 'pix') returning id, numero`) as unknown as { id: string; numero: number }
+      values (${pedido.id}, ${moto.id}, ${a.lojaId}, ${vendedor}, ${vendedor}, 'Cliente 690', '52998224725', 10000, 'pix') returning id, numero`) as unknown as { id: string; numero: number }
     for (const [status, nf] of [['Negada', '1'], ['Cancelada', '2'], ['Processando', '3']]) {
       await tx.execute(sql`insert into notas_fiscais_saida (venda_id, grupo_id, id_externo, ambiente, status, numero, serie, payload)
-        values (${venda.id}, ${grupo.id}, ${'ext690-' + nf}, 'Producao', ${status}, ${nf}, '1', '{}'::jsonb)`)
+        values (${venda.id}, ${a.grupoId}, ${'ext690-' + nf}, 'Producao', ${status}, ${nf}, '1', '{}'::jsonb)`)
     }
     // Cancelar venda e Remover moto apagam a linha da venda; a FK da nota vira nulo (0144).
     await tx.execute(sql`delete from vendas where id = ${venda.id}`)
 
-    const filtro = { grupoId: grupo.id, contaId: conta.id, ambiente: 'Producao' as const, ...HOJE }
+    const filtro = { grupoId: a.grupoId, contaId: a.contaId, ambiente: 'Producao' as const, ...HOJE }
     const lista = await listarNotasEmitidas(filtro, tx)
     assert.deepEqual(lista.map(n => [n.numero, n.categoria, n.vendaId, n.vendaNumero, n.clienteNome, n.chassi]).sort(),
       [['1', 'recusada', null, venda.numero, null, null], ['2', 'cancelada', null, venda.numero, null, null], ['3', 'em_andamento', null, venda.numero, null, null]])
 
-    assert.deepEqual(await listarNotasEmitidas({ ...filtro, contaId: contaB.id }, tx), [])
+    assert.deepEqual(await listarNotasEmitidas({ ...filtro, contaId: b.contaId }, tx), [])
     throw new Desfazer()
   }), Desfazer)
 })
