@@ -17,6 +17,9 @@ export const MODALIDADES_FRETE = [
 
 export type ModalidadeFrete = (typeof MODALIDADES_FRETE)[number]['token']
 
+/** Recusa de modalidade fora da lista, a mesma no faturamento direto e na Entrega da venda. */
+export const MODALIDADE_INVALIDA = 'Modalidade do frete inválida.'
+
 export const ehModalidade = (token: unknown): token is ModalidadeFrete => MODALIDADES_FRETE.some(m => m.token === token)
 
 /** Texto da tela para a modalidade gravada; vazia ou fora da lista não tem texto. */
@@ -86,7 +89,7 @@ export function validarDadosTransporte(
   dados: DadosTransporte | null | undefined,
 ): { ok: true; dados: DadosTransporte } | { ok: false; erro: string } {
   if (!dados?.modalidade) return { ok: false, erro: 'Selecione a modalidade do frete.' }
-  if (!ehModalidade(dados.modalidade)) return { ok: false, erro: 'Modalidade do frete inválida.' }
+  if (!ehModalidade(dados.modalidade)) return { ok: false, erro: MODALIDADE_INVALIDA }
   const normalizados = normalizarDadosTransporte(dados)
   if (!normalizados.enderecoEntrega) return { ok: false, erro: 'Preencha os dados do local de entrega.' }
 
