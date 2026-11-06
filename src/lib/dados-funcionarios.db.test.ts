@@ -28,40 +28,26 @@ after(async () => {
 
 class Desfazer extends Error {}
 
-test('sócio de uma Conta não recebe dado pessoal de funcionário de outra Conta (#320)', async () => {
+// A lista traz só quem é do grupo recebido; a função não olha o papel de quem pede.
+test('lista só o grupo ativo: outro grupo da mesma Conta e outra Conta ficam de fora', async () => {
   await assert.rejects(db.transaction(async tx => {
-    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
-    const contaA = await linha(sql`insert into contas (nome) values ('Conta A') returning id`)
-    const contaB = await linha(sql`insert into contas (nome) values ('Conta B') returning id`)
-    const funcA = await linha(sql`insert into usuarios (id, nome, email, papel, conta_id) values (gen_random_uuid(), 'Func A', 'a@teste.invalid', 'vendedor', ${contaA.id}) returning id`)
-    const funcB = await linha(sql`insert into usuarios (id, nome, email, papel, conta_id) values (gen_random_uuid(), 'Func B', 'b@teste.invalid', 'vendedor', ${contaB.id}) returning id`)
-    await tx.execute(sql`insert into usuarios_dados (usuario_id, cpf, pix_tipo, pix_chave, data_nascimento) values
-      (${funcA.id}, '11111111111', 'cpf', '11111111111', '1990-01-01'),
-      (${funcB.id}, '22222222222', 'cpf', '22222222222', '1991-01-01')`)
-
-    const daB = await listarDadosFuncionarios(contaB.id, tx)
-    assert.deepEqual(daB.map(l => l.cpf), ['22222222222'], 'só o funcionário da própria Conta')
-
-    const todos = (await listarDadosFuncionarios(null, tx)).map(l => l.id)
-    assert.ok(todos.includes(funcA.id) && todos.includes(funcB.id), 'admin_geral vê todas as Contas')
+    const c = await cenarioDuasContas(tx)
+    const nomes = async (grupoId: string) => (await listarDadosFuncionarios(grupoId, tx)).map(l => l.nome)
+    assert.deepEqual(await nomes(c.grupoA), ['Func A PIX', 'Rede A PIX', 'Sem Dados A PIX'])
+    assert.deepEqual(await nomes(c.grupoA2), ['Func A2 PIX'])
+    assert.deepEqual(await nomes(c.grupoB), ['Func B PIX'])
     throw new Desfazer()
   }), Desfazer)
 })
 
-test('sócio de Conta com dois grupos recebe os funcionários dos dois grupos (#320)', async () => {
+test('quem tem acesso marcado a um grupo aparece nele; marcação de grupo de outra Conta não vale', async () => {
   await assert.rejects(db.transaction(async tx => {
-    const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
-    const conta = await linha(sql`insert into contas (nome) values ('Conta Dois Grupos') returning id`)
-    const ids: string[] = []
-    for (const [nome, cnpj] of [['G1', '00000000032011'], ['G2', '00000000032012']]) {
-      const grupo = await linha(sql`insert into grupos (nome, cnpj, conta_id) values (${nome}, ${cnpj}, ${conta.id}) returning id`)
-      const loja = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values (${'Loja ' + nome}, 'R', 'C', ${grupo.id}) returning id`)
-      const func = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id, conta_id) values (gen_random_uuid(), ${'Func ' + nome}, ${nome + '@teste.invalid'}, 'vendedor', ${loja.id}, ${conta.id}) returning id`)
-      ids.push(func.id)
-    }
-
-    const daConta = (await listarDadosFuncionarios(conta.id, tx)).map(l => l.id).sort()
-    assert.deepEqual(daConta, [...ids].sort())
+    const c = await cenarioDuasContas(tx)
+    await tx.execute(sql`update usuarios set grupos_acesso = array[${c.grupoA2}]::uuid[] where id = ${c.funcA}`)
+    await tx.execute(sql`update usuarios set grupos_acesso = array[${c.grupoA}]::uuid[] where id = ${c.funcB}`)
+    const nomes = async (grupoId: string) => (await listarDadosFuncionarios(grupoId, tx)).map(l => l.nome)
+    assert.ok((await nomes(c.grupoA2)).includes('Func A PIX'))
+    assert.ok(!(await nomes(c.grupoA)).includes('Func B PIX'), 'grupo da Conta A não lista funcionário da Conta B')
     throw new Desfazer()
   }), Desfazer)
 })
@@ -74,54 +60,92 @@ async function cenarioDuasContas(tx: Tx) {
   const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
   const contaA = await linha(sql`insert into contas (nome) values ('Conta A PIX') returning id`)
   const contaB = await linha(sql`insert into contas (nome) values ('Conta B PIX') returning id`)
-  const usuario = (nome: string, papel: string, conta: string) => linha(
-    sql`insert into usuarios (id, nome, email, papel, conta_id) values (gen_random_uuid(), ${nome}, ${nome.replace(/ /g, '') + '@pix.invalid'}, ${papel}, ${conta}) returning id`)
-  const funcA = await usuario('Func A PIX', 'vendedor', contaA.id)
-  const funcB = await usuario('Func B PIX', 'vendedor', contaB.id)
-  const redeA = await usuario('Rede A PIX', 'admin_rede', contaA.id)
-  const semDadosA = await usuario('Sem Dados A PIX', 'vendedor', contaA.id)
+  const grupoLoja = async (nome: string, cnpj: string, conta: string) => {
+    const grupo = await linha(sql`insert into grupos (nome, cnpj, conta_id) values (${nome}, ${cnpj}, ${conta}) returning id`)
+    const loja = await linha(sql`insert into lojas (nome, endereco, cidade, grupo_id) values (${'Loja ' + nome}, 'R', 'C', ${grupo.id}) returning id`)
+    return { grupo: grupo.id, loja: loja.id }
+  }
+  const a1 = await grupoLoja('A1 PIX', '00000000068001', contaA.id)
+  const a2 = await grupoLoja('A2 PIX', '00000000068002', contaA.id)
+  const b1 = await grupoLoja('B1 PIX', '00000000068003', contaB.id)
+  const usuario = (nome: string, papel: string, conta: string, loja: string) => linha(
+    sql`insert into usuarios (id, nome, email, papel, conta_id, loja_id) values (gen_random_uuid(), ${nome}, ${nome.replace(/ /g, '') + '@pix.invalid'}, ${papel}, ${conta}, ${loja}) returning id`)
+  const funcA = await usuario('Func A PIX', 'vendedor', contaA.id, a1.loja)
+  const funcA2 = await usuario('Func A2 PIX', 'vendedor', contaA.id, a2.loja)
+  const funcB = await usuario('Func B PIX', 'vendedor', contaB.id, b1.loja)
+  const redeA = await usuario('Rede A PIX', 'admin_rede', contaA.id, a1.loja)
+  const semDadosA = await usuario('Sem Dados A PIX', 'vendedor', contaA.id, a1.loja)
   await tx.execute(sql`insert into usuarios_dados (usuario_id, cpf, pix_tipo, pix_chave, data_nascimento) values
     (${funcA.id}, '11111111111', 'cpf', '11111111111', '1990-01-01'),
+    (${funcA2.id}, '44444444444', 'cpf', '44444444444', '1993-01-01'),
     (${funcB.id}, '22222222222', 'cpf', '22222222222', '1991-01-01'),
     (${redeA.id}, '33333333333', 'cpf', '33333333333', '1992-01-01')`)
   const dados = async (id: string) => ((await tx.execute(
     sql`select cpf, pix_tipo, pix_chave, data_nascimento::text from usuarios_dados where usuario_id = ${id}`,
   )) as unknown as { rows: DadosGravados[] }).rows
-  return { contaA: contaA.id, funcA: funcA.id, funcB: funcB.id, redeA: redeA.id, semDadosA: semDadosA.id, dados }
+  return {
+    grupoA: a1.grupo, grupoA2: a2.grupo, grupoB: b1.grupo, lojaA2: a2.loja,
+    funcA: funcA.id, funcA2: funcA2.id, funcB: funcB.id, redeA: redeA.id, semDadosA: semDadosA.id, dados,
+  }
 }
 
 const CELULAR = { tipo: 'celular', chave: '(35) 99999-1234' }
 const NAO_ENCONTRADO = { ok: false, erro: 'Funcionário não encontrado.' }
 
-test('sócio corrige o PIX de funcionário da própria Conta, com a chave normalizada, sem mexer em CPF e nascimento', async () => {
+test('sócio corrige o PIX de funcionário do grupo ativo, com a chave normalizada, sem mexer em CPF e nascimento', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
-    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', contaId: c.contaA }, c.funcA, CELULAR, tx)
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA }, c.funcA, CELULAR, tx)
     assert.deepEqual(r, { ok: true })
     assert.deepEqual(await c.dados(c.funcA), [{ cpf: '11111111111', pix_tipo: 'celular', pix_chave: '+5535999991234', data_nascimento: '1990-01-01' }])
     throw new Desfazer()
   }), Desfazer)
 })
 
-test('sócio da Conta A não corrige o PIX de funcionário da Conta B, e recebe a frase do id inexistente', async () => {
+test('sócio não corrige o PIX de outro grupo nem de outra Conta, e recebe a frase do id inexistente', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
-    const socioA = { papel: 'admin_socio', contaId: c.contaA }
+    const socioA = { papel: 'admin_socio', grupoId: c.grupoA }
+    assert.deepEqual(await corrigirPixDoFuncionario(socioA, c.funcA2, CELULAR, tx), NAO_ENCONTRADO)
     assert.deepEqual(await corrigirPixDoFuncionario(socioA, c.funcB, CELULAR, tx), NAO_ENCONTRADO)
     assert.deepEqual(await corrigirPixDoFuncionario(socioA, '00000000-0000-4000-8000-000000000000', CELULAR, tx), NAO_ENCONTRADO)
+    assert.deepEqual((await c.dados(c.funcA2)).map(d => d.pix_chave), ['44444444444'], 'linha do outro grupo intacta')
     assert.deepEqual((await c.dados(c.funcB)).map(d => d.pix_chave), ['22222222222'], 'linha da Conta B intacta')
     throw new Desfazer()
   }), Desfazer)
 })
 
-test('admin_geral corrige o PIX em qualquer Conta, inclusive de admin_rede', async () => {
+test('admin_geral corrige o PIX no grupo ativo, inclusive de admin_rede, e não em outro grupo', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
-    const geral = { papel: 'admin_geral', contaId: null }
-    assert.deepEqual(await corrigirPixDoFuncionario(geral, c.funcB, CELULAR, tx), { ok: true })
+    const geral = { papel: 'admin_geral', grupoId: c.grupoA }
+    assert.deepEqual(await corrigirPixDoFuncionario(geral, c.funcA, CELULAR, tx), { ok: true })
     assert.deepEqual(await corrigirPixDoFuncionario(geral, c.redeA, CELULAR, tx), { ok: true })
-    assert.deepEqual((await c.dados(c.funcB)).map(d => d.pix_chave), ['+5535999991234'])
     assert.deepEqual((await c.dados(c.redeA)).map(d => d.pix_chave), ['+5535999991234'])
+    assert.deepEqual(await corrigirPixDoFuncionario(geral, c.funcB, CELULAR, tx), NAO_ENCONTRADO)
+    assert.deepEqual((await c.dados(c.funcB)).map(d => d.pix_chave), ['22222222222'])
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('sócio corrige o PIX de quem está no grupo só pelo acesso marcado', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenarioDuasContas(tx)
+    await tx.execute(sql`update usuarios set grupos_acesso = array[${c.grupoA2}]::uuid[] where id = ${c.funcA}`)
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA2 }, c.funcA, CELULAR, tx)
+    assert.deepEqual(r, { ok: true })
+    assert.deepEqual((await c.dados(c.funcA)).map(d => d.pix_chave), ['+5535999991234'])
+    throw new Desfazer()
+  }), Desfazer)
+})
+
+test('marcação de acesso a grupo de outra Conta não deixa corrigir o PIX', async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const c = await cenarioDuasContas(tx)
+    await tx.execute(sql`update usuarios set grupos_acesso = array[${c.grupoA}]::uuid[] where id = ${c.funcB}`)
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA }, c.funcB, CELULAR, tx)
+    assert.deepEqual(r, NAO_ENCONTRADO)
+    assert.deepEqual((await c.dados(c.funcB)).map(d => d.pix_chave), ['22222222222'], 'linha da Conta B intacta')
     throw new Desfazer()
   }), Desfazer)
 })
@@ -129,7 +153,7 @@ test('admin_geral corrige o PIX em qualquer Conta, inclusive de admin_rede', asy
 test('sócio não corrige o PIX de admin_rede da própria Conta', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
-    assert.deepEqual(await corrigirPixDoFuncionario({ papel: 'admin_socio', contaId: c.contaA }, c.redeA, CELULAR, tx), NAO_ENCONTRADO)
+    assert.deepEqual(await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA }, c.redeA, CELULAR, tx), NAO_ENCONTRADO)
     assert.deepEqual((await c.dados(c.redeA)).map(d => d.pix_chave), ['33333333333'])
     throw new Desfazer()
   }), Desfazer)
@@ -138,7 +162,7 @@ test('sócio não corrige o PIX de admin_rede da própria Conta', async () => {
 test('funcionário que ainda não preencheu os dados não ganha linha pela correção do admin', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
-    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', contaId: c.contaA }, c.semDadosA, CELULAR, tx)
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA }, c.semDadosA, CELULAR, tx)
     assert.deepEqual(r, { ok: false, erro: 'Esse funcionário ainda não preencheu os dados.' })
     assert.deepEqual(await c.dados(c.semDadosA), [])
     throw new Desfazer()
@@ -148,7 +172,7 @@ test('funcionário que ainda não preencheu os dados não ganha linha pela corre
 test('chave que não confere com o tipo não é gravada', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
-    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', contaId: c.contaA }, c.funcA, { tipo: 'email', chave: '(35) 99999-1234' }, tx)
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA }, c.funcA, { tipo: 'email', chave: '(35) 99999-1234' }, tx)
     assert.deepEqual(r, { ok: false, erro: 'Chave PIX não confere com o tipo escolhido.' })
     assert.deepEqual((await c.dados(c.funcA)).map(d => d.pix_chave), ['11111111111'])
     throw new Desfazer()
@@ -173,14 +197,13 @@ function antesDeExecutar<T extends object>(builder: T, antes: () => Promise<unkn
   })
 }
 
-test('funcionário que muda de Conta entre a leitura e a gravação não tem o PIX trocado pelo sócio da Conta antiga', async () => {
+test('funcionário que muda de grupo entre a leitura e a gravação não tem o PIX trocado pelo sócio do grupo antigo', async () => {
   await assert.rejects(db.transaction(async tx => {
     const c = await cenarioDuasContas(tx)
-    const contaB = ((await tx.execute(sql`select conta_id as id from usuarios where id = ${c.funcB}`)) as unknown as { rows: { id: string }[] }).rows[0].id
-    const moverParaB = () => tx.execute(sql`update usuarios set conta_id = ${contaB} where id = ${c.funcA}`)
-    // A leitura vê o funcionário na Conta A; a gravação já o encontra na Conta B.
-    const exec = { select: tx.select.bind(tx), update: ((t: Parameters<Tx['update']>[0]) => antesDeExecutar(tx.update(t), moverParaB)) as Tx['update'] }
-    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', contaId: c.contaA }, c.funcA, CELULAR, exec)
+    const mover = () => tx.execute(sql`update usuarios set loja_id = ${c.lojaA2} where id = ${c.funcA}`)
+    // A leitura vê o funcionário no grupo A; a gravação já o encontra no outro.
+    const exec = { select: tx.select.bind(tx), update: ((t: Parameters<Tx['update']>[0]) => antesDeExecutar(tx.update(t), mover)) as Tx['update'] }
+    const r = await corrigirPixDoFuncionario({ papel: 'admin_socio', grupoId: c.grupoA }, c.funcA, CELULAR, exec)
     assert.deepEqual(r, NAO_ENCONTRADO)
     assert.deepEqual((await c.dados(c.funcA)).map(d => d.pix_chave), ['11111111111'], 'PIX intacto')
     throw new Desfazer()
