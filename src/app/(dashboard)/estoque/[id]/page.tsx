@@ -32,9 +32,10 @@ import { statusLabel, disponibilidadeLabel, type Status, type Disponibilidade } 
 
 export default async function MotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [moto, usuario] = await Promise.all([buscarMoto(id), getUsuarioLogado()])
-  // Rota do PAI: a tabela não tem item por id.
+  const usuario = await getUsuarioLogado()
+  // Rota do PAI: a tabela não tem item por id. Antes de buscar dados (review.md, #579).
   if (!usuarioPodeAcessar(usuario, '/estoque')) redirect('/dashboard')
+  const moto = await buscarMoto(usuario, id)
 
   // Moto de grupo que o usuário não vê: 404, como id inexistente (não revela que existe).
   if (!moto) notFound()
