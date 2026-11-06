@@ -18,7 +18,8 @@
  * Os XMLs e a lista têm dado fiscal: ficam fora do repositório.
  *
  * Moto comprada por outro CNPJ que o do grupo da loja: a NF de saída sai pelo grupo de entrada
- * da moto (#552), então o --aplicar recusa, salvo com --aceito-cnpj-de-outro-grupo. Essa flag
+ * da moto (#552), então o --aplicar recusa, salvo as compradas pelo CNPJ dado em
+ * --aceito-cnpj-de-outro-grupo <CNPJ> (qualquer outro CNPJ, ou nota sem CNPJ, recusa sempre). Essa flag
  * existe para a exceção do onboarding de Pinda (#731: decisão do Cesar aceita pelo Luis, com o OK
  * do contador antes de aplicar), não como caminho normal de entrada.
  */
@@ -31,10 +32,15 @@ const args = process.argv.slice(2)
 const arg = (nome: string) => { const i = args.indexOf(nome); return i >= 0 ? args[i + 1] : undefined }
 const [lojaId, email, pastaXmls, arquivoLista] = ['--loja', '--usuario', '--xmls', '--lista'].map(arg)
 const aplicar = args.includes('--aplicar')
-const aceitoOutroCnpj = args.includes('--aceito-cnpj-de-outro-grupo')
+const FLAG_CNPJ = '--aceito-cnpj-de-outro-grupo'
+const cnpjAceito = arg(FLAG_CNPJ)
 
 if (!lojaId || !email || !pastaXmls || !arquivoLista) {
-  console.error('Uso: scripts/importar-motos-xml.ts --loja <id> --usuario <e-mail> --xmls <pasta> --lista <arquivo.csv> [--aplicar] [--aceito-cnpj-de-outro-grupo] [--prod]')
+  console.error('Uso: scripts/importar-motos-xml.ts --loja <id> --usuario <e-mail> --xmls <pasta> --lista <arquivo.csv> [--aplicar] [--aceito-cnpj-de-outro-grupo <CNPJ>] [--prod]')
+  process.exit(1)
+}
+if (args.includes(FLAG_CNPJ) && (!cnpjAceito || cnpjAceito.startsWith('--'))) {
+  console.error(`${FLAG_CNPJ} precisa do CNPJ aceito: ${FLAG_CNPJ} <CNPJ>`)
   process.exit(1)
 }
 if (!process.env.DATABASE_URL) {
@@ -52,7 +58,7 @@ async function main() {
   const { grupos, lojas, usuarios } = await import('../src/lib/db/schema')
   const { contaDaLoja, usuarioDaConta } = await import('../src/lib/conta')
   const { apelidosDosModelos, listarApelidosDaConta, listarModelosDaConta } = await import('../src/lib/modelos-da-conta')
-  const { lerListaDeChassis, motosDeOutroCnpj, planejarEntradaDeXmls } = await import('../src/lib/entrada-xml-lote')
+  const { lerListaDeChassis, motosDeOutroCnpj, planejarEntradaDeXmls, recusaPorCnpjComprador } = await import('../src/lib/entrada-xml-lote')
   const { gravarLoteDeEntrada } = await import('../src/lib/entrada-motos')
   const { preencherGruposComPrecoPadrao } = await import('../src/lib/tabela-preco-padrao')
 
@@ -103,12 +109,10 @@ async function main() {
     return
   }
   if (plano.problemas.length) throw new Error('Há chassis fora do lote: corrija a lista (ou tire as linhas) antes de gravar')
+  const recusa = recusaPorCnpjComprador(plano, loja.cnpjDoGrupo, cnpjAceito)
+  if (recusa) throw new Error(recusa)
   if (deOutroCnpj.size) {
-    const aviso = `${deOutroCnpj.size} moto(s) compradas por outro CNPJ entram com o grupo desta loja como grupo de entrada, e a NF de saída sai por ele (contra a regra do #552).`
-    if (!aceitoOutroCnpj) {
-      throw new Error(`${aviso} Só com a exceção aceita (#731) e o OK do contador: repita com --aceito-cnpj-de-outro-grupo.`)
-    }
-    console.warn(`\nATENÇÃO: ${aviso} Exceção aceita com --aceito-cnpj-de-outro-grupo (#731).`)
+    console.warn(`\nATENÇÃO: ${deOutroCnpj.size} moto(s) compradas pelo CNPJ ${cnpjAceito} entram com o grupo desta loja como grupo de entrada, e a NF de saída sai por ele (exceção da #731 à regra do #552).`)
   }
 
   const r = await db.transaction(async tx => {

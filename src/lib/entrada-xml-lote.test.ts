@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lerListaDeChassis, modeloDaNota, motosDeOutroCnpj, planejarEntradaDeXmls } from './entrada-xml-lote'
+import { lerListaDeChassis, modeloDaNota, motosDeOutroCnpj, planejarEntradaDeXmls, recusaPorCnpjComprador } from './entrada-xml-lote'
 
 const det = (n: number, cProd: string, xProd: string, q: number, cest: string, orig: string) =>
   `<det nItem="${n}"><prod><cProd>${cProd}</cProd><xProd>${xProd}</xProd><NCM>87116000</NCM><CEST>${cest}</CEST><CFOP>5405</CFOP><uCom>UN</uCom><qCom>${q}.0000</qCom><vUnCom>6400.0000000000</vUnCom></prod><imposto><ICMS><ICMS60><orig>${orig}</orig><CST>60</CST></ICMS60></ICMS><PIS><PISAliq><CST>01</CST></PISAliq></PIS><COFINS><COFINSAliq><CST>01</CST></COFINSAliq></COFINS></imposto></det>`
@@ -101,4 +101,15 @@ test('compra por outro CNPJ (#731): cada moto leva o CNPJ que comprou, e as de o
   ])
   assert.deepEqual(motosDeOutroCnpj(p, '33.333.333/0001-91'), ['TESTEGIGA0000005'])
   assert.deepEqual(motosDeOutroCnpj(p, '44444444000191'), ['TESTEGIGA0000002'])
+})
+
+test('aplicar com compra de outro CNPJ (#731): só passa o CNPJ aceito pela flag', () => {
+  const compradores = (...cnpjs: string[]) => ({ compradores: cnpjs.map((cnpj, i) => ({ chassi: `TESTECNPJ000000${i}`, cnpj })) })
+  const GRUPO = '33333333000191'
+  const ACEITO = '44444444000191'
+  assert.equal(recusaPorCnpjComprador(compradores(GRUPO), GRUPO, undefined), null, 'tudo do grupo: passa sem flag')
+  assert.match(recusaPorCnpjComprador(compradores(GRUPO, ACEITO), GRUPO, undefined) ?? '', /--aceito-cnpj-de-outro-grupo/, 'outro CNPJ sem flag recusa')
+  assert.equal(recusaPorCnpjComprador(compradores(GRUPO, ACEITO), GRUPO, '44.444.444/0001-91'), null, 'CNPJ aceito passa')
+  assert.match(recusaPorCnpjComprador(compradores(ACEITO, '55555555000191'), GRUPO, ACEITO) ?? '', /TESTECNPJ0000001 \(comprador 55555555000191\)/, '3º CNPJ recusa')
+  assert.match(recusaPorCnpjComprador(compradores(ACEITO, ''), GRUPO, ACEITO) ?? '', /TESTECNPJ0000001 \(comprador sem CNPJ\)/, 'nota sem CNPJ no destinatário recusa')
 })

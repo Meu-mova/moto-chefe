@@ -119,6 +119,28 @@ export function motosDeOutroCnpj(plano: Pick<PlanoDeEntrada, 'compradores'>, cnp
 }
 
 /**
+ * Motivo para recusar a gravação do lote pelo CNPJ comprador, ou null se pode gravar. Compra de
+ * outro CNPJ só entra se for do CNPJ aceito explicitamente (exceção da #731); um 3º CNPJ ou nota
+ * sem CNPJ no destinatário recusam sempre.
+ */
+export function recusaPorCnpjComprador(
+  plano: Pick<PlanoDeEntrada, 'compradores'>,
+  cnpjDoGrupo: string,
+  cnpjAceito: string | undefined,
+): string | null {
+  const deOutro = new Set(motosDeOutroCnpj(plano, cnpjDoGrupo))
+  if (!deOutro.size) return null
+  const aceito = soDigitosDoc(cnpjAceito)
+  if (!aceito) {
+    return `${deOutro.size} moto(s) compradas por outro CNPJ que o do grupo. A NF de saída sai pelo grupo de entrada da moto (#552): `
+      + 'só com a exceção aceita e o OK do contador, repita com --aceito-cnpj-de-outro-grupo <CNPJ>.'
+  }
+  const fora = plano.compradores.filter(c => deOutro.has(c.chassi) && soDigitosDoc(c.cnpj) !== aceito)
+  if (!fora.length) return null
+  return `Compradas por CNPJ que não é o do grupo nem o aceito: ${fora.map(c => `${c.chassi} (comprador ${c.cnpj || 'sem CNPJ'})`).join(', ')}.`
+}
+
+/**
  * Lista de chassis do onboarding: CSV com ";" e cabeçalho `chassi;chassi_na_nota;modelo;preco`
  * (colunas em qualquer ordem; só `chassi` e `preco` são obrigatórias). O preço aceita
  * "6400.00" e "6.400,00", como a coluna PREÇO da planilha da tela.
