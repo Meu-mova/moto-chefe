@@ -4,8 +4,9 @@ import { diaBrt } from '@/lib/data-venda'
 type Arquivada = { em: Date; por: string | null; motivo: string | null }
 
 /**
- * Detalhe da moto (#688): a arquivada não aceita gravação nova, então a barra de ações (vender,
- * garantia, transferir, montar...) dá lugar ao aviso. Editar e Corrigir preço ficam no card, fora daqui.
+ * Detalhe da moto (#688): na arquivada, a barra de ações inteira (vender, garantia, transferir,
+ * montar...) dá lugar ao aviso. O servidor recusa vender, reservar, transferir e garantia; montar e
+ * logística só ficam escondidos. Editar e Corrigir preço continuam, no card, fora daqui.
  */
 export function AcoesOuArquivada({ arquivada, children }: { arquivada: Arquivada | null; children: React.ReactNode }) {
   if (!arquivada) return children
