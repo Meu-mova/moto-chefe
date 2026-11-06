@@ -11,6 +11,10 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
  * Cria um pedido de venda pendente e reserva a moto. Substitui a rpc
  * criar_pedido_venda, que exigia o status antigo 'disponivel' e recusava as motos
  * montadas que a tela oferece (#181).
+ *
+ * Contrato: lê a moto só pelo id, sem Conta. Quem chama confere antes que a moto é da
+ * pessoa (motoDoUsuario); só assim a recusa de moto arquivada (#688) não revela moto de
+ * outra Conta. Aqui ela é conferida de novo sob a trava.
  */
 export async function criarPedidoTx(
   tx: Tx,
@@ -22,7 +26,6 @@ export async function criarPedidoTx(
     .where(eq(motos.id, d.motoId))
     .for('update')
   if (!moto) throw new RecusaUsuario('Moto não encontrada')
-  // Conferida de novo sob a trava: quem chama já filtrou a Conta (motoDoUsuario), mas não segura a moto.
   if (moto.arquivadaEm) throw new RecusaUsuario(MOTO_ARQUIVADA)
 
   const [transferencia] = await tx
