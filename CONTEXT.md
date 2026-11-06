@@ -307,8 +307,22 @@ _Evitar_: nota de estorno
 Ambiente de teste da emissão fiscal: a nota não vale e não fatura a venda.
 
 **Origem fiscal**:
-Código de procedência da mercadoria na nota (nacional, importada…), que vem da nota de entrada.
-_Evitar_: origem (sozinho)
+Código de procedência da mercadoria na nota (nacional, importada…). A da nota de entrada decide a da
+NF de saída: entrada 1 sai 2; 0, 2 e 4 saem iguais. Na venda para outro estado, a origem de saída
+importada vai decidir a alíquota de moto importada (#724).
+_Evitar_: origem (sozinho); confundir com **Origem da venda**, que é por onde o cliente chegou
+
+**Entrega da venda**:
+Onde a moto chega ao cliente, informada no Novo pedido e levada para a venda na efetivação: retira
+na loja ou entregar num endereço, com a modalidade do frete na nota. Decide se a NF de saída é dentro
+ou fora do estado (ADR-0021). Venda anterior à Entrega fica sem ela e segue a UF do cliente.
+_Evitar_: endereço de entrega como sinônimo do endereço do cliente
+
+**Retira na loja**:
+Entrega em que o cliente leva a moto da loja que vendeu. A NF sai como venda dentro do estado, mesmo
+com cliente de outra UF, salvo moto que se emplaca (ciclomotor) ou cliente com inscrição estadual de
+outra UF, que saem como venda para outro estado.
+_Evitar_: retirada (sozinho), que se confunde com **Retirada de peças** e com a retirada de sócio
 
 **Certificado A1**:
 Certificado digital do grupo que autoriza emitir nota e consultar a SEFAZ em nome do CNPJ.

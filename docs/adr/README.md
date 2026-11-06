@@ -55,3 +55,4 @@ como são antes de "consertar" algo que foi escolhido de propósito.
 | [0018](0018-conta-acima-do-grupo.md) | Conta acima do grupo: isolamento por cliente do MOVA | Revisada por 0019 |
 | [0019](0019-admin-rede-acesso-entre-contas.md) | admin_rede: acesso a grupos de outras Contas liberado pelo admin_geral | Aceita |
 | [0020](0020-remover-moto-apaga-dependentes.md) | Remover moto apaga a moto e tudo o que depende dela | Aceita |
+| [0021](0021-venda-dentro-ou-fora-do-estado-pela-entrega.md) | Venda dentro ou fora do estado pela Entrega, não pela UF do cliente | Aceita |
