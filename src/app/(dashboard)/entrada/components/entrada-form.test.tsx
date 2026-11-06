@@ -222,16 +222,32 @@ test('excluir todas esconde a lista e o Registrar; Desfazer traz de volta', asyn
   assert.equal(titulo(), 'Motos importadas (7)')
 })
 
-test('Limpar fecha o Desfazer pendente, para ele não devolver motos numa lista nova', async () => {
+test('Limpar tira todas com Desfazer, como o excluir; Desfazer devolve a lista e as fichas fiscais', async () => {
+  await montar()
+  await carregarXml(notaXml('111', ['TESTE0000GG000001', 'TESTE0000GG000002']), 2)
+  await clicar(botao('Limpar'))
+  assert.equal(titulo(), undefined)
+  assert.equal(avisos.at(-1)?.mensagem, '2 motos tiradas da lista.')
+  assert.equal(avisos.at(-1)?.acao?.label, 'Desfazer')
+
+  const { act } = await import('react')
+  await act(async () => { avisos.at(-1)?.acao?.onClick() })
+  assert.equal(titulo(), 'Motos importadas (2)')
+
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1)
+  assert.deepEqual(enviados[0].dados.fiscais?.map(f => f.chassi), ['TESTE0000GG000001', 'TESTE0000GG000002'])
+})
+
+test('planilha nova fecha o Desfazer pendente, para ele não devolver motos numa lista nova', async () => {
   await montarComPlanilha()
   await clicar(caixa('Marcar R1'))
   await clicar(botao('Excluir selecionadas'))
-  assert.equal(avisos.at(-1)?.mensagem, 'Moto R1 tirada da lista.')
   const idDoAviso = avisos.at(-1)?.id
   assert.ok(idDoAviso)
 
-  await clicar(botao('Limpar'))
-  assert.equal(titulo(), undefined)
+  await carregarPlanilha(PLANILHA.slice(0, 3))
   assert.ok(fechados.includes(idDoAviso), 'o aviso com Desfazer foi fechado')
 })
 

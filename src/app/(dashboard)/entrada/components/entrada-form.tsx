@@ -158,7 +158,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   }
 
   // --- Tirar motos da lista antes de registrar (#686) ---
-  // Lista trocada inteira (planilha nova, Limpar, registrada): as posições marcadas e o
+  // Lista trocada inteira (planilha nova, registrada): as posições marcadas e o
   // Desfazer pendente valiam para a lista antiga.
   function substituirLista(novas: MotoImportada[]) {
     setLinhasPlanilha(novas)
@@ -170,8 +170,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     setMarcadas(prev => marcarVarias(prev, indices, ligar))
   }
 
-  function excluirMarcadas() {
-    const { ficam, exclusao } = tirarMarcadas(linhasPlanilha, marcadas)
+  // O Limpar passa por aqui com a lista inteira: também tem Desfazer.
+  function excluir(indices: ReadonlySet<number>) {
+    const { ficam, exclusao } = tirarMarcadas(linhasPlanilha, indices)
     const { tiradas } = exclusao
     setLinhasPlanilha(ficam)
     setMarcadas(new Set())
@@ -563,8 +564,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               onMarcar={marcar}
               onTrocarModelo={trocarModeloDoGrupo}
               onPreco={updatePreco}
-              onExcluir={excluirMarcadas}
-              onLimpar={() => substituirLista([])}
+              onExcluir={() => excluir(marcadas)}
+              onLimpar={() => excluir(new Set(linhasPlanilha.keys()))}
               travado={loading}
             />
           )}
