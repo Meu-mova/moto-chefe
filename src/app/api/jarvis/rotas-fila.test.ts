@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { NextRequest } from 'next/server'
 import { EsperaEsgotada } from '@/lib/limitar-concorrencia'
 
-// Fronteira de fora: a conexão com o banco. A fila do Jarvis responde como se estivesse cheia.
+// A fila do Jarvis (conexao.ts) é trocada por uma que responde como se estivesse cheia: aqui se prova
+// o caminho do erro até a resposta das rotas; a fila de verdade é testada em limitar-concorrencia.test.ts.
 const TOKEN = 'token-de-teste'
 before(() => { process.env.JARVIS_API_TOKEN = TOKEN })
 after(() => { delete process.env.JARVIS_API_TOKEN })
