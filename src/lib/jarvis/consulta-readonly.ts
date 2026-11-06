@@ -1,4 +1,5 @@
-import { client } from '@/lib/db'
+import { EsperaEsgotada } from '@/lib/limitar-concorrencia'
+import { comClientJarvis } from './conexao'
 
 export const CAP = 200
 
@@ -25,15 +26,18 @@ export async function consultaSomenteLeitura(sqlBruto: string): Promise<Resultad
   if (sqlText.includes(';')) throw new ConsultaError('multiplos')
 
   try {
-    const rows = await client.begin(async (tx) => {
-      await tx.unsafe('SET LOCAL transaction_read_only = on')
-      await tx.unsafe('SET LOCAL statement_timeout = 5000')
-      return await tx.unsafe(`SELECT * FROM ( ${sqlText} ) AS _jarvis_sub LIMIT ${CAP + 1}`)
-    })
+    const rows = await comClientJarvis((client) =>
+      client.begin(async (tx) => {
+        await tx.unsafe('SET LOCAL transaction_read_only = on')
+        await tx.unsafe('SET LOCAL statement_timeout = 5000')
+        return await tx.unsafe(`SELECT * FROM ( ${sqlText} ) AS _jarvis_sub LIMIT ${CAP + 1}`)
+      }),
+    )
     const arr = Array.from(rows as Iterable<unknown>)
     const truncated = arr.length > CAP
     return { rows: arr.slice(0, CAP), rowCount: Math.min(arr.length, CAP), truncated }
   } catch (e) {
+    if (e instanceof EsperaEsgotada) throw new ConsultaError('timeout', 'muitas consultas ao mesmo tempo')
     const msg = e instanceof Error ? e.message : 'erro'
     if (/statement timeout|canceling statement/i.test(msg)) {
       throw new ConsultaError('timeout', msg.slice(0, 200))
