@@ -74,13 +74,14 @@ function semRede() {
   return chamadas
 }
 
-test('consultar, cancelar e descartar nota cuja venda não existe mais recusam com a frase, sem ir à Nota Gateway (#690)', async () => {
+test('consultar, cancelar (no prazo e extemporâneo) e descartar nota cuja venda não existe mais recusam com a frase, sem ir à Nota Gateway (#690)', async () => {
   const f = await notasSemVenda()
   const chamadas = semRede()
   user = f.a.user
   const recusa = { ok: false, error: recusaSemVenda(f.vendaNumero) }
   assert.deepEqual(await actions.consultarNfePropriaAction(f.processando), recusa)
   assert.deepEqual(await actions.cancelarNfePropriaAction(f.autorizada, 'venda desfeita'), recusa)
+  assert.deepEqual(await actions.cancelarNfeExtemporaneaAction(f.autorizada, 'venda desfeita', 'Contador sintético'), recusa)
   assert.deepEqual(await actions.descartarTentativaAction(f.enviando), recusa)
   assert.deepEqual(chamadas, [])
   const [{ total }] = await rows<{ total: number }>(sql`select count(*)::int as total from notas_fiscais_saida
@@ -97,6 +98,7 @@ test('nota sem venda da Conta A: a Conta B recebe "Nota não encontrada", igual 
   assert.deepEqual(await actions.consultarNfePropriaAction(f.processando), naoEncontrada)
   assert.deepEqual(await actions.consultarNfePropriaAction(randomUUID()), naoEncontrada)
   assert.deepEqual(await actions.cancelarNfePropriaAction(f.autorizada, 'venda desfeita'), naoEncontrada)
+  assert.deepEqual(await actions.cancelarNfeExtemporaneaAction(f.autorizada, 'venda desfeita', 'Contador sintético'), naoEncontrada)
   assert.deepEqual(await actions.descartarTentativaAction(f.enviando), naoEncontrada)
   assert.deepEqual(chamadas, [])
 })
