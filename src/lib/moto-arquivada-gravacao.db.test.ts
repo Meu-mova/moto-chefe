@@ -1,6 +1,8 @@
 // Teste de banco: Postgres descartável, como src/lib/pedido-moto-do-usuario.db.test.ts.
-// Moto arquivada (#688, decisão do Luis): o servidor recusa vender, reservar, pedir, transferir
-// e abrir garantia nela, com a frase que manda desarquivar; a não arquivada segue.
+// Moto arquivada (#688, decisão do Luis): motoDoUsuario, criarPedidoTx e lojaDaMotoParaGravar,
+// por onde passam vender, reservar, pedir, transferir e abrir garantia, recusam a arquivada com a
+// frase que manda desarquivar; a não arquivada segue. As actions de transferir e garantia estão
+// em moto-arquivada-actions.db.test.ts.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
