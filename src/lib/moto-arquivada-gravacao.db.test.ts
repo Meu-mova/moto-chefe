@@ -82,7 +82,7 @@ test('transferir e abrir garantia (lojaDaMotoParaGravar): arquivada recusa com a
   await emTransacaoDesfeita(async tx => {
     const s = await semear(tx, '00000000068842')
     await assert.rejects(mdu.lojaDaMotoParaGravar(s.socio, s.arquivada, tx), recusaArquivada)
-    assert.deepEqual(await mdu.lojaDaMotoParaGravar(s.socio, s.viva, tx), { lojaId: s.base.lojaId })
+    assert.deepEqual(await mdu.lojaDaMotoParaGravar(s.socio, s.viva, tx), { lojaId: s.base.lojaId, status: 'montada' })
     assert.equal(await mdu.lojaDaMotoParaGravar(s.socio, '0f8fad5b-d9cb-469f-a165-70867728950e', tx), null)
   })
 })
