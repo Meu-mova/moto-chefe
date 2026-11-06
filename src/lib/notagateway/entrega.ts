@@ -16,3 +16,45 @@ export function conferirEntrega(dado: unknown): { ok: true; entrega: EntregaVend
   if (!ehModalidade(modalidade)) return { ok: false, erro: MODALIDADE_INVALIDA }
   return { ok: true, entrega: { modo, modalidade } }
 }
+
+export type MotivoOperacao = 'retira' | 'retira_ciclomotor' | 'retira_contribuinte' | 'sem_entrega'
+export type OperacaoDaVenda = { interestadual: boolean; motivo: MotivoOperacao; ufOrigem: string; ufDestino: string }
+
+type DadosDaOperacao = {
+  /** Nula = venda anterior à Entrega (#725): vale a regra antiga. */
+  entrega: EntregaVenda | null
+  ufEmitente: string
+  ufCliente: string
+  /** Comprador com inscrição estadual (indicador "contribuinte"). */
+  clienteContribuinte: boolean
+  /** Moto que se emplaca: a mesma regra do RENAVE (`exigeRenave`). */
+  ciclomotor: boolean
+}
+
+/**
+ * Dentro ou fora do estado pela Entrega, não pela UF do cliente (#682, ADR-0021). Retira na loja é
+ * venda dentro do estado, salvo moto que se emplaca ou cliente com IE de outra UF, que o contador de
+ * Teresina mandou sair como interestadual (05/11/2026). Prévia, payload e tela decidem por aqui.
+ */
+export function operacaoDaVenda(d: DadosDaOperacao): OperacaoDaVenda {
+  const ufOrigem = d.ufEmitente.trim().toUpperCase()
+  const ufCliente = d.ufCliente.trim().toUpperCase()
+  const paraOCliente = (motivo: MotivoOperacao) => ({ interestadual: ufCliente !== ufOrigem, motivo, ufOrigem, ufDestino: ufCliente })
+  if (!d.entrega) return paraOCliente('sem_entrega')
+  if (ufCliente !== ufOrigem && d.ciclomotor) return paraOCliente('retira_ciclomotor')
+  if (ufCliente !== ufOrigem && d.clienteContribuinte) return paraOCliente('retira_contribuinte')
+  return { interestadual: false, motivo: 'retira', ufOrigem, ufDestino: ufOrigem }
+}
+
+const PORQUE: Record<MotivoOperacao, string> = {
+  retira: 'O cliente retira a moto na loja: vale a regra de dentro do estado.',
+  retira_ciclomotor: 'O cliente retira na loja, mas a moto se emplaca no estado dele (ciclomotor): a venda é para outro estado.',
+  retira_contribuinte: 'O cliente retira na loja, mas tem inscrição estadual em outro estado: a venda é para outro estado.',
+  sem_entrega: 'Esta venda não tem a Entrega informada: vale a UF do endereço do cliente. Confira antes de emitir.',
+}
+
+/** Selo e explicação da prévia da NF. */
+export function textoDaOperacao(o: OperacaoDaVenda): { selo: string; porque: string } {
+  const ufs = `(${o.ufOrigem} para ${o.ufDestino})`
+  return { selo: o.interestadual ? `Para outro estado ${ufs}` : `Dentro do estado ${ufs}`, porque: PORQUE[o.motivo] }
+}
