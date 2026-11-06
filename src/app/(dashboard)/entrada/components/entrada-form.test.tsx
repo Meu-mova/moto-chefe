@@ -290,7 +290,7 @@ test('"Registrar entrada" envia só as motos que ficaram na lista', async () => 
   assert.deepEqual(enviados[0].dados.motos.map(m => m.chassi), ['R1', 'R2', 'R3', 'X1', 'X2'])
 })
 
-test('Desfazer tira a marca feita depois da exclusão: as posições mudam e ela apontaria para outra moto', async () => {
+test('depois do Desfazer nada fica marcado, nem a marca feita depois da exclusão', async () => {
   await montarComPlanilha()
   await clicar(caixa('Marcar R1'))
   await clicar(botao('Excluir selecionadas'))
