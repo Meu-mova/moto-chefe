@@ -17,7 +17,7 @@ export const MODALIDADES_FRETE = [
 
 export type ModalidadeFrete = (typeof MODALIDADES_FRETE)[number]['token']
 
-const ehModalidade = (token: unknown): token is ModalidadeFrete => MODALIDADES_FRETE.some(m => m.token === token)
+export const ehModalidade = (token: unknown): token is ModalidadeFrete => MODALIDADES_FRETE.some(m => m.token === token)
 
 /**
  * Nomes que o MOVA gravou da v1.21.1 até o #723, pelo código do DANFE: dois da NF-e 3.10 (KB 170207) e o
