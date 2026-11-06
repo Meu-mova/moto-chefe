@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { comClientJarvis } from '@/lib/jarvis/conexao'
+import { respostaDoErro } from '@/lib/jarvis/erros'
 import { tokenValido } from '@/lib/jarvis-auth'
 
 export const runtime = 'nodejs'
@@ -24,6 +25,8 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ schema })
   } catch (e) {
+    const resposta = respostaDoErro(e)
+    if (resposta) return NextResponse.json(resposta.corpo, { status: resposta.status })
     console.error('jarvis/schema erro:', e)
     return NextResponse.json({ erro: 'erro ao ler o schema' }, { status: 500 })
   }

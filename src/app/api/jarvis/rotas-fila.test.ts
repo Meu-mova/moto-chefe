@@ -21,3 +21,10 @@ test('consulta com a fila cheia responde 408 e diz para tentar de novo', async (
   assert.equal(res.status, 408)
   assert.deepEqual(await res.json(), FILA_CHEIA)
 })
+
+test('schema com a fila cheia responde igual à consulta', async () => {
+  const { GET } = await import('./schema/route')
+  const res = await GET(pedido('/api/jarvis/schema'))
+  assert.equal(res.status, 408)
+  assert.deepEqual(await res.json(), FILA_CHEIA)
+})
