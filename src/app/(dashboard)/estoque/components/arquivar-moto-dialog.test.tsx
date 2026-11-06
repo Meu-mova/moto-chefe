@@ -114,6 +114,8 @@ test('recusa do servidor aparece no diálogo, que continua aberto no passo 3', a
   assert.match(textoDaTela(), new RegExp(`TESTE00ARQ000001: ${TRAVADA}`))
   assert.ok(!botao('Arquivar 2 motos')!.disabled, 'a pessoa pode tentar de novo')
   assert.equal(t.onFechar.mock.callCount(), 0)
+  await t.clique('Voltar'); await t.clique('Voltar e mudar as motos')
+  assert.doesNotMatch(textoDaTela(), /TESTE00ARQ000001: /, 'a recusa do envio não fica na tela de escolher')
 })
 
 test('trava enquanto envia: duplo clique envia uma vez, botões desabilitados e Escape não fecha', async () => {

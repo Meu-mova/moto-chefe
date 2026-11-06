@@ -75,6 +75,8 @@ export function ArquivarMotoDialog({ aberto, onFechar }: { aberto: boolean; onFe
     }
   }
 
+  // O aviso é do passo em que apareceu: a recusa do envio não fica na tela de escolher.
+  const irPara = (p: number) => { setErro(null); setPasso(p) }
   const n = escolhidas.size
   const livres = (achadas ?? []).filter(m => !m.bloqueio)
   const todasMarcadas = livres.length > 0 && livres.every(m => escolhidas.has(m.id))
@@ -95,18 +97,18 @@ export function ArquivarMotoDialog({ aberto, onFechar }: { aberto: boolean; onFe
 
   const rodapes = [
     <>
-      <Button onClick={() => setPasso(1)} disabled={n === 0} className="h-12 w-full text-base">Continuar com {motos(n)}</Button>
+      <Button onClick={() => irPara(1)} disabled={n === 0} className="h-12 w-full text-base">Continuar com {motos(n)}</Button>
       <Button variant="ghost" onClick={onFechar} className="h-10 w-full text-muted-foreground">Cancelar</Button>
     </>,
     <>
-      <Button onClick={() => setPasso(2)} className="h-12 w-full text-base">Continuar</Button>
-      <Button variant="ghost" onClick={() => setPasso(0)} className="h-10 w-full text-muted-foreground">Voltar e mudar as motos</Button>
+      <Button onClick={() => irPara(2)} className="h-12 w-full text-base">Continuar</Button>
+      <Button variant="ghost" onClick={() => irPara(0)} className="h-10 w-full text-muted-foreground">Voltar e mudar as motos</Button>
     </>,
     <>
       <Button onClick={arquivar} disabled={enviando || !motivo.trim()} className="h-12 w-full text-base">
         {enviando ? <><Loader2 className="size-4 animate-spin" />Arquivando...</> : `Arquivar ${motos(n)}`}
       </Button>
-      <Button variant="ghost" onClick={() => setPasso(1)} disabled={enviando} className="h-10 w-full text-muted-foreground">Voltar</Button>
+      <Button variant="ghost" onClick={() => irPara(1)} disabled={enviando} className="h-10 w-full text-muted-foreground">Voltar</Button>
     </>,
   ]
 
