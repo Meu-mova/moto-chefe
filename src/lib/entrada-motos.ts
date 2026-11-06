@@ -187,7 +187,8 @@ export async function recusasDeChassiCadastrado(exec: Pick<typeof db, 'select'>,
   })
 }
 
-const ehChaveDuplicada = (e: { code?: string; cause?: { code?: string }; message?: string }) =>
+/** Erro de chave única do Postgres (23505), direto ou embrulhado pelo Drizzle. */
+export const ehChaveDuplicada = (e: { code?: string; cause?: { code?: string }; message?: string }) =>
   e.code === '23505' || e.cause?.code === '23505' || !!e.message?.includes('unique') || !!e.message?.includes('duplicate key')
 
 /**
