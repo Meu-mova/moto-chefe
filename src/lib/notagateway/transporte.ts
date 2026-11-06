@@ -19,6 +19,9 @@ export type ModalidadeFrete = (typeof MODALIDADES_FRETE)[number]['token']
 
 export const ehModalidade = (token: unknown): token is ModalidadeFrete => MODALIDADES_FRETE.some(m => m.token === token)
 
+/** Texto da tela para a modalidade gravada; vazia ou fora da lista não tem texto. */
+export const textoDaModalidade = (token: string): string | undefined => MODALIDADES_FRETE.find(m => m.token === token)?.texto
+
 /**
  * Nomes que o MOVA gravou da v1.21.1 até o #723, pelo código do DANFE: dois da NF-e 3.10 (KB 170207) e o
  * `SemTransporte`, que não existe na doc. Só servem para reabrir a recusa; nunca se enviam.
