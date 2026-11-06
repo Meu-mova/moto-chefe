@@ -5,8 +5,8 @@
 // (scripts/test-db-local.ts sobe um Postgres próprio numa porta livre).
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { listarArquivos } from '@/test/listar-arquivos'
 import { sql } from 'drizzle-orm'
 
 const url = process.env.TEST_DATABASE_URL
@@ -319,12 +319,7 @@ describe('ciclo do pedido (#181)', () => {
 // configuração que não existe em nenhum banco. A guarda vê só rpc chamada com o
 // nome literal entre aspas simples, e current_setting de app.* no corpo da própria função.
 describe('funções chamadas por supabase.rpc', () => {
-  function arquivos(dir: string): string[] {
-    return readdirSync(dir).flatMap(n => {
-      const p = join(dir, n)
-      return statSync(p).isDirectory() ? arquivos(p) : /\.tsx?$/.test(n) ? [p] : []
-    })
-  }
+  const arquivos = (dir: string) => listarArquivos(dir, f => /\.tsx?$/.test(f))
   const chamadas = [...new Set(
     arquivos('src').flatMap(f => [...readFileSync(f, 'utf8').matchAll(/\.rpc\(\s*'([a-z_0-9]+)'/g)].map(m => m[1])),
   )].sort()

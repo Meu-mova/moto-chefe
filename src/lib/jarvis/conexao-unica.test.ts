@@ -1,7 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { listarArquivos } from '@/test/listar-arquivos'
 
 // O `client` (postgres.js) só pode ser usado pela fila de src/lib/jarvis/conexao.ts (#701):
 // fora dela, consultas simultâneas voltam a dividir a conexão e o pooler 6543 trava.
@@ -17,10 +18,7 @@ function importaClientDoDb(codigo: string): boolean {
   )
 }
 
-const arquivosDoApp = (pasta: string): string[] =>
-  readdirSync(pasta, { recursive: true, encoding: 'utf8' })
-    .filter(f => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f))
-    .map(f => join(pasta, f))
+const arquivosDoApp = (pasta: string) => listarArquivos(pasta, f => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
 
 test('reconhece import do client vindo de src/lib/db', () => {
   assert.equal(importaClientDoDb("import { client } from '@/lib/db'"), true)
