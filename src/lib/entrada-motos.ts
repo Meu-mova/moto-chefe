@@ -12,6 +12,7 @@ import { contaDaLoja } from '@/lib/conta'
 import { modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { grupos, historicoEstoque, lojas, motos, motosFiscal } from '@/lib/db/schema'
 import { normalizarCor } from '@/lib/cores-moto'
+import { CHASSI_ARQUIVADO } from '@/lib/arquivar-moto-regras'
 import { type FichaFiscal, type EmitenteNfe, type FichaDaMoto } from '@/lib/nfe-fiscal'
 
 type Executor = Pick<typeof db, 'insert'>
@@ -150,14 +151,29 @@ export async function conferirMotosDaEntrada(
   }
   if (!prontas.length) return { prontas, erros }
 
-  const existentes = await exec.select({ chassi: motos.chassi, contaId: grupos.contaId }).from(motos)
-    .innerJoin(lojas, eq(lojas.id, motos.lojaId)).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
-    .where(inArray(motos.chassi, prontas.map(p => p.chassi)))
-  // Chassi de outra Conta recusa sem dizer onde está (#456).
-  const jaCadastrados = existentes.map(m => m.contaId === contaId
-    ? `${m.chassi}: chassi já existe no sistema`
-    : `${m.chassi}: não deu para registrar este chassi. Confira o número.`)
+  const jaCadastrados = await recusasDeChassiCadastrado(exec, contaId, prontas.map(p => p.chassi))
   return { prontas, erros: [...erros, ...jaCadastrados] }
+}
+
+const fraseDoChassiCadastrado = (m: { daConta: boolean; arquivada: boolean }) =>
+  !m.daConta ? 'não deu para registrar este chassi. Confira o número.'
+    : m.arquivada ? CHASSI_ARQUIVADO
+      : 'chassi já existe no sistema'
+
+/**
+ * A recusa de cada chassi da lista que já é moto, na ordem da lista. Chassi de outra Conta recusa
+ * sem dizer onde está (#456), arquivado ou não; o arquivado da própria Conta orienta o RADAR (#691).
+ */
+export async function recusasDeChassiCadastrado(exec: Pick<typeof db, 'select'>, contaId: string, chassis: string[]): Promise<string[]> {
+  if (!chassis.length) return []
+  const existentes = await exec.select({ chassi: motos.chassi, contaId: grupos.contaId, arquivadaEm: motos.arquivadaEm }).from(motos)
+    .innerJoin(lojas, eq(lojas.id, motos.lojaId)).innerJoin(grupos, eq(grupos.id, lojas.grupoId))
+    .where(inArray(motos.chassi, chassis))
+  const porChassi = new Map(existentes.map(m => [m.chassi, m]))
+  return chassis.flatMap(chassi => {
+    const m = porChassi.get(chassi)
+    return m ? [`${chassi}: ${fraseDoChassiCadastrado({ daConta: m.contaId === contaId, arquivada: m.arquivadaEm !== null })}`] : []
+  })
 }
 
 /** Grava as motos já conferidas e a ficha fiscal de cada uma. Devolve quantas fichas entraram. */

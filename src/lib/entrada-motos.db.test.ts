@@ -123,6 +123,41 @@ test('lote do onboarding: chassi já na própria Conta recusa o lote dizendo que
   })
 })
 
+const arquivar = (tx: Tx, chassi: string, usuarioId: string) =>
+  tx.execute(sql`update motos set arquivada_em = now(), arquivada_por = ${usuarioId}, motivo_arquivo = 'golpe' where chassi = ${chassi}`)
+
+test('lote do onboarding: chassi arquivado na própria Conta orienta desarquivar pelo RADAR (#691)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await cenarioLote(tx)
+    await entrada.gravarLoteDeEntrada(tx, { lojaId: c.a.lojaId, usuarioId: c.usuarioId, motos: [c.moto('EMLOTE0000000010')], fiscais: [] })
+    await arquivar(tx, 'EMLOTE0000000010', c.usuarioId)
+    const erro = await recusaDoLote(tx, { lojaId: c.a.lojaId, usuarioId: c.usuarioId, motos: [c.moto('EMLOTE0000000011'), c.moto('EMLOTE0000000010')], fiscais: [] })
+    assert.match(erro, /EMLOTE0000000010: Este chassi está arquivado\. Desarquive pelo RADAR\./)
+    assert.deepEqual(await motosDoLote(tx, ['EMLOTE0000000011']), [])
+  })
+})
+
+test('chassi já cadastrado (#691, #456): arquivado ou ativo de outra Conta recebe a mesma frase neutra, nos dois sentidos', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await cenarioLote(tx)
+    const gravar = (lojaId: string, chassi: string) => entrada.gravarLoteDeEntrada(tx, { lojaId, usuarioId: c.usuarioId, motos: [c.moto(chassi)], fiscais: [] })
+    for (const [conta, ativa, arquivada] of [[c.a, 'EMLOTE00000000A1', 'EMLOTE00000000A2'], [c.b, 'EMLOTE00000000B1', 'EMLOTE00000000B2']] as const) {
+      await gravar(conta.lojaId, ativa)
+      await gravar(conta.lojaId, arquivada)
+      await arquivar(tx, arquivada, c.usuarioId)
+    }
+    const neutra = (chassi: string) => `${chassi}: não deu para registrar este chassi. Confira o número.`
+    assert.deepEqual(
+      await entrada.recusasDeChassiCadastrado(tx, c.a.contaId, ['EMLOTE00000000A1', 'EMLOTE00000000A2', 'EMLOTE00000000B1', 'EMLOTE00000000B2', 'EMLOTE0000NOVO']),
+      ['EMLOTE00000000A1: chassi já existe no sistema', 'EMLOTE00000000A2: Este chassi está arquivado. Desarquive pelo RADAR.', neutra('EMLOTE00000000B1'), neutra('EMLOTE00000000B2')],
+    )
+    assert.deepEqual(
+      await entrada.recusasDeChassiCadastrado(tx, c.b.contaId, ['EMLOTE00000000A1', 'EMLOTE00000000A2']),
+      [neutra('EMLOTE00000000A1'), neutra('EMLOTE00000000A2')],
+    )
+  })
+})
+
 test('lote do onboarding: modelo de outra Conta recusa o lote', async () => {
   await emTransacaoDesfeita(async tx => {
     const c = await cenarioLote(tx)
