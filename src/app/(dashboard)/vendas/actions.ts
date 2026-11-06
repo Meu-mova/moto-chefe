@@ -3,10 +3,9 @@ import { aplicarEdicaoAprovadaTx, type EdicaoPendente } from '@/lib/editar-venda
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { registrarAcaoSensivelSemFalhar } from '@/lib/log-acoes'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
 import { conferirMaquininhas, operadorasGravadas } from '@/lib/maquininhas'
-import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, conciliacoesCartao, pixRecebimentosMcp, documentosAssinatura, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
+import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
 import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
@@ -42,6 +41,8 @@ import { voltarMotoAoEstoque } from '@/lib/motos-vendidas-sem-venda'
 import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
 import { vendaDoUsuario } from '@/lib/venda-do-usuario'
+import { apagarVendaTx } from '@/lib/apagar-venda'
+import { apagarArquivosAssinatura } from '@/lib/assinatura/infra'
 
 // Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
 // aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
@@ -945,23 +946,15 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   if (!t.ok) return { ok: false as const, error: t.error }
   if (t.trava) return { ok: false as const, error: t.trava, travada: true }
 
-  // Cancelar apaga a linha da venda, e conciliacoes_cartao, pix_recebimentos,
-  // pix_recebimentos_mcp e demandas apontam para vendas.id com ON DELETE NO ACTION.
-  // Sem soltar esses vínculos primeiro, o DELETE estoura violação de chave
-  // estrangeira e o cancelamento inteiro faz rollback — era o que acontecia em
-  // qualquer venda que já tivesse recebimento conciliado.
-  const desvinculados = { cartao: 0, pix: 0, demandas: 0, valor: 0, documentosAssinados: 0 }
-  // Caminhos no bucket, coletados dentro da transação e apagados depois dela.
-  const arquivosAssinatura: string[] = []
-
-  const notaVivaNoMeio = await db.transaction(async (tx) => {
+  // null: uma NF entrou na venda entre a conferência acima e a trava da linha.
+  const apagada = await db.transaction(async (tx) => {
     // Uma emissão na mesma hora gravaria a nota e iria à SEFAZ, e o DELETE da
     // venda a deixaria órfã e viva. Com a linha da venda travada, a emissão
     // espera e falha na chave; a que chegou antes aparece na conferência abaixo.
     const [travada] = await tx.select({ notaFiscalSaida: vendas.notaFiscalSaida }).from(vendas).where(eq(vendas.id, vendaId)).for('update')
     // Um "Confirmar NF" entre a conferência e aqui também trava o aux_adm (#191).
-    if (travada && travaDoPapel(usuario.papel, travada.notaFiscalSaida)) return true
-    if (await vendaTemNfViva(tx, vendaId)) return true
+    if (travada && travaDoPapel(usuario.papel, travada.notaFiscalSaida)) return null
+    if (await vendaTemNfViva(tx, vendaId)) return null
 
     // Reverter moto para montada/disponível
     await tx.update(motos)
@@ -973,56 +966,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       .set({ status: 'cancelado' })
       .where(eq(pedidosVenda.id, vendaRecord.pedidoVendaId))
 
-    // Recebimentos voltam a ficar sem dono, para reaparecerem como não vinculados
-    // em /conciliacao e /pix-mcp — o dinheiro entrou e continua no extrato.
-    const cartoes = await tx.update(conciliacoesCartao)
-      .set({ vendaId: null, conciliado: false, conciliadoEm: null })
-      .where(eq(conciliacoesCartao.vendaId, vendaId))
-      .returning({ valor: conciliacoesCartao.valorBruto })
-
-    const pixMcp = await tx.update(pixRecebimentosMcp)
-      .set({
-        vendaId: null, tipoCorrespondencia: null, osId: null,
-        pedidoId: null, pecaVendaId: null, lancadoPorId: null, lancadoEm: null,
-      })
-      .where(eq(pixRecebimentosMcp.vendaId, vendaId))
-      .returning({ valor: pixRecebimentosMcp.valor })
-
-    const dems = await tx.update(demandas)
-      .set({ vendaId: null })
-      .where(eq(demandas.vendaId, vendaId))
-      .returning({ id: demandas.id })
-
-    desvinculados.cartao   = cartoes.length
-    desvinculados.pix      = pixMcp.length
-    desvinculados.demandas = dems.length
-    desvinculados.valor    = cartoes.reduce((a, c) => a + Number(c.valor), 0)
-      + pixMcp.reduce((a, p) => a + Number(p.valor), 0)
-
-    // Remover lancamentos antes da venda (lancamentos_caixa tem FK para vendas.id)
-    await tx.delete(lancamentosCaixa).where(eq(lancamentosCaixa.vendaId, vendaId))
-
-    // Documentos de assinatura também têm FK para vendas.id — sem isto o banco
-    // recusa o delete. Eventos e códigos saem junto por ON DELETE CASCADE.
-    // Cancelar a venda apaga o contrato daquela venda: o documento perde objeto
-    // junto com ela. Por isso a contagem vai para o histórico do estoque, e um
-    // contrato assinado nunca some calado.
-    const docsAssinatura = await tx.delete(documentosAssinatura)
-      .where(eq(documentosAssinatura.vendaId, vendaId))
-      .returning({
-        status: documentosAssinatura.status,
-        selfiePath: documentosAssinatura.selfiePath,
-        assinaturaPath: documentosAssinatura.assinaturaPath,
-      })
-    desvinculados.documentosAssinados = docsAssinatura.filter(d => d.status === 'assinado').length
-    // Guarda os caminhos para limpar o bucket DEPOIS da transação: Storage é
-    // outro serviço e não participa do rollback do Postgres.
-    arquivosAssinatura.push(
-      ...docsAssinatura.flatMap(d => [d.selfiePath, d.assinaturaPath].filter((p): p is string => !!p)),
-    )
-
-    // Remover a venda
-    await tx.delete(vendas).where(eq(vendas.id, vendaId))
+    const { desvinculados, arquivosAssinatura } = await apagarVendaTx(tx, vendaId)
 
     // Registrar no histórico
     const recebido = desvinculados.valor > 0
@@ -1040,29 +984,15 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
       statusNovo: 'montada',
       observacao: `Venda cancelada — Cliente: ${vendaRecord.clienteNome} — Valor: R$ ${Number(vendaRecord.valor).toFixed(2)}${recebido}${assinaturas} — Motivo: ${motivo}`,
     })
-    return false
+    return { desvinculados, arquivosAssinatura }
   })
-  if (notaVivaNoMeio) {
+  if (!apagada) {
     const agora = await travaDoCancelamentoDaVendaAction(vendaId)
     if (agora.ok && agora.trava) return { ok: false as const, error: agora.trava, travada: true }
     return { ok: false as const, error: 'uma NF de saída entrou nesta venda agora' }
   }
 
-  // Selfies e traços da assinatura. Fora da transação porque o Storage é outro
-  // serviço; best-effort, pois a venda já foi cancelada e um erro aqui só
-  // deixaria arquivo órfão — nunca deve derrubar o cancelamento.
-  if (arquivosAssinatura.length > 0) {
-    try {
-      const storage = createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      )
-      const { error } = await storage.storage.from('assinaturas').remove(arquivosAssinatura)
-      if (error) console.error('[assinatura] falha ao apagar arquivos do bucket:', error.message)
-    } catch (e) {
-      console.error('[assinatura] falha ao apagar arquivos do bucket:', e)
-    }
-  }
+  await apagarArquivosAssinatura(apagada.arquivosAssinatura)
 
   // A venda foi apagada: o detalhe precisa bastar sozinho.
   await registrarAcaoSensivelSemFalhar({
@@ -1077,7 +1007,7 @@ export async function cancelarVendaCompletaAction(vendaId: string, motivo: strin
   revalidatePath('/conciliacao')
   revalidatePath('/pix-mcp')
 
-  return { ok: true as const, ...desvinculados }
+  return { ok: true as const, ...apagada.desvinculados }
 }
 
 // ─── Reserva ─────────────────────────────────────────────────────────────────
