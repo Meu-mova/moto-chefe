@@ -3,6 +3,7 @@ import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCai
 import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
+import { STATUS_OS_ABERTA } from '@/lib/os-transicao'
 import { valorLiquidoExpr } from './valor-liquido'
 import { motoNoShowroom } from './showroom'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
@@ -54,7 +55,7 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   )
 
   const osCond = and(
-    inArray(ordensServico.status, ['aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento']),
+    inArray(ordensServico.status, [...STATUS_OS_ABERTA]),
     lojaId !== undefined ? lojaFilter(ordensServico.lojaId, lojaId) : undefined,
   )
 
@@ -259,7 +260,7 @@ export async function getGarantiasProxVencimento(lojaId?: string[], limite = 5) 
 
 export async function getOsAbertas(lojaId?: string[], mecanicoId?: string, limite = 5) {
   const conditions = [
-    inArray(ordensServico.status, ['aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento']),
+    inArray(ordensServico.status, [...STATUS_OS_ABERTA]),
   ]
   if (lojaId !== undefined) conditions.push(lojaFilter(ordensServico.lojaId, lojaId)!)
   if (mecanicoId) conditions.push(eq(ordensServico.mecanicoId, mecanicoId))
