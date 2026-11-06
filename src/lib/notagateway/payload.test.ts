@@ -310,10 +310,11 @@ test('venda com Entrega e sem modalidade não monta a nota', () => {
   assert.throws(() => montarNfeVendaMoto({ ...VENDA, entrega: { modo: 'retira', modalidade: '' } }, REGRA), new RegExp(AVISO_SEM_MODALIDADE))
 })
 
-test('faturamento direto com Entrega: o frete e o endereço vêm do formulário da nota, como antes (#728 junta os dois)', () => {
-  const p = montarNfeVendaMoto({
-    ...VENDA, entrega: RETIRA, moto: { ...VENDA.moto, veiculo: FATURAMENTO_DIRETO },
-    transporte: { modalidade: 'ContratacaoPorContaDoRemetente', enderecoEntrega: ENTREGA_MG },
-  }, REGRA)
-  assert.deepEqual(p.transporte, { frete: { modalidade: 'ContratacaoPorContaDoRemetente' }, enderecoEntrega: { ...ENTREGA_MG, pais: null } })
+test('faturamento direto (ciclomotor) com Entrega "Retira na loja" e cliente de outra UF: 6404 e o transporte do formulário, igual a antes', () => {
+  const ciclomotorFaturamentoDireto = { ...VENDA.moto, ciclomotor: true, veiculo: FATURAMENTO_DIRETO }
+  const transporte = { modalidade: 'ContratacaoPorContaDoRemetente' as const, enderecoEntrega: ENTREGA_MG }
+  const comEntrega = montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP, entrega: RETIRA, moto: ciclomotorFaturamentoDireto, transporte }, REGRA)
+  const semEntrega = montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP, moto: ciclomotorFaturamentoDireto, transporte }, REGRA)
+  assert.equal(comEntrega.itens[0].cfop, '6404')
+  assert.deepEqual(comEntrega, semEntrega)
 })
