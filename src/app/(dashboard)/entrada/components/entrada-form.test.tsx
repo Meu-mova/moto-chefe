@@ -340,7 +340,7 @@ test('nota com motos e peças: o registro da nota leva só as motos que ficaram 
   await clicar(caixa('Marcar TESTE0000GG000001'))
   await clicar(botao('Excluir selecionadas'))
   await escolherLoja()
-  await esperar(() => botao('Registrar entrada')?.textContent?.trim() === 'Registrar entrada (1 motos e 1 peças)')
+  await esperar(() => botao('Registrar entrada')?.textContent?.trim() === 'Registrar entrada (1 moto e 1 peça)')
 
   await clicar(botao('Registrar entrada'))
   await esperar(() => enviados.length === 1)
@@ -412,4 +412,13 @@ test('Desfazer clicado durante o envio não devolve a moto (o aviso ainda está 
   await act(async () => { soltar() })
   await esperar(() => titulo() === undefined)
   assert.equal(enviados[0].dados.motos.length, 6)
+})
+
+test('com uma moto só, o botão diz "Registrar entrada (1 moto)"', async () => {
+  await montarComPlanilha()
+  for (const rotulo of ['Marcar todas as R10 da NF 43440', 'Marcar todas as X12 da NF 43440', 'Marcar G1']) {
+    await clicar(caixa(rotulo))
+  }
+  await clicar(botao('Excluir selecionadas (6)'))
+  assert.equal(botao('Registrar entrada')?.textContent?.trim(), 'Registrar entrada (1 moto)')
 })

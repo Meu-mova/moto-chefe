@@ -80,6 +80,9 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     return () => { vale = false }
   }, [notaPecas, lojaId])
 
+  const qtdMotos = linhasPlanilha.length === 1 ? '1 moto' : `${linhasPlanilha.length} motos`
+  const qtdPecas = linhasPecas.filter(l => l.destino !== 'ignorar').length
+
   // O botão fica travado com o motivo na própria linha (estoque inteiro, preço da peça nova).
   const pecasComProblema = notaPecas ? linhasPecas.filter(l => problemaDaLinha(l)).length : 0
 
@@ -640,8 +643,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 {loading
                   ? 'Registrando...'
                   : notaPecas
-                    ? `Registrar entrada (${linhasPlanilha.length} motos e ${linhasPecas.filter(l => l.destino !== 'ignorar').length} peças)`
-                    : `Registrar entrada (${linhasPlanilha.length} motos)`}
+                    ? `Registrar entrada (${qtdMotos} e ${qtdPecas === 1 ? '1 peça' : `${qtdPecas} peças`})`
+                    : `Registrar entrada (${qtdMotos})`}
               </button>
             </div>
           )}
