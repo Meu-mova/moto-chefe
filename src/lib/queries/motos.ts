@@ -211,6 +211,7 @@ export async function contarPorStatus() {
 
 export async function buscarMoto(id: string) {
   const mecanico = alias(usuarios, 'mecanico')
+  const arquivador = alias(usuarios, 'arquivador')
 
   const [moto] = await db
     .select({
@@ -231,6 +232,9 @@ export async function buscarMoto(id: string) {
       motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),
       precoCompra: motos.precoCompra,
       mecanicoNome: mecanico.nome,
+      arquivadaEm: motos.arquivadaEm,
+      motivoArquivo: motos.motivoArquivo,
+      arquivadaPorNome: arquivador.nome,
       transferenciaPendente: sql<boolean>`EXISTS (
         SELECT 1 FROM transferencias
         WHERE transferencias.moto_id = ${motos.id}
@@ -375,6 +379,7 @@ export async function buscarMoto(id: string) {
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(motos.lojaId, lojas.id))
     .leftJoin(mecanico, eq(motos.responsavelMontagemId, mecanico.id))
+    .leftJoin(arquivador, eq(motos.arquivadaPor, arquivador.id))
     .where(eq(motos.id, id))
     .limit(1)
 

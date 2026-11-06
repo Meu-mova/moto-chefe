@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MotoActions } from './components/moto-actions'
+import { AcoesOuArquivada } from '../components/acoes-ou-arquivada'
 import { AprovacaoVendaCard } from './components/aprovacao-venda-card'
 import { EditarMotoButton } from './components/editar-moto-button'
 import { CorrigirPrecoCompraButton } from './components/corrigir-preco-compra-button'
@@ -149,6 +150,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
           </CardContent>
         </Card>
 
+        <AcoesOuArquivada arquivada={moto.arquivadaEm ? { em: moto.arquivadaEm, por: moto.arquivadaPorNome, motivo: moto.motivoArquivo } : null}>
         <MotoActions
         moto={moto}
         papel={usuario.papel}
@@ -165,6 +167,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         demandasCompativeis={demandasCompativeis}
         origens={origens}
       />
+        </AcoesOuArquivada>
       </div>
 
       {moto.disponibilidade === 'aguardando_aprovacao' && moto.aprovacaoPendenteId && (
