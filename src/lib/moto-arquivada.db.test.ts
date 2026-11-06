@@ -65,6 +65,7 @@ before(async () => {
 })
 
 after(async () => {
+  await db.execute(sql`delete from transferencias where moto_id in (select id from motos where chassi like 'ARQ172%')`)
   await db.execute(sql`delete from historico_estoque where moto_id in (select id from motos where chassi like 'ARQ172%')`)
   await db.execute(sql`delete from motos where chassi like 'ARQ172%'`)
   await db.execute(sql`delete from modelos where modelo = 'ARQ172'`)
@@ -116,4 +117,13 @@ test('arquivar exige quem e por quê', async () => {
   const peloCheck = (e: { cause?: { constraint?: string } }) => e.cause?.constraint === 'motos_arquivo_completo'
   await assert.rejects(db.execute(sql`update motos set arquivada_em = now() where id = ${motoId.ARQ172VIVA}`), peloCheck)
   await assert.rejects(db.execute(sql`update motos set arquivada_em = now(), arquivada_por = ${usuarioId}, motivo_arquivo = '  ' where id = ${motoId.ARQ172VIVA}`), peloCheck)
+})
+
+test('histórico de transferências: a da moto arquivada continua lá (o passado fica; decisão do Luis)', async () => {
+  await db.execute(sql`insert into transferencias (moto_id, loja_origem_id, loja_destino_id, solicitado_por, status)
+    values (${motoId.ARQ172ARQ}, ${lojas[0]}, ${lojas[0]}, ${usuarioId}, 'aceita')`)
+  const historico = await transf.listarTransferencias({ lojaId: lojas[0] })
+  assert.ok(historico.some(t => t.motoId === motoId.ARQ172ARQ))
+  // A lista de escolher moto para transferir continua sem ela (teste acima).
+  assert.ok(!(await transf.listarMotosTransferiveis([lojas[0]])).some(m => m.chassi === 'ARQ172ARQ'))
 })
