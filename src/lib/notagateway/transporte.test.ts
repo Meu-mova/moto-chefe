@@ -117,16 +117,20 @@ test('logradouro, número e bairro de entrega aceitam no máximo 60 caracteres (
   assert.equal(validarDadosTransporte({ modalidade: 'SemOcorrenciaDeTransporte', enderecoEntrega: { ...ENTREGA_COMPLETA, logradouro: 'x'.repeat(60) } }).ok, true)
 })
 
-test('transporteDoPayload lê o nome antigo de nota já gravada como o nome 4.0 do mesmo código', () => {
+test('transporteDoPayload lê o nome que o MOVA já gravou (v1.21.1 até o #723) como o nome 4.0 do mesmo código', () => {
   const casos = [
     ['SemTransporte', 'SemOcorrenciaDeTransporte'],
-    ['SemFrete', 'SemOcorrenciaDeTransporte'],
-    ['PorContaDoEmitente', 'ContratacaoPorContaDoRemetente'],
     ['PorContaDoDestinatario', 'ContratacaoPorContaDoDestinatario'],
     ['PorContaDeTerceiros', 'ContratacaoPorContaDeTerceiros'],
   ] as const
   for (const [antigo, atual] of casos) {
     const payload = { transporte: { frete: { modalidade: antigo }, enderecoEntrega: { ...ENTREGA_COMPLETA, pais: null } } }
     assert.deepEqual(transporteDoPayload(payload), { modalidade: atual, enderecoEntrega: ENTREGA_COMPLETA }, antigo)
+  }
+})
+
+test('transporteDoPayload não traduz nome 3.10 que o MOVA nunca gravou', () => {
+  for (const nome of ['SemFrete', 'PorContaDoEmitente']) {
+    assert.equal(transporteDoPayload({ transporte: { frete: { modalidade: nome } } }), null, nome)
   }
 })

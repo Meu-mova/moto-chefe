@@ -20,11 +20,11 @@ export type ModalidadeFrete = (typeof MODALIDADES_FRETE)[number]['token']
 const ehModalidade = (token: unknown): token is ModalidadeFrete => MODALIDADES_FRETE.some(m => m.token === token)
 
 /**
- * Nomes que podem estar em nota já gravada, pelo código do DANFE: os da NF-e 3.10 (KB 170207) e o
- * `SemTransporte`, que o MOVA usou até o #723 e não existe na doc. Só servem para ler; nunca se enviam.
+ * Nomes que o MOVA gravou da v1.21.1 até o #723, pelo código do DANFE: dois da NF-e 3.10 (KB 170207) e o
+ * `SemTransporte`, que não existe na doc. Só servem para reabrir a recusa; nunca se enviam.
  */
 const CODIGO_DO_NOME_ANTIGO: Record<string, (typeof MODALIDADES_FRETE)[number]['codigo']> = {
-  PorContaDoEmitente: 0, PorContaDoDestinatario: 1, PorContaDeTerceiros: 2, SemFrete: 9, SemTransporte: 9,
+  PorContaDoDestinatario: 1, PorContaDeTerceiros: 2, SemTransporte: 9,
 }
 
 const modalidadeLida = (token: unknown): ModalidadeFrete | undefined => {
