@@ -7,9 +7,10 @@ import { EsperaEsgotada } from '@/lib/limitar-concorrencia'
 const TOKEN = 'token-de-teste'
 before(() => { process.env.JARVIS_API_TOKEN = TOKEN })
 after(() => { delete process.env.JARVIS_API_TOKEN })
-mock.module('@/lib/jarvis/conexao', {
+const conexaoMock = mock.module('@/lib/jarvis/conexao', {
   namedExports: { comClientJarvis: async () => { throw new EsperaEsgotada(10_000) } },
 })
+after(() => conexaoMock.restore())
 
 const FILA_CHEIA = { erro: 'consulta demorou demais', detalhe: 'muitas consultas ao mesmo tempo' }
 const pedido = (caminho: string, init: { method?: string; body?: string } = {}) =>
