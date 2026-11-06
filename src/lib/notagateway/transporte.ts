@@ -23,7 +23,7 @@ const ehModalidade = (token: unknown): token is ModalidadeFrete => MODALIDADES_F
  * Nomes que podem estar em nota já gravada, pelo código do DANFE: os da NF-e 3.10 (KB 170207) e o
  * `SemTransporte`, que o MOVA usou até o #723 e não existe na doc. Só servem para ler; nunca se enviam.
  */
-const CODIGO_DO_NOME_ANTIGO: Record<string, number> = {
+const CODIGO_DO_NOME_ANTIGO: Record<string, (typeof MODALIDADES_FRETE)[number]['codigo']> = {
   PorContaDoEmitente: 0, PorContaDoDestinatario: 1, PorContaDeTerceiros: 2, SemFrete: 9, SemTransporte: 9,
 }
 
