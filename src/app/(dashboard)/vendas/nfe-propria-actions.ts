@@ -248,12 +248,14 @@ function dadosDaVenda(e: Emissao, ufEmitente: string, idExterno: string, transpo
       cest: f.cest ?? '',
       unidade: f.unidade ?? 'UN',
       origem: f.origem ?? '0',
+      ciclomotor: e.renaveExigido,
       ...(e.renaveExigido && e.renave ? { veiculo: montarVeiculoNovo(e.renave) } : {}),
     },
     valor: e.valor,
     pagamentos: e.pagamentosMova.map(formaPagamentoNfe),
     informacoesAdicionais: e.observacao,
     ...(transporte ? { transporte } : {}),
+    entrega: v.entrega,
   }
 }
 

@@ -341,5 +341,5 @@ test('tipo de pessoa incoerente vindo da tela é corrigido pelo documento antes 
   const net = network(f)
   const result = await actions.transmitirNfePropriaAction(f.motoId, renave, { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, tipoPessoaDestinatario: 'J' } })
   assert.equal(result.ok, true, JSON.stringify(result))
-  assert.equal(net.payloads[0].transporte?.enderecoEntrega.tipoPessoaDestinatario, 'F')
+  assert.equal(net.payloads[0].transporte?.enderecoEntrega?.tipoPessoaDestinatario, 'F')
 })

@@ -1,0 +1,159 @@
+{
+  "_origem": "Payload de venda sem Entrega gerado pelo codigo da feature/nf-endereco-entrega em e5d0ebca (06/11/2026), antes da 3b do #725. Fixtures VENDA e REGRA do payload.test.ts.",
+  "interna": {
+    "id": "mova-venda-abc123",
+    "ambienteEmissao": "Homologacao",
+    "naturezaOperacao": "Venda de mercadoria com ST",
+    "tipoOperacao": "Saida",
+    "finalidade": "Normal",
+    "consumidorFinal": true,
+    "enviarPorEmail": false,
+    "pedido": {
+      "presencaConsumidor": "OperacaoPresencial",
+      "pagamento": {
+        "formas": [
+          {
+            "tipo": "PagamentoInstantaneoPix",
+            "valor": 8725.85
+          }
+        ]
+      }
+    },
+    "cliente": {
+      "tipoPessoa": "F",
+      "indicadorContribuinteICMS": "NaoContribuinte",
+      "nome": "BRUNA MARIA ASSIS DA SILVA",
+      "cpfCnpj": "35281765043",
+      "email": "bruna@exemplo.com",
+      "telefone": "35999998888",
+      "endereco": {
+        "uf": "MG",
+        "cidade": "Varginha",
+        "logradouro": "Rua A",
+        "numero": "10",
+        "bairro": "Centro",
+        "cep": "37000000"
+      }
+    },
+    "itens": [
+      {
+        "cfop": "5405",
+        "codigo": "BOB MOTO CHEFE",
+        "descricao": "BOB MOTO CHEFE",
+        "ncm": "87116000",
+        "quantidade": 1,
+        "unidadeMedida": "UN",
+        "valorUnitario": 8725.85,
+        "impostos": {
+          "icms": {
+            "situacaoTributaria": "60",
+            "origem": 0
+          },
+          "pis": {
+            "situacaoTributaria": "01",
+            "porAliquota": {
+              "aliquota": 0.65
+            }
+          },
+          "cofins": {
+            "situacaoTributaria": "01",
+            "porAliquota": {
+              "aliquota": 3
+            }
+          },
+          "ipi": {
+            "situacaoTributaria": "99",
+            "porAliquota": {
+              "aliquota": 0
+            }
+          },
+          "ibsCbs": {
+            "situacaoTributaria": "000",
+            "classificacaoTributaria": "000001"
+          }
+        },
+        "cest": "2600100"
+      }
+    ],
+    "informacoesAdicionais": null
+  },
+  "interestadual": {
+    "id": "mova-venda-abc123",
+    "ambienteEmissao": "Homologacao",
+    "naturezaOperacao": "Venda de mercadoria com ST",
+    "tipoOperacao": "Saida",
+    "finalidade": "Normal",
+    "consumidorFinal": true,
+    "enviarPorEmail": false,
+    "pedido": {
+      "presencaConsumidor": "OperacaoPresencial",
+      "pagamento": {
+        "formas": [
+          {
+            "tipo": "PagamentoInstantaneoPix",
+            "valor": 8725.85
+          }
+        ]
+      }
+    },
+    "cliente": {
+      "tipoPessoa": "F",
+      "indicadorContribuinteICMS": "NaoContribuinte",
+      "nome": "BRUNA MARIA ASSIS DA SILVA",
+      "cpfCnpj": "35281765043",
+      "email": "bruna@exemplo.com",
+      "telefone": "35999998888",
+      "endereco": {
+        "uf": "SP",
+        "cidade": "Campinas",
+        "logradouro": "Rua A",
+        "numero": "10",
+        "bairro": "Centro",
+        "cep": "37000000"
+      }
+    },
+    "itens": [
+      {
+        "cfop": "6404",
+        "codigo": "BOB MOTO CHEFE",
+        "descricao": "BOB MOTO CHEFE",
+        "ncm": "87116000",
+        "quantidade": 1,
+        "unidadeMedida": "UN",
+        "valorUnitario": 8725.85,
+        "impostos": {
+          "icms": {
+            "situacaoTributaria": "00",
+            "origem": 0,
+            "aliquota": 12,
+            "baseCalculo": 8725.85
+          },
+          "pis": {
+            "situacaoTributaria": "01",
+            "porAliquota": {
+              "aliquota": 0.65
+            }
+          },
+          "cofins": {
+            "situacaoTributaria": "01",
+            "porAliquota": {
+              "aliquota": 3
+            }
+          },
+          "ipi": {
+            "situacaoTributaria": "99",
+            "porAliquota": {
+              "aliquota": 0
+            }
+          },
+          "ibsCbs": {
+            "situacaoTributaria": "000",
+            "classificacaoTributaria": "000001"
+          }
+        },
+        "cest": "2600100"
+      }
+    ],
+    "informacoesAdicionais": null
+  }
+}
