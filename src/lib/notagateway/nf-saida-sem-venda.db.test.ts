@@ -1,5 +1,5 @@
 // Teste de banco (#690): consultar, cancelar e descartar uma NF de saída cuja venda não existe
-// mais. Postgres descartável, como transporte-actions.db.test.ts; mock só no login e na rede.
+// mais. Postgres descartável, como transporte-actions.db.test.ts; mock no login, no next/cache e na rede.
 import { after, afterEach, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -42,7 +42,7 @@ async function contaComOperador() {
   return { ...base, suffix, user: { id, papel: 'aux_adm', lojaId: base.lojaId, contaId: base.contaId, gruposAcesso: [] } }
 }
 
-/** Três notas da mesma venda, uma para cada ação, e a venda apagada depois (como Cancelar venda e Remover moto). */
+/** Três notas da mesma venda, uma para cada ação, e a venda apagada depois com `delete from vendas`. */
 async function notasSemVenda() {
   const a = await contaComOperador()
   const { cifrar } = await import('@/lib/cripto')
