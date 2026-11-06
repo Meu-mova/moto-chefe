@@ -41,7 +41,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1)
 }
 // Imprime o banco e recusa a produção sem --prod.
-exigirAlvoPermitido(process.env.DATABASE_URL, args.includes('--prod'), process.env.CI === 'true')
+exigirAlvoPermitido(process.env.DATABASE_URL, args.includes('--prod'))
 if (!aplicar) console.log('Simulação: nada é gravado.')
 
 async function main() {
