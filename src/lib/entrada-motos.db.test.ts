@@ -158,7 +158,9 @@ test('chassi já cadastrado (#691, #456): arquivado ou ativo de outra Conta rece
   })
 })
 
-test('insert duplicado da Entrada manual e por planilha (#691): frase neutra para outra Conta, RADAR para a arquivada, "já existe" para a ativa', async () => {
+const pronta = (c: Awaited<ReturnType<typeof cenarioLote>>, chassi: string) => ({ chassi, moto: c.moto(chassi), precoCompra: '6400' })
+
+test('Entrada manual e por planilha (#691): grava a moto nova; duplicada de outra Conta recebe a frase neutra, arquivada o RADAR, ativa "já existe"', async () => {
   await emTransacaoDesfeita(async tx => {
     const c = await cenarioLote(tx)
     const gravar = (lojaId: string, chassi: string) => entrada.gravarLoteDeEntrada(tx, { lojaId, usuarioId: c.usuarioId, motos: [c.moto(chassi)], fiscais: [] })
@@ -166,51 +168,55 @@ test('insert duplicado da Entrada manual e por planilha (#691): frase neutra par
     await gravar(c.a.lojaId, 'EMLOTE00000000C2')
     await gravar(c.a.lojaId, 'EMLOTE00000000C3')
     await arquivar(tx, 'EMLOTE00000000C2', c.usuarioId)
-    // O insert de verdade, num savepoint: a chave única do chassi recusa e a transação segue.
-    const recusaDoInsert = async (chassi: string) => {
-      try {
-        await tx.transaction(sp => entrada.inserirMotoDaEntrada(sp, { lojaId: c.a.lojaId, usuarioId: c.usuarioId, chassi, moto: c.moto(chassi), precoCompra: '6400' }))
-      } catch (erro) {
-        return entrada.recusaDoInsertDaMoto(tx, { lojaId: c.a.lojaId }, chassi, erro)
-      }
-      throw new Error(`${chassi} deveria ter sido recusado`)
-    }
-    assert.equal(await recusaDoInsert('EMLOTE00000000C1'), 'EMLOTE00000000C1: não deu para registrar este chassi. Confira o número.')
-    assert.equal(await recusaDoInsert('EMLOTE00000000C2'), 'EMLOTE00000000C2: Este chassi está arquivado. Desarquive pelo RADAR.')
-    assert.equal(await recusaDoInsert('EMLOTE00000000C3'), 'EMLOTE00000000C3: chassi já existe no sistema')
+    const socio = { id: c.usuarioId, grupoLiberado: null }
+    const r = await entrada.inserirMotosUmaAUma(tx, {
+      lojaId: c.a.lojaId, usuario: socio,
+      motos: ['EMLOTE00000000C1', 'EMLOTE00000000C2', 'EMLOTE00000000C3', 'EMLOTE00000000C4'].map(ch => pronta(c, ch)),
+    })
+    assert.deepEqual(r.erros, [
+      'EMLOTE00000000C1: não deu para registrar este chassi. Confira o número.',
+      'EMLOTE00000000C2: Este chassi está arquivado. Desarquive pelo RADAR.',
+      'EMLOTE00000000C3: chassi já existe no sistema',
+    ])
+    assert.deepEqual([...r.idPorChassi.keys()], ['EMLOTE00000000C4'])
+    assert.deepEqual((await motosDoLote(tx, ['EMLOTE00000000C4'])).map(m => [m.loja_id, m.historico]), [[c.a.lojaId, 1]])
   })
 })
 
-test('admin_rede na persona (#517, #691): chassi do grupo irmão não liberado, ativo ou arquivado, recebe a frase neutra', async () => {
+/** Conta A com o grupo liberado ao admin_rede da Conta B e um grupo irmão que não foi liberado. */
+async function cenarioPersona(tx: Tx) {
   const { usuarioDaRede } = await import('@/lib/grupos-liberados')
-  await emTransacaoDesfeita(async tx => {
-    const c = await cenarioLote(tx)
-    const irmao = await semearGrupo(tx, c.a.contaId, { prefixo: 'EMLOTE', nome: 'A irmao', cnpj: '55555555000191' })
-    const redeId = await semearUsuario(tx, c.b, { papel: 'admin_rede', rotulo: 'rede' })
-    const rede = usuarioDaRede(
-      { id: redeId, papel: 'admin_rede', lojaId: c.b.lojaId, gruposAcesso: [], gruposAprovacao: [], contaId: c.b.contaId },
-      [{ grupoId: c.a.grupoId, contaId: c.a.contaId }], c.a.grupoId,
-    )
-    assert.equal(rede.grupoLiberado, c.a.grupoId)
-    const gravar = (lojaId: string, chassi: string) => entrada.gravarLoteDeEntrada(tx, { lojaId, usuarioId: c.usuarioId, motos: [c.moto(chassi)], fiscais: [] })
-    await gravar(irmao.lojaId, 'EMLOTE00000000I1')
-    await gravar(irmao.lojaId, 'EMLOTE00000000I2')
-    await arquivar(tx, 'EMLOTE00000000I2', c.usuarioId)
-    await gravar(c.a.lojaId, 'EMLOTE00000000L1')
-    const neutra = (chassi: string) => `${chassi}: não deu para registrar este chassi. Confira o número.`
-    const esperado = [neutra('EMLOTE00000000I1'), neutra('EMLOTE00000000I2'), 'EMLOTE00000000L1: chassi já existe no sistema']
+  const c = await cenarioLote(tx)
+  const irmao = await semearGrupo(tx, c.a.contaId, { prefixo: 'EMLOTE', nome: 'A irmao', cnpj: '55555555000191' })
+  const redeId = await semearUsuario(tx, c.b, { papel: 'admin_rede', rotulo: 'rede' })
+  const rede = usuarioDaRede(
+    { id: redeId, papel: 'admin_rede', lojaId: c.b.lojaId, gruposAcesso: [], gruposAprovacao: [], contaId: c.b.contaId },
+    [{ grupoId: c.a.grupoId, contaId: c.a.contaId }], c.a.grupoId,
+  )
+  assert.equal(rede.grupoLiberado, c.a.grupoId)
+  const gravar = (lojaId: string, chassi: string) => entrada.gravarLoteDeEntrada(tx, { lojaId, usuarioId: c.usuarioId, motos: [c.moto(chassi)], fiscais: [] })
+  await gravar(irmao.lojaId, 'EMLOTE00000000I1')
+  await gravar(irmao.lojaId, 'EMLOTE00000000I2')
+  await arquivar(tx, 'EMLOTE00000000I2', c.usuarioId)
+  await gravar(c.a.lojaId, 'EMLOTE00000000L1')
+  const neutra = (chassi: string) => `${chassi}: não deu para registrar este chassi. Confira o número.`
+  return { c, rede, chassis: ['EMLOTE00000000I1', 'EMLOTE00000000I2', 'EMLOTE00000000L1'],
+    esperado: [neutra('EMLOTE00000000I1'), neutra('EMLOTE00000000I2'), 'EMLOTE00000000L1: chassi já existe no sistema'] }
+}
 
-    const naNota = await entrada.conferirMotosDaEntrada(tx, c.a.lojaId, ['EMLOTE00000000I1', 'EMLOTE00000000I2', 'EMLOTE00000000L1'].map(c.moto), rede.grupoLiberado)
-    assert.deepEqual(naNota.erros, esperado)
-    const noInsert = []
-    for (const chassi of ['EMLOTE00000000I1', 'EMLOTE00000000I2', 'EMLOTE00000000L1']) {
-      try {
-        await tx.transaction(sp => entrada.inserirMotoDaEntrada(sp, { lojaId: c.a.lojaId, usuarioId: redeId, chassi, moto: c.moto(chassi), precoCompra: '6400' }))
-      } catch (erro) {
-        noInsert.push(await entrada.recusaDoInsertDaMoto(tx, { lojaId: c.a.lojaId, grupoLiberado: rede.grupoLiberado }, chassi, erro))
-      }
-    }
-    assert.deepEqual(noInsert, esperado)
+test('admin_rede na persona (#517, #691), Entrada manual e por planilha: chassi do grupo irmão não liberado, ativo ou arquivado, recebe a frase neutra', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const p = await cenarioPersona(tx)
+    const r = await entrada.inserirMotosUmaAUma(tx, { lojaId: p.c.a.lojaId, usuario: p.rede, motos: p.chassis.map(ch => pronta(p.c, ch)) })
+    assert.deepEqual(r.erros, p.esperado)
+  })
+})
+
+test('admin_rede na persona (#517, #691), conferência da nota: chassi do grupo irmão recebe a frase neutra', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const p = await cenarioPersona(tx)
+    const r = await entrada.conferirMotosDaEntrada(tx, p.c.a.lojaId, p.chassis.map(p.c.moto), p.rede)
+    assert.deepEqual(r.erros, p.esperado)
   })
 })
 

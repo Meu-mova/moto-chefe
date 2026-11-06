@@ -4,7 +4,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
-import { semearContaBase, semearUsuario } from '@/test/semear-conta'
+import { semearContaBase, semearGrupo, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -47,7 +47,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
     values ('M', ${'EN429 ' + nome}, 'autopropelido', '1000', 'hub', '32', ${base.contaId}) returning id`)
   const peca = await catalogo.inserirPeca(tx, base.contaId, { nome: 'Capacete ' + nome, valor: 90 })
   const usuario = { id: auxId, papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: null, contaId: base.contaId }
-  return { contaId: base.contaId, lojaId: base.lojaId, usuario, modeloId: modelo.id as string, pecaId: peca.id }
+  return { base, contaId: base.contaId, lojaId: base.lojaId, usuario, modeloId: modelo.id as string, pecaId: peca.id }
 }
 
 const NOTA = { chaveAcesso: '7'.repeat(44), numero: '50001', fornecedorCnpj: '12345678000199' }
@@ -184,5 +184,25 @@ test('chassi que só existe na Conta A recusa a nota da Conta B com frase neutra
     assert.deepEqual(erro.erros, ['EN429DEA: não deu para registrar este chassi. Confira o número.'])
     assert.deepEqual(await motosGravadas(tx, ['EN429NOVAB']), [])
     assert.equal(await saldos.saldoNaLoja(tx, b.pecaId, b.lojaId), 0)
+  })
+})
+
+test('admin_rede na persona (#517, #691): nota com chassi do grupo irmão não liberado recusa com a frase neutra, sem dizer que existe', async () => {
+  const { usuarioDaRede } = await import('@/lib/grupos-liberados')
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const grupoA = a.base.grupoId
+    const irmao = await semearGrupo(tx, a.contaId, { prefixo: 'EN429', nome: 'A irmao', cnpj: '33333333000191' })
+    const { gravarLoteDeEntrada } = await import('@/lib/entrada-motos')
+    await gravarLoteDeEntrada(tx, { lojaId: irmao.lojaId, usuarioId: a.usuario.id, motos: [moto(a.modeloId, 'EN429IRMAO')], fiscais: [] })
+    const redeId = await semearUsuario(tx, b.base, { papel: 'admin_rede', rotulo: 'rede' })
+    const rede = usuarioDaRede(
+      { id: redeId, papel: 'admin_rede', lojaId: b.lojaId, gruposAcesso: [], gruposAprovacao: [], contaId: b.contaId },
+      [{ grupoId: grupoA, contaId: a.contaId }], grupoA,
+    )
+    const erro = await tentar(tx, { usuario: rede, lojaId: a.lojaId, nota: NOTA, motos: [moto(a.modeloId, 'EN429IRMAO')], pecas: [capacete(a.pecaId)] })
+    assert.ok(erro instanceof nota.NotaRecusada, String(erro))
+    assert.deepEqual(erro.erros, ['EN429IRMAO: não deu para registrar este chassi. Confira o número.'])
   })
 })

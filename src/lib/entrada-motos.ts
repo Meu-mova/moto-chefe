@@ -120,6 +120,9 @@ export async function gravarFichaFiscalDasMotos(
 
 export type MotoConferida = { chassi: string; moto: MotoEntradaLote; precoCompra: string }
 
+/** Quem dá a entrada: só o grupo liberado da persona do admin_rede muda a frase do chassi. */
+type QuemDaEntrada = { grupoLiberado?: string | null }
+
 /**
  * Confere as motos de uma entrada tudo ou nada, sem gravar: chassi repetido, modelo que a
  * Conta da loja não usa, preço vazio e chassi já cadastrado viram erro. Conferido antes de
@@ -129,8 +132,8 @@ export async function conferirMotosDaEntrada(
   exec: Pick<typeof db, 'select'>,
   lojaId: string,
   motosDaNota: MotoEntradaLote[],
-  /** Persona do admin_rede (#517): chassi fora do grupo liberado recebe a frase neutra. */
-  grupoLiberado: string | null = null,
+  /** Quem dá a entrada. Na persona do admin_rede (#517), chassi fora do grupo liberado recebe a frase neutra. */
+  usuario: QuemDaEntrada = {},
 ): Promise<{ prontas: MotoConferida[]; erros: string[] }> {
   const contaId = await contaDaLoja(lojaId, exec)
   const modelosValidos = await modelosUsaveisPelaConta(
@@ -153,7 +156,7 @@ export async function conferirMotosDaEntrada(
   }
   if (!prontas.length) return { prontas, erros }
 
-  const jaCadastrados = await recusasDeChassiCadastrado(exec, { contaId, grupoLiberado }, prontas.map(p => p.chassi))
+  const jaCadastrados = await recusasDeChassiCadastrado(exec, { contaId, grupoLiberado: usuario.grupoLiberado }, prontas.map(p => p.chassi))
   return { prontas, erros: [...erros, ...jaCadastrados] }
 }
 
@@ -191,11 +194,34 @@ const ehChaveDuplicada = (e: { code?: string; cause?: { code?: string }; message
  * Frase do insert que falhou na Entrada manual ou por planilha, moto a moto. Chave duplicada
  * recebe a mesma recusa da conferência da nota (#456, #691); outro erro vai com a mensagem.
  */
-export async function recusaDoInsertDaMoto(exec: Pick<typeof db, 'select'>, destino: { lojaId: string; grupoLiberado?: string | null }, chassi: string, erro: unknown): Promise<string> {
+async function recusaDoInsertDaMoto(exec: Pick<typeof db, 'select'>, destino: { lojaId: string; usuario: QuemDaEntrada }, chassi: string, erro: unknown): Promise<string> {
   const e = (erro ?? {}) as { code?: string; cause?: { code?: string }; message?: string }
   if (!ehChaveDuplicada(e)) return `${chassi}: ${e.message}`
-  const [recusa] = await recusasDeChassiCadastrado(exec, { contaId: await contaDaLoja(destino.lojaId, exec), grupoLiberado: destino.grupoLiberado }, [chassi])
+  const escopo = { contaId: await contaDaLoja(destino.lojaId, exec), grupoLiberado: destino.usuario.grupoLiberado }
+  const [recusa] = await recusasDeChassiCadastrado(exec, escopo, [chassi])
   return recusa ?? `${chassi}: ${CHASSI_RECUSADO}`
+}
+
+/**
+ * Entrada manual e por planilha: grava moto a moto, cada uma num savepoint, e a que falha não
+ * impede as outras. Devolve o id de cada moto que entrou e a recusa das outras, na frase do escopo
+ * de quem dá a entrada.
+ */
+export async function inserirMotosUmaAUma(
+  exec: Pick<typeof db, 'select' | 'transaction'>,
+  e: { lojaId: string; usuario: QuemDaEntrada & { id: string }; motos: MotoConferida[] },
+): Promise<{ idPorChassi: Map<string, string>; erros: string[] }> {
+  const idPorChassi = new Map<string, string>()
+  const erros: string[] = []
+  for (const m of e.motos) {
+    try {
+      const id = await exec.transaction(sp => inserirMotoDaEntrada(sp, { lojaId: e.lojaId, usuarioId: e.usuario.id, ...m }))
+      idPorChassi.set(m.chassi, id)
+    } catch (erro) {
+      erros.push(await recusaDoInsertDaMoto(exec, { lojaId: e.lojaId, usuario: e.usuario }, m.chassi, erro))
+    }
+  }
+  return { idPorChassi, erros }
 }
 
 /** Grava as motos já conferidas e a ficha fiscal de cada uma. Devolve quantas fichas entraram. */

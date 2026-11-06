@@ -34,7 +34,7 @@ export async function registrarNotaComPecas(exec: Executor, e: NotaComPecas): Pr
     throw new NotaRecusada(['Loja de destino não encontrada'])
   }
 
-  const { prontas, erros: errosDasMotos } = await conferirMotosDaEntrada(exec, e.lojaId, e.motos, e.usuario.grupoLiberado ?? null)
+  const { prontas, erros: errosDasMotos } = await conferirMotosDaEntrada(exec, e.lojaId, e.motos, e.usuario)
   const erros = [...errosDasMotos, ...await conferirLinhasPecas(exec, e.lojaId, e.pecas)]
   if (erros.length) throw new NotaRecusada(erros)
 
