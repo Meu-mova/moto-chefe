@@ -61,8 +61,33 @@ O mesmo artigo mantém os nomes da versão 3.10: `"PorContaDoEmitente"= 0`, `"Po
 - O tipo RENAVE continua sendo uma escolha do operador. Este hotfix não sobrescreve `VendaConcessionaria`, `Outros` ou outros valores salvos com `FaturamentoDiretoConsumidorFinal`.
 - Para `FaturamentoDiretoConsumidorFinal` (2), a tela exige endereço de entrega e envia CPF/CNPJ, logradouro, número, bairro, código IBGE em `cidade` e UF. A NG completa o nome do município no XML conforme a orientação de suporte.
 - A modalidade de frete é obrigatória no faturamento direto e escolhida sem valor pré-selecionado. "Sem frete" (`SemOcorrenciaDeTransporte`) não dispensa o endereço quando `tpOp=2`.
-- Fora de `tpOp=2` (decisão do Luis: não generalizar para outras revendas), nada muda: a tela não pede frete nem entrega e o payload não leva `transporte`. O hotfix não define a regra comercial/fiscal da operação de revenda.
+- Fora de `tpOp=2`, a venda **sem** Entrega (anterior à 0175) segue como antes: a tela da nota não pede frete nem entrega e o payload não leva `transporte`. A venda **com** Entrega segue a seção "Entrega da venda" abaixo (#725).
 - O payload segue no JSON já armazenado por `notas_fiscais_saida`; não há migração. O reenvio reaproveita o fluxo existente de tentativa e recebe o payload corrigido.
+
+## Entrega da venda (#725, ADR-0021)
+
+A [página de emissão de NF-e](https://docs.notagateway.com.br/v2/reference/emitir-nota-fiscal-nfe) (`updatedAt 2026-06-16`)
+mostra no JSON `"transporte": { "frete": { "modalidade": "string" }, "enderecoEntrega": { ... } }`, separado de
+`cliente.endereco`.
+
+**O que a página não diz:** quais campos de `transporte` são obrigatórios, nem se a operação interna ou
+interestadual sai do endereço do cliente ou do de entrega. Fontes do que o MOVA faz:
+
+- Manual da NG para NF-e modelo 55 (fora do repo): `transporte`, `transporte.frete.modalidade` e
+  `transporte.enderecoEntrega` aparecem com obrigatório "Não". É a base para mandar a modalidade sem
+  `enderecoEntrega` na retirada.
+- Suporte da NG (Hermes, resposta escrita de 05/11/2026, na #682): *"os campos que você enviar na requisição
+  [...] vão definir se é dentro ou fora do estado: CFOP, endereço de entrega ou do tomador."* Na call do
+  mesmo dia: retirada na mesma loja *"pode omitir o endereço de entrega e mandar só o do tomador"*.
+
+No MOVA (`src/lib/notagateway/entrega.ts`, `payload.ts`):
+
+- `operacaoDaVenda` decide dentro ou fora do estado pela Entrega; o CFOP, o CST e a alíquota seguem a decisão.
+- **Retira na loja**: `cliente.endereco` com o endereço real e `transporte: { frete: { modalidade } }`, sem
+  `enderecoEntrega`. Cliente de outra UF sai interestadual só com moto ciclomotor ou indicador "contribuinte".
+- Venda com Entrega e sem modalidade não monta a nota; a prévia lista a pendência.
+- Venda sem Entrega: payload igual ao de antes (teste com o payload gravado em `payload-sem-entrega.golden.json`).
+- Faturamento direto: o frete e o endereço continuam vindo do formulário da nota até o #728.
 
 ## Rejeições 841, 842 e 843 (tipo e espécie do veículo)
 
