@@ -166,7 +166,7 @@ test('marcar uma moto destaca a linha; excluir tira só ela e as contagens acomp
   assert.equal(titulo(), 'Motos importadas (6)')
   assert.equal(caixa('Marcar R2'), null)
   assert.ok(caixa('Marcar R1') && caixa('Marcar R3'))
-  assert.match(textoDaTela(), /NF 43440\s*4 moto\(s\)/)
+  assert.match(textoDaTela(), /NF 43440\s*4 motos/)
   assert.match(textoDaTela(), /R10\s*2 un\./)
   assert.equal(botao('Registrar entrada')?.textContent?.trim(), 'Registrar entrada (6 motos)')
   assert.equal(botao('Excluir selecionadas')?.textContent?.trim(), 'Excluir selecionadas (0)')
@@ -189,7 +189,7 @@ test('a caixa do modelo marca todas dele; desmarcar uma deixa a do modelo indete
   assert.equal(titulo(), 'Motos importadas (5)')
   assert.equal(doModelo(), null, 'o bloco X12 sumiu')
   assert.equal(caixa('Marcar X1'), null)
-  assert.match(textoDaTela(), /NF 43440\s*3 moto\(s\)/)
+  assert.match(textoDaTela(), /NF 43440\s*3 motos/)
 })
 
 test('Desfazer devolve as motos tiradas na mesma ordem', async () => {
@@ -421,6 +421,8 @@ test('com uma moto só, o botão diz "Registrar entrada (1 moto)"', async () => 
   }
   await clicar(botao('Excluir selecionadas (6)'))
   assert.equal(botao('Registrar entrada')?.textContent?.trim(), 'Registrar entrada (1 moto)')
+  assert.match(textoDaTela(), /NF 43512\s*1 moto(?!s)/)
+  assert.ok(botao('1 moto carregada da planilha'), 'contador do botão da planilha no singular')
 })
 
 test('Limpar, Desfazer e registrar: depois de gravar não aparece o aviso de lista vazia', async () => {

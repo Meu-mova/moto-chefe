@@ -14,6 +14,7 @@ import { PecasPorPlanilha } from './pecas-por-planilha'
 import { MotosImportadas } from './motos-importadas'
 import { acrescentarDoXml, chaveDoChassi, devolverTiradas, fichasDoEnvio, tirarMarcadas, type Exclusao, type MotoImportada } from '@/lib/entrada-lista'
 import { marcarVarias } from '@/lib/selecao'
+import { plural } from '@/lib/texto'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
 import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
@@ -80,8 +81,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     return () => { vale = false }
   }, [notaPecas, lojaId])
 
-  const qtdMotos = linhasPlanilha.length === 1 ? '1 moto' : `${linhasPlanilha.length} motos`
-  const qtdPecas = linhasPecas.filter(l => l.destino !== 'ignorar').length
+  const qtdMotos = plural(linhasPlanilha.length, 'moto', 'motos')
+  const qtdPecas = plural(linhasPecas.filter(l => l.destino !== 'ignorar').length, 'peça', 'peças')
 
   // O botão fica travado com o motivo na própria linha (estoque inteiro, preço da peça nova).
   const pecasComProblema = notaPecas ? linhasPecas.filter(l => problemaDaLinha(l)).length : 0
@@ -541,7 +542,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               >
                 <Upload size={16} />
                 {linhasPlanilha.length > 0 && origemDasLinhas === 'xml'
-                  ? `${linhasPlanilha.length} moto(s) carregada(s) — clique para adicionar mais XMLs`
+                  ? `${plural(linhasPlanilha.length, 'moto carregada', 'motos carregadas')}. Clique para adicionar mais XMLs`
                   : 'Selecionar XMLs das notas (.xml) — pode escolher vários'}
               </button>
             </div>
@@ -562,7 +563,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
               >
                 <Upload size={16} />
                 {linhasPlanilha.length > 0 && origemDasLinhas === 'planilha'
-                  ? `${linhasPlanilha.length} moto(s) carregada(s) da planilha`
+                  ? `${plural(linhasPlanilha.length, 'moto carregada', 'motos carregadas')} da planilha`
                   : 'Selecionar planilha (.xlsx)'}
               </button>
             </div>
@@ -643,7 +644,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
                 {loading
                   ? 'Registrando...'
                   : notaPecas
-                    ? `Registrar entrada (${qtdMotos} e ${qtdPecas === 1 ? '1 peça' : `${qtdPecas} peças`})`
+                    ? `Registrar entrada (${qtdMotos} e ${qtdPecas})`
                     : `Registrar entrada (${qtdMotos})`}
               </button>
             </div>

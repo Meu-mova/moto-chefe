@@ -3,6 +3,7 @@
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { agruparPorNfEModelo, type MotoImportada } from '@/lib/entrada-lista'
 import { estadoDaSelecao, type EstadoDaSelecao } from '@/lib/selecao'
+import { plural } from '@/lib/texto'
 
 type Modelo = { id: string; modelo: string; marca: string }
 
@@ -72,7 +73,7 @@ export function MotosImportadas({ linhas, modelos, marcadas, onMarcar, onTrocarM
         <div key={nf} className="space-y-3">
           <div className="flex items-center gap-2 border-b pb-2">
             <span className="text-sm font-semibold text-foreground">NF {nf}</span>
-            <span className="text-xs bg-info/10 text-info px-2 py-0.5 rounded-full">{total} moto(s)</span>
+            <span className="text-xs bg-info/10 text-info px-2 py-0.5 rounded-full">{plural(total, 'moto', 'motos')}</span>
           </div>
 
           {modelosDaNf.map(({ modelo, motos }) => {
