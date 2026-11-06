@@ -59,7 +59,7 @@ async function main() {
   const { contaDaLoja, usuarioDaConta } = await import('../src/lib/conta')
   const { apelidosDosModelos, listarApelidosDaConta, listarModelosDaConta } = await import('../src/lib/modelos-da-conta')
   const { lerListaDeChassis, motosDeOutroCnpj, planejarEntradaDeXmls, recusaPorCnpjComprador } = await import('../src/lib/entrada-xml-lote')
-  const { gravarLoteDeEntrada } = await import('../src/lib/entrada-motos')
+  const { conferirMotosDaEntrada, gravarLoteDeEntrada } = await import('../src/lib/entrada-motos')
   const { preencherGruposComPrecoPadrao } = await import('../src/lib/tabela-preco-padrao')
 
   const [loja] = await db.select({ id: lojas.id, nome: lojas.nome, grupoId: lojas.grupoId, cnpjDoGrupo: grupos.cnpj })
@@ -102,6 +102,13 @@ async function main() {
   if (plano.problemas.length) {
     console.log(`\n${plano.problemas.length} fora do lote:`)
     plano.problemas.forEach(p => console.log(`  - ${p}`))
+  }
+
+  // A mesma conferência da gravação, só leitura: chassi já cadastrado e modelo aparecem já na simulação.
+  const { erros: recusasDaGravacao } = await conferirMotosDaEntrada(db, loja.id, plano.motos)
+  if (recusasDaGravacao.length) {
+    console.log(`\n${recusasDaGravacao.length} recusa(s) da gravação:`)
+    recusasDaGravacao.forEach(e => console.log(`  - ${e}`))
   }
 
   if (!aplicar) {
