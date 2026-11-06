@@ -433,3 +433,18 @@ test('Limpar, Desfazer e registrar: depois de gravar não aparece o aviso de lis
   await esperar(() => enviados.length === 1 && titulo() === undefined)
   assert.doesNotMatch(textoDaTela(), new RegExp(LISTA_VAZIA))
 })
+
+test('depois de um erro no registro, o Desfazer de uma nova exclusão devolve a moto', async () => {
+  respostaDoEnvio = { error: 'Falhou' }
+  await montarComPlanilha()
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1 && !botao('Registrar entrada')?.textContent?.includes('Registrando'))
+
+  await clicar(caixa('Marcar R1'))
+  await clicar(botao('Excluir selecionadas'))
+  assert.equal(titulo(), 'Motos importadas (6)')
+  const { act } = await import('react')
+  await act(async () => { avisos.at(-1)?.acao?.onClick() })
+  assert.equal(titulo(), 'Motos importadas (7)')
+})
