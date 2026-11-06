@@ -1,9 +1,9 @@
 /**
- * Arquivar moto (#677, #688): a moto sai de todas as telas e só o RADAR a acha.
- * Busca com a Conta e os grupos que a pessoa vê no where; moto de outra Conta, fora do
- * alcance, já arquivada ou inexistente recebe a mesma frase. As recusas vêm da regra pura.
+ * Arquivar moto (#677, #688) e Desarquivar (#691): a arquivada sai de todas as telas e só o RADAR
+ * a acha. Busca com a Conta e os grupos que a pessoa vê no where; moto de outra Conta, fora do
+ * alcance, no estado errado ou inexistente recebe a mesma frase. As recusas vêm da regra pura.
  */
-import { and, eq, exists, ilike, inArray, or, sql, type SQL } from 'drizzle-orm'
+import { and, eq, exists, ilike, inArray, isNotNull, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { aprovacoesVenda, garantias, lojas, modelos, motos, ordensServico, pedidosVenda, reservas, transferencias, vendas } from '@/lib/db/schema'
 import { lojasDoEscopo } from '@/lib/conta'
@@ -14,7 +14,7 @@ import { STATUS_OS_ABERTA } from '@/lib/os-transicao'
 import { registrarAcaoSensivel } from '@/lib/log-acoes'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { ehUuid } from '@/lib/uuid'
-import { motivoQueImpedeArquivar, podeArquivarMotos, recusaDoLote, type PendenciasDaMoto } from '@/lib/arquivar-moto-regras'
+import { motivoDoArquivoValido, motivoQueImpedeArquivar, podeArquivarMotos, recusaDoLote, type PendenciasDaMoto } from '@/lib/arquivar-moto-regras'
 
 type Exec = Pick<typeof db, 'select' | 'update' | 'insert' | 'transaction'>
 
@@ -45,15 +45,20 @@ async function alcance(usuario: UsuarioQueArquiva, exec: Exec): Promise<SQL | un
   )
 }
 
+// O que o log guarda da moto, ao arquivar e ao desarquivar.
+const dadosDaMoto = () => ({
+  id: motos.id,
+  chassi: motos.chassi,
+  nfEntrada: motos.notaFiscalEntrada,
+  lojaId: motos.lojaId,
+  loja: lojas.nome,
+  modelo: nomeDoModeloNaLoja(motos.lojaId),
+})
+
 function motosComPendencias(exec: Exec, onde: SQL | undefined) {
   const osAberta = inArray(ordensServico.status, [...STATUS_OS_ABERTA])
   return exec.select({
-    id: motos.id,
-    chassi: motos.chassi,
-    nfEntrada: motos.notaFiscalEntrada,
-    lojaId: motos.lojaId,
-    loja: lojas.nome,
-    modelo: nomeDoModeloNaLoja(motos.lojaId),
+    ...dadosDaMoto(),
     temVenda: temLinha(exec, vendas),
     reservaAtiva: temLinha(exec, reservas, eq(reservas.status, 'ativa')),
     pedidoPendente: temLinha(exec, pedidosVenda, eq(pedidosVenda.status, 'pendente')),
@@ -118,12 +123,59 @@ export async function arquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[
       .where(and(inArray(motos.id, ids), motoNaoArquivada(), onde ?? undefined))
       .returning({ id: motos.id })
     if (gravadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
-    for (const m of achadas) {
-      await registrarAcaoSensivel({
-        tipo: 'moto_arquivada', usuarioId: usuario.id, lojaId: m.lojaId,
-        detalhe: { motoId: m.id, chassi: m.chassi, modelo: m.modelo, loja: m.loja, nfEntrada: m.nfEntrada, motivo: texto },
-      }, tx)
-    }
+    await registrarNoLog(tx, 'moto_arquivada', usuario.id, achadas, texto)
     return { arquivadas: achadas.length }
+  })
+}
+
+type MotoDoLog = { id: string; chassi: string | null; modelo: string | null; loja: string; lojaId: string; nfEntrada: string | null }
+
+async function registrarNoLog(tx: NonNullable<Parameters<typeof registrarAcaoSensivel>[1]>, tipo: 'moto_arquivada' | 'moto_desarquivada', usuarioId: string, achadas: MotoDoLog[], motivo: string) {
+  for (const m of achadas) {
+    await registrarAcaoSensivel({
+      tipo, usuarioId, lojaId: m.lojaId,
+      detalhe: { motoId: m.id, chassi: m.chassi, modelo: m.modelo, loja: m.loja, nfEntrada: m.nfEntrada, motivo },
+    }, tx)
+  }
+}
+
+const motoArquivada = () => isNotNull(motos.arquivadaEm)
+
+/** Das motos pedidas, as que a pessoa pode desarquivar: o RADAR mostra o botão pela mesma regra do servidor. */
+export async function idsQuePodeDesarquivar(usuario: UsuarioQueArquiva, motoIds: string[], exec: Exec = db): Promise<string[]> {
+  const ids = motoIds.filter(ehUuid)
+  if (!podeArquivarMotos(usuario.papel) || ids.length === 0) return []
+  const onde = await alcance(usuario, exec)
+  if (onde === null) return []
+  const linhas = await exec.select({ id: motos.id }).from(motos).where(and(motoArquivada(), onde, inArray(motos.id, ids)))
+  return linhas.map(l => l.id)
+}
+
+/** Devolve as motos arquivadas ao MOVA: o lote inteiro ou nada, uma linha no log por moto. */
+export async function desarquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[], motivo: string, exec: Exec = db) {
+  if (!podeArquivarMotos(usuario.papel)) throw new RecusaUsuario('Sem permissão para desarquivar motos.')
+  if (!motivoDoArquivoValido(motivo)) throw new RecusaUsuario('Escreva o motivo do desarquivamento.')
+  const ids = [...new Set(motoIds)]
+  if (ids.length === 0 || !ids.every(ehUuid)) throw new RecusaUsuario(NAO_ENCONTRADA)
+
+  return exec.transaction(async tx => {
+    const onde = await alcance(usuario, tx)
+    if (onde === null) throw new RecusaUsuario(NAO_ENCONTRADA)
+    const doLote = and(motoArquivada(), onde, inArray(motos.id, ids))
+    const travadas = await tx.select({ id: motos.id }).from(motos).where(doLote).for('update')
+    if (travadas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
+    const achadas = await tx.select(dadosDaMoto()).from(motos)
+      .innerJoin(lojas, eq(lojas.id, motos.lojaId))
+      .innerJoin(modelos, eq(modelos.id, motos.modeloId))
+      .where(inArray(motos.id, ids))
+
+    // Os três juntos (check motos_arquivo_completo), com a Conta e o alcance repetidos no where.
+    const devolvidas = await tx.update(motos)
+      .set({ arquivadaEm: null, arquivadaPor: null, motivoArquivo: null })
+      .where(doLote)
+      .returning({ id: motos.id })
+    if (devolvidas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
+    await registrarNoLog(tx, 'moto_desarquivada', usuario.id, achadas, motivo.trim())
+    return { desarquivadas: devolvidas.length }
   })
 }
