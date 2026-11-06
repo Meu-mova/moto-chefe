@@ -34,6 +34,23 @@ export async function motoDoUsuario(
 }
 
 /**
+ * Trava a moto até o commit e recusa a arquivada (#688). Quem grava venda, reserva, pedido,
+ * aprovação, transferência ou garantia chama isto dentro da transação, antes de gravar: a
+ * conferência feita antes da transação não segura um arquivar que termine no meio. Lê só
+ * pelo id; quem chama já conferiu a Conta (motoDoUsuario, lojaDaMotoParaGravar).
+ */
+export async function travarMotoNaoArquivada(tx: Executor, motoId: string) {
+  const [moto] = await tx
+    .select({ lojaId: motos.lojaId, status: motos.status, disponibilidade: motos.disponibilidade, arquivadaEm: motos.arquivadaEm })
+    .from(motos)
+    .where(eq(motos.id, motoId))
+    .for('update')
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
+  if (moto.arquivadaEm) throw new RecusaUsuario(MOTO_ARQUIVADA)
+  return moto
+}
+
+/**
  * Loja e status da moto que a ação vai gravar (transferência, garantia), ou null se não
  * existe, é de outra Conta ou a pessoa não age na loja dela. A recusa de arquivada vem só
  * depois do acesso: senão a frase revelaria a moto de outra Conta (#688).
