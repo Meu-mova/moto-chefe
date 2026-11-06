@@ -59,7 +59,7 @@ export function MotosImportadas({ linhas, modelos, marcadas, onMarcar, onTrocarM
           </button>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">Marque as motos que não devem entrar.</p>
+      <p className="text-xs text-muted-foreground">Marque as motos e clique em Excluir selecionadas.</p>
 
       {agruparPorNfEModelo(linhas).map(({ nf, total, modelos: modelosDaNf }) => (
         <div key={nf} className="space-y-3">

@@ -145,6 +145,8 @@ test('sem nada marcado, "Excluir selecionadas (0)" fica desabilitado ao lado do 
   assert.equal(excluir?.textContent?.trim(), 'Excluir selecionadas (0)')
   assert.ok((excluir as HTMLButtonElement).disabled)
   assert.ok(botao('Limpar'))
+  // Marcar sozinho não tira a moto: o "Registrar entrada" grava tudo o que está na lista.
+  assert.match(textoDaTela(), /Marque as motos e clique em Excluir selecionadas\./)
 })
 
 test('marcar uma moto destaca a linha; excluir tira só ela e as contagens acompanham', async () => {
