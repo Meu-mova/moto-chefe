@@ -1,16 +1,8 @@
 import { EsperaEsgotada } from '@/lib/limitar-concorrencia'
 import { comClientJarvis } from './conexao'
+import { ConsultaError } from './erros'
 
 export const CAP = 200
-
-export type ConsultaTipoErro = 'vazio' | 'nao_select' | 'multiplos' | 'timeout' | 'erro'
-
-export class ConsultaError extends Error {
-  constructor(public tipo: ConsultaTipoErro, public detalhe = '') {
-    super(tipo)
-    this.name = 'ConsultaError'
-  }
-}
 
 export interface ResultadoConsulta {
   rows: unknown[]
@@ -37,7 +29,7 @@ export async function consultaSomenteLeitura(sqlBruto: string): Promise<Resultad
     const truncated = arr.length > CAP
     return { rows: arr.slice(0, CAP), rowCount: Math.min(arr.length, CAP), truncated }
   } catch (e) {
-    if (e instanceof EsperaEsgotada) throw new ConsultaError('timeout', 'muitas consultas ao mesmo tempo')
+    if (e instanceof EsperaEsgotada) throw e
     const msg = e instanceof Error ? e.message : 'erro'
     if (/statement timeout|canceling statement/i.test(msg)) {
       throw new ConsultaError('timeout', msg.slice(0, 200))
