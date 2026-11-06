@@ -121,14 +121,39 @@ test('venda registrada recusa e orienta cancelar a venda ou remover', async () =
   })
 })
 
-test('pendência já fechada não trava', async () => {
+test('pendência já fechada, em qualquer status final, não trava', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000068807', '00000000068808')
-    const id = await a.novaMoto('FECH')
-    await tx.execute(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status) values (${id}, ${a.base.lojaId}, ${a.auxId}, 100, 'pix', '2026-12-01', 'cancelada')`)
-    await tx.execute(sql`insert into ordens_servico (moto_id, loja_id, aberta_por, descricao, status) values (${id}, ${a.base.lojaId}, ${a.auxId}, 'revisão', 'concluida')`)
-    await tx.execute(sql`insert into garantias (moto_id, loja_id, descricao, data_inicio, data_fim, status) values (${id}, ${a.base.lojaId}, 'bateria', '2026-01-01', '2027-01-01', 'encerrada')`)
-    assert.deepEqual(await arquivarMotos(a.socio, [id], 'fora de linha', tx), { arquivadas: 1 })
+    const { base, auxId } = a
+    const fechadas: [string, (id: string) => ReturnType<typeof sql>][] = [
+      ['RCAN', id => sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status) values (${id}, ${base.lojaId}, ${auxId}, 100, 'pix', '2026-12-01', 'cancelada')`],
+      ['RCON', id => sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status) values (${id}, ${base.lojaId}, ${auxId}, 100, 'pix', '2026-12-01', 'convertida')`],
+      ['PCAN', id => sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${id}, ${base.lojaId}, ${auxId}, 'cancelado')`],
+      ['PEFE', id => sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${id}, ${base.lojaId}, ${auxId}, 'efetivado')`],
+      ['AAPR', id => sql`insert into aprovacoes_venda (moto_id, loja_id, vendedor_id, valor, dados_venda, motivo, status) values (${id}, ${base.lojaId}, ${auxId}, 100, '{}', 'desconto', 'aprovada')`],
+      ['AREC', id => sql`insert into aprovacoes_venda (moto_id, loja_id, vendedor_id, valor, dados_venda, motivo, status) values (${id}, ${base.lojaId}, ${auxId}, 100, '{}', 'desconto', 'recusada')`],
+      ['TACE', id => sql`insert into transferencias (moto_id, loja_origem_id, loja_destino_id, solicitado_por, status) values (${id}, ${base.lojaId}, ${a.outro.lojaId}, ${auxId}, 'aceita')`],
+      ['TREC', id => sql`insert into transferencias (moto_id, loja_origem_id, loja_destino_id, solicitado_por, status) values (${id}, ${base.lojaId}, ${a.outro.lojaId}, ${auxId}, 'recusada')`],
+      ['OCON', id => sql`insert into ordens_servico (moto_id, loja_id, aberta_por, descricao, status) values (${id}, ${base.lojaId}, ${auxId}, 'revisão', 'concluida')`],
+      ['OCAN', id => sql`insert into ordens_servico (moto_id, loja_id, aberta_por, descricao, status) values (${id}, ${base.lojaId}, ${auxId}, 'revisão', 'cancelada')`],
+      ['GENC', id => sql`insert into garantias (moto_id, loja_id, descricao, data_inicio, data_fim, status) values (${id}, ${base.lojaId}, 'bateria', '2026-01-01', '2027-01-01', 'encerrada')`],
+    ]
+    for (const [sufixo, fechada] of fechadas) {
+      const id = await a.novaMoto(sufixo)
+      await tx.execute(fechada(id))
+      assert.deepEqual(await arquivarMotos(a.socio, [id], 'fora de linha', tx), { arquivadas: 1 }, sufixo)
+    }
+  })
+})
+
+test('moto do golpe como ficou de verdade (pedido cancelado, reserva convertida, sem venda, marcada vendida) arquiva', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000068829', '00000000068830')
+    const id = await a.novaMoto('GOLPE', a.base.lojaId, 'vendida')
+    await tx.execute(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status) values (${id}, ${a.base.lojaId}, ${a.auxId}, 100, 'link_pagamento', '2026-10-20', 'convertida')`)
+    await tx.execute(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${id}, ${a.base.lojaId}, ${a.auxId}, 'cancelado')`)
+    assert.deepEqual((await motosParaArquivar(a.socio, `${P}AGOLPE`, tx)).map(m => m.bloqueio), [null])
+    assert.deepEqual(await arquivarMotos(a.socio, [id], 'golpe do link de pagamento', tx), { arquivadas: 1 })
   })
 })
 
