@@ -3,6 +3,7 @@ import type { db } from '@/lib/db'
 import { historicoEstoque, motos, pedidosVenda, reservas, transferencias } from '@/lib/db/schema'
 import { motivoBloqueioCriarPedido, podeCancelarPedido, type QuemCancela } from '@/lib/pedido-venda-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
+import { MOTO_ARQUIVADA } from '@/lib/arquivar-moto-regras'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -16,11 +17,13 @@ export async function criarPedidoTx(
   d: { motoId: string; vendedorId: string; observacao: string | null },
 ): Promise<{ pedidoId: string; lojaId: string }> {
   const [moto] = await tx
-    .select({ lojaId: motos.lojaId, status: motos.status, disponibilidade: motos.disponibilidade })
+    .select({ lojaId: motos.lojaId, status: motos.status, disponibilidade: motos.disponibilidade, arquivadaEm: motos.arquivadaEm })
     .from(motos)
     .where(eq(motos.id, d.motoId))
     .for('update')
   if (!moto) throw new RecusaUsuario('Moto não encontrada')
+  // Conferida de novo sob a trava: quem chama já filtrou a Conta (motoDoUsuario), mas não segura a moto.
+  if (moto.arquivadaEm) throw new RecusaUsuario(MOTO_ARQUIVADA)
 
   const [transferencia] = await tx
     .select({ id: transferencias.id })

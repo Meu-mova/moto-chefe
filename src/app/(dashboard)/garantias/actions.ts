@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { lojaDaMotoParaGravar } from '@/lib/moto-do-usuario'
-import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { contaDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
 import { motoDaContaPorChassi } from '@/lib/busca-chassi'
@@ -48,8 +48,8 @@ export async function abrirGarantiaAction(params: {
 
   // O RPC valida que moto.loja_id == p_loja_id; admins não têm lojaId próprio,
   // então sempre buscamos a loja da moto para passar ao RPC.
-  const moto = await lojaDaMotoParaGravar(params.motoId)
-  if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  const moto = await lojaDaMotoParaGravar(usuario, params.motoId)
+  if (!moto) throw new Error('Moto não encontrada')
   await conferirVinculosDaConta(moto.lojaId, { osId: params.osId }, usuario.grupoLiberado)
 
   // Prazo fixo de 30 dias a partir da data de abertura

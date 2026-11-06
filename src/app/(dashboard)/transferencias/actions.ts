@@ -5,7 +5,7 @@ import { lojaDaMotoParaGravar } from '@/lib/moto-do-usuario'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { transferencias } from '@/lib/db/schema'
-import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
+import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { destinoDeTransferenciaPermitido } from '@/lib/transferencia-grupos'
 import { eq } from 'drizzle-orm'
 
@@ -44,8 +44,8 @@ export async function solicitarTransferenciaAction(
   }
   // A moto tem de ser da loja do usuário (admin: do grupo que vê), como na tela; o
   // destino, de grupo que ele vê, ou, com a chave da Conta ligada, de qualquer grupo dela (#552).
-  const moto = await lojaDaMotoParaGravar(motoId)
-  if (!moto || !(await podeAgirNaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
+  const moto = await lojaDaMotoParaGravar(usuario, motoId)
+  if (!moto) throw new Error('Moto não encontrada')
   const destinoOk = await destinoDeTransferenciaPermitido(usuario, moto.lojaId, lojaDestinoId)
   if (!destinoOk) {
     throw new Error('Loja de destino fora do seu grupo')

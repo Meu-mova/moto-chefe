@@ -46,3 +46,6 @@ export function recusaDoLote(lote: { motivo: string; motos: { chassi: string; pe
     .find(m => m.motivo !== null)
   return travada ? `${travada.chassi}: ${travada.motivo}` : null
 }
+
+/** Vender, reservar, pedir, transferir ou abrir garantia em moto arquivada (#688, decisão do Luis). */
+export const MOTO_ARQUIVADA = 'Esta moto está arquivada. Desarquive pelo RADAR.'
