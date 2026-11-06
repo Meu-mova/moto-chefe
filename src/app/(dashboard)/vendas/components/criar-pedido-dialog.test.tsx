@@ -24,9 +24,12 @@ afterEach(async () => {
 const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
 const textoDaTela = () => document.body.textContent ?? ''
 const botao = (texto: string) => [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').trim() === texto)
+// Campo pelo rótulo visível; a asserção diz qual faltou, em vez de um TypeError adiante.
 const campo = <T extends HTMLElement>(rotulo: RegExp) => {
   const label = [...document.querySelectorAll('label')].find(l => rotulo.test((l.textContent ?? '').trim()))
-  return label ? document.getElementById(label.htmlFor) as T : null
+  const el = label?.htmlFor ? document.getElementById(label.htmlFor) : null
+  assert.ok(el, `campo com o rótulo ${rotulo} não está na tela`)
+  return el as T
 }
 const opcaoDeEntrega = (nome: RegExp) => [...document.querySelectorAll<HTMLInputElement>('[role="radiogroup"] input[type="radio"]')]
   .find(r => nome.test(r.closest('label')?.textContent ?? ''))
@@ -54,7 +57,7 @@ test('abre com "Retira na loja" marcada, sem "Entregar" e sem nenhuma modalidade
   await montar()
   assert.equal(opcaoDeEntrega(/Retira na loja/)?.checked, true)
   assert.equal(opcaoDeEntrega(/Entregar/), undefined)
-  assert.equal(campo<HTMLSelectElement>(/^Modalidade do frete na nota/)?.value, '')
+  assert.equal(campo<HTMLSelectElement>(/^Modalidade do frete na nota/).value, '')
   assert.match(textoDaTela(), new RegExp(AVISO))
   assert.match(resumo(), /Retira na loja/)
   assert.match(resumo(), /Não escolhida/)
@@ -62,8 +65,8 @@ test('abre com "Retira na loja" marcada, sem "Entregar" e sem nenhuma modalidade
 
 test('envia a moto e a Entrega com a modalidade escolhida; o aviso some e o resumo mostra a modalidade', async () => {
   const t = await montar()
-  await escolher(campo<HTMLSelectElement>(/^Moto disponível/)!, MOTO.id)
-  await escolher(campo<HTMLSelectElement>(/^Modalidade do frete na nota/)!, 'TransporteProprioPorContaDoDestinatario')
+  await escolher(campo<HTMLSelectElement>(/^Moto disponível/), MOTO.id)
+  await escolher(campo<HTMLSelectElement>(/^Modalidade do frete na nota/), 'TransporteProprioPorContaDoDestinatario')
   assert.doesNotMatch(textoDaTela(), new RegExp(AVISO))
   assert.match(resumo(), /Cliente leva com veículo próprio/)
   await t.clique(botao('Criar pedido'))
@@ -74,7 +77,7 @@ test('envia a moto e a Entrega com a modalidade escolhida; o aviso some e o resu
 
 test('sem modalidade o pedido sai assim mesmo (avisa, não bloqueia) com a modalidade vazia', async () => {
   const t = await montar()
-  await escolher(campo<HTMLSelectElement>(/^Moto disponível/)!, MOTO.id)
+  await escolher(campo<HTMLSelectElement>(/^Moto disponível/), MOTO.id)
   await t.clique(botao('Criar pedido'))
   assert.deepEqual(criar.mock.calls.map(c => c.arguments), [[MOTO.id, '', { modo: 'retira', modalidade: '' }]])
 })
