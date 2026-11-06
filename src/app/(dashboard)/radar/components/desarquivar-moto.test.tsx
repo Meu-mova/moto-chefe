@@ -59,6 +59,9 @@ test('abre pelo botão com o chassi; sem motivo (ou só espaços) não envia', a
   await t.clique('Desarquivar')
   assert.ok(dialogoAberto())
   assert.match(textoDaTela(), /TESTE00ARQ000001/)
+  // Moto do golpe (vendida sem venda) não volta ao Showroom: o diálogo não promete isso (#691, decisão b).
+  assert.match(textoDaTela(), /A moto volta às listas e às buscas do MOVA\./)
+  assert.doesNotMatch(textoDaTela(), /Showroom/)
   const enviar = () => [...document.querySelectorAll('[data-slot="dialog-content"] button')].find(b => b.textContent?.trim() === 'Desarquivar') as HTMLButtonElement
   assert.ok(enviar().disabled)
   await t.escrever('   ')

@@ -50,7 +50,7 @@ export function DesarquivarMoto({ motoId, chassi, larguraTotal = false }: { moto
       <DialogoTelaCheia aberto={aberto} onFechar={fechar} travado={enviando} titulo="Desarquivar moto"
         descricao={<span className="font-mono">{chassi}</span>} className="sm:max-w-md">
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          <p className="text-sm text-muted-foreground">A moto volta ao Showroom, às listas e às buscas.</p>
+          <p className="text-sm text-muted-foreground">A moto volta às listas e às buscas do MOVA.</p>
           <div className="space-y-1.5">
             <Label htmlFor="motivo-desarquivar">Motivo</Label>
             <Textarea id="motivo-desarquivar" value={motivo} onChange={e => setMotivo(e.target.value)} disabled={enviando} rows={3}
