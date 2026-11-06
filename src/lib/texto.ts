@@ -18,3 +18,6 @@ export function semZerosAEsquerda(texto: string | null | undefined): string {
   if (!aparado) return ''
   return aparado.replace(/^0+/, '') || '0'
 }
+
+/** Quantidade com a palavra certa: "1 moto", "2 motos", "0 motos". */
+export const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
