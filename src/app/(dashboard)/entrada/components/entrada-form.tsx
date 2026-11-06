@@ -86,6 +86,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
   }
 
   const [loading, setLoading] = useState(false)
+  const enviando = useRef(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const xlsxRef = useRef<HTMLInputElement>(null)
   const xmlRef = useRef<HTMLInputElement>(null)
@@ -183,16 +184,24 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     })
   }
 
-  // As posições mudam ao devolver: marca feita depois da exclusão apontaria para outra moto.
+  // Zera as marcas: as posições mudam ao devolver.
   function desfazerExclusao(exclusao: Exclusao) {
+    if (enviando.current) return
     setLinhasPlanilha(prev => devolverTiradas(prev, exclusao))
     setMarcadas(new Set())
   }
 
-  // Desfazer no meio do envio devolveria motos que o sucesso apaga sem gravar.
+  // Desfazer no meio do envio devolveria motos que o sucesso apaga sem gravar. O aviso demora a
+  // sair da tela depois do dismiss e o botão ainda responde: por isso a ref, além de fechá-lo.
   function comecarEnvio() {
+    enviando.current = true
     toast.dismiss(AVISO_DESFAZER)
     setLoading(true)
+  }
+
+  function terminarEnvio() {
+    enviando.current = false
+    setLoading(false)
   }
 
   // --- Planilha XLSX handler ---
@@ -422,7 +431,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           setLojaId('')
         }
       } finally {
-        setLoading(false)
+        terminarEnvio()
       }
       return
     }
@@ -450,7 +459,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
         setLojaId('')
       }
     } finally {
-      setLoading(false)
+      terminarEnvio()
     }
   }
 

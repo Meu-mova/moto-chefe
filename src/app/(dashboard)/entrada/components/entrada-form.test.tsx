@@ -380,3 +380,23 @@ test('planilha e depois o XML das mesmas motos: a moto não se repete e a ficha 
   assert.deepEqual(enviados[0].dados.motos.map(m => m.chassi), ['TESTE0000GG000001'])
   assert.deepEqual(enviados[0].dados.fiscais?.map(f => [f.chassi, f.emitente.nfNumero]), [['TESTE0000GG000001', '111']])
 })
+
+test('Desfazer clicado durante o envio não devolve a moto (o aviso ainda está saindo da tela)', async () => {
+  let soltar = () => {}
+  segurarEnvio = new Promise(r => { soltar = r })
+  await montarComPlanilha()
+  await clicar(caixa('Marcar R1'))
+  await clicar(botao('Excluir selecionadas'))
+  const desfazer = avisos.at(-1)?.acao
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  await esperar(() => enviados.length === 1)
+
+  const { act } = await import('react')
+  await act(async () => { desfazer?.onClick() })
+  assert.equal(titulo(), 'Motos importadas (6)')
+
+  await act(async () => { soltar() })
+  await esperar(() => titulo() === undefined)
+  assert.equal(enviados[0].dados.motos.length, 6)
+})
