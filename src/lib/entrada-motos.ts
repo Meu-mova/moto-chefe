@@ -179,6 +179,20 @@ export async function recusasDeChassiCadastrado(exec: Pick<typeof db, 'select'>,
   })
 }
 
+const ehChaveDuplicada = (e: { code?: string; cause?: { code?: string }; message?: string }) =>
+  e.code === '23505' || e.cause?.code === '23505' || !!e.message?.includes('unique') || !!e.message?.includes('duplicate key')
+
+/**
+ * Frase do insert que falhou na Entrada manual ou por planilha, moto a moto. Chave duplicada
+ * recebe a mesma recusa da conferência da nota (#456, #691); outro erro vai com a mensagem.
+ */
+export async function recusaDoInsertDaMoto(exec: Pick<typeof db, 'select'>, lojaId: string, chassi: string, erro: unknown): Promise<string> {
+  const e = (erro ?? {}) as { code?: string; cause?: { code?: string }; message?: string }
+  if (!ehChaveDuplicada(e)) return `${chassi}: ${e.message}`
+  const [recusa] = await recusasDeChassiCadastrado(exec, await contaDaLoja(lojaId, exec), [chassi])
+  return recusa ?? `${chassi}: ${CHASSI_RECUSADO}`
+}
+
 /** Grava as motos já conferidas e a ficha fiscal de cada uma. Devolve quantas fichas entraram. */
 export async function gravarMotosConferidas(
   exec: Executor,

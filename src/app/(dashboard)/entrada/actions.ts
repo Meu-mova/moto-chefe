@@ -11,7 +11,7 @@ import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-co
 import { revalidatePath } from 'next/cache'
 import { normalizarCor } from '@/lib/cores-moto'
 import { type FichaDaMoto } from '@/lib/nfe-fiscal'
-import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, recusasDeChassiCadastrado, CHASSI_RECUSADO, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, recusaDoInsertDaMoto, type MotoEntradaLote } from '@/lib/entrada-motos'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import {
@@ -28,15 +28,6 @@ async function precoPadraoDepoisDaEntrada(loja: { grupoId: string } | { lojaId: 
   } catch (e) {
     console.error('[entrada] preço padrão não preenchido', e)
   }
-}
-
-// Chassi que já é moto: mesma frase da conferência da nota, sem revelar o de outra Conta (#456, #691).
-async function erroDoInsert(e: { code?: string; cause?: { code?: string }; message?: string }, chassi: string, lojaId: string): Promise<string> {
-  const duplicado = e.code === '23505' || e.cause?.code === '23505' ||
-    e.message?.includes('unique') || e.message?.includes('duplicate key')
-  if (!duplicado) return `${chassi}: ${e.message}`
-  const [recusa] = await recusasDeChassiCadastrado(db, await contaDaLoja(lojaId), [chassi])
-  return recusa ?? `${chassi}: ${CHASSI_RECUSADO}`
 }
 
 type MotoEntrada = {
@@ -113,8 +104,8 @@ export async function registrarEntrada(formData: {
       })
 
       inseridos++
-    } catch (e: any) {
-      erros.push(await erroDoInsert(e, chassi, loja.id))
+    } catch (e) {
+      erros.push(await recusaDoInsertDaMoto(db, loja.id, chassi, e))
     }
   }
 
@@ -208,8 +199,8 @@ export async function registrarEntradaLote(formData: {
       const motoId = await inserirMotoDaEntrada(db, { lojaId: loja.id, usuarioId: usuario.id, chassi, moto, precoCompra })
       idPorChassi.set(chassi, motoId)
       inseridos++
-    } catch (e: any) {
-      erros.push(await erroDoInsert(e, chassi, loja.id))
+    } catch (e) {
+      erros.push(await recusaDoInsertDaMoto(db, loja.id, chassi, e))
     }
   }
 

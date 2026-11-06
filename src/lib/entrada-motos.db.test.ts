@@ -158,6 +158,29 @@ test('chassi já cadastrado (#691, #456): arquivado ou ativo de outra Conta rece
   })
 })
 
+test('insert duplicado da Entrada manual e por planilha (#691): frase neutra para outra Conta, RADAR para a arquivada, "já existe" para a ativa', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const c = await cenarioLote(tx)
+    const gravar = (lojaId: string, chassi: string) => entrada.gravarLoteDeEntrada(tx, { lojaId, usuarioId: c.usuarioId, motos: [c.moto(chassi)], fiscais: [] })
+    await gravar(c.b.lojaId, 'EMLOTE00000000C1')
+    await gravar(c.a.lojaId, 'EMLOTE00000000C2')
+    await gravar(c.a.lojaId, 'EMLOTE00000000C3')
+    await arquivar(tx, 'EMLOTE00000000C2', c.usuarioId)
+    // O insert de verdade, num savepoint: a chave única do chassi recusa e a transação segue.
+    const recusaDoInsert = async (chassi: string) => {
+      try {
+        await tx.transaction(sp => entrada.inserirMotoDaEntrada(sp, { lojaId: c.a.lojaId, usuarioId: c.usuarioId, chassi, moto: c.moto(chassi), precoCompra: '6400' }))
+      } catch (erro) {
+        return entrada.recusaDoInsertDaMoto(tx, c.a.lojaId, chassi, erro)
+      }
+      throw new Error(`${chassi} deveria ter sido recusado`)
+    }
+    assert.equal(await recusaDoInsert('EMLOTE00000000C1'), 'EMLOTE00000000C1: não deu para registrar este chassi. Confira o número.')
+    assert.equal(await recusaDoInsert('EMLOTE00000000C2'), 'EMLOTE00000000C2: Este chassi está arquivado. Desarquive pelo RADAR.')
+    assert.equal(await recusaDoInsert('EMLOTE00000000C3'), 'EMLOTE00000000C3: chassi já existe no sistema')
+  })
+})
+
 test('lote do onboarding: modelo de outra Conta recusa o lote', async () => {
   await emTransacaoDesfeita(async tx => {
     const c = await cenarioLote(tx)
