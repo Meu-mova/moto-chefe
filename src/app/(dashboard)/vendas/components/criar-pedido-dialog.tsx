@@ -103,7 +103,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
                   placeholder="Escolha"
                 />
                 {!entrega.modalidade && (
-                  <p className="border-l-2 border-l-warning pl-3 text-sm">Escolha a modalidade do frete. Sem ela a nota não sai.</p>
+                  <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">Escolha a modalidade do frete. Sem ela a nota não sai.</p>
                 )}
               </div>
               <div className="space-y-2">
