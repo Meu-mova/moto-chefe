@@ -583,6 +583,24 @@ export const pedidosVenda = pgTable('pedidos_venda', {
   entrega: jsonb('entrega').$type<EntregaVenda>(),
 })
 
+// ─── pedidos_venda_itens (o que o cliente leva no pedido, com valor; #770) ───
+// Checks (tipo, moto só no item moto, peça só no brinde/acessório) e o porquê de não ter
+// grupo_id ficam na migração 0178.
+export const pedidosVendaItens = pgTable('pedidos_venda_itens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pedidoVendaId: uuid('pedido_venda_id').notNull().references(() => pedidosVenda.id, { onDelete: 'cascade' }),
+  tipo: text('tipo').notNull(),
+  motoId: uuid('moto_id').references(() => motos.id),
+  pecaId: uuid('peca_id').references(() => pecasCatalogo.id),
+  quantidade: numeric('quantidade', { precision: 10, scale: 2 }).notNull().default('1'),
+  /** Nulo = valor ainda não informado (o Novo pedido não pede valor até o #783). */
+  valorUnitario: numeric('valor_unitario', { precision: 12, scale: 2 }),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  uniqueIndex('pedidos_venda_itens_moto_key').on(t.pedidoVendaId, t.motoId).where(sql`moto_id is not null`),
+  index('pedidos_venda_itens_pedido_idx').on(t.pedidoVendaId),
+])
+
 // ─── vendas ──────────────────────────────────────────────────────────────────
 export const vendas = pgTable('vendas', {
   id: uuid('id').primaryKey().defaultRandom(),
