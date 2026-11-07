@@ -11,6 +11,9 @@ import { estadoDaSelecao, marcarVarias } from '@/lib/selecao'
 /** A moto como a busca do Arquivar e do Remover devolve: `bloqueio` é a frase do servidor, ou null. */
 export type MotoParaEscolher = { id: string; chassi: string; modelo: string | null; loja: string; nfEntrada: string | null; bloqueio: string | null }
 
+/** Envio do lote sem resposta: a pessoa confere antes de mandar de novo. */
+export const SEM_RESPOSTA = 'Sem resposta do servidor. Confira no Showroom se as motos saíram antes de tentar de novo.'
+
 /** Estado do passo "Escolher" do Arquivar (#688) e do Remover moto (#692). */
 export function useEscolhaDeMotos<M extends MotoParaEscolher>(buscarAction: (termo: string) => Promise<M[]>) {
   const [termo, setTermo] = useState('')

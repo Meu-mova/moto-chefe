@@ -1,14 +1,14 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { plural } from '@/lib/texto'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { DialogoPassoAPasso } from '@/components/dialogo-passo-a-passo'
+import { DialogoPassoAPasso, useEnvioDoLote } from '@/components/dialogo-passo-a-passo'
 import { motivoDoArquivoValido } from '@/lib/arquivar-moto-regras'
-import { EscolherMotos, useEscolhaDeMotos } from './escolher-motos'
+import { EscolherMotos, SEM_RESPOSTA, useEscolhaDeMotos } from './escolher-motos'
 import { arquivarMotosAction, buscarMotosParaArquivarAction } from '../arquivar-actions'
 
 const PASSOS = ['Escolher', 'Conferir', 'Confirmar']
@@ -24,41 +24,21 @@ export function ArquivarMotoDialog({ aberto, onFechar }: { aberto: boolean; onFe
   const [passo, setPasso] = useState(0)
   const escolha = useEscolhaDeMotos(buscarMotosParaArquivarAction)
   const [motivo, setMotivo] = useState('')
-  const [enviando, setEnviando] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
-  const [arquivadas, setArquivadas] = useState<number | null>(null)
-  // O state só muda no próximo render: o segundo clique do duplo clique ainda veria enviando = false.
-  const enviou = useRef(false)
-
-  async function arquivar() {
-    if (enviou.current) return
-    enviou.current = true
-    setEnviando(true)
-    setErro(null)
-    try {
-      const r = await arquivarMotosAction([...escolha.marcadas], motivo)
-      if (r.ok) setArquivadas(r.dados.arquivadas)
-      else setErro(r.erro)
-    } catch {
-      setErro('Sem resposta do servidor. Confira no Showroom se as motos saíram antes de tentar de novo.')
-    } finally {
-      enviou.current = false
-      setEnviando(false)
-    }
-  }
+  const { enviando, erro, setErro, feito, enviar } = useEnvioDoLote<{ arquivadas: number }>(SEM_RESPOSTA)
+  const arquivar = () => enviar(() => arquivarMotosAction([...escolha.marcadas], motivo))
 
   // O aviso é do passo em que apareceu: a recusa do envio não fica na tela de escolher.
   const irPara = (p: number) => { setErro(null); setPasso(p) }
   const n = escolha.marcadas.size
   const aviso = erro && <p role="alert" className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">{erro}</p>
 
-  if (arquivadas !== null) {
+  if (feito !== null) {
     return (
       <DialogoPassoAPasso aberto={aberto} onFechar={onFechar} titulo="Arquivar moto" passos={PASSOS} atual={null} enviando={false}
         rodape={<Button variant="outline" onClick={onFechar} className="h-12 w-full text-base">Fechar</Button>}>
         <div role="status" className="flex flex-col items-center gap-2 py-8 text-center">
           <CheckCircle2 className="size-10 text-primary-text" />
-          <p className="text-base font-semibold">{plural(arquivadas, 'moto arquivada', 'motos arquivadas')}</p>
+          <p className="text-base font-semibold">{plural(feito.arquivadas, 'moto arquivada', 'motos arquivadas')}</p>
           <p className="text-sm text-muted-foreground">Ficou registrado no log com seu nome, a data e o motivo.</p>
         </div>
       </DialogoPassoAPasso>

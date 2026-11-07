@@ -1,5 +1,7 @@
 'use client'
 
+import { useRef, useState } from 'react'
+import type { ResultadoAction } from '@/lib/resultado-action'
 import { DialogoTelaCheia } from '@/components/dialogo-tela-cheia'
 import { MarcadorDePassos } from '@/components/marcador-de-passos'
 
@@ -30,4 +32,35 @@ export function DialogoPassoAPasso({ aberto, onFechar, titulo, descricao, passos
       </div>
     </DialogoTelaCheia>
   )
+}
+
+/**
+ * Envio do último passo: uma chamada só, mesmo com duplo clique (o state só muda no próximo render,
+ * então o segundo clique ainda veria enviando = false). Recusa do servidor vira `erro`; sem resposta,
+ * a frase pede para conferir antes de tentar de novo.
+ */
+export function useEnvioDoLote<T>(semResposta: string) {
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [feito, setFeito] = useState<T | null>(null)
+  const enviou = useRef(false)
+
+  async function enviar(chamada: () => Promise<ResultadoAction<T>>) {
+    if (enviou.current) return
+    enviou.current = true
+    setEnviando(true)
+    setErro(null)
+    try {
+      const r = await chamada()
+      if (r.ok) setFeito(r.dados)
+      else setErro(r.erro)
+    } catch {
+      setErro(semResposta)
+    } finally {
+      enviou.current = false
+      setEnviando(false)
+    }
+  }
+
+  return { enviando, erro, setErro, feito, enviar }
 }
