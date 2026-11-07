@@ -91,7 +91,7 @@ No MOVA (`src/lib/notagateway/entrega.ts`, `payload.ts`):
   comprador da venda, lido na hora da nota; "Outra pessoa recebe" troca nome e CPF/CNPJ (conferido pelo ADR-0015).
 - **`nomeDestinatario`, `complemento` e `cep` da entrega**: a página de emissão (`updatedAt 2026-06-16`) **não
   mostra** `nomeDestinatario` no JSON de `enderecoEntrega`. O manual da NG para NF-e modelo 55 (fora do repo) traz
-  *"transporte.enderecoEntrega.nomeDestinatario string Não — Nome completo ou razão social do destinatário da
+  *"transporte.enderecoEntrega.nomeDestinatario string Não Nome completo ou razão social do destinatário da
   entrega."*, e também `complemento` e `cep` com obrigatório "Não". O MOVA manda os três só quando preenchidos;
   nome até 60 caracteres (xNome do Grupo G, MOC 7.0).
 - Venda com Entrega e sem modalidade não monta a nota; a prévia lista a pendência.
