@@ -16,6 +16,9 @@ que guarda o registro. O Remover é para o que nunca devia ter entrado.
 
 ## Decisão
 
+> Revista pelo [adendo de 2026-11-07](#adendo-de-2026-11-07-só-a-moto-que-nunca-passou-pelo-comercial-nem-pelo-financeiro-692):
+> moto com venda, pedido ativo, qualquer reserva, OS com dinheiro ou garantia passou a ser recusada, e a venda não sai mais por aqui.
+
 - **Remover moto** apaga, numa transação só, a moto e tudo o que depende dela: a venda e o que
   depende da venda (lançamentos de caixa, conciliação de cartão, PIX recebido, demanda, documento de
   assinatura e os arquivos dele no Storage), reserva, pedido, aprovação de venda, transferências,
@@ -52,10 +55,50 @@ garante que a selfie e a assinatura do cliente (dado pessoal) saiam do Storage.
 - **Só arquivar**: não resolve a moto que nunca devia ter entrado; ela continuaria no banco e no
   RADAR.
 - **Recusar moto com venda**: deixaria sem saída a moto importada errada que chegou a ser vendida
-  no sistema.
+  no sistema. Virou a decisão no adendo de 2026-11-07: a saída é o Cancelar venda antes.
 - **Rotina própria para apagar a venda**: duplicaria o Cancelar venda e arriscaria deixar arquivos
   de dado pessoal no Storage.
 - **Apagar também as linhas de NF de saída**: proibido; a numeração da próxima nota depende delas.
+
+## Adendo de 2026-11-07: só a moto que nunca passou pelo comercial nem pelo financeiro (#692)
+
+Decisões do Luis registradas na issue #692 em 06-07/11
+([escopo](https://github.com/Meu-mova/moto-chefe/issues/692#issuecomment-6702737224)) e em 07/11,
+depois da revisão r1 ([detalhes](https://github.com/Meu-mova/moto-chefe/issues/692#issuecomment-6702970749)).
+O porquê de cada uma vem nas palavras dele.
+
+- **Remover é só para a moto que nunca devia ter entrado**: grupo ou loja errados na importação, NF
+  de entrada que não é da loja, moto duplicada, chassi trocado, moto de teste, compra desfeita antes
+  de chegar. Porquê: "Moto que já passou pelo comercial ou pelo financeiro não se remove: dor de
+  cabeça maior que o ganho."
+- **Recusa** (servidor e tela pela mesma regra, `src/lib/remover-moto-regras.ts`):
+  - **qualquer venda**, com ou sem dinheiro, com ou sem NF; inclusive a **moto marcada "vendida"
+    sem venda no MOVA** (venda pelo Bling ou golpe, #544). Porquê: "A regra é 'qualquer venda',
+    inclusive a feita fora do MOVA." A saída para a moto errada que chegou a ser vendida é o
+    **Cancelar venda** (com as travas do [ADR-0014](0014-venda-com-nf-autorizada-nao-se-cancela.md))
+    e depois o Remover. Isso substitui a alternativa descartada acima ("recusar moto com venda
+    deixaria sem saída"). Sem venda não há NF de saída, então a trava pela nota sai deste fluxo.
+  - **pedido de venda ativo** e **venda aguardando aprovação**.
+  - **qualquer reserva**, ativa, cancelada ou convertida (a que o Cancelar venda deixa). Porquê
+    (decisão de 07/11, depois da revisão r2): toda reserva tem sinal pago pelo cliente (o valor da
+    reserva é obrigatório; o menor na produção é R$ 500), fora do caixa; apagar a reserva apagaria o
+    único registro desse dinheiro. A moto vai para o Arquivar.
+  - **PIX ligado a um pedido da moto**, mesmo cancelado (a saída é remover a correspondência em PIX).
+  - **OS com dinheiro**: paga em dinheiro, cartão, PIX ou transferência, lançada no caixa ou não
+    (cartão e PIX só ficam na OS até a conciliação), e OS com pagamento aguardando aprovação.
+  - **garantia da moto**. Porquê: "Garantia implica cliente dono e pode haver pedido à fábrica (o
+    Arquivar já recusa garantia ativa)."
+- **Saem junto**: OS sem dinheiro (ex.: montagem) e os itens dela, transferências, cupons de revisão,
+  histórico do estoque, ficha fiscal e RENAVE; **pedido cancelado** (sem dinheiro) e aprovações já
+  respondidas. Porquê do cancelado: "É o caminho combinado: 'cancele antes de remover'; se o
+  cancelado travasse, a moto errada nunca sairia." O agendamento que virou OS fica na agenda, sem a
+  OS. Peças usadas em OS não voltam ao estoque (aviso).
+- **Ficam**: linhas de NF de saída, histórico de veículos da oficina e Notas recebidas. A NF de entrada
+  volta a "pendente" quando sai a última moto dela no grupo.
+- **Caem**: apagar a venda pela rotina do Cancelar venda neste fluxo, e os avisos de mês fechado e
+  comissão já paga ("sem venda não há"). A via física do contrato e o `comprovante_url`, que entrariam
+  pelo caminho da venda, ficam com o Cancelar venda: "Conferir no Cancelar venda se esses arquivos
+  saem; se não, issue própria."
 
 ## Quando revisar
 

@@ -4,7 +4,8 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
-import { semearContaBase, semearGrupo, semearUsuario } from '@/test/semear-conta'
+import { semearUsuario } from '@/test/semear-conta'
+import { semearContaComMotos } from '@/test/semear-motos'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -42,25 +43,7 @@ const recusa = (frase: string | RegExp) => (e: Error) => typeof frase === 'strin
 
 const P = 'AR688'
 
-async function semearConta(tx: Tx, nome: string, cnpj: string, cnpj2: string) {
-  const base = await semearContaBase(tx, { prefixo: P, nome, cnpj })
-  // Segundo grupo da mesma Conta, que o sócio "parcial" não tem marcado.
-  const outro = await semearGrupo(tx, base.contaId, { prefixo: P, nome: nome + '2', cnpj: cnpj2 })
-  const auxId = await semearUsuario(tx, base, { papel: 'aux_adm', rotulo: 'aux' })
-  const socioId = await semearUsuario(tx, base, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comGrupo: true })
-  const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${P + ' ' + nome}, 'autopropelido', '1000', 'hub', '32') returning id`)
-  const novaMoto = async (sufixo: string, lojaId = base.lojaId, disp = 'disponivel') => {
-    const [m] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
-      values (${`${P}${nome}${sufixo}`}, ${modelo.id}, ${lojaId}, 'CINZA', ${'NF' + nome + '77'}, 'montada', ${disp}::disponibilidade_moto) returning id`)
-    return m.id as string
-  }
-  return {
-    base, outro, auxId, socioId, novaMoto,
-    socio: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId, outro.grupoId], contaId: base.contaId },
-    socioParcial: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId },
-    aux: { id: auxId, papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: [], contaId: base.contaId },
-  }
-}
+const semearConta = (tx: Tx, nome: string, cnpj: string, cnpj2: string) => semearContaComMotos(tx, P, nome, cnpj, cnpj2)
 
 const arquivada = async (tx: Tx, id: string) =>
   (await linhas(tx, sql`select arquivada_em is not null as sim, arquivada_por, motivo_arquivo from motos where id = ${id}`))[0]
@@ -111,14 +94,14 @@ test('cada pendência recusa com a sua frase e não grava nada', async () => {
   })
 })
 
-test('venda registrada recusa e orienta cancelar a venda ou remover', async () => {
+test('venda registrada recusa e orienta cancelar a venda antes', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000068805', '00000000068806')
     const id = await a.novaMoto('VEN', a.base.lojaId, 'vendida')
     const [ped] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${id}, ${a.base.lojaId}, ${a.auxId}, 'efetivado') returning id`)
     await tx.execute(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
       values (${ped.id}, ${id}, ${a.base.lojaId}, ${a.auxId}, ${a.auxId}, 'Cliente', '52998224725', 1000, 'pix')`)
-    await assert.rejects(arquivarMotos(a.socio, [id], 'motivo', tx), recusa(`${P}AVEN: Tem venda registrada. Cancele a venda ou use Remover moto.`))
+    await assert.rejects(arquivarMotos(a.socio, [id], 'motivo', tx), recusa(`${P}AVEN: Tem venda registrada. Cancele a venda antes de arquivar.`))
   })
 })
 

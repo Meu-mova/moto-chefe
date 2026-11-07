@@ -1,0 +1,131 @@
+/**
+ * Remover moto (#692; ADR-0020 com o adendo de 07/11/2026): apaga de vez a moto que nunca devia ter
+ * entrado, com o que depende dela, ou nada. Moto que passou pelo comercial ou pelo financeiro é
+ * recusada pela regra pura. Conta e alcance no where, como no Arquivar (mesma frase para outra Conta,
+ * fora do alcance e id inexistente). Ficam: NF de saída, histórico de veículos e Notas recebidas.
+ */
+import { and, eq, exists, ilike, inArray, or, sql, type SQL } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import {
+  agendamentos, aprovacoesVenda, conciliacoesCartao, cuponsRevisao, garantias, historicoEstoque, lancamentosCaixa,
+  motos, ordensServico, osItens, pedidosVenda, pixRecebimentosMcp, reservas, transferencias, vendas,
+} from '@/lib/db/schema'
+import {
+  alcance, daMoto, motosComDados, NAO_ENCONTRADA, registrarNoLog, temLinha, travarDoAlcance, type Exec, type UsuarioQueArquiva,
+} from '@/lib/arquivar-motos'
+import { podeRemoverMotos } from '@/lib/arquivar-moto-regras'
+import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type ImpedimentosDeRemover, type OsDaMoto, type SaiJunto } from '@/lib/remover-moto-regras'
+import { RecusaUsuario } from '@/lib/resultado-action'
+import { ehUuid } from '@/lib/uuid'
+import { motoNaoVendida } from '@/lib/queries/showroom'
+
+const LIMITE_DA_BUSCA = 50
+
+// OS da moto (a de fora da subconsulta), com o pagamento dela; a regra pura decide se é dinheiro.
+// `financeiro`: caixa, cartão ou PIX ligado à OS, ou pagamento por transferência aguardando aprovação.
+const osDaMoto = sql<OsDaMoto[]>`coalesce((select json_agg(json_build_object(
+    'numero', ${ordensServico.numero}, 'formaPagamento', ${ordensServico.formaPagamento},
+    'pagamentos', ${ordensServico.pagamentos}, 'valorTotal', ${ordensServico.valorTotal},
+    'financeiro', exists (select 1 from ${lancamentosCaixa} where ${lancamentosCaixa.osId} = ${ordensServico.id})
+      or exists (select 1 from ${conciliacoesCartao} where ${conciliacoesCartao.osId} = ${ordensServico.id})
+      or exists (select 1 from ${pixRecebimentosMcp} where ${pixRecebimentosMcp.osId} = ${ordensServico.id})
+      or exists (select 1 from ${aprovacoesVenda} where ${aprovacoesVenda.osId} = ${ordensServico.id} and ${aprovacoesVenda.status} = 'pendente')
+  ) order by ${ordensServico.numero}) from ${ordensServico} where ${ordensServico.motoId} = ${daMoto}), '[]'::json)`
+
+function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
+  return motosComDados(exec, {
+    temVenda: temLinha(exec, vendas),
+    marcadaVendida: sql<boolean>`not (${motoNaoVendida()})`,
+    temGarantia: temLinha(exec, garantias),
+    aprovacaoPendente: temLinha(exec, aprovacoesVenda, eq(aprovacoesVenda.status, 'pendente')),
+    pedidoPendente: temLinha(exec, pedidosVenda, eq(pedidosVenda.status, 'pendente')),
+    temReserva: temLinha(exec, reservas),
+    pedidoComPix: sql<boolean>`${exists(exec.select({ um: sql`1` }).from(pixRecebimentosMcp)
+      .innerJoin(pedidosVenda, eq(pedidosVenda.id, pixRecebimentosMcp.pedidoId))
+      .where(eq(pedidosVenda.motoId, daMoto)))}`,
+    osDaMoto,
+  }, onde)
+}
+
+type LinhaDaMoto = Awaited<ReturnType<typeof motosComImpedimentos>>[number]
+
+const impedimentosDa = (m: LinhaDaMoto): ImpedimentosDeRemover => ({
+  temVenda: m.temVenda, marcadaVendida: m.marcadaVendida, temGarantia: m.temGarantia, aprovacaoPendente: m.aprovacaoPendente, pedidoPendente: m.pedidoPendente,
+  temReserva: m.temReserva, pedidoComPix: m.pedidoComPix,
+  osComDinheiro: primeiraOsComDinheiro(m.osDaMoto),
+})
+
+/** Motos para o passo "Escolher": qualquer situação, inclusive arquivada, com o motivo de não poder. */
+export async function motosParaRemover(usuario: UsuarioQueArquiva, termo: string, exec: Exec = db) {
+  const busca = termo.trim()
+  if (!podeRemoverMotos(usuario.papel) || !busca) return []
+  const onde = await alcance(usuario, exec)
+  if (onde === null) return []
+  const linhas = await motosComImpedimentos(exec, and(onde, or(ilike(motos.chassi, `%${busca}%`), ilike(motos.notaFiscalEntrada, `%${busca}%`))))
+    .orderBy(motos.chassi)
+    .limit(LIMITE_DA_BUSCA)
+  return linhas.map(m => ({
+    id: m.id, chassi: m.chassi, modelo: m.modelo, loja: m.loja, nfEntrada: m.nfEntrada,
+    bloqueio: motivoQueImpedeRemover(impedimentosDa(m)),
+  }))
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** Quantas linhas de cada tipo saíram com a moto; tipo sem linha não aparece. */
+const saiuDaMoto = (saidas: Record<string, (string | null)[]>, motoId: string): Record<string, number> =>
+  Object.fromEntries(Object.entries(saidas)
+    .map(([tipo, motoIds]) => [tipo, motoIds.filter(id => id === motoId).length] as const)
+    .filter(([, n]) => n > 0))
+
+/** Apaga o que depende das motos (já conferidas sem venda nem dinheiro). Devolve o id da moto de cada linha apagada. */
+async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<keyof SaiJunto, (string | null)[]>> {
+  const os = await tx.select({ id: ordensServico.id, motoId: ordensServico.motoId }).from(ordensServico).where(inArray(ordensServico.motoId, ids))
+  const osIds = os.map(o => o.id)
+  const motoDaOs = new Map(os.map(o => [o.id, o.motoId]))
+  const itens = osIds.length === 0 ? [] : await tx.select({ osId: osItens.osId }).from(osItens).where(inArray(osItens.osId, osIds))
+  if (osIds.length > 0) {
+    // O agendamento que virou OS continua na agenda, sem a OS.
+    await tx.update(agendamentos).set({ osId: null }).where(inArray(agendamentos.osId, osIds))
+  }
+  const motoIds = (linhas: { motoId: string | null }[]) => linhas.map(l => l.motoId)
+  // A ordem conta: o que aponta para a OS sai antes dela.
+  return {
+    // A da moto e a de pagamento da OS (sem moto, origem 'os'); a pendente já recusou a remoção. Cupom aponta para a OS.
+    aprovacoes: (await tx.delete(aprovacoesVenda).where(or(inArray(aprovacoesVenda.motoId, ids), osIds.length === 0 ? sql`false` : inArray(aprovacoesVenda.osId, osIds)))
+      .returning({ motoId: aprovacoesVenda.motoId, osId: aprovacoesVenda.osId })).map(l => l.motoId ?? (l.osId ? motoDaOs.get(l.osId) ?? null : null)),
+    cupons: motoIds(await tx.delete(cuponsRevisao).where(inArray(cuponsRevisao.motoId, ids)).returning({ motoId: cuponsRevisao.motoId })),
+    os: os.length === 0 ? [] : motoIds(await tx.delete(ordensServico).where(inArray(ordensServico.id, osIds)).returning({ motoId: ordensServico.motoId })),
+    itensDeOs: itens.map(i => motoDaOs.get(i.osId) ?? null),
+    transferencias: motoIds(await tx.delete(transferencias).where(inArray(transferencias.motoId, ids)).returning({ motoId: transferencias.motoId })),
+    pedidos: motoIds(await tx.delete(pedidosVenda).where(inArray(pedidosVenda.motoId, ids)).returning({ motoId: pedidosVenda.motoId })),
+    historico: motoIds(await tx.delete(historicoEstoque).where(inArray(historicoEstoque.motoId, ids)).returning({ motoId: historicoEstoque.motoId })),
+  }
+}
+
+/** Remove o lote inteiro ou nada. Uma linha no log por moto, com a contagem do que saiu junto. */
+export async function removerMotos(usuario: UsuarioQueArquiva, motoIds: string[], motivo: string, confirmacao: string, exec: Exec = db) {
+  if (!podeRemoverMotos(usuario.papel)) throw new RecusaUsuario('Sem permissão para remover motos.')
+  const ids = [...new Set(motoIds)]
+  if (!ids.every(ehUuid)) throw new RecusaUsuario(NAO_ENCONTRADA)
+
+  return exec.transaction(async tx => {
+    const doLote = await travarDoAlcance(tx, usuario, ids)
+    // OS e pedido recebem pagamento sem tocar a linha da moto: travados aqui, o pagamento gravado
+    // antes aparece na conferência abaixo, e o que chegar depois espera e encontra tudo apagado.
+    await tx.select({ id: ordensServico.id }).from(ordensServico).where(inArray(ordensServico.motoId, ids)).for('update')
+    await tx.select({ id: pedidosVenda.id }).from(pedidosVenda).where(inArray(pedidosVenda.motoId, ids)).for('update')
+    // Impedimentos num comando depois da trava: o snapshot dele já vê a venda ou o pedido que quem
+    // segurava a moto gravou. Quem chegar depois espera a trava e encontra a moto apagada.
+    const achadas = await motosComImpedimentos(tx, inArray(motos.id, ids))
+    const recusa = recusaDaRemocao({ motivo, confirmacao, motos: achadas.map(m => ({ chassi: m.chassi, pendencias: impedimentosDa(m) })) })
+    if (recusa) throw new RecusaUsuario(recusa)
+
+    const saidas = await apagarDependentes(tx, ids)
+    // A gravação repete a Conta e o alcance no where (AGENTS.md, isolamento), e confere as linhas.
+    const removidas = await tx.delete(motos).where(doLote).returning({ id: motos.id })
+    if (removidas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
+    await registrarNoLog(tx, 'moto_removida', usuario.id, achadas, motivo.trim(), m => ({ saiu: saiuDaMoto(saidas, m.id) }))
+    return { removidas: removidas.length }
+  })
+}
