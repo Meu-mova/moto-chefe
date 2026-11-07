@@ -106,3 +106,15 @@ test('as formas em SQL cru (alias v) dão o mesmo resultado das formas do Drizzl
   const porNome = Object.fromEntries(linhas.map(l => [ids[String(l.id)], { frete: Number(l.frete), moto: Number(l.moto), liquidoMoto: Number(l.liquido_moto) }]))
   assert.deepEqual(porNome, ESPERADO)
 })
+
+// Líquido da moto das vendas da Conta A: 10.000 + 8.000 + 6.000 + 4.900 + 0. Com o frete seria 29.800.
+const LIQUIDO_MOTOS_A = 28900
+const BRUTO_MOTOS_A = 29000
+
+test('comissão e premiação do vendedor (folha) contam só a moto, sem o frete; a venda da Conta B não entra', async () => {
+  const { buscarDadosFolha } = await import('./folha')
+  const [a] = contas
+  const dados = await buscarDadosFolha({ mes: '2026-09', lojaIds: [a.lojaId], grupoId: a.grupoId })
+  assert.deepEqual(dados.vendasPorVendedor.map(v => [v.vendedorId, Number(v.total)]), [[vendedorA, LIQUIDO_MOTOS_A]])
+  assert.deepEqual(dados.motosPorLoja.map(l => [l.lojaId, Number(l.total)]), [[a.lojaId, LIQUIDO_MOTOS_A]])
+})
