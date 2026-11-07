@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
-import { grupoAtivoDaRequisicao, listarGruposVisiveis } from '@/lib/grupo'
+import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { hojeBrt } from '@/lib/data-venda'
 import { formatarNumeroBR } from '@/lib/numero-br'
 import { logoutAction } from '@/app/(auth)/login/actions'
@@ -8,6 +8,7 @@ import { GroupSelector } from '@/components/layout/group-selector'
 import { Badge } from '@/components/ui/badge'
 import { estaBloqueado, podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
 import { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
+import { gruposDaMensalidade } from '@/lib/mensalidade/grupos'
 import { BotaoPagar } from './botao-pagar'
 
 const dataBR = (d: string) => d.split('-').reverse().join('/')
@@ -26,11 +27,7 @@ export default async function MensalidadePage() {
   const usuario = await getUsuarioLogado()
   const ativo = await grupoAtivoDaRequisicao(usuario).catch(() => null)
   const paga = podePagarMensalidade(usuario.papel)
-  // admin_geral enxerga todos os grupos: aqui fica só o ativo, senão o total somaria a
-  // mensalidade de todos os clientes. A visão geral é /admin/mensalidades.
-  const visiveis = paga && usuario.papel !== 'admin_geral'
-    ? await listarGruposVisiveis(usuario).catch(() => [])
-    : ativo ? [ativo] : []
+  const visiveis = await gruposDaMensalidade(usuario, ativo)
   const abertas = await abertasCobraveis({ grupoIds: visiveis.map(g => g.id) })
   const hoje = hojeBrt()
   const bloqueado = estaBloqueado(abertas.filter(a => a.m.grupoId === ativo?.id).map(a => a.m.vencimento), hoje)
