@@ -3,12 +3,10 @@ import { formatarNumeroBR } from '@/lib/numero-br'
 import { estaBloqueado } from '@/lib/mensalidade/regras'
 import type { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
 import { BotaoPagar } from './botao-pagar'
+import { dataPuraBr } from '@/lib/data-venda'
 
 type Aberta = Awaited<ReturnType<typeof abertasCobraveis>>[number]
 export type LinhaMensalidade = Aberta & { acrescimo: number; total: number }
-
-const dataBR = (d: string) => d.split('-').reverse().join('/')
-const competenciaBR = (c: string) => c.split('-').reverse().join('/')
 
 function Situacao({ vencimento, hoje }: { vencimento: string; hoje: string }) {
   if (estaBloqueado([vencimento], hoje)) return <Badge variant="outline" className="border-destructive text-destructive">Bloqueado</Badge>
@@ -36,10 +34,10 @@ export function ListaMensalidades({ paga, linhas, hoje, leituraFalhou }: {
     <div key={m.id} className="grid grid-cols-2 items-center gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1.4fr_1fr_1fr_auto] md:gap-4 md:px-5">
       <div className="col-span-2 md:col-span-1">
         <div className="font-semibold">{grupoNome}</div>
-        <div className="text-sm text-muted-foreground">Competência {competenciaBR(m.competencia)}</div>
+        <div className="text-sm text-muted-foreground">Competência {dataPuraBr(m.competencia)}</div>
       </div>
       <div className="space-y-1 text-sm">
-        <div>{m.vencimento < hoje ? 'Venceu em' : 'Vence em'} {dataBR(m.vencimento)}</div>
+        <div>{m.vencimento < hoje ? 'Venceu em' : 'Vence em'} {dataPuraBr(m.vencimento)}</div>
         <Situacao vencimento={m.vencimento} hoje={hoje} />
       </div>
       <div className="text-right md:text-left">
