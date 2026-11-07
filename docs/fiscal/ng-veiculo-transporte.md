@@ -111,6 +111,9 @@ No MOVA (`src/lib/notagateway/entrega.ts`, `payload.ts`):
   valor da venda, como pediu o contador de Teresina (05/11/2026; LC 87/96 art. 13 §1º II b). Venda editada para menos que o
   frete vira pendência. O valor aproximado dos tributos (IBPT) segue sobre o total com frete, **pendente** de resposta do
   Cesar e do contador.
+  **Faturamento direto (tpOp 2), até a #728:** a modalidade da nota vem do formulário. Fora de 0 ou 3, o frete não vai em
+  `itens[].frete` e entra no preço da moto (item = total; vNF continua igual aos pagamentos, sem a 866). Quando a #728 fizer
+  o faturamento direto ler a Entrega, esse ramo e a guarda saem.
 - Rejeição 773 (MOC 7.0, Anexo I, regra E12-40, p. 84-85 do [PDF oficial](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf)):
   *"operação é Interna no Estado (tag:idDest = 1) e operação não é com Consumidor final: UF do destinatário [...] difere
   da UF do emitente"*. A retirada interna de cliente de outra UF não cai nela porque o MOVA manda sempre
