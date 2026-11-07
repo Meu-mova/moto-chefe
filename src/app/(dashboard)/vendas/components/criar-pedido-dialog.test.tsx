@@ -206,3 +206,40 @@ test('nome de quem recebe com mais de 60 caracteres: a tela mostra a mesma recus
   assert.match(textoDaTela(), /O nome de quem recebe aceita no máximo 60 caracteres\./)
   assert.equal(botao('Criar pedido')?.disabled, true)
 })
+
+// Frete cobrado (#726, 4b): "+ Frete" só com a loja fazendo o frete (decisão do Luis, 07/11/2026).
+const botaoFrete = () => [...document.querySelectorAll('button')].find(b => /^\+ Frete|Frete adicionado/.test((b.textContent ?? '').trim()))
+
+test('"+ Frete" com "Loja leva": o valor cobrado entra no resumo e vai na Entrega', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await t.clique(botaoFrete())
+  await digitar(campo<HTMLInputElement>(/^Valor cobrado do cliente/), '35000')
+  assert.match(resumo(), /Frete\s*R\$\s*350,00/)
+  await t.clique(botao('Criar pedido'))
+  assert.deepEqual(criar.mock.calls[0].arguments[2], {
+    modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', endereco: ENDERECO_SAO_LUIS, recebe: null, frete: 350,
+  })
+})
+
+test('"+ Frete" fica indisponível quando a loja não faz o frete, e trocar a modalidade tira o frete já digitado', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await t.clique(botaoFrete())
+  await digitar(campo<HTMLInputElement>(/^Valor cobrado do cliente/), '35000')
+  await escolher(campo<HTMLSelectElement>(/^Modalidade do frete na nota/), 'ContratacaoPorContaDoDestinatario')
+  assert.equal(botaoFrete()?.disabled, true)
+  assert.doesNotMatch(resumo(), /R\$/)
+  await t.clique(botao('Criar pedido'))
+  assert.equal('frete' in (criar.mock.calls[0].arguments[2] as object), false)
+})
+
+test('"+ Frete" na retirada marca "Entregar"', async () => {
+  const t = await montar()
+  await escolher(campo<HTMLSelectElement>(/^Moto disponível/), MOTO.id)
+  await escolher(campo<HTMLSelectElement>(/^Modalidade do frete na nota/), 'TransporteProprioPorContaDoRemetente')
+  await t.clique(botaoFrete())
+  assert.equal(opcaoDeEntrega(/Entregar/)?.checked, true)
+})

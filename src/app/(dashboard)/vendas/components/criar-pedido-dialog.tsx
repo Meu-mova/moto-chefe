@@ -5,13 +5,15 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
 import { CLASSE_SELECT_NATIVO } from '@/components/ui/select-nativo'
 import { criarPedidoVendaAction } from '../actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { textoDaModalidade } from '@/lib/notagateway/transporte'
-import { AVISO_SEM_MODALIDADE, textoDaEntrega } from '@/lib/notagateway/entrega'
-import { EntregaCampos, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from './entrega-campos'
+import { AVISO_SEM_MODALIDADE, modalidadeComFrete, textoDaEntrega } from '@/lib/notagateway/entrega'
+import { brl } from '@/lib/dashboard-painel'
+import { EntregaCampos, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, freteDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from './entrega-campos'
 
 type Moto = { id: string; chassi: string; marca: string; modelo: string; cor: string; lojaNome: string }
 
@@ -47,6 +49,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
   if (!podeCriarPedido(papel)) return null
 
   const moto = motos.find(m => m.id === motoId)
+  const freteLigado = entrega.modo === 'entregar' && entrega.comFrete && modalidadeComFrete(entrega.modalidade)
 
   return (
     <>
@@ -95,6 +98,25 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
                 )}
               </div>
               <div className="space-y-2">
+                <h3 className="text-sm font-semibold">Frete</h3>
+                <Button
+                  type="button" variant="outline" aria-pressed={freteLigado}
+                  disabled={!modalidadeComFrete(entrega.modalidade)}
+                  onClick={() => setEntrega(anterior => ({ ...anterior, modo: 'entregar', comFrete: !freteLigado }))}
+                >
+                  {freteLigado ? 'Frete adicionado' : '+ Frete'}
+                </Button>
+                {freteLigado ? (
+                  <div className="space-y-1">
+                    <Label htmlFor="pedido-frete">Valor cobrado do cliente</Label>
+                    <CurrencyInput id="pedido-frete" value={entrega.frete} onChange={frete => setEntrega(anterior => ({ ...anterior, frete }))} placeholder="0,00" />
+                    <p className="text-xs text-muted-foreground">Frete precisa de entrega: a opção &quot;Entregar&quot; fica marcada.</p>
+                  </div>
+                ) : !modalidadeComFrete(entrega.modalidade) && (
+                  <p className="text-xs text-muted-foreground">Frete cobrado só quando a loja leva a moto ou contrata a transportadora.</p>
+                )}
+              </div>
+              <div className="space-y-2">
                 <h3 className="text-sm font-semibold">Resumo</h3>
                 <dl aria-label="Resumo do pedido" className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg border border-border bg-muted p-3 text-sm">
                   <dt className="text-muted-foreground">Moto</dt>
@@ -103,6 +125,12 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
                   <dd className="text-right">{textoDaEntrega(entregaDoFormulario(entrega))}</dd>
                   <dt className="text-muted-foreground">Modalidade</dt>
                   <dd className="text-right">{textoDaModalidade(entrega.modalidade) ?? 'Não escolhida'}</dd>
+                  {freteDoFormulario(entrega) > 0 && (
+                    <>
+                      <dt className="text-muted-foreground">Frete</dt>
+                      <dd className="text-right">{brl(freteDoFormulario(entrega))}</dd>
+                    </>
+                  )}
                 </dl>
               </div>
             </section>
