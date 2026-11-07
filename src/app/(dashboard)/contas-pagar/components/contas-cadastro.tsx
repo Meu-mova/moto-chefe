@@ -10,6 +10,7 @@ import { parseNumeroBR } from '@/lib/numero-br'
 import {
   criarContaAction, alternarContaAtivaAction, excluirContaAction, type ContaRow,
 } from '../actions'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const fmt = (v: string | null) =>
   v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -20,8 +21,7 @@ function fmtVigencia(inicio: string | null, fim: string | null) {
   if (!inicio && !fim) return 'sem limite'
   const f = (m: string | null, fallback: string) => {
     if (!m) return fallback
-    const [ano, mes] = m.split('-')
-    return `${mes}/${ano}`
+    return dataPuraBr(m)
   }
   return `${f(inicio, 'desde sempre')} → ${f(fim, 'sem fim')}`
 }
@@ -153,7 +153,7 @@ export function ContasCadastro({ contas, lojas, mes }: {
                 </td>
                 <td className="px-4 py-2 text-xs">
                   {c.tipo === 'unica'
-                    ? (c.dataVencimento ?? '—').slice(0, 10).split('-').reverse().join('/')
+                    ? dataPuraBr((c.dataVencimento ?? '—').slice(0, 10))
                     : `todo dia ${c.diaVencimento}`}
                 </td>
                 <td className="px-4 py-2 text-right font-medium tabular-nums">

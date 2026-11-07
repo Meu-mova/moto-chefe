@@ -16,6 +16,7 @@ import {
   ROTULO_MOTIVO_FORA,
   type ConfigDespesas,
 } from './despesas-operacionais'
+import { dataPuraBr } from '@/lib/data-venda'
 
 /** As três fontes de despesa, como `fontesDespesaDoPeriodo` as entrega. */
 export type FontesDespesa = {
@@ -73,10 +74,7 @@ const SEM_CATEGORIA = 'Sem categoria'
  * timestamp é convertido no fuso de Brasília para bater com o que a tela mostra.
  */
 function dataBr(valor: Date | string): string {
-  if (typeof valor === 'string') {
-    const [ano, mes, dia] = valor.slice(0, 10).split('-')
-    return `${dia}/${mes}/${ano}`
-  }
+  if (typeof valor === 'string') return dataPuraBr(valor.slice(0, 10))
   return valor.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 }
 

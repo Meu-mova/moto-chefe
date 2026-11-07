@@ -4,12 +4,13 @@ import { listarLojasDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import { redirect } from 'next/navigation'
 import { PrintButtons } from './print-buttons'
 import { lojasDoEscopoDeGarantias } from '@/lib/escopo-garantias'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
 function fmt(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
+  return dataPuraBr(d)
 }
 
 function diasDecorridos(dataInicio: string | null | undefined): number | null {

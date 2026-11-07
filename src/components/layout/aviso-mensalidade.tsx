@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { formatarNumeroBR } from '@/lib/numero-br'
 import type { SituacaoMensalidade } from '@/lib/mensalidade/bloqueio'
+import { dataPuraBr } from '@/lib/data-venda'
 
-const dataBR = (d: string) => d.split('-').reverse().join('/')
 
 /**
  * Faixa no topo para quem paga a mensalidade: a do grupo ativo e, embaixo, os outros
@@ -18,7 +18,7 @@ export function AvisoMensalidade({ situacao, grupoAtivo, hoje }: { situacao: Sit
           <span>
             Mensalidade do MOVA de {grupoAtivo}:{' '}
             <span className="whitespace-nowrap font-medium">R$ {formatarNumeroBR(aberta.total)}</span>
-            {aberta.vencimento < hoje ? `, venceu em ${dataBR(aberta.vencimento)}` : `, vence em ${dataBR(aberta.vencimento)}`}.
+            {aberta.vencimento < hoje ? `, venceu em ${dataPuraBr(aberta.vencimento)}` : `, vence em ${dataPuraBr(aberta.vencimento)}`}.
           </span>
           <Link href="/mensalidade" className="font-medium underline">Pagar</Link>
         </div>
