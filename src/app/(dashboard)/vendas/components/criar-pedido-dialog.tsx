@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
 import { CLASSE_SELECT_NATIVO } from '@/components/ui/select-nativo'
 import { criarPedidoVendaAction } from '../actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { textoDaModalidade } from '@/lib/notagateway/transporte'
-import { textoDaEntrega } from '@/lib/notagateway/entrega'
+import { AVISO_SEM_MODALIDADE, textoDaEntrega } from '@/lib/notagateway/entrega'
 import { EntregaCampos, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from './entrega-campos'
 
 type Moto = { id: string; chassi: string; marca: string; modelo: string; cor: string; lojaNome: string }
@@ -81,6 +82,18 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
 
             <section className="space-y-4 border-t border-border pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-6">
               <EntregaCampos valor={entrega} onChange={setEntrega} />
+              <div className="space-y-2">
+                <Label htmlFor="pedido-modalidade">Modalidade do frete na nota</Label>
+                <ModalidadeFreteSelect
+                  id="pedido-modalidade"
+                  valor={entrega.modalidade}
+                  onChange={modalidade => setEntrega(anterior => ({ ...anterior, modalidade }))}
+                  placeholder="Escolha"
+                />
+                {!entrega.modalidade && (
+                  <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">{AVISO_SEM_MODALIDADE}</p>
+                )}
+              </div>
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold">Resumo</h3>
                 <dl aria-label="Resumo do pedido" className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg border border-border bg-muted p-3 text-sm">

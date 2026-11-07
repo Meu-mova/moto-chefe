@@ -3,12 +3,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CepInput } from '@/components/ui/cep-input'
 import { CLASSE_SELECT_NATIVO } from '@/components/ui/select-nativo'
-import { ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
 import { DocumentoClienteInput } from '@/components/documento-cliente'
 import { useBuscaCep } from '@/components/use-busca-cep'
 import { lerDocumentoCliente } from '@/lib/documento'
 import { UFS } from '@/lib/sefaz/uf'
-import { AVISO_SEM_MODALIDADE, type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
+import { type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
 
 /** O que a tela edita: trocar de "Entregar" para "Retira" e voltar não apaga o endereço digitado. */
 export type EntregaDoFormulario = Pick<EntregaVenda, 'modalidade'> & {
@@ -50,7 +49,7 @@ type Props = {
   onChange: (atualizar: (anterior: EntregaDoFormulario) => EntregaDoFormulario) => void
 }
 
-/** Entrega do Novo pedido (layout B da #682): retira ou entregar, endereço, quem recebe e modalidade. */
+/** Entrega do Novo pedido (layout B da #682): retira ou entregar, com o endereço e quem recebe. */
 export function EntregaCampos({ valor, onChange }: Props) {
   const mudar = (patch: Partial<EntregaDoFormulario>) => onChange(anterior => ({ ...anterior, ...patch }))
   const mudarEndereco = (patch: Partial<EnderecoDaEntrega>) =>
@@ -138,13 +137,6 @@ export function EntregaCampos({ valor, onChange }: Props) {
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="pedido-modalidade">Modalidade do frete na nota</Label>
-        <ModalidadeFreteSelect id="pedido-modalidade" valor={valor.modalidade} onChange={modalidade => mudar({ modalidade })} placeholder="Escolha" />
-        {!valor.modalidade && (
-          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">{AVISO_SEM_MODALIDADE}</p>
-        )}
-      </div>
     </div>
   )
 }
