@@ -19,6 +19,12 @@ export type EntregaVenda =
 export const textoDaEntrega = (entrega: EntregaVenda): string =>
   entrega.modo === 'retira' ? 'Retira na loja' : `Entregar em ${entrega.endereco.nomeCidade || entrega.endereco.cidade}/${entrega.endereco.uf}`
 
+/** Endereço da entrega numa linha (efetivação): só o que foi preenchido. */
+export const enderecoDaEntregaEmLinha = (e: EnderecoDaEntrega): string => [
+  e.logradouro, e.numero, e.complemento, e.bairro, `${e.nomeCidade || e.cidade}/${e.uf}`,
+  e.cep ? `CEP ${e.cep.slice(0, 5)}-${e.cep.slice(5)}` : '',
+].filter(Boolean).join(', ')
+
 /** Venda com Entrega e sem modalidade: o Novo pedido avisa e a NF não sai (#682). */
 export const AVISO_SEM_MODALIDADE = 'Escolha a modalidade do frete. Sem ela a nota não sai.'
 

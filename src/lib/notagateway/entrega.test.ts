@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, conflitoDaUfDoFormulario, operacaoDaVenda, pendenciasDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
+import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, operacaoDaVenda, pendenciasDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -192,4 +192,9 @@ test('entregar ao próprio comprador com nome acima de 60 caracteres: a prévia 
 test('entregar em outra UF que a do emitente é para outro estado também para contribuinte e ciclomotor da UF da loja', () => {
   assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, ufCliente: 'PI', entrega: ENTREGAR_MA, ciclomotor: true, clienteContribuinte: true }),
     { interestadual: true, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'MA' })
+})
+
+test('o endereço da entrega numa linha, para a efetivação: sem complemento vazio e com o CEP formatado', () => {
+  assert.equal(enderecoDaEntregaEmLinha(ENTREGAR_MA.endereco), 'Rua de exemplo, 100, Centro, São Luís/MA, CEP 65000-000')
+  assert.equal(enderecoDaEntregaEmLinha({ ...ENTREGAR_MA.endereco, complemento: 'Casa 2', cep: '' }), 'Rua de exemplo, 100, Casa 2, Centro, São Luís/MA')
 })
