@@ -82,6 +82,11 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     await tx.insert(schema.motosRenave).values({ ...r, motoId: m, anoModelo: Number(r.anoModelo), anoFabricacao: Number(r.anoFabricacao), lotacao: Number(r.lotacao) })
     await tx.execute(sql`insert into veiculos_historico (chassi, conta_id) values (${chassi}, ${a.base.contaId})`)
 
+    // O passo Conferir mostra a mesma contagem que o log grava depois.
+    const saiu = { os: 1, itensDeOs: 2, transferencias: 1, cupons: 1, pedidos: 1, aprovacoes: 2, historico: 2 }
+    const [previa] = await motosParaRemover(a.socio, chassi, tx)
+    assert.deepEqual([previa.saiJunto, previa.pecasEmOs], [saiu, 1])
+
     assert.deepEqual(await removerMotos(a.socio, [m], '  NF do grupo errado  ', ' CONFIRMAR ', tx), { removidas: 1 })
 
     assert.equal(await existe(tx, m), false)
@@ -100,7 +105,7 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     assert.deepEqual(logs[0].detalhe, {
       motoId: m, chassi, modelo: `${P} A`, loja: (await linhas(tx, sql`select nome from lojas where id = ${a.base.lojaId}`))[0].nome,
       nfEntrada: 'NFA77', motivo: 'NF do grupo errado',
-      saiu: { os: 1, itensDeOs: 2, transferencias: 1, cupons: 1, pedidos: 1, aprovacoes: 2, historico: 2 },
+      saiu,
     })
   })
 })
@@ -270,5 +275,18 @@ test('moto arquivada também se remove, e o chassi removido passa na conferênci
     assert.deepEqual((await motosParaRemover(a.socio, `${P}AARQ`, tx)).map(x => [x.chassi, x.bloqueio]), [[`${P}AARQ`, null]])
     assert.deepEqual(await removerMotos(a.socio, [m], 'importada errada', 'CONFIRMAR', tx), { removidas: 1 })
     assert.deepEqual(await conferir(), [])
+  })
+})
+
+test('a busca diz quais outras motos do grupo têm a mesma NF de entrada; outro grupo não conta', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069243', '00000000069244')
+    const x = await a.novaMoto('NFX')
+    const y = await a.novaMoto('NFY')
+    await a.novaMoto('NFZ', a.outro.lojaId)
+    const porChassi = new Map((await motosParaRemover(a.socio, `${P}ANF`, tx)).map(m => [m.chassi, m.mesmaNf]))
+    assert.deepEqual(porChassi.get(`${P}ANFX`), [y])
+    assert.deepEqual(porChassi.get(`${P}ANFY`), [x])
+    assert.deepEqual(porChassi.get(`${P}ANFZ`), [])
   })
 })

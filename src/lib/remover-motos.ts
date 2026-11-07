@@ -18,6 +18,7 @@ import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type Im
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { ehUuid } from '@/lib/uuid'
 import { motoNaoVendida } from '@/lib/queries/showroom'
+import { numeroDaNfDaMoto } from '@/lib/queries/nfe-recebidas'
 
 const LIMITE_DA_BUSCA = 50
 
@@ -32,8 +33,9 @@ const osDaMoto = sql<OsDaMoto[]>`coalesce((select json_agg(json_build_object(
       or exists (select 1 from ${aprovacoesVenda} where ${aprovacoesVenda.osId} = ${ordensServico.id} and ${aprovacoesVenda.status} = 'pendente')
   ) order by ${ordensServico.numero}) from ${ordensServico} where ${ordensServico.motoId} = ${daMoto}), '[]'::json)`
 
-function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
+function motosComImpedimentos<E extends Record<string, SQL.Aliased | SQL>>(exec: Exec, onde: SQL | undefined, extra?: E) {
   return motosComDados(exec, {
+    ...(extra ?? ({} as E)),
     temVenda: temLinha(exec, vendas),
     marcadaVendida: sql<boolean>`not (${motoNaoVendida()})`,
     temGarantia: temLinha(exec, garantias),
@@ -55,28 +57,52 @@ const impedimentosDa = (m: LinhaDaMoto): ImpedimentosDeRemover => ({
   osComDinheiro: primeiraOsComDinheiro(m.osDaMoto),
 })
 
-/** Motos para o passo "Escolher": qualquer situação, inclusive arquivada, com o motivo de não poder. */
+type ComMotoId = typeof ordensServico | typeof transferencias | typeof cuponsRevisao | typeof pedidosVenda | typeof historicoEstoque
+const contar = (t: ComMotoId) => sql<number>`(select count(*)::int from ${t} where ${t.motoId} = ${daMoto})`
+const daOsDaMoto = sql`(select ${ordensServico.id} from ${ordensServico} where ${ordensServico.motoId} = ${daMoto})`
+const contarItensDeOs = (condicao: SQL = sql`true`) => sql<number>`(select count(*)::int from ${osItens} where ${osItens.osId} in ${daOsDaMoto} and ${condicao})`
+
+// Contagem do passo Conferir: as mesmas linhas e chaves que apagarDependentes devolve ao log.
+const saiJuntoDaMoto = () => ({
+  os: contar(ordensServico), itensDeOs: contarItensDeOs(), transferencias: contar(transferencias),
+  cupons: contar(cuponsRevisao), pedidos: contar(pedidosVenda), historico: contar(historicoEstoque),
+  aprovacoes: sql<number>`(select count(*)::int from ${aprovacoesVenda} where ${aprovacoesVenda.motoId} = ${daMoto} or ${aprovacoesVenda.osId} in ${daOsDaMoto})`,
+})
+
+// Outras motos do grupo da moto com a mesma NF de entrada, comparada como em Notas recebidas: a NF só
+// volta a "pendente" quando sai a última. Só ids, e só do mesmo grupo (mesma Conta).
+const nfDaMoto = numeroDaNfDaMoto(sql.raw('"motos"."nota_fiscal_entrada"'))
+const outrasDaMesmaNf = sql<string[]>`coalesce((select array_agg(o.id::text) from motos o join lojas lo on lo.id = o.loja_id
+  where lo.grupo_id = (select l.grupo_id from lojas l where l.id = "motos"."loja_id") and o.id <> "motos"."id"
+    and ${nfDaMoto} <> '' and ${numeroDaNfDaMoto(sql.raw('o.nota_fiscal_entrada'))} = ${nfDaMoto}), '{}')`
+
+// O log grava só o que saiu; a prévia segue a mesma forma.
+const semZeros = (s: Record<string, number>): SaiJunto => Object.fromEntries(Object.entries(s).filter(([, n]) => n > 0))
+
+/** Motos para o passo "Escolher": qualquer situação, inclusive arquivada, com o motivo de não poder e o que sai junto. */
 export async function motosParaRemover(usuario: UsuarioQueArquiva, termo: string, exec: Exec = db) {
   const busca = termo.trim()
   if (!podeRemoverMotos(usuario.papel) || !busca) return []
   const onde = await alcance(usuario, exec)
   if (onde === null) return []
-  const linhas = await motosComImpedimentos(exec, and(onde, or(ilike(motos.chassi, `%${busca}%`), ilike(motos.notaFiscalEntrada, `%${busca}%`))))
+  const linhas = await motosComImpedimentos(exec, and(onde, or(ilike(motos.chassi, `%${busca}%`), ilike(motos.notaFiscalEntrada, `%${busca}%`))),
+    { ...saiJuntoDaMoto(), pecasEmOs: contarItensDeOs(eq(osItens.tipo, 'peca')), mesmaNf: outrasDaMesmaNf })
     .orderBy(motos.chassi)
     .limit(LIMITE_DA_BUSCA)
-  return linhas.map(m => ({
+  return linhas.map(({ os, itensDeOs, transferencias, cupons, pedidos, aprovacoes, historico, ...m }) => ({
     id: m.id, chassi: m.chassi, modelo: m.modelo, loja: m.loja, nfEntrada: m.nfEntrada,
     bloqueio: motivoQueImpedeRemover(impedimentosDa(m)),
+    saiJunto: semZeros({ os, itensDeOs, transferencias, cupons, pedidos, aprovacoes, historico }),
+    pecasEmOs: m.pecasEmOs,
+    mesmaNf: m.mesmaNf,
   }))
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /** Quantas linhas de cada tipo saíram com a moto; tipo sem linha não aparece. */
-const saiuDaMoto = (saidas: Record<string, (string | null)[]>, motoId: string): Record<string, number> =>
-  Object.fromEntries(Object.entries(saidas)
-    .map(([tipo, motoIds]) => [tipo, motoIds.filter(id => id === motoId).length] as const)
-    .filter(([, n]) => n > 0))
+const saiuDaMoto = (saidas: Record<string, (string | null)[]>, motoId: string): SaiJunto =>
+  semZeros(Object.fromEntries(Object.entries(saidas).map(([tipo, motoIds]) => [tipo, motoIds.filter(id => id === motoId).length])))
 
 /** Apaga o que depende das motos (já conferidas sem venda nem dinheiro). Devolve o id da moto de cada linha apagada. */
 async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<keyof SaiJunto, (string | null)[]>> {

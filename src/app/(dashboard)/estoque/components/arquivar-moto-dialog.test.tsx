@@ -1,12 +1,12 @@
 // Diálogo "Arquivar moto" (#688, variante B do protótipo): o que cada passo mostra, o que envia e a
 // trava enquanto envia. As actions são a fronteira de fora; o resto roda de verdade.
-import { createElement } from 'react'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import type { ResultadoAction } from '@/lib/resultado-action'
 import { montarDom } from '@/test/montar-dom'
+import { apertarEscape, botao, caixa, clicar, DEPOIS_DA_ANIMACAO_MS, dialogoAberto, esperar, montarDialogo, textoDaTela } from '@/test/dialogo-em-tela'
 
-const { dom, desmontar: desmontarDom } = montarDom()
+const { desmontar: desmontarDom } = montarDom()
 after(desmontarDom)
 
 type Moto = { id: string; chassi: string; modelo: string; loja: string; nfEntrada: string | null; bloqueio: string | null }
@@ -32,31 +32,12 @@ afterEach(async () => {
   for (const desmontar of montados.splice(0)) await desmontar()
 })
 
-const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
-const DEPOIS_DA_ANIMACAO_MS = 300
-const textoDaTela = () => document.body.textContent ?? ''
-const botao = (texto: string) => [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').trim() === texto)
-const clicar = (el: Element | null | undefined) => { assert.ok(el, 'elemento não encontrado'); el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })) }
-const caixa = (rotulo: string) => document.querySelector(`input[type="checkbox"][aria-label="${rotulo}"]`) as HTMLInputElement | null
-const dialogoAberto = () => document.querySelector('[data-slot="dialog-content"]') !== null
-
 async function montar() {
-  const { act } = await import('react')
-  const { createRoot } = await import('react-dom/client')
   const { ArquivarMotoDialog } = await import('./arquivar-moto-dialog')
   const onFechar = mock.fn()
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  const root = createRoot(container)
-  await act(async () => { root.render(createElement(ArquivarMotoDialog, { aberto: true, onFechar })) })
-  const preencher = (id: string, valor: string) => act(async () => {
-    const campo = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement
-    const proto = campo instanceof dom.window.HTMLTextAreaElement ? dom.window.HTMLTextAreaElement.prototype : dom.window.HTMLInputElement.prototype
-    Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(campo, valor)
-    campo.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
-  })
-  const clique = (texto: string, ms = 50) => act(async () => { clicar(botao(texto)); await esperar(ms) })
-  const marcar = (rotulo: string) => act(async () => { clicar(caixa(rotulo)) })
+  const t = await montarDialogo(ArquivarMotoDialog, { aberto: true, onFechar })
+  montados.push(t.desmontar)
+  const { act, preencher, clique, marcar } = t
   const buscar = async (termo: string) => { await preencher('busca-arquivar', termo); await clique('Buscar') }
   /** Passo 1 com as 2 motos livres da NF marcadas, até o passo 3 com o motivo. */
   const ateConfirmar = async (motivo = 'Moto do golpe do link de pagamento') => {
@@ -64,9 +45,6 @@ async function montar() {
     await clique('Continuar com 2 motos'); await clique('Continuar')
     await preencher('motivo-arquivo', motivo)
   }
-  let montado = true
-  const desmontar = () => act(async () => { if (!montado) return; montado = false; root.unmount(); container.remove() })
-  montados.push(desmontar)
   return { act, preencher, clique, marcar, buscar, ateConfirmar, onFechar }
 }
 
@@ -141,7 +119,7 @@ test('trava enquanto envia: duplo clique envia uma vez, botões desabilitados e 
   assert.ok(botao('Arquivando...')!.disabled, 'o botão de enviar trava')
   assert.ok(botao('Voltar')!.disabled && botao('Cancelar')!.disabled)
   assert.ok((document.querySelector('[aria-label="Fechar"]') as HTMLButtonElement).disabled)
-  await t.act(async () => { document.querySelector('[data-slot="dialog-content"]')!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await esperar(DEPOIS_DA_ANIMACAO_MS) })
+  await t.act(async () => { apertarEscape(); await esperar(DEPOIS_DA_ANIMACAO_MS) })
   assert.equal(t.onFechar.mock.callCount(), 0, 'Escape não fecha enquanto envia')
   assert.ok(dialogoAberto())
   await t.act(async () => { liberar(); await esperar(20) })
