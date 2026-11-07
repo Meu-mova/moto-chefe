@@ -1,6 +1,7 @@
 import { listarGarantiasPorMoto } from '@/lib/queries/garantias'
 import { Badge } from '@/components/ui/badge'
 import { EncerrarGarantiaButton } from './encerrar-garantia-button'
+import { dataPuraBr } from '@/lib/data-venda'
 
 type Props = {
   motoId: string
@@ -10,7 +11,7 @@ type Props = {
 
 function formatDate(d: string | null) {
   if (!d) return '—'
-  return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
+  return dataPuraBr(d)
 }
 
 export async function GarantiasTab({ motoId, papel, lojaIdUsuario }: Props) {

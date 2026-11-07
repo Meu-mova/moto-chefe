@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Link2, Link2Off, Loader2, CheckCircle2, Search } from 'lucide-react'
 import { buscarVendasParaVincular, buscarVendaManual, vincularVendaAction, desvincularVendaAction } from '../actions'
+import { dataPuraBr } from '@/lib/data-venda'
 
 type Venda = Awaited<ReturnType<typeof buscarVendasParaVincular>>[number]
 type PgtoItem = { tipo: string; valor: number | string; operadora?: string; parcelas?: number; autorizacao?: string }
@@ -179,7 +180,7 @@ export function VincularVendaButton({ conciliacaoId, dataRef, valorRef, vendaVin
             <p className="text-sm text-muted-foreground">
               Recebimento de{' '}
               <span className="font-semibold">{valorRef.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-              {' '}em {new Date(dataRef + 'T12:00:00').toLocaleDateString('pt-BR')}
+              {' '}em {dataPuraBr(dataRef)}
             </p>
           </DialogHeader>
 

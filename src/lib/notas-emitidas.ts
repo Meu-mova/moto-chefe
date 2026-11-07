@@ -1,5 +1,5 @@
 import { codigoRecusa, ehRecusada } from '@/lib/notagateway/status'
-import { hojeBrt, mesBrt, parseDataInput } from '@/lib/data-venda'
+import { hojeBrt, mesBrt, parseDataInput, dataPuraBr } from '@/lib/data-venda'
 import { estadoDaSelecao, marcarVarias } from '@/lib/selecao'
 
 /** Filtros da tela Notas Emitidas (#348). A Denegada separada da Recusada vem da #347. */
@@ -124,8 +124,6 @@ export function selecaoDaPagina(pagina: string[], marcadas: Set<string>, todasDo
   return estado === 'todas' ? 'pagina' : estado
 }
 
-const dataBr = (iso: string) => iso.split('-').reverse().join('/')
-
 export function periodoBr(de: string, ate: string): string {
-  return de === ate ? dataBr(de) : `${dataBr(de)} a ${dataBr(ate)}`
+  return de === ate ? dataPuraBr(de) : `${dataPuraBr(de)} a ${dataPuraBr(ate)}`
 }

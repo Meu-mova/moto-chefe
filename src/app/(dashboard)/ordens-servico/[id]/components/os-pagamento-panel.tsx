@@ -12,6 +12,7 @@ import { buscarCupomPorCodigoAction } from '@/app/(dashboard)/cupons/actions'
 import type { PgtoOS } from '@/lib/conciliacao-status'
 import { TIPO_PAGAMENTO_CUPOM, normalizarCodigoCupom } from '@/lib/cupom-revisao'
 import { toast } from 'sonner'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const FORMAS = [
   { value: 'pix',             label: 'PIX' },
@@ -98,7 +99,7 @@ export function OSPagamentoPanel({ osId, valorTotal, valorServicos, pagamentosIn
       const texto =
         cupom.status === 'cancelado' ? 'Cupom cancelado' :
         usadoEmOutra                 ? 'Cupom já utilizado em outra OS' :
-        `${dono} · válido até ${cupom.validoAte.slice(8, 10)}/${cupom.validoAte.slice(5, 7)}/${cupom.validoAte.slice(0, 4)}`
+        `${dono} · válido até ${dataPuraBr(cupom.validoAte)}`
       setCupomInfo(c => ({ ...c, [linhaId]: { ok: cupom.status !== 'cancelado' && !usadoEmOutra, texto } }))
     } catch {
       setCupomInfo(c => ({ ...c, [linhaId]: { ok: false, texto: 'Não foi possível consultar o cupom' } }))
