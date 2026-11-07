@@ -214,6 +214,29 @@ test('Conta B não acha nem remove moto da Conta A, com a mesma frase de id inex
     await assert.rejects(removerMotos(a.socioParcial, [doOutroGrupo], 'motivo', 'CONFIRMAR', tx), recusa('Moto não encontrada'))
     assert.equal(await existe(tx, daA), true)
     assert.equal(await existe(tx, doOutroGrupo), true)
+
+    // E o inverso: a Conta A não acha nem remove a moto da B.
+    const daB = await b.novaMoto('1')
+    assert.deepEqual(await motosParaRemover(a.socio, `${P}B`, tx), [])
+    await assert.rejects(removerMotos(a.socio, [daB], 'motivo', 'CONFIRMAR', tx), recusa('Moto não encontrada'))
+    assert.equal(await existe(tx, daB), true)
+    // Texto que não é id recebe a mesma frase, sem chegar ao banco.
+    await assert.rejects(removerMotos(a.socio, ['abc', daA], 'motivo', 'CONFIRMAR', tx), recusa('Moto não encontrada'))
+    assert.equal(await existe(tx, daA), true)
+  })
+})
+
+test('admin_geral acha e remove motos de qualquer Conta', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069225', '00000000069226')
+    const b = await semearConta(tx, 'B', '00000000069227', '00000000069228')
+    const geral = { id: a.socioId, papel: 'admin_geral', lojaId: null, gruposAcesso: [], contaId: null }
+    const daA = await a.novaMoto('GER')
+    const daB = await b.novaMoto('GER')
+    assert.deepEqual((await motosParaRemover(geral, 'GER', tx)).map(m => m.chassi).filter(c => c.startsWith(P)), [`${P}AGER`, `${P}BGER`])
+    assert.deepEqual(await removerMotos(geral, [daA, daB], 'importadas erradas', 'CONFIRMAR', tx), { removidas: 2 })
+    assert.equal(await existe(tx, daA), false)
+    assert.equal(await existe(tx, daB), false)
   })
 })
 
