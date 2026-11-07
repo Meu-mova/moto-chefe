@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { podeAlterarValorVenda } from '@/lib/valor-venda'
-import { valorDaMoto } from '@/lib/notagateway/entrega'
+import { motoNaNota } from '@/lib/notagateway/entrega'
 import { brl } from '@/lib/dashboard-painel'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -79,6 +79,7 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
   // Venda
   const [valor,      setValor]      = useState(Number(v.valor).toFixed(2))
   const frete = v.freteCobrado ?? 0
+  const moto = motoNaNota(lerValor(valor), frete)
   const [dataVenda,  setDataVenda]  = useState(new Date(v.dataVenda).toISOString().split('T')[0])
   const [nf,         setNf]         = useState(v.notaFiscalSaida ?? '')
   const [vendedorId, setVendedorId] = useState(v.vendedorId)
@@ -244,9 +245,9 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
                     </p>
                   )}
                   {/* O frete cobrado está dentro do valor da venda (#726): quem corrige o preço da moto precisa saber. */}
-                  {frete > 0 && (valorDaMoto(lerValor(valor), frete) > 0 ? (
+                  {frete > 0 && (moto !== null ? (
                     <p className="text-xs text-muted-foreground">
-                      Inclui o frete cobrado de {brl(frete)}: a moto sai na nota por {brl(valorDaMoto(lerValor(valor), frete))}.
+                      Inclui o frete cobrado de {brl(frete)}: a moto sai na nota por {brl(moto)}.
                     </p>
                   ) : (
                     <p className="text-xs text-warning">O valor não cobre o frete cobrado de {brl(frete)}. Corrija o valor: ele inclui o frete.</p>

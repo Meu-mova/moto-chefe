@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, totalComFrete, valorDaMoto, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
+import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, motoNaNota, totalComFrete, valorDaMoto, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -254,4 +254,11 @@ test('valorDaMoto e totalComFrete: a mesma conta, em centavos, para a tela, a ef
   assert.equal(valorDaMoto(10350.3, 350.1), 10000.2)
   assert.equal(totalComFrete(10000, 0), 10000)
   assert.equal(valorDaMoto(10000, 0), 10000)
+})
+
+test('motoNaNota: o valor da moto na nota, ou nulo quando o valor da venda não cobre o frete', () => {
+  assert.equal(motoNaNota(10350, 350), 10000)
+  assert.equal(motoNaNota(350, 350), null)
+  assert.equal(motoNaNota(300, 350), null)
+  assert.equal(motoNaNota(1000, 0), 1000)
 })

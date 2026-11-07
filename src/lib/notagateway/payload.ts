@@ -25,7 +25,7 @@ import { ehCartao, type FormaPagamentoNfe } from './venda'
 import type { IndicadorIe } from '../documento'
 import { operacaoExigeEntrega, type VeiculoNovo } from './veiculo'
 import { validarDadosTransporte, type DadosTransporte, type EnderecoEntrega } from './transporte'
-import { AVISO_SEM_MODALIDADE, freteDaVenda, modalidadeComFrete, operacaoDaVenda, transporteDaEntrega, type EntregaVenda } from './entrega'
+import { AVISO_SEM_MODALIDADE, freteDaVenda, modalidadeComFrete, valorDaMoto, operacaoDaVenda, transporteDaEntrega, type EntregaVenda } from './entrega'
 import { centavos } from '../numero-br'
 
 export type RegraSaida = {
@@ -236,7 +236,7 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
   // Só quando a modalidade que vai na nota é da loja: no faturamento direto ela vem do formulário (#728).
   const modalidadeDaNota = transporteValidado?.ok ? transporteValidado.dados.modalidade : venda.entrega?.modalidade ?? ''
   const frete = modalidadeComFrete(modalidadeDaNota) ? freteDaVenda(venda.entrega ?? null) : 0
-  // Pendente (Cesar/contador, #726): o valor aproximado dos tributos sai sobre o total com frete; trocar para `venda.valor - frete` aqui.
+  // Pendente (Cesar/contador, #726): o valor aproximado dos tributos sai sobre o total com frete; trocar para `valorDaMoto(venda.valor, frete)` aqui.
   const valorDoIbpt = venda.valor
 
   const icms: ImpostosItem['icms'] = {
@@ -292,7 +292,7 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     ncm: moto.ncm,
     quantidade: 1,
     unidadeMedida: moto.unidade || 'UN',
-    valorUnitario: centavos(venda.valor - frete),
+    valorUnitario: valorDaMoto(venda.valor, frete),
     ...(frete ? { frete } : {}),
     impostos,
   }

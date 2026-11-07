@@ -31,12 +31,11 @@ export const freteDoFormulario = (f: EntregaDoFormulario): number =>
   f.modo === 'entregar' && f.comFrete && modalidadeComFrete(f.modalidade) && Number(f.frete) > 0 ? Number(f.frete) : 0
 
 /** A Entrega que vai ao servidor: só o que o modo escolhido usa. Quem recebe vazio = o comprador. */
-export const entregaDoFormulario = (f: EntregaDoFormulario): EntregaVenda => (f.modo === 'retira'
-  ? { modo: 'retira', modalidade: f.modalidade }
-  : {
-    modo: 'entregar', modalidade: f.modalidade, endereco: f.endereco, recebe: f.outraPessoa ? f.recebe : null,
-    ...(freteDoFormulario(f) ? { frete: freteDoFormulario(f) } : {}),
-  })
+export function entregaDoFormulario(f: EntregaDoFormulario): EntregaVenda {
+  if (f.modo === 'retira') return { modo: 'retira', modalidade: f.modalidade }
+  const frete = freteDoFormulario(f)
+  return { modo: 'entregar', modalidade: f.modalidade, endereco: f.endereco, recebe: f.outraPessoa ? f.recebe : null, ...(frete ? { frete } : {}) }
+}
 
 /** Quem recebe recusado pela mesma regra do servidor (ADR-0015, até 60 caracteres): a tela não deixa criar. */
 export const quemRecebeInvalido = (f: EntregaDoFormulario) => f.modo === 'entregar' && f.outraPessoa && !conferirQuemRecebe(f.recebe).ok

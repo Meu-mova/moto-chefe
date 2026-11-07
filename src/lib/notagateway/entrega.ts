@@ -31,10 +31,15 @@ export const freteDaVenda = (entrega: EntregaVenda | null): number => (entrega?.
 
 /**
  * Valor da venda = moto + frete cobrado (#726). A mesma conta na tela, na efetivação e no editar venda. Sem piso:
- * abaixo do frete é pendência da NF e item moto sem valor. Os relatórios (#796) têm regra própria, com piso 0.
+ * abaixo do frete é pendência da NF e item moto sem valor (`motoNaNota`). Relatórios podem ter regra própria.
  */
 export const totalComFrete = (valorDaMoto: number, frete: number): number => centavos(valorDaMoto + frete)
 export const valorDaMoto = (valorDaVenda: number, frete: number): number => centavos(valorDaVenda - frete)
+/** A moto na nota e no item do pedido; nulo quando o valor da venda não cobre o frete (pendência da NF, tela e item sem valor). */
+export const motoNaNota = (valorDaVenda: number, frete: number): number | null => {
+  const moto = valorDaMoto(valorDaVenda, frete)
+  return moto > 0 ? moto : null
+}
 
 const SO_FRETE_DA_LOJA = `O frete cobrado só vale com ${MODALIDADES_COM_FRETE.map(m => `"${textoDaModalidade(m)}"`).join(' ou ')}.`
 
@@ -89,7 +94,7 @@ export function pendenciasDaEntrega(entrega: EntregaVenda | null, nomeDoComprado
   return [
     ...(entrega && !entrega.modalidade ? [PENDENCIA_SEM_MODALIDADE] : []),
     ...(entrega?.modo === 'entregar' && !entrega.recebe && nomeDoComprador.trim().length > LIMITE_TEXTO_XML ? [NOME_DO_CLIENTE_LONGO] : []),
-    ...(frete && valorDaVenda <= frete
+    ...(frete && motoNaNota(valorDaVenda, frete) === null
       ? [`O valor da venda não cobre o frete cobrado (${brl(frete)}). Corrija em Editar venda: o valor da venda inclui o frete.`] : []),
   ]
 }
