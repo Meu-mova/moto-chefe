@@ -373,3 +373,14 @@ test('sem frete, o item não leva a chave frete e vale o valor da venda', () => 
   assert.equal('frete' in p.itens[0], false)
   assert.equal(p.itens[0].valorUnitario, VENDA.valor)
 })
+
+test('faturamento direto com frete cobrado: o frete só vai no item se a modalidade do formulário da nota for da loja', () => {
+  const venda = { ...VENDA, valor: 10350, pagamentos: [{ tipo: 'PagamentoInstantaneoPix', valor: 10350 }], entrega: { ...ENTREGAR_SP, frete: 350 } as EntregaVenda,
+    moto: { ...VENDA.moto, ciclomotor: true, veiculo: FATURAMENTO_DIRETO } }
+  const clientePaga = montarNfeVendaMoto({ ...venda, transporte: { modalidade: 'ContratacaoPorContaDoDestinatario', enderecoEntrega: ENTREGA_MG } }, REGRA)
+  assert.equal('frete' in clientePaga.itens[0], false)
+  assert.equal(clientePaga.itens[0].valorUnitario, 10350)
+  const lojaLeva = montarNfeVendaMoto({ ...venda, transporte: { modalidade: 'TransporteProprioPorContaDoRemetente', enderecoEntrega: ENTREGA_MG } }, REGRA)
+  assert.equal(lojaLeva.itens[0].frete, 350)
+  assert.equal(lojaLeva.itens[0].valorUnitario, 10000)
+})

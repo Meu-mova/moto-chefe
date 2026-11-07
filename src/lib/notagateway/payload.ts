@@ -25,7 +25,8 @@ import { ehCartao, type FormaPagamentoNfe } from './venda'
 import type { IndicadorIe } from '../documento'
 import { operacaoExigeEntrega, type VeiculoNovo } from './veiculo'
 import { validarDadosTransporte, type DadosTransporte, type EnderecoEntrega } from './transporte'
-import { AVISO_SEM_MODALIDADE, freteDaVenda, operacaoDaVenda, transporteDaEntrega, type EntregaVenda } from './entrega'
+import { AVISO_SEM_MODALIDADE, freteDaVenda, modalidadeComFrete, operacaoDaVenda, transporteDaEntrega, type EntregaVenda } from './entrega'
+import { centavos } from '../numero-br'
 
 export type RegraSaida = {
   naturezaOperacao: string
@@ -232,7 +233,9 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
 
   const { interestadual } = operacaoDosDados(venda)
   // O frete cobrado está somado no valor da venda: na nota, a moto vale o resto e o frete vai no item (W16-10: vNF soma vFrete).
-  const frete = freteDaVenda(venda.entrega ?? null)
+  // Só quando a modalidade que vai na nota é da loja: no faturamento direto ela vem do formulário (#728).
+  const modalidadeDaNota = transporteValidado?.ok ? transporteValidado.dados.modalidade : venda.entrega?.modalidade ?? ''
+  const frete = modalidadeComFrete(modalidadeDaNota) ? freteDaVenda(venda.entrega ?? null) : 0
   // Pendente (Cesar/contador, #726): o valor aproximado dos tributos sai sobre o total com frete; trocar para `venda.valor - frete` aqui.
   const valorDoIbpt = venda.valor
 
@@ -258,7 +261,6 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
   const federal = num(regra.ibptFederal)
   const estadual = num(regra.ibptEstadual)
   if (federal !== undefined || estadual !== undefined) {
-    const centavos = (v: number) => Math.round(v * 100) / 100
     const valorFederal = centavos((valorDoIbpt * (federal ?? 0)) / 100)
     const valorEstadual = centavos((valorDoIbpt * (estadual ?? 0)) / 100)
     impostos.percentualAproximadoTributos = {
@@ -290,7 +292,7 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     ncm: moto.ncm,
     quantidade: 1,
     unidadeMedida: moto.unidade || 'UN',
-    valorUnitario: Math.round((venda.valor - frete) * 100) / 100,
+    valorUnitario: centavos(venda.valor - frete),
     ...(frete ? { frete } : {}),
     impostos,
   }
