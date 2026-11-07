@@ -192,3 +192,10 @@ test('faturamento por origem da venda (marketing) conta a moto, sem o frete', as
   const porOrigem = await m.vendasPorOrigem(a.grupoId, SETEMBRO.dataInicio, SETEMBRO.dataFim)
   assert.equal(porOrigem.reduce((s, o) => s + o.faturamento, 0), BRUTO_MOTOS_A)
 })
+
+test('DRE segue com o frete como receita (decisão do Luis, 07/11): receita de motos = o que os clientes pagaram', async () => {
+  const { dreDoMes } = await import('./dre')
+  const [a] = contas
+  const { colunas } = await dreDoMes({ grupoId: a.grupoId, lojaIds: [a.lojaId], ano: 2026, mes: 9 })
+  assert.equal(colunas.find(c => c.chave === a.lojaId)?.entrada.receitaMotos, 29900)
+})
