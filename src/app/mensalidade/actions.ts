@@ -8,11 +8,9 @@ import { ehUuid } from '@/lib/uuid'
 import { hojeBrt } from '@/lib/data-venda'
 import { urlBase } from '@/lib/assinatura/url'
 import { criarPreferencia, expirarPreferencia } from '@/lib/mercadopago/cliente'
-import { MENSALIDADE_NAO_ENCONTRADA, podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
+import { LINK_INDISPONIVEL, MENSALIDADE_NAO_ENCONTRADA, podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
 import { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
 import { gruposDaMensalidade } from '@/lib/mensalidade/grupos'
-
-const LINK_INDISPONIVEL = 'Não deu para gerar o link agora. Tente de novo em alguns minutos.'
 
 /**
  * Devolve o link para pagar a mensalidade. Vencida, o valor muda com o atraso: o
@@ -28,7 +26,10 @@ export async function linkPagamentoAction(mensalidadeId: string): Promise<{ ok: 
   // inexistente recebem a mesma frase (#773). Erro do banco não vira "não encontrada" (#578).
   const lida = await gruposDaMensalidade(u, () => grupoAtivoDaRequisicao(u))
     .then(grupos => abertasCobraveis({ grupoIds: grupos.map(g => g.id), mensalidadeId }))
-    .then(([m]) => ({ m }), () => null)
+    .then(([m]) => ({ m }), (e: unknown) => {
+      console.error('[mensalidade] leitura para o link:', e instanceof Error ? e.message : e)
+      return null
+    })
   if (!lida) return { ok: false, erro: LINK_INDISPONIVEL }
   const { m } = lida
   if (!m) return { ok: false, erro: MENSALIDADE_NAO_ENCONTRADA }

@@ -5,6 +5,7 @@ import { createElement } from 'react'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
+import { LINK_INDISPONIVEL } from '@/lib/mensalidade/regras'
 
 const { dom, desmontar: desmontarDom } = montarDom()
 after(desmontarDom)
@@ -13,13 +14,12 @@ const janela = dom.window as unknown as { matchMedia?: unknown }
 janela.matchMedia = () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {} })
 after(() => { delete janela.matchMedia })
 
-const ERRO = 'Não deu para gerar o link agora. Tente de novo em alguns minutos.'
+const ERRO = LINK_INDISPONIVEL
 const acao = mock.module('./actions', { namedExports: { linkPagamentoAction: async () => ({ ok: false, erro: ERRO }) } })
 after(() => acao.restore())
 
 const montados: (() => Promise<void>)[] = []
 afterEach(async () => { for (const desmontar of montados.splice(0)) await desmontar() })
-
 
 async function montarTela() {
   const { act } = await import('react')

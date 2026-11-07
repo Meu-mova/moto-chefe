@@ -1,6 +1,6 @@
 // Teste de banco: Postgres descartável. "Pagar" da /mensalidade (#773): o sócio só pede link da
-// mensalidade de um grupo que a tela lista para ele. Mensalidade de outra Conta, id inexistente e
-// id que nem é UUID recebem a mesma frase e nada é gravado.
+// mensalidade de um grupo que a tela lista para ele. Mensalidade de outra Conta, id inexistente, id
+// que nem é UUID e mensalidade já paga recebem a mesma frase, sem chamar o Mercado Pago.
 // Fronteira de fora mockada: sessão, cookie do grupo ativo e Mercado Pago.
 import { after, before, beforeEach, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -36,6 +36,7 @@ type Db = typeof import('@/lib/db')
 let db: Db['db']
 let linkPagamentoAction: typeof import('@/app/mensalidade/actions')['linkPagamentoAction']
 let MENSALIDADE_NAO_ENCONTRADA: string
+let LINK_INDISPONIVEL: string
 let usuarioDaRede: typeof import('@/lib/grupos-liberados')['usuarioDaRede']
 let socioA: Record<string, unknown> = {}
 const semente = { a: null as Base | null, b: null as Base | null, mensalidadeA: '', mensalidadeB: '' }
@@ -52,7 +53,7 @@ const gravadoNa = async (id: string) => (await linhas(sql`
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   ;({ linkPagamentoAction } = await import('@/app/mensalidade/actions'))
-  ;({ MENSALIDADE_NAO_ENCONTRADA } = await import('@/lib/mensalidade/regras'))
+  ;({ MENSALIDADE_NAO_ENCONTRADA, LINK_INDISPONIVEL } = await import('@/lib/mensalidade/regras'))
   ;({ usuarioDaRede } = await import('@/lib/grupos-liberados'))
   const a = await semearContaBase(db, { prefixo: P, nome: 'A', cnpj: '00000000077301' })
   const b = await semearContaBase(db, { prefixo: P, nome: 'B', cnpj: '00000000077302' })
@@ -127,7 +128,7 @@ test('admin_geral com a Conta A ativa não paga a mensalidade da Conta B; a do g
 test('erro do banco ao ler os grupos não vira "não encontrada": responde que o link não saiu agora', async () => {
   // loja_id que não é UUID faz o Postgres recusar a leitura do grupo da própria loja.
   usuarioDaSessao = { ...socioA, lojaId: 'nao-e-uuid' }
-  assert.deepEqual(await linkPagamentoAction(semente.mensalidadeA), { ok: false, erro: 'Não deu para gerar o link agora. Tente de novo em alguns minutos.' })
+  assert.deepEqual(await linkPagamentoAction(semente.mensalidadeA), { ok: false, erro: LINK_INDISPONIVEL })
   assert.deepEqual(preferenciasCriadas, [])
 })
 
@@ -139,7 +140,16 @@ test('admin_rede na persona do grupo liberado da Conta B paga a mensalidade de B
     [{ grupoId: b.grupoId, contaId: b.contaId }],
     b.grupoId,
   )
-  grupoDoCookie = b.grupoId
   assert.deepEqual(await linkPagamentoAction(semente.mensalidadeB), { ok: true, url: `https://mp.teste/${P}` })
   assert.deepEqual(preferenciasCriadas, [semente.mensalidadeB])
+})
+
+test('mensalidade já paga da própria Conta recebe a mesma frase e não ganha link novo', async () => {
+  const { a } = semente
+  assert.ok(a)
+  const [paga] = await linhas(sql`insert into mensalidades (grupo_id, competencia, valor, vencimento, status, pago_em)
+    values (${a.grupoId}, '2098-12', 499, '2098-12-10', 'paga', now()) returning id`)
+  assert.deepEqual(await linkPagamentoAction(paga.id), { ok: false, erro: MENSALIDADE_NAO_ENCONTRADA })
+  assert.deepEqual(preferenciasCriadas, [])
+  assert.equal((await gravadoNa(paga.id)).link_pagamento, null)
 })

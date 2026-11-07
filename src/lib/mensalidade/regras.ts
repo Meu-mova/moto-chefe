@@ -87,6 +87,9 @@ export function podePagarMensalidade(papel: string): boolean {
  */
 export const MENSALIDADE_NAO_ENCONTRADA = 'Mensalidade não encontrada ou já paga'
 
+/** O link não saiu: Mercado Pago ou banco falharam. Não diz nada sobre a mensalidade pedida. */
+export const LINK_INDISPONIVEL = 'Não deu para gerar o link agora. Tente de novo em alguns minutos.'
+
 /** Valor a cobrar hoje: o da mensalidade mais o acréscimo do atraso, se houver. */
 export function valorAtualizado(valor: number, venc: string, hoje: string): { acrescimo: number; total: number } {
   const acrescimo = acrescimoAtraso(valor, venc, hoje)
