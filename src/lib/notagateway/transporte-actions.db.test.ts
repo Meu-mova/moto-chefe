@@ -386,3 +386,28 @@ test('venda com Entrega sem modalidade: prévia lista a pendência e transmitir 
   assert.equal(await numeroDeNotas(f), 0)
   assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
 })
+
+// "Entregar" (#726): emitente MG, cliente de MG, entrega no PR. Quem recebe vazio = o comprador da venda.
+const ENTREGAR_PR: EntregaVenda = {
+  modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente',
+  endereco: { cep: '80010000', logradouro: 'Rua Entrega', numero: '20', complemento: '', bairro: 'Centro', cidade: '4106902', nomeCidade: 'Curitiba', uf: 'PR' },
+  recebe: null,
+}
+
+test('venda "Entregar" em outra UF com cliente da UF da loja: prévia e nota para outro estado, enderecoEntrega com o comprador', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_PR })
+  user = f.user
+  const net = network(f)
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.ok(previa.ok && previa.resumo, JSON.stringify(previa))
+  assert.deepEqual(previa.resumo.operacao, { interestadual: true, motivo: 'entregar', ufOrigem: 'MG', ufDestino: 'PR' })
+  const result = await actions.transmitirNfePropriaAction(f.motoId)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].itens[0].cfop, '6102')
+  assert.equal(net.payloads[0].cliente.endereco.uf, 'MG')
+  assert.equal(net.payloads[0].cliente.nome, 'COMPRADOR SINTÉTICO')
+  assert.deepEqual(net.payloads[0].transporte, {
+    frete: { modalidade: 'TransporteProprioPorContaDoRemetente' },
+    enderecoEntrega: { ...expectedTransport.enderecoEntrega, nomeDestinatario: net.payloads[0].cliente.nome, cep: '80010000' },
+  })
+})
