@@ -8,10 +8,10 @@ import { and, eq, exists, ilike, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   agendamentos, aprovacoesVenda, conciliacoesCartao, cuponsRevisao, garantias, historicoEstoque, lancamentosCaixa,
-  lojas, modelos, motos, ordensServico, osItens, pedidosVenda, pixRecebimentosMcp, reservas, transferencias, vendas,
+  motos, ordensServico, osItens, pedidosVenda, pixRecebimentosMcp, reservas, transferencias, vendas,
 } from '@/lib/db/schema'
 import {
-  alcance, dadosDaMoto, daMoto, NAO_ENCONTRADA, registrarNoLog, temLinha, travarDoAlcance, type Exec, type UsuarioQueArquiva,
+  alcance, daMoto, motosComDados, NAO_ENCONTRADA, registrarNoLog, temLinha, travarDoAlcance, type Exec, type UsuarioQueArquiva,
 } from '@/lib/arquivar-motos'
 import { podeArquivarMotos } from '@/lib/arquivar-moto-regras'
 import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type ImpedimentosDeRemover, type OsDaMoto } from '@/lib/remover-moto-regras'
@@ -33,8 +33,7 @@ const osDaMoto = sql<OsDaMoto[]>`coalesce((select json_agg(json_build_object(
   ) order by ${ordensServico.numero}) from ${ordensServico} where ${ordensServico.motoId} = ${daMoto}), '[]'::json)`
 
 function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
-  return exec.select({
-    ...dadosDaMoto(),
+  return motosComDados(exec, {
     temVenda: temLinha(exec, vendas),
     marcadaVendida: sql<boolean>`not (${motoNaoVendida()})`,
     temGarantia: temLinha(exec, garantias),
@@ -45,11 +44,7 @@ function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
       .innerJoin(pedidosVenda, eq(pedidosVenda.id, pixRecebimentosMcp.pedidoId))
       .where(eq(pedidosVenda.motoId, daMoto)))}`,
     osDaMoto,
-  })
-    .from(motos)
-    .innerJoin(lojas, eq(lojas.id, motos.lojaId))
-    .innerJoin(modelos, eq(modelos.id, motos.modeloId))
-    .where(onde)
+  }, onde)
 }
 
 type LinhaDaMoto = Awaited<ReturnType<typeof motosComImpedimentos>>[number]

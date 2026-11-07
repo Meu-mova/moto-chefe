@@ -55,10 +55,18 @@ export const dadosDaMoto = () => ({
   modelo: nomeDoModeloNaLoja(motos.lojaId),
 })
 
+/** A moto com loja e modelo (o que o log guarda) e os campos de cada ação: Arquivar, Desarquivar, Remover. */
+export function motosComDados<C extends Record<string, SQL | SQL.Aliased>>(exec: Exec, campos: C, onde: SQL | undefined) {
+  return exec.select({ ...dadosDaMoto(), ...campos })
+    .from(motos)
+    .innerJoin(lojas, eq(lojas.id, motos.lojaId))
+    .innerJoin(modelos, eq(modelos.id, motos.modeloId))
+    .where(onde)
+}
+
 function motosComPendencias(exec: Exec, onde: SQL | undefined) {
   const osAberta = inArray(ordensServico.status, [...STATUS_OS_ABERTA])
-  return exec.select({
-    ...dadosDaMoto(),
+  return motosComDados(exec, {
     temVenda: temLinha(exec, vendas),
     reservaAtiva: temLinha(exec, reservas, eq(reservas.status, 'ativa')),
     pedidoPendente: temLinha(exec, pedidosVenda, eq(pedidosVenda.status, 'pendente')),
@@ -68,11 +76,7 @@ function motosComPendencias(exec: Exec, onde: SQL | undefined) {
     osAbertaExiste: temLinha(exec, ordensServico, osAberta),
     // Número da primeira OS aberta, para a frase "Feche a OS nº X".
     osAbertaNumero: sql<number | null>`(select min(${ordensServico.numero}) from ${ordensServico} where ${ordensServico.motoId} = ${daMoto} and ${osAberta})`,
-  })
-    .from(motos)
-    .innerJoin(lojas, eq(lojas.id, motos.lojaId))
-    .innerJoin(modelos, eq(modelos.id, motos.modeloId))
-    .where(and(motoNaoArquivada(), onde))
+  }, and(motoNaoArquivada(), onde))
 }
 
 type LinhaDaMoto = Awaited<ReturnType<typeof motosComPendencias>>[number]
@@ -170,10 +174,7 @@ export async function desarquivarMotos(usuario: UsuarioQueArquiva, motoIds: stri
 
   return exec.transaction(async tx => {
     const doLote = await travarDoAlcance(tx, usuario, ids, motoArquivada())
-    const achadas = await tx.select(dadosDaMoto()).from(motos)
-      .innerJoin(lojas, eq(lojas.id, motos.lojaId))
-      .innerJoin(modelos, eq(modelos.id, motos.modeloId))
-      .where(doLote)
+    const achadas = await motosComDados(tx, {}, doLote)
 
     // Os três juntos (check motos_arquivo_completo), com a Conta e o alcance repetidos no where.
     const devolvidas = await tx.update(motos)
