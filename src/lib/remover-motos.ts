@@ -70,16 +70,11 @@ export async function motosParaRemover(usuario: UsuarioQueArquiva, termo: string
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-/** Quantas linhas de cada tipo saíram, por moto; tipo sem linha não aparece. */
-function contarPorMoto(saidas: Record<string, (string | null)[]>): Map<string, Record<string, number>> {
-  return Object.entries(saidas).reduce((porMoto, [tipo, motoIds]) => {
-    for (const id of motoIds.filter((x): x is string => x !== null)) {
-      const atual = porMoto.get(id) ?? {}
-      porMoto.set(id, { ...atual, [tipo]: (atual[tipo] ?? 0) + 1 })
-    }
-    return porMoto
-  }, new Map<string, Record<string, number>>())
-}
+/** Quantas linhas de cada tipo saíram com a moto; tipo sem linha não aparece. */
+const saiuDaMoto = (saidas: Record<string, (string | null)[]>, motoId: string): Record<string, number> =>
+  Object.fromEntries(Object.entries(saidas)
+    .map(([tipo, motoIds]) => [tipo, motoIds.filter(id => id === motoId).length] as const)
+    .filter(([, n]) => n > 0))
 
 /** Apaga o que depende das motos (já conferidas sem venda nem dinheiro). Devolve o id da moto de cada linha apagada. */
 async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<string, (string | null)[]>> {
@@ -122,11 +117,11 @@ export async function removerMotos(usuario: UsuarioQueArquiva, motoIds: string[]
     const recusa = recusaDaRemocao({ motivo, confirmacao, motos: achadas.map(m => ({ chassi: m.chassi, impedimentos: impedimentosDa(m) })) })
     if (recusa) throw new RecusaUsuario(recusa)
 
-    const saiu = contarPorMoto(await apagarDependentes(tx, ids))
+    const saidas = await apagarDependentes(tx, ids)
     // A gravação repete a Conta e o alcance no where (AGENTS.md, isolamento), e confere as linhas.
     const removidas = await tx.delete(motos).where(doLote).returning({ id: motos.id })
     if (removidas.length !== ids.length) throw new RecusaUsuario(NAO_ENCONTRADA)
-    await registrarNoLog(tx, 'moto_removida', usuario.id, achadas, motivo.trim(), m => ({ saiu: saiu.get(m.id) ?? {} }))
+    await registrarNoLog(tx, 'moto_removida', usuario.id, achadas, motivo.trim(), m => ({ saiu: saiuDaMoto(saidas, m.id) }))
     return { removidas: removidas.length }
   })
 }
