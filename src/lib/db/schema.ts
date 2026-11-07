@@ -5,12 +5,12 @@ import {
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
+import type { TipoItemPedido } from '@/lib/pedido-venda-regras'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 import type { PapelBase } from '@/lib/gestao-usuarios'
 import type { PadraoSimulador } from '@/lib/simulador-padrao'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 import type { EntregaVenda } from '@/lib/notagateway/entrega'
-import type { TipoItemPedido } from '@/lib/pedido-venda-regras'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
