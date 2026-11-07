@@ -8,6 +8,7 @@ import { parseNumeroBR } from '@/lib/numero-br'
 import { fmtBRL } from '@/lib/preco-minimo'
 import { CAMPO, CELULA, NUMERO, SO_DESKTOP, SO_TABLET } from './folha-mes-grade'
 import { Campo, CartaoFormulario, LinhaLancamento, SELECT, TabelaLancamentos } from './folha-lancamento'
+import { dataPuraBr } from '@/lib/data-venda'
 
 export type AdiantamentoRow = {
   id: string
@@ -28,8 +29,7 @@ const reais = (v: string) => fmtBRL(parseFloat(v))
 // anterior no fuso de Brasília — o mesmo motivo de parseDataInput em @/lib/data-venda.
 function fmtData(d: string | null) {
   if (!d) return 'Sem data'
-  const [ano, mes, dia] = d.slice(0, 10).split('-')
-  return dia + '/' + mes + '/' + ano
+  return dataPuraBr(d.slice(0, 10))
 }
 
 // Celular: funcionário (com "data · loja" embaixo), valor e seta. Tablet: + coluna Data (a loja fica

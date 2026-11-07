@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Ban } from 'lucide-react'
 import { statusCupom, type StatusCupom } from '@/lib/cupom-revisao'
 import { cancelarCupomAction, type CupomRow } from '../actions'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const STATUS_LABEL: Record<StatusCupom, string> = {
   ativo: 'Ativo', usado: 'Utilizado', cancelado: 'Cancelado', vencido: 'Vencido',
@@ -20,8 +21,7 @@ const STATUS_CLS: Record<StatusCupom, string> = {
 
 function fmtData(d: string | null) {
   if (!d) return '—'
-  const [ano, mes, dia] = String(d).slice(0, 10).split('-')
-  return `${dia}/${mes}/${ano}`
+  return dataPuraBr(String(d).slice(0, 10))
 }
 
 function fmtDataHora(d: Date | null) {
