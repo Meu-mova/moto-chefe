@@ -89,3 +89,12 @@ export function diaEHoraBrt(iso: string): string {
   const hora = new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
   return `${diaCurtoBrt(iso)} às ${hora}`
 }
+
+/**
+ * Data pura do banco como texto: 'AAAA-MM-DD' → "09/10/2026", 'AAAA-MM' → "10/2026".
+ * Só reordena o texto. Não use `diaBrt` aqui: ele lê '2026-10-09' como meia-noite UTC,
+ * que em Brasília ainda é dia 08.
+ */
+export function dataPuraBr(texto: string): string {
+  return texto.split('-').reverse().join('/')
+}
