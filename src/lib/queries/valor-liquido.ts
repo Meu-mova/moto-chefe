@@ -47,3 +47,24 @@ export function valorLiquidoSql(v = 'v') {
                 WHERE cc.venda_id = ${a}.id AND cc.conciliado = true), 0)
   )`
 }
+
+/**
+ * Frete cobrado do cliente (4b da #726): mora em `vendas.entrega->'frete'` e soma no valor da venda, nos
+ * pagamentos e no caixa. Ausente ou nulo = sem frete.
+ */
+export const freteDaVendaExpr = () => sql`COALESCE((${vendas.entrega}->>'frete')::numeric, 0)`
+
+/** O mesmo frete para o SQL cru, com `v` como alias de vendas. */
+export const freteDaVendaSql = (v = 'v') => sql`COALESCE((${sql.raw(v)}.entrega->>'frete')::numeric, 0)`
+
+/**
+ * Valor da MOTO vendida: o valor da venda sem o frete cobrado (#796). Comissão, metas, relatório da fábrica,
+ * desconto, rankings e os relatórios de venda de motos usam este; caixa, NF, conciliação, contrato e DRE seguem
+ * com o valor da venda (o que o cliente pagou). Venda editada para baixo do frete: mínimo 0 (decisão do Luis, 07/11).
+ */
+export const valorDaMotoExpr = () => sql`GREATEST(${vendas.valor}::numeric - ${freteDaVendaExpr()}, 0)`
+export const valorDaMotoSql = (v = 'v') => sql`GREATEST(${sql.raw(v)}.valor::numeric - ${freteDaVendaSql(v)}, 0)`
+
+/** Líquido da moto: o líquido da venda menos o frete inteiro; a taxa do cartão sobre o frete fica com a moto (07/11). */
+export const valorLiquidoDaMotoExpr = () => sql`GREATEST(${valorLiquidoExpr()} - ${freteDaVendaExpr()}, 0)`
+export const valorLiquidoDaMotoSql = (v = 'v') => sql`GREATEST(${valorLiquidoSql(v)} - ${freteDaVendaSql(v)}, 0)`
