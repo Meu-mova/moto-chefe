@@ -163,4 +163,5 @@ test('V5: Conta B edita a venda da Conta A: mesma resposta de id inexistente, e 
     assert.deepEqual(await editar(id), { ok: false, erro: 'Venda não encontrada' })
   }
   assert.deepEqual(await itensDaMoto(moto), antes)
+  assert.deepEqual(await execRows(sql`select valor, cliente_nome as "clienteNome" from vendas where id = ${id}`), [{ valor: '12000.00', clienteNome: 'Cliente ' + P }])
 })
