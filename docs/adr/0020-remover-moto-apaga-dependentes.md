@@ -85,8 +85,8 @@ O porquê de cada uma vem nas palavras dele.
   - **garantia da moto**. Porquê: "Garantia implica cliente dono e pode haver pedido à fábrica (o
     Arquivar já recusa garantia ativa)."
 - **Saem junto**: OS sem dinheiro (ex.: montagem) e os itens dela, transferências, cupons de revisão,
-  histórico do estoque, ficha fiscal e RENAVE; **pedido e reserva cancelados** e aprovações já
-  respondidas. Porquê dos cancelados: "É o caminho combinado: 'cancele antes de remover'; se o
+  histórico do estoque, ficha fiscal e RENAVE; **pedido e reserva que não estão ativos** (cancelados,
+  e a reserva que o Cancelar venda deixa "convertida") e aprovações já respondidas. Porquê dos cancelados: "É o caminho combinado: 'cancele antes de remover'; se o
   cancelado travasse, a moto errada nunca sairia." O agendamento que virou OS fica na agenda, sem a
   OS. Peças usadas em OS não voltam ao estoque (aviso).
 - **Ficam**: linhas de NF de saída, histórico de veículos da oficina e Notas recebidas. A NF de entrada
