@@ -10,9 +10,11 @@ import { montarDom } from '@/test/montar-dom'
 const { dom, desmontar: desmontarDom } = montarDom()
 after(desmontarDom)
 
-type Moto = { id: string; chassi: string; modelo: string; loja: string; nfEntrada: string | null; bloqueio: string | null; saiJunto: SaiJunto; pecasEmOs: number }
+type Moto = { id: string; chassi: string; modelo: string; loja: string; nfEntrada: string | null; bloqueio: string | null; saiJunto: SaiJunto; pecasEmOs: number; mesmaNf: string[] }
+// As três da NF 43440 estão no mesmo grupo: cada uma lista as outras duas em mesmaNf.
+const DA_43440 = ['m-1', 'm-2', 'm-3']
 const moto = (n: number, bloqueio: string | null = null, saiJunto: SaiJunto = { historico: 1 }, pecasEmOs = 0): Moto =>
-  ({ id: `m-${n}`, chassi: `TESTE00REM00000${n}`, modelo: 'X12', loja: 'Loja Teste', nfEntrada: '43440', bloqueio, saiJunto, pecasEmOs })
+  ({ id: `m-${n}`, chassi: `TESTE00REM00000${n}`, modelo: 'X12', loja: 'Loja Teste', nfEntrada: '43440', bloqueio, saiJunto, pecasEmOs, mesmaNf: DA_43440.filter(id => id !== `m-${n}`) })
 const VENDIDA = 'Esta moto tem venda. Cancele a venda antes de remover.'
 const DA_NF = [moto(1, null, { os: 1, itensDeOs: 2, historico: 3 }, 2), moto(2), moto(3, VENDIDA)]
 
@@ -82,15 +84,24 @@ test('moto vendida aparece apagada com a frase do servidor e fica fora do "marca
   assert.deepEqual([1, 2, 3].map(n => caixa(`TESTE00REM00000${n}`)!.checked), [true, true, false])
 })
 
-test('Conferir mostra, moto por moto, o que sai junto e o aviso das peças, mais o aviso da NF de entrada', async () => {
+test('Conferir mostra, moto por moto, o que sai junto e o aviso das peças; a NF com moto que fica continua lançada', async () => {
   const t = await montar()
   await t.buscar('43440'); await t.marcar('Marcar todas que podem (2)')
   await t.clique('Continuar com 2 motos')
   const texto = textoDaTela()
   for (const linha of ['1 OS', '2 itens de OS', '3 registros do histórico', '1 registro do histórico', 'Não dá para desfazer.',
-    '2 itens de peça usados em OS não voltam ao estoque de peças.', 'A NF de entrada volta a "pendente" em Notas recebidas e pode ser importada de novo.']) {
+    '2 itens de peça usados em OS não voltam ao estoque de peças.', 'A NF de entrada 43440 continua lançada em Notas recebidas: outras motos dela ficam no MOVA.']) {
     assert.ok(texto.includes(linha), linha)
   }
+  assert.ok(!texto.includes('volta a "pendente"'), 'a 3ª moto da NF fica: a NF não volta')
+})
+
+test('Conferir avisa que a NF volta a "pendente" quando todas as motos dela saem', async () => {
+  api.buscar.mock.mockImplementation(async () => [{ ...moto(7), nfEntrada: '555', mesmaNf: [] }])
+  const t = await montar()
+  await t.buscar('555'); await t.marcar('TESTE00REM000007')
+  await t.clique('Continuar com 1 moto')
+  assert.ok(textoDaTela().includes('A NF de entrada 555 volta a "pendente" em Notas recebidas e pode ser importada de novo.'))
 })
 
 test('sem motivo ou sem CONFIRMAR não envia; com os dois envia e termina em "N motos removidas"', async () => {

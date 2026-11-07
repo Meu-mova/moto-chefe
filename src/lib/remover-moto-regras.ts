@@ -90,3 +90,15 @@ export const oQueSaiJunto = (s: SaiJunto): string[] =>
 /** As peças da OS já saíram do estoque de peças; remover a OS não as devolve (ADR-0020). */
 export const avisoDasPecas = (n: number): string | null =>
   n === 0 ? null : n === 1 ? '1 item de peça usado em OS não volta ao estoque de peças.' : `${n} itens de peça usados em OS não voltam ao estoque de peças.`
+
+/** `mesmaNf`: as outras motos do grupo com a mesma NF de entrada (como Notas recebidas compara). */
+type MotoComNf = { id: string; nfEntrada: string | null; mesmaNf: string[] }
+
+/** NFs do lote que voltam a "pendente" em Notas recebidas (sai a última moto delas) e as que ficam lançadas. */
+export function nfsDoLote(motos: MotoComNf[]): { voltam: string[]; ficam: string[] } {
+  const ids = new Set(motos.map(m => m.id))
+  const comNf = motos.filter((m): m is MotoComNf & { nfEntrada: string } => !!m.nfEntrada)
+  const nfs = [...new Set(comNf.map(m => m.nfEntrada))]
+  const ficaMoto = (nf: string) => comNf.some(m => m.nfEntrada === nf && m.mesmaNf.some(id => !ids.has(id)))
+  return { voltam: nfs.filter(nf => !ficaMoto(nf)), ficam: nfs.filter(ficaMoto) }
+}

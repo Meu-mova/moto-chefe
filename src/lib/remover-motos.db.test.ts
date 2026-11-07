@@ -277,3 +277,16 @@ test('moto arquivada também se remove, e o chassi removido passa na conferênci
     assert.deepEqual(await conferir(), [])
   })
 })
+
+test('a busca diz quais outras motos do grupo têm a mesma NF de entrada; outro grupo não conta', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069243', '00000000069244')
+    const x = await a.novaMoto('NFX')
+    const y = await a.novaMoto('NFY')
+    await a.novaMoto('NFZ', a.outro.lojaId)
+    const porChassi = new Map((await motosParaRemover(a.socio, `${P}ANF`, tx)).map(m => [m.chassi, m.mesmaNf]))
+    assert.deepEqual(porChassi.get(`${P}ANFX`), [y])
+    assert.deepEqual(porChassi.get(`${P}ANFY`), [x])
+    assert.deepEqual(porChassi.get(`${P}ANFZ`), [])
+  })
+})

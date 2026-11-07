@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { DialogoPassoAPasso, useEnvioDoLote } from '@/components/dialogo-passo-a-passo'
 import { motivoDoArquivoValido } from '@/lib/arquivar-moto-regras'
-import { avisoDasPecas, confirmacaoValida, oQueSaiJunto, PALAVRA_DE_CONFIRMACAO } from '@/lib/remover-moto-regras'
+import { avisoDasPecas, confirmacaoValida, nfsDoLote, oQueSaiJunto, PALAVRA_DE_CONFIRMACAO } from '@/lib/remover-moto-regras'
 import { EscolherMotos, SEM_RESPOSTA, useEscolhaDeMotos } from './escolher-motos'
 import { buscarMotosParaRemoverAction, removerMotosAction } from '../arquivar-actions'
 
@@ -30,6 +30,7 @@ export function RemoverMotoDialog({ aberto, onFechar }: { aberto: boolean; onFec
   const irPara = (p: number) => { setErro(null); setPasso(p) }
   const n = escolha.marcadas.size
   const pronto = motivoDoArquivoValido(motivo) && confirmacaoValida(confirmacao)
+  const nfs = nfsDoLote(escolha.escolhidas)
 
   if (feito !== null) {
     return (
@@ -89,7 +90,8 @@ export function RemoverMotoDialog({ aberto, onFechar }: { aberto: boolean; onFec
               </div>
             )
           })}
-          <Aviso>A NF de entrada volta a &quot;pendente&quot; em Notas recebidas e pode ser importada de novo.</Aviso>
+          {nfs.voltam.map(nf => <Aviso key={nf}>A NF de entrada {nf} volta a &quot;pendente&quot; em Notas recebidas e pode ser importada de novo.</Aviso>)}
+          {nfs.ficam.map(nf => <p key={nf} className="text-sm text-muted-foreground">A NF de entrada {nf} continua lançada em Notas recebidas: outras motos dela ficam no MOVA.</p>)}
         </>
       )}
       {passo === 2 && (

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { avisoDasPecas, confirmacaoValida, motivoQueImpedeRemover, oQueSaiJunto, primeiraOsComDinheiro, recusaDaRemocao, SEM_IMPEDIMENTO, type ImpedimentosDeRemover } from './remover-moto-regras'
+import { avisoDasPecas, confirmacaoValida, nfsDoLote, motivoQueImpedeRemover, oQueSaiJunto, primeiraOsComDinheiro, recusaDaRemocao, SEM_IMPEDIMENTO, type ImpedimentosDeRemover } from './remover-moto-regras'
 
 const com = (p: Partial<ImpedimentosDeRemover>): ImpedimentosDeRemover => ({ ...SEM_IMPEDIMENTO, ...p })
 
@@ -72,4 +72,12 @@ test('peças usadas em OS viram aviso, no singular ou plural', () => {
   assert.equal(avisoDasPecas(0), null)
   assert.equal(avisoDasPecas(1), '1 item de peça usado em OS não volta ao estoque de peças.')
   assert.equal(avisoDasPecas(3), '3 itens de peça usados em OS não voltam ao estoque de peças.')
+})
+
+test('a NF de entrada só volta a "pendente" se todas as motos dela no grupo estão no lote', () => {
+  const m = (id: string, nfEntrada: string | null, mesmaNf: string[]) => ({ id, nfEntrada, mesmaNf })
+  // NF 10 com duas motos, as duas no lote; NF 20 com uma moto de fora; moto sem NF não conta.
+  const lote = [m('a', '10', ['b']), m('b', '10', ['a']), m('c', '20', ['d']), m('e', null, [])]
+  assert.deepEqual(nfsDoLote(lote), { voltam: ['10'], ficam: ['20'] })
+  assert.deepEqual(nfsDoLote([m('a', '10', [])]), { voltam: ['10'], ficam: [] })
 })

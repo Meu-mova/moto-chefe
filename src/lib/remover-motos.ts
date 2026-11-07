@@ -18,6 +18,7 @@ import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type Im
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { ehUuid } from '@/lib/uuid'
 import { motoNaoVendida } from '@/lib/queries/showroom'
+import { numeroDaNfDaMoto } from '@/lib/queries/nfe-recebidas'
 
 const LIMITE_DA_BUSCA = 50
 
@@ -68,6 +69,13 @@ const saiJuntoDaMoto = () => ({
   aprovacoes: sql<number>`(select count(*)::int from ${aprovacoesVenda} where ${aprovacoesVenda.motoId} = ${daMoto} or ${aprovacoesVenda.osId} in ${daOsDaMoto})`,
 })
 
+// Outras motos do grupo da moto com a mesma NF de entrada, comparada como em Notas recebidas: a NF só
+// volta a "pendente" quando sai a última. Só ids, e só do mesmo grupo (mesma Conta).
+const nfDaMoto = numeroDaNfDaMoto(sql.raw('"motos"."nota_fiscal_entrada"'))
+const outrasDaMesmaNf = sql<string[]>`coalesce((select array_agg(o.id::text) from motos o join lojas lo on lo.id = o.loja_id
+  where lo.grupo_id = (select l.grupo_id from lojas l where l.id = "motos"."loja_id") and o.id <> "motos"."id"
+    and ${nfDaMoto} <> '' and ${numeroDaNfDaMoto(sql.raw('o.nota_fiscal_entrada'))} = ${nfDaMoto}), '{}')`
+
 // O log grava só o que saiu; a prévia segue a mesma forma.
 const semZeros = (s: Record<string, number>): SaiJunto => Object.fromEntries(Object.entries(s).filter(([, n]) => n > 0))
 
@@ -78,7 +86,7 @@ export async function motosParaRemover(usuario: UsuarioQueArquiva, termo: string
   const onde = await alcance(usuario, exec)
   if (onde === null) return []
   const linhas = await motosComImpedimentos(exec, and(onde, or(ilike(motos.chassi, `%${busca}%`), ilike(motos.notaFiscalEntrada, `%${busca}%`))),
-    { ...saiJuntoDaMoto(), pecasEmOs: contarItensDeOs(eq(osItens.tipo, 'peca')) })
+    { ...saiJuntoDaMoto(), pecasEmOs: contarItensDeOs(eq(osItens.tipo, 'peca')), mesmaNf: outrasDaMesmaNf })
     .orderBy(motos.chassi)
     .limit(LIMITE_DA_BUSCA)
   return linhas.map(({ os, itensDeOs, transferencias, cupons, pedidos, aprovacoes, historico, ...m }) => ({
@@ -86,6 +94,7 @@ export async function motosParaRemover(usuario: UsuarioQueArquiva, termo: string
     bloqueio: motivoQueImpedeRemover(impedimentosDa(m)),
     saiJunto: semZeros({ os, itensDeOs, transferencias, cupons, pedidos, aprovacoes, historico }),
     pecasEmOs: m.pecasEmOs,
+    mesmaNf: m.mesmaNf,
   }))
 }
 
