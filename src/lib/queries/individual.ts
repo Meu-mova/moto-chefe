@@ -1,6 +1,6 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
-import { valorDaMotoSql, valorLiquidoDaMotoSql } from './valor-liquido'
+import { valorDaMotoNosRelatoriosSql, valorLiquidoDaMotoSql } from './valor-liquido'
 import { nomeDoModeloSql } from '@/lib/modelos-da-conta'
 import { metricasAtendimento } from './atendimento'
 import { descontosPorVendedor } from './descontos'

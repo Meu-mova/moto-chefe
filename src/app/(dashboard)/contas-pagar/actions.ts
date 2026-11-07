@@ -14,7 +14,7 @@ import {
   mesApurado, ultimoDiaDoMes, valorAutomatico,
 } from '@/lib/contas-pagar'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
-import { valorDaMotoExpr } from '@/lib/queries/valor-liquido'
+import { valorDaMotoNosRelatoriosExpr } from '@/lib/queries/valor-liquido'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -42,7 +42,7 @@ async function apurarBase(base: string, mes: string, lojaIds: string[], grupoId:
   // "Venda de motos" é só a moto; o faturamento total conta o frete cobrado como receita, como o DRE (#796).
   const somaMotos = async (apenasComNf: boolean, comFrete = false) => {
     const [r] = await db
-      .select({ total: sql<string>`COALESCE(SUM(${comFrete ? sql`${vendas.valor}::numeric` : valorDaMotoExpr()}), 0)` })
+      .select({ total: sql<string>`COALESCE(SUM(${comFrete ? sql`${vendas.valor}::numeric` : valorDaMotoNosRelatoriosExpr()}), 0)` })
       .from(vendas)
       .where(and(
         inArray(vendas.lojaId, lojaIds),

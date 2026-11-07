@@ -1,7 +1,7 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { rotuloCanal, taxa } from '@/lib/marketing-canal'
-import { valorDaMotoSql } from './valor-liquido'
+import { valorDaMotoNosRelatoriosSql } from './valor-liquido'
 
 // Relatório de Marketing — leads de ENTRADA do Kommo.
 // Ver docs/superpowers/specs/2026-08-06-marketing-leads-kommo-design.md
@@ -436,7 +436,7 @@ export async function resumoVendasPorOrigem(
       count(*)::int                                          as vendas,
       count(v.origem_id)::int                                as com_origem,
       count(*) filter (where v.origem_id is null)::int        as sem_origem,
-      coalesce(sum(${valorDaMotoSql()}), 0)::float8                      as faturamento
+      coalesce(sum(${valorDaMotoNosRelatoriosSql()}), 0)::float8                      as faturamento
     FROM vendas v
     JOIN lojas lo ON lo.id = v.loja_id
     WHERE lo.grupo_id = ${grupoId}
@@ -472,7 +472,7 @@ export async function vendasPorOrigem(
       coalesce(o.nome, 'Não informado') as origem,
       coalesce(o.tipo, 'Não informado') as tipo,
       count(*)::int                     as vendas,
-      coalesce(sum(${valorDaMotoSql()}), 0)::float8 as faturamento
+      coalesce(sum(${valorDaMotoNosRelatoriosSql()}), 0)::float8 as faturamento
     FROM vendas v
     JOIN lojas lo ON lo.id = v.loja_id
     LEFT JOIN origens_venda o ON o.id = v.origem_id
@@ -551,7 +551,7 @@ export async function serieVendasPorTipoOrigem(
       to_char(date_trunc('month', v.data_venda AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM') as mes,
       coalesce(o.tipo, 'Não informado') as tipo,
       count(*)::int                     as vendas,
-      coalesce(sum(${valorDaMotoSql()}), 0)::float8 as faturamento
+      coalesce(sum(${valorDaMotoNosRelatoriosSql()}), 0)::float8 as faturamento
     FROM vendas v
     JOIN lojas lo ON lo.id = v.loja_id
     LEFT JOIN origens_venda o ON o.id = v.origem_id
@@ -579,7 +579,7 @@ export async function indicacoesPorQuem(
     SELECT
       v.origem_detalhe                  as detalhe,
       count(*)::int                     as vendas,
-      coalesce(sum(${valorDaMotoSql()}), 0)::float8 as faturamento
+      coalesce(sum(${valorDaMotoNosRelatoriosSql()}), 0)::float8 as faturamento
     FROM vendas v
     JOIN lojas lo ON lo.id = v.loja_id
     WHERE lo.grupo_id = ${grupoId}

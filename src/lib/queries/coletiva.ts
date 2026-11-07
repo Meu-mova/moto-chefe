@@ -1,7 +1,7 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { metasDoMes } from './metas'
-import { valorDaMotoSql, valorLiquidoDaMotoSql } from './valor-liquido'
+import { valorDaMotoNosRelatoriosSql, valorLiquidoDaMotoSql } from './valor-liquido'
 import { nomeDoModeloSql } from '@/lib/modelos-da-conta'
 import {
   gerarOportunidades, type PodioVendedor, type ItemColetiva, type LojaMeta, type Oportunidade,
@@ -54,7 +54,7 @@ export async function dadosColetiva(opts: {
       select
         count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as qtd,
         coalesce(sum(${valorLiquidoDaMotoSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat,
-        coalesce(sum(${valorDaMotoSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat_bruto,
+        coalesce(sum(${valorDaMotoNosRelatoriosSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat_bruto,
         count(distinct nullif(v.cliente_cpf,'')) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as clientes,
         count(*) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim})::int as qtd_ant,
         coalesce(sum(${valorLiquidoDaMotoSql()}) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim}),0)::text as fat_ant
@@ -80,7 +80,7 @@ export async function dadosColetiva(opts: {
     execRows(sql`
       select l.id as loja_id, l.nome as loja,
              coalesce(sum(${valorLiquidoDaMotoSql()}),0)::text as fat,
-             coalesce(sum(${valorDaMotoSql()}),0)::text as fat_bruto
+             coalesce(sum(${valorDaMotoNosRelatoriosSql()}),0)::text as fat_bruto
       from lojas l left join vendas v on v.loja_id=l.id and v.data_venda >= ${ini} and v.data_venda < ${fim}
       where l.grupo_id = ${g} and l.ativa = true
       group by l.id, l.nome`),

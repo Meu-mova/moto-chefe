@@ -4,7 +4,7 @@ import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, desc, SQL } from '
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { STATUS_OS_ABERTA } from '@/lib/os-transicao'
-import { valorDaMotoExpr, valorLiquidoDaMotoExpr, valorLiquidoExpr } from './valor-liquido'
+import { valorDaMotoNosRelatoriosExpr, valorLiquidoDaMotoExpr, valorLiquidoExpr } from './valor-liquido'
 import { motoNoShowroom } from './showroom'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
@@ -62,7 +62,7 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   // Uma única query com UNION ALL — 1 round-trip ao banco em vez de 5
   const valorV = useLiquido ? valorLiquidoExpr() : sql`${vendas.valor}`
   // Só as motos, sem o frete cobrado: comissão, premiação e % de desconto do vendedor (#796).
-  const valorMoto = useLiquido ? valorLiquidoDaMotoExpr() : valorDaMotoExpr()
+  const valorMoto = useLiquido ? valorLiquidoDaMotoExpr() : valorDaMotoNosRelatoriosExpr()
   const rows = await execRows(sql`
     SELECT 'v'  AS t, count(*)::int AS n, coalesce(sum(${valorV}), 0)::numeric AS val FROM ${vendas} WHERE ${vendasCond}
     UNION ALL
@@ -336,7 +336,7 @@ export async function getPrecoMedioVendas(filtros: Filtros, opts?: { useLiquidoV
 
   const mediaExpr = opts?.useLiquidoValue
     ? sql<number>`AVG(${valorLiquidoDaMotoExpr()})`
-    : sql<number>`AVG(${valorDaMotoExpr()})`
+    : sql<number>`AVG(${valorDaMotoNosRelatoriosExpr()})`
 
   const [result] = await db
     .select({ media: mediaExpr })

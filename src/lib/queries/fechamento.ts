@@ -1,7 +1,7 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { metasDoMes } from './metas'
-import { valorDaMotoSql, valorLiquidoDaMotoSql } from './valor-liquido'
+import { valorDaMotoNosRelatoriosSql, valorLiquidoDaMotoSql } from './valor-liquido'
 import { nomeDoModeloSql } from '@/lib/modelos-da-conta'
 import { dreDoMes } from './dre'
 import { montarDre, somarEntradas, ENTRADA_VAZIA, type LinhaDre } from '@/lib/dre'
@@ -84,7 +84,7 @@ export async function dadosFechamento(opts: {
       select l.id as loja_id, l.nome as loja,
              count(v.id)::int as qtd,
              coalesce(sum(${valorLiquidoDaMotoSql()}),0)::text as faturamento,
-             coalesce(sum(${valorDaMotoSql()}),0)::text as faturamento_bruto,
+             coalesce(sum(${valorDaMotoNosRelatoriosSql()}),0)::text as faturamento_bruto,
              count(distinct nullif(v.cliente_cpf,''))::int as clientes
       from lojas l
       left join vendas v on v.loja_id=l.id and v.data_venda >= ${ini} and v.data_venda < ${fim}

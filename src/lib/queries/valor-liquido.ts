@@ -66,9 +66,10 @@ export const freteDaVendaSql = (v = 'v') => {
  * Valor da MOTO vendida: o valor da venda sem o frete cobrado (#796). Comissão, metas, relatório da fábrica,
  * desconto, rankings e os relatórios de venda de motos usam este; caixa, NF, conciliação, contrato e DRE seguem
  * com o valor da venda (o que o cliente pagou). Venda editada para baixo do frete: mínimo 0 (decisão do Luis, 07/11).
+ * Não é o `valorDaMoto` de `src/lib/notagateway/entrega.ts` (NF): lá não há piso, e abaixo do frete é pendência da nota.
  */
-export const valorDaMotoExpr = () => sql`GREATEST(${vendas.valor}::numeric - ${freteDaVendaExpr()}, 0)`
-export const valorDaMotoSql = (v = 'v') => sql`GREATEST(${sql.raw(v)}.valor::numeric - ${freteDaVendaSql(v)}, 0)`
+export const valorDaMotoNosRelatoriosExpr = () => sql`GREATEST(${vendas.valor}::numeric - ${freteDaVendaExpr()}, 0)`
+export const valorDaMotoNosRelatoriosSql = (v = 'v') => sql`GREATEST(${sql.raw(v)}.valor::numeric - ${freteDaVendaSql(v)}, 0)`
 
 /** Líquido da moto: o líquido da venda menos o frete inteiro; a taxa do cartão sobre o frete fica com a moto (07/11). */
 export const valorLiquidoDaMotoExpr = () => sql`GREATEST(${valorLiquidoExpr()} - ${freteDaVendaExpr()}, 0)`

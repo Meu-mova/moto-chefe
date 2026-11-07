@@ -95,7 +95,7 @@ test('valor da moto = valor da venda menos o frete (mínimo 0); sem frete, igual
   const linhas = await db.select({
     id: vendas.id,
     frete: sql<string>`${vl.freteDaVendaExpr()}`,
-    moto: sql<string>`${vl.valorDaMotoExpr()}`,
+    moto: sql<string>`${vl.valorDaMotoNosRelatoriosExpr()}`,
     liquidoMoto: sql<string>`${vl.valorLiquidoDaMotoExpr()}`,
   }).from(vendas).where(inArray(vendas.id, Object.keys(ESPERADO).map(k => venda[k as keyof typeof ESPERADO])))
   const porNome = Object.fromEntries(linhas.map(l => [ids[l.id], { frete: Number(l.frete), moto: Number(l.moto), liquidoMoto: Number(l.liquidoMoto) }]))
@@ -105,7 +105,7 @@ test('valor da moto = valor da venda menos o frete (mínimo 0); sem frete, igual
 test('as formas em SQL cru (alias v) dão o mesmo resultado das formas do Drizzle', async () => {
   const ids = Object.fromEntries(Object.entries(venda).map(([k, id]) => [id, k]))
   const linhas = await execRows(sql`
-    select v.id, ${vl.freteDaVendaSql('v')} as frete, ${vl.valorDaMotoSql('v')} as moto, ${vl.valorLiquidoDaMotoSql('v')} as liquido_moto
+    select v.id, ${vl.freteDaVendaSql('v')} as frete, ${vl.valorDaMotoNosRelatoriosSql('v')} as moto, ${vl.valorLiquidoDaMotoSql('v')} as liquido_moto
       from vendas v where v.id in (${sql.join(Object.keys(ESPERADO).map(k => sql`${venda[k as keyof typeof ESPERADO]}`), sql`, `)})`)
   const porNome = Object.fromEntries(linhas.map(l => [ids[String(l.id)], { frete: Number(l.frete), moto: Number(l.moto), liquidoMoto: Number(l.liquido_moto) }]))
   assert.deepEqual(porNome, ESPERADO)

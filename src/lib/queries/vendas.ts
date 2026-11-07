@@ -3,7 +3,7 @@ import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { pedidosVenda, vendas, motos, lojas, grupos, usuarios, modelos, origensVenda } from '@/lib/db/schema'
 import { eq, and, ilike, inArray, desc, sql, gte, lte } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
-import { valorDaMotoExpr } from './valor-liquido'
+import { valorDaMotoNosRelatoriosExpr } from './valor-liquido'
 
 export type PedidoComDetalhes = Awaited<ReturnType<typeof listarPedidosPorLoja>>[0]
 export type VendaComDetalhes  = Awaited<ReturnType<typeof listarVendas>>[0]
@@ -27,7 +27,7 @@ export async function listarVendas(filtros?: {
       dataVenda:        vendas.dataVenda,
       valor:            vendas.valor,
       /** Sem o frete cobrado (#796): base do % de desconto. */
-      valorMoto:        sql<string>`${valorDaMotoExpr()}`,
+      valorMoto:        sql<string>`${valorDaMotoNosRelatoriosExpr()}`,
       formaPagamento:   vendas.formaPagamento,
       pagamentos:       vendas.pagamentos,
       clienteNome:      vendas.clienteNome,

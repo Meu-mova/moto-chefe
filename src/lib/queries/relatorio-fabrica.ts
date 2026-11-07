@@ -1,7 +1,7 @@
 import { listarLojaIdsDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
 import { hojeBrt } from '../data-venda'
 import { db } from '@/lib/db'
-import { valorDaMotoExpr } from './valor-liquido'
+import { valorDaMotoNosRelatoriosExpr } from './valor-liquido'
 import { vendas, motos, modelos, lojas } from '@/lib/db/schema'
 import { eq, inArray, and, gte, lt, sql } from 'drizzle-orm'
 import {
@@ -64,7 +64,7 @@ export async function carregarRelatorioFabrica(
       lojaId:     lojas.id,
       lojaNome:   lojas.nome,
       quantidade: sql<number>`COUNT(*)::int`,
-      valor:      sql<number>`COALESCE(SUM(${valorDaMotoExpr()}), 0)::float8`,
+      valor:      sql<number>`COALESCE(SUM(${valorDaMotoNosRelatoriosExpr()}), 0)::float8`,
     })
     .from(vendas)
     .innerJoin(motos, eq(vendas.motoId, motos.id))

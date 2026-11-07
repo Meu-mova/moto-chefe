@@ -1,7 +1,7 @@
 import { execRows } from '@/lib/db'
 import { sql, type SQL } from 'drizzle-orm'
 import { somarDescontos, type LinhaDesconto } from '@/lib/desconto'
-import { valorDaMotoSql } from './valor-liquido'
+import { valorDaMotoNosRelatoriosSql } from './valor-liquido'
 
 /**
  * Descontos concedidos — leitura do snapshot gravado em aprovacoes_venda.
@@ -29,7 +29,7 @@ const DESCONTO_POR_VENDA = sql`
          v.valor
     FROM aprovacoes_venda a
     JOIN LATERAL (
-           SELECT v.id, v.vendedor_id, v.loja_id, v.data_venda, ${valorDaMotoSql('v')} AS valor
+           SELECT v.id, v.vendedor_id, v.loja_id, v.data_venda, ${valorDaMotoNosRelatoriosSql('v')} AS valor
              FROM vendas v
             WHERE v.moto_id = a.moto_id
             ORDER BY abs(EXTRACT(EPOCH FROM (v.data_venda - a.data_resposta)))
@@ -123,7 +123,7 @@ export async function descontosDasVendas(vendaIds: string[]) {
              v.id AS venda_id, v.valor
         FROM aprovacoes_venda a
         JOIN LATERAL (
-               SELECT v.id, ${valorDaMotoSql('v')} AS valor, v.data_venda
+               SELECT v.id, ${valorDaMotoNosRelatoriosSql('v')} AS valor, v.data_venda
                  FROM vendas v
                 WHERE v.moto_id = a.moto_id
                 ORDER BY abs(EXTRACT(EPOCH FROM (v.data_venda - a.data_resposta)))
