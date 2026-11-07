@@ -146,3 +146,21 @@ test('V4: Editar venda que muda o valor muda também o valor do item da moto', a
   assert.deepEqual(r, { ok: true, dados: undefined })
   assert.deepEqual(await itensDaMoto(moto), [{ tipo: 'moto', motoId: moto, quantidade: '1.00', valorUnitario: '11500.00' }])
 })
+
+test('V5: Conta B edita a venda da Conta A: mesma resposta de id inexistente, e o item da Conta A não muda', async () => {
+  usuarioDaSessao = A.socio
+  const moto = await novaMoto(A, 'V5')
+  assert.equal((await vendas.registrarVendaCompletaAction(venda(A, moto, 'pix'))).ok, true)
+  const [{ id }] = await execRows(sql`select id from vendas where moto_id = ${moto}`)
+  const antes = await itensDaMoto(moto)
+  const editar = (vendaId: string) => vendas.editarVendaAction(vendaId, {
+    valor: '100', dataVenda: '2026-11-07', pagamentos: [{ tipo: 'pix', valor: 100 }],
+    clienteNome: 'Outro', clienteCpf: '52998224725',
+  })
+  for (const usuario of [B.aux, B.socio]) {
+    usuarioDaSessao = usuario
+    assert.deepEqual(await editar(id), await editar(crypto.randomUUID()))
+    assert.deepEqual(await editar(id), { ok: false, erro: 'Venda não encontrada' })
+  }
+  assert.deepEqual(await itensDaMoto(moto), antes)
+})
