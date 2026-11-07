@@ -199,3 +199,12 @@ test('DRE segue com o frete como receita (decisão do Luis, 07/11): receita de m
   const { colunas } = await dreDoMes({ grupoId: a.grupoId, lojaIds: [a.lojaId], ano: 2026, mes: 9 })
   assert.equal(colunas.find(c => c.chave === a.lojaId)?.entrada.receitaMotos, 29900)
 })
+
+test('lista de vendas traz o valor da venda (o que o cliente pagou) e o valor da moto, base do % de desconto', async () => {
+  const { listarVendas } = await import('./vendas')
+  const [a] = contas
+  const lista = await listarVendas({ lojaId: [a.lojaId], dataInicio: SETEMBRO.dataInicio, dataFim: SETEMBRO.dataFim })
+  const daFrete = lista.find(v => v.id === venda.frete)
+  assert.deepEqual([Number(daFrete?.valor), Number(daFrete?.valorMoto)], [10350, 10000])
+  assert.equal(lista.reduce((s, v) => s + Number(v.valorMoto), 0), BRUTO_MOTOS_A)
+})

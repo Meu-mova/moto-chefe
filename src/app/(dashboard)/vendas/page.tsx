@@ -172,9 +172,9 @@ export default async function VendasPage({
         { qtd: 0, margem: 0, preco: 0, estimados: 0 },
       )
     : null
-  // Denominador do % de desconto: o valor das vendas listadas, não a contagem
-  // delas — desconto é dinheiro e só compara contra dinheiro.
-  const faturamentoLista = vendasList.reduce((a, v) => a + (Number(v.valor) || 0), 0)
+  // Denominador do % de desconto: o valor das motos listadas (sem o frete, #796), não a
+  // contagem delas: desconto é dinheiro e só compara contra dinheiro.
+  const faturamentoLista = vendasList.reduce((a, v) => a + (Number(v.valorMoto) || 0), 0)
 
   return (
     <div className="space-y-6">
