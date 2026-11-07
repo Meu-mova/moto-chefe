@@ -456,3 +456,16 @@ test('corrigir e reenviar de venda "Entregar" com a UF do formulário diferente:
   assert.deepEqual(net.requests, [])
   assert.deepEqual(await snapshot(f), antes)
 })
+
+test('venda "Entregar" ao próprio comprador com nome acima de 60 caracteres: a prévia lista a pendência e transmitir recusa', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_PR })
+  await db.execute(sql`update vendas set cliente_nome = ${'Comprador '.repeat(7)} where id = ${f.saleId}`)
+  user = f.user
+  const net = network(f)
+  const frase = 'O nome do cliente passa de 60 caracteres, o limite da nota para quem recebe a entrega. Corrija o nome do cliente antes de emitir.'
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.ok(previa.ok)
+  assert.deepEqual(previa.pendencias, [frase])
+  assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId), { ok: false, error: frase })
+  assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
+})

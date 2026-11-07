@@ -125,10 +125,10 @@ test('o selo diz dentro ou fora do estado com as UFs, e o porquê diz qual regra
 })
 
 test('venda com Entrega e sem modalidade do frete não emite; com modalidade ou sem Entrega (venda antiga), nada pende', () => {
-  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: '' }),
+  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: '' }, 'Cliente'),
     ['Falta a modalidade do frete na Entrega da venda. Corrija a Entrega na venda para a nota sair.'])
-  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }), [])
-  assert.deepEqual(pendenciasDaEntrega(null), [])
+  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }, 'Cliente'), [])
+  assert.deepEqual(pendenciasDaEntrega(null, 'Cliente'), [])
 })
 
 test('entregar em outra UF que a do emitente é para outro estado, qualquer que seja a UF do cliente', () => {
