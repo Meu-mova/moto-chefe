@@ -120,7 +120,7 @@ export async function removerMotos(usuario: UsuarioQueArquiva, motoIds: string[]
     // Impedimentos num comando depois da trava: o snapshot dele já vê a venda ou o pedido que quem
     // segurava a moto gravou. Quem chegar depois espera a trava e encontra a moto apagada.
     const achadas = await motosComImpedimentos(tx, inArray(motos.id, ids))
-    const recusa = recusaDaRemocao({ motivo, confirmacao, motos: achadas.map(m => ({ chassi: m.chassi, impedimentos: impedimentosDa(m) })) })
+    const recusa = recusaDaRemocao({ motivo, confirmacao, motos: achadas.map(m => ({ chassi: m.chassi, pendencias: impedimentosDa(m) })) })
     if (recusa) throw new RecusaUsuario(recusa)
 
     const saidas = await apagarDependentes(tx, ids)

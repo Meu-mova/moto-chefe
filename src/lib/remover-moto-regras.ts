@@ -1,6 +1,7 @@
 // Regras do Remover moto (#692; ADR-0020 com o adendo de 07/11/2026): puras, usadas pelo diálogo e pelo servidor.
 import { motivoDoArquivoValido } from '@/lib/arquivar-moto-regras'
 import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
+import { primeiraRecusa, recusaDasMotos, type Recusa } from '@/lib/recusa-de-motos'
 
 /**
  * O que mostra que a moto já passou pelo comercial ou pelo financeiro. Remover é só para a moto
@@ -27,7 +28,7 @@ export const SEM_IMPEDIMENTO: ImpedimentosDeRemover = {
 const FINANCEIRO = 'tem pagamento registrado. Moto que passou pelo financeiro não se remove.'
 
 // Ordem da lista = ordem da frase mostrada: a venda primeiro, porque a saída dela é o Cancelar venda.
-const RECUSAS: [(i: ImpedimentosDeRemover) => boolean, (i: ImpedimentosDeRemover) => string][] = [
+const RECUSAS: Recusa<ImpedimentosDeRemover>[] = [
   [i => i.temVenda, () => 'Esta moto tem venda. Cancele a venda antes de remover.'],
   [i => i.marcadaVendida, () => 'Esta moto está marcada como vendida, com venda fora do MOVA. Moto vendida não se remove.'],
   [i => i.temGarantia, () => 'Esta moto tem garantia registrada. Moto com garantia não se remove.'],
@@ -38,24 +39,17 @@ const RECUSAS: [(i: ImpedimentosDeRemover) => boolean, (i: ImpedimentosDeRemover
   [i => i.osComDinheiro !== null, i => i.osComDinheiro?.numero != null ? `A OS nº ${i.osComDinheiro.numero} ${FINANCEIRO}` : `Uma OS desta moto ${FINANCEIRO}`],
 ]
 
-export function motivoQueImpedeRemover(i: ImpedimentosDeRemover): string | null {
-  const recusa = RECUSAS.find(([trava]) => trava(i))
-  return recusa ? recusa[1](i) : null
-}
+export const motivoQueImpedeRemover = (i: ImpedimentosDeRemover): string | null => primeiraRecusa(RECUSAS, i)
 
 export const PALAVRA_DE_CONFIRMACAO = 'CONFIRMAR'
 
 export const confirmacaoValida = (texto: string): boolean => texto.trim() === PALAVRA_DE_CONFIRMACAO
 
 /** Recusa o lote inteiro se faltar motivo, confirmação ou moto, ou se uma delas estiver impedida. */
-export function recusaDaRemocao(lote: { motivo: string; confirmacao: string; motos: { chassi: string; impedimentos: ImpedimentosDeRemover }[] }): string | null {
+export function recusaDaRemocao(lote: { motivo: string; confirmacao: string; motos: { chassi: string; pendencias: ImpedimentosDeRemover }[] }): string | null {
   if (!motivoDoArquivoValido(lote.motivo)) return 'Escreva o motivo da remoção.'
   if (!confirmacaoValida(lote.confirmacao)) return `Digite ${PALAVRA_DE_CONFIRMACAO} para remover.`
-  if (lote.motos.length === 0) return 'Escolha ao menos uma moto.'
-  const impedida = lote.motos
-    .map(m => ({ chassi: m.chassi, motivo: motivoQueImpedeRemover(m.impedimentos) }))
-    .find(m => m.motivo !== null)
-  return impedida ? `${impedida.chassi}: ${impedida.motivo}` : null
+  return recusaDasMotos(lote.motos, motivoQueImpedeRemover)
 }
 
 /** OS da moto como o banco devolve; `financeiro` = caixa, cartão ou PIX ligado a ela, ou pagamento aguardando aprovação. */

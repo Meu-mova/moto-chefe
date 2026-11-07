@@ -31,14 +31,14 @@ test('a confirmação é a palavra CONFIRMAR, em maiúsculas', () => {
   assert.equal(confirmacaoValida(''), false)
 })
 
-const livre = { chassi: 'C1', impedimentos: SEM_IMPEDIMENTO }
+const livre = { chassi: 'C1', pendencias: SEM_IMPEDIMENTO }
 
 test('o lote recusa sem motivo, sem confirmação, sem moto ou com uma moto impedida', () => {
   assert.equal(recusaDaRemocao({ motivo: ' ', confirmacao: 'CONFIRMAR', motos: [livre] }), 'Escreva o motivo da remoção.')
   assert.equal(recusaDaRemocao({ motivo: 'NF errada', confirmacao: 'confirmar', motos: [livre] }), 'Digite CONFIRMAR para remover.')
   assert.equal(recusaDaRemocao({ motivo: 'NF errada', confirmacao: 'CONFIRMAR', motos: [] }), 'Escolha ao menos uma moto.')
   assert.equal(
-    recusaDaRemocao({ motivo: 'NF errada', confirmacao: 'CONFIRMAR', motos: [livre, { chassi: 'C2', impedimentos: com({ temVenda: true }) }] }),
+    recusaDaRemocao({ motivo: 'NF errada', confirmacao: 'CONFIRMAR', motos: [livre, { chassi: 'C2', pendencias: com({ temVenda: true }) }] }),
     'C2: Esta moto tem venda. Cancele a venda antes de remover.',
   )
   assert.equal(recusaDaRemocao({ motivo: 'NF errada', confirmacao: 'CONFIRMAR', motos: [livre] }), null)
