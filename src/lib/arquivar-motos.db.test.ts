@@ -4,7 +4,8 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
-import { semearContaBase, semearGrupo, semearUsuario } from '@/test/semear-conta'
+import { semearUsuario } from '@/test/semear-conta'
+import { semearContaComMotos } from '@/test/semear-motos'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -19,10 +20,12 @@ type Arq = typeof import('@/lib/arquivar-motos')
 let db: Db['db']
 let arquivarMotos: Arq['arquivarMotos']
 let motosParaArquivar: Arq['motosParaArquivar']
+let desarquivarMotos: Arq['desarquivarMotos']
+let idsQuePodeDesarquivar: Arq['idsQuePodeDesarquivar']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ arquivarMotos, motosParaArquivar } = await import('@/lib/arquivar-motos'))
+  ;({ arquivarMotos, motosParaArquivar, desarquivarMotos, idsQuePodeDesarquivar } = await import('@/lib/arquivar-motos'))
 })
 
 after(async () => {
@@ -40,30 +43,13 @@ const recusa = (frase: string | RegExp) => (e: Error) => typeof frase === 'strin
 
 const P = 'AR688'
 
-async function semearConta(tx: Tx, nome: string, cnpj: string, cnpj2: string) {
-  const base = await semearContaBase(tx, { prefixo: P, nome, cnpj })
-  // Segundo grupo da mesma Conta, que o sócio "parcial" não tem marcado.
-  const outro = await semearGrupo(tx, base.contaId, { prefixo: P, nome: nome + '2', cnpj: cnpj2 })
-  const auxId = await semearUsuario(tx, base, { papel: 'aux_adm', rotulo: 'aux' })
-  const socioId = await semearUsuario(tx, base, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comGrupo: true })
-  const [modelo] = await linhas(tx, sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${P + ' ' + nome}, 'autopropelido', '1000', 'hub', '32') returning id`)
-  const novaMoto = async (sufixo: string, lojaId = base.lojaId, disp = 'disponivel') => {
-    const [m] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
-      values (${`${P}${nome}${sufixo}`}, ${modelo.id}, ${lojaId}, 'CINZA', ${'NF' + nome + '77'}, 'montada', ${disp}::disponibilidade_moto) returning id`)
-    return m.id as string
-  }
-  return {
-    base, outro, auxId, socioId, novaMoto,
-    socio: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId, outro.grupoId], contaId: base.contaId },
-    socioParcial: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId },
-    aux: { id: auxId, papel: 'aux_adm', lojaId: base.lojaId, gruposAcesso: [], contaId: base.contaId },
-  }
-}
+const semearConta = (tx: Tx, nome: string, cnpj: string, cnpj2: string) => semearContaComMotos(tx, P, nome, cnpj, cnpj2)
 
 const arquivada = async (tx: Tx, id: string) =>
   (await linhas(tx, sql`select arquivada_em is not null as sim, arquivada_por, motivo_arquivo from motos where id = ${id}`))[0]
-const logsDa = (tx: Tx, motoIds: string[]) =>
-  linhas(tx, sql`select usuario_id, conta_id, grupo_id, detalhe from log_acoes where tipo = 'moto_arquivada' and detalhe->>'motoId' in ${motoIds}`)
+const logsDa = (tx: Tx, motoIds: string[], tipo = 'moto_arquivada') =>
+  linhas(tx, sql`select usuario_id, conta_id, grupo_id, detalhe from log_acoes where tipo = ${tipo} and detalhe->>'motoId' in ${motoIds}`)
+const desarquivadasNoLog = (tx: Tx, motoIds: string[]) => logsDa(tx, motoIds, 'moto_desarquivada')
 
 test('sócio arquiva duas motos: grava quem e por quê, e uma linha no log por moto', async () => {
   await emTransacaoDesfeita(async tx => {
@@ -108,14 +94,14 @@ test('cada pendência recusa com a sua frase e não grava nada', async () => {
   })
 })
 
-test('venda registrada recusa e orienta cancelar a venda ou remover', async () => {
+test('venda registrada recusa e orienta cancelar a venda antes', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000068805', '00000000068806')
     const id = await a.novaMoto('VEN', a.base.lojaId, 'vendida')
     const [ped] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${id}, ${a.base.lojaId}, ${a.auxId}, 'efetivado') returning id`)
     await tx.execute(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
       values (${ped.id}, ${id}, ${a.base.lojaId}, ${a.auxId}, ${a.auxId}, 'Cliente', '52998224725', 1000, 'pix')`)
-    await assert.rejects(arquivarMotos(a.socio, [id], 'motivo', tx), recusa(`${P}AVEN: Tem venda registrada. Cancele a venda ou use Remover moto.`))
+    await assert.rejects(arquivarMotos(a.socio, [id], 'motivo', tx), recusa(`${P}AVEN: Tem venda registrada. Cancele a venda antes de arquivar.`))
   })
 })
 
@@ -332,4 +318,123 @@ test('reserva gravada por quem segurava a moto aparece para quem arquiva logo de
     segura.release()
     await desfazerSemente()
   }
+})
+
+// Desarquivar (#691): mesmo alcance e mesmos papéis do arquivar.
+
+test('sócio desarquiva: limpa quem, quando e motivo, a moto volta às listas e o log guarda o motivo', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069101', '00000000069102')
+    const id = await a.novaMoto('D1')
+    await arquivarMotos(a.socio, [id], 'golpe', tx)
+    assert.deepEqual(await desarquivarMotos(a.socio, [id], '  achamos o dono  ', tx), { desarquivadas: 1 })
+    assert.deepEqual(await arquivada(tx, id), { sim: false, arquivada_por: null, motivo_arquivo: null })
+    assert.deepEqual((await motosParaArquivar(a.socio, `${P}AD1`, tx)).map(m => m.id), [id])
+    const logs = await desarquivadasNoLog(tx, [id])
+    assert.deepEqual(
+      logs.map(l => ({ ...l, detalhe: { ...l.detalhe } })),
+      [{ usuario_id: a.socioId, conta_id: a.base.contaId, grupo_id: a.base.grupoId,
+        detalhe: { motoId: id, chassi: `${P}AD1`, modelo: `${P} A`, loja: `Loja ${P} A`, nfEntrada: 'NFA77', motivo: 'achamos o dono' } }],
+    )
+  })
+})
+
+test('desarquivar sem motivo, moto não arquivada e segunda vez recusam sem gravar', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069103', '00000000069104')
+    const arq = await a.novaMoto('D2')
+    const viva = await a.novaMoto('D3')
+    await arquivarMotos(a.socio, [arq], 'golpe', tx)
+    await assert.rejects(desarquivarMotos(a.socio, [arq], '   ', tx), recusa('Escreva o motivo do desarquivamento.'))
+    assert.equal((await arquivada(tx, arq)).motivo_arquivo, 'golpe')
+    await assert.rejects(desarquivarMotos(a.socio, [viva], 'motivo', tx), recusa('Moto não encontrada'))
+    await assert.rejects(desarquivarMotos(a.socio, [], 'motivo', tx), recusa('Moto não encontrada'))
+    await desarquivarMotos(a.socio, [arq], 'primeira', tx)
+    await assert.rejects(desarquivarMotos(a.socio, [arq], 'segunda', tx), recusa('Moto não encontrada'))
+    assert.equal((await desarquivadasNoLog(tx, [arq, viva])).length, 1)
+  })
+})
+
+test('aux_adm não desarquiva nem ganha o botão; sócio sem o grupo marcado também não', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069105', '00000000069106')
+    const daBase = await a.novaMoto('D4')
+    const doOutro = await a.novaMoto('D5', a.outro.lojaId)
+    await arquivarMotos(a.socio, [daBase, doOutro], 'golpe', tx)
+    await assert.rejects(desarquivarMotos(a.aux, [daBase], 'motivo', tx), recusa('Sem permissão para desarquivar motos.'))
+    assert.deepEqual(await idsQuePodeDesarquivar(a.aux, [daBase], tx), [])
+    await assert.rejects(desarquivarMotos(a.socioParcial, [doOutro], 'motivo', tx), recusa('Moto não encontrada'))
+    assert.deepEqual(await idsQuePodeDesarquivar(a.socioParcial, [daBase, doOutro], tx), [daBase])
+    assert.equal((await arquivada(tx, doOutro)).sim, true)
+    assert.equal((await desarquivadasNoLog(tx, [daBase, doOutro])).length, 0)
+  })
+})
+
+test('botão do RADAR: só as arquivadas do alcance, nunca a viva, a de outra Conta ou um texto qualquer', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069107', '00000000069108')
+    const b = await semearConta(tx, 'B', '00000000069109', '00000000069110')
+    const arqA = await a.novaMoto('D6')
+    const vivaA = await a.novaMoto('D7')
+    const arqB = await b.novaMoto('D6')
+    await arquivarMotos(a.socio, [arqA], 'golpe', tx)
+    await arquivarMotos(b.socio, [arqB], 'golpe', tx)
+    assert.deepEqual(await idsQuePodeDesarquivar(a.socio, [arqA, vivaA, arqB, 'nem-uuid'], tx), [arqA])
+    assert.deepEqual(await idsQuePodeDesarquivar(b.socio, [arqA, arqB], tx), [arqB])
+  })
+})
+
+test('admin_rede desarquiva só no grupo liberado, com ele ativo', async () => {
+  const { usuarioDaRede } = await import('@/lib/grupos-liberados')
+  await emTransacaoDesfeita(async tx => {
+    const dona = await semearConta(tx, 'A', '00000000069111', '00000000069112')
+    const casa = await semearConta(tx, 'R', '00000000069113', '00000000069114')
+    const redeId = await semearUsuario(tx, casa.base, { papel: 'admin_rede', rotulo: 'rede' })
+    const rede = { id: redeId, papel: 'admin_rede', lojaId: casa.base.lojaId, gruposAcesso: [], gruposAprovacao: [], contaId: casa.base.contaId }
+    const liberados = [{ grupoId: dona.base.grupoId, contaId: dona.base.contaId }]
+    const noLiberado = usuarioDaRede(rede, liberados, dona.base.grupoId)
+    const emCasa = usuarioDaRede(rede, liberados, casa.base.grupoId)
+    const liberada = await dona.novaMoto('DLIB')
+    const naoLiberada = await dona.novaMoto('DNLIB', dona.outro.lojaId)
+    await arquivarMotos(dona.socio, [liberada, naoLiberada], 'golpe', tx)
+
+    await assert.rejects(desarquivarMotos(noLiberado, [naoLiberada], 'motivo', tx), recusa('Moto não encontrada'))
+    await assert.rejects(desarquivarMotos(emCasa, [liberada], 'motivo', tx), recusa('Moto não encontrada'))
+    assert.deepEqual(await idsQuePodeDesarquivar(emCasa, [liberada], tx), [])
+    assert.deepEqual(await desarquivarMotos(noLiberado, [liberada], 'acordo da rede', tx), { desarquivadas: 1 })
+    assert.equal((await arquivada(tx, naoLiberada)).sim, true)
+  })
+})
+
+test('Conta B não desarquiva moto da Conta A, com a mesma frase de id inexistente; e o inverso', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069115', '00000000069116')
+    const b = await semearConta(tx, 'B', '00000000069117', '00000000069118')
+    const motoA = await a.novaMoto('D8')
+    const motoB = await b.novaMoto('D8')
+    await arquivarMotos(a.socio, [motoA], 'golpe', tx)
+    await arquivarMotos(b.socio, [motoB], 'golpe', tx)
+    const inexistente = '0f8fad5b-d9cb-469f-a165-70867728950e'
+    for (const [quem, alheia] of [[b.socio, motoA], [a.socio, motoB]] as const) {
+      for (const id of [alheia, inexistente, 'nem-uuid']) {
+        await assert.rejects(desarquivarMotos(quem, [id], 'motivo', tx), recusa('Moto não encontrada'), id)
+      }
+    }
+    assert.equal((await arquivada(tx, motoA)).sim, true)
+    assert.equal((await arquivada(tx, motoB)).sim, true)
+    assert.equal((await desarquivadasNoLog(tx, [motoA, motoB])).length, 0)
+  })
+})
+
+test('admin_geral desarquiva motos das duas Contas', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000069119', '00000000069120')
+    const b = await semearConta(tx, 'B', '00000000069121', '00000000069122')
+    const motoA = await a.novaMoto('D9')
+    const motoB = await b.novaMoto('D9')
+    const geral = { id: a.socioId, papel: 'admin_geral', lojaId: null, gruposAcesso: [], contaId: null }
+    await arquivarMotos(geral, [motoA, motoB], 'golpe', tx)
+    assert.deepEqual((await idsQuePodeDesarquivar(geral, [motoA, motoB], tx)).sort(), [motoA, motoB].sort())
+    assert.deepEqual(await desarquivarMotos(geral, [motoA, motoB], 'motivo', tx), { desarquivadas: 2 })
+  })
 })
