@@ -118,3 +118,10 @@ test('comissão e premiação do vendedor (folha) contam só a moto, sem o frete
   assert.deepEqual(dados.vendasPorVendedor.map(v => [v.vendedorId, Number(v.total)]), [[vendedorA, LIQUIDO_MOTOS_A]])
   assert.deepEqual(dados.motosPorLoja.map(l => [l.lojaId, Number(l.total)]), [[a.lojaId, LIQUIDO_MOTOS_A]])
 })
+
+test('metas de faturamento (mês e dia) contam o valor da moto, sem o frete', async () => {
+  const { realizadoDoMes, vendidoNoDia } = await import('./metas')
+  const [a] = contas
+  assert.deepEqual([...(await realizadoDoMes([a.lojaId], 2026, 9)).entries()], [[a.lojaId, BRUTO_MOTOS_A]])
+  assert.equal(await vendidoNoDia([a.lojaId], 2026, 9, 15), BRUTO_MOTOS_A)
+})

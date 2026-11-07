@@ -3,6 +3,7 @@ import { metasLoja, lojas, vendas } from '@/lib/db/schema'
 import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import type { LinhaMetaLoja } from '@/lib/meta-vendas'
 import { inicioDoDiaBrt } from '@/lib/data-venda'
+import { valorDaMotoExpr } from './valor-liquido'
 
 /**
  * Metas de venda por loja e o realizado do mês.
@@ -40,14 +41,14 @@ export async function metasDoMes(lojaIds: string[], ano: number, mes: number) {
 }
 
 /**
- * Faturamento do mês por loja, em valor cheio (`vendas.valor`) — a mesma medida
- * que a meta usa. Loja sem venda não aparece no mapa.
+ * Faturamento do mês por loja, em valor cheio da moto (sem o frete cobrado, #796) — a mesma
+ * medida que a meta usa. Loja sem venda não aparece no mapa.
  */
 export async function realizadoDoMes(lojaIds: string[], ano: number, mes: number) {
   if (lojaIds.length === 0) return new Map<string, number>()
   const { inicio, fim } = bordasDoMes(ano, mes)
   const linhas = await db
-    .select({ lojaId: vendas.lojaId, total: sql<string>`coalesce(sum(${vendas.valor}), 0)` })
+    .select({ lojaId: vendas.lojaId, total: sql<string>`coalesce(sum(${valorDaMotoExpr()}), 0)` })
     .from(vendas)
     .where(and(
       inArray(vendas.lojaId, lojaIds),
@@ -62,7 +63,7 @@ export async function realizadoDoMes(lojaIds: string[], ano: number, mes: number
 export async function vendidoNoDia(lojaIds: string[], ano: number, mes: number, dia: number) {
   if (lojaIds.length === 0) return 0
   const [linha] = await db
-    .select({ total: sql<string>`coalesce(sum(${vendas.valor}), 0)` })
+    .select({ total: sql<string>`coalesce(sum(${valorDaMotoExpr()}), 0)` })
     .from(vendas)
     .where(and(
       inArray(vendas.lojaId, lojaIds),
