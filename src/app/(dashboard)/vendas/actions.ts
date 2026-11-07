@@ -1384,6 +1384,8 @@ async function editarVenda(vendaId: string, dados: {
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
+    // O item da moto acompanha o valor da venda (#774): a venda é só a moto.
+    await gravarMotoDoPedido(tx, { pedidoId: vendaAtual.pedidoVendaId, motoId: vendaAtual.motoId, valor: dados.valor })
     await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, usuario.grupoLiberado, {
       ...comprador,
       // A edição manda o formulário inteiro: campo vazio apaga, como antes.
