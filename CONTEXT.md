@@ -148,9 +148,27 @@ Venda cuja NF de saída foi autorizada em produção e não foi cancelada.
 _Evitar_: faturada, para moto (status legado)
 
 **Pedido de venda**:
-Registro interno que numera a venda. Não é uma etapa do negócio: toda venda já nasce com o
-pedido efetivado. Quando um PIX recebido aponta para um "pedido", é este.
+O que o cliente vai levar, antes de virar venda: uma ou mais motos da mesma loja, com brindes,
+acessórios e frete, e o valor de cada item. Pendente, pode ser editado ou cancelado e reserva as
+motos. Efetivado, vira uma venda por moto, com um pagamento e um contrato do pedido e uma NF de
+saída por CNPJ. A venda pelo "Vender" do estoque já nasce com o pedido efetivado. Quando um PIX
+recebido aponta para um "pedido", é este.
 _Evitar_: pedido (sozinho), que se confunde com o pedido da fábrica
+
+**Item do pedido**:
+Cada linha do pedido de venda: moto, brinde, acessório ou frete, com o seu valor.
+
+**Brinde**:
+Peça do catálogo entregue junto com a moto, sem cobrança. No balcão (tela Peças), o mesmo gesto é
+a forma de pagamento "Bonificação".
+_Evitar_: cortesia, mimo
+
+**Acessório do pedido**:
+Peça do catálogo vendida junto com a moto, no mesmo pedido de venda; conta como peça na comissão.
+
+**Frete da venda**:
+Transporte da moto até o cliente: quem paga, quem leva e o valor. Soma no total só quando o
+cliente paga a loja.
 
 **Precificação**:
 Tabela de preços de cada modelo no grupo, com as taxas de cada meio de pagamento. É de onde sai o
@@ -280,6 +298,10 @@ NF de saída.
 **NF de saída**:
 Nota fiscal que o grupo emite ao vender a moto, pela Nota Gateway.
 _Evitar_: nota, nota fiscal (sozinhos), quando houver dúvida entre entrada e saída
+
+**Nota única do pedido**:
+Uma NF de saída com todas as motos do pedido de venda que são do mesmo CNPJ de entrada. Moto de
+outro CNPJ sai em nota própria.
 
 **Cancelamento da NF de saída**:
 Anulação de uma NF de saída autorizada junto à SEFAZ, possível só dentro do prazo legal (24h,
