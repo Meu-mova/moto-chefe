@@ -4,7 +4,7 @@ import {
   contasPagar, contasPagarOcorrencias, lojas, usuarios,
   vendas, vendasPecas, ordensServico,
 } from '@/lib/db/schema'
-import { and, eq, gte, lte, lt, inArray, isNotNull, desc, asc, sql } from 'drizzle-orm'
+import { and, eq, gte, lte, lt, inArray, isNotNull, desc, asc, sql, type SQL } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
@@ -40,9 +40,9 @@ async function apurarBase(base: string, mes: string, lojaIds: string[], grupoId:
   const fim = fimDoDiaBrt(`${mes}-${String(ultimoDiaDoMes(mes)).padStart(2, '0')}`)
 
   // "Venda de motos" é só a moto; o faturamento total conta o frete cobrado como receita, como o DRE (#796).
-  const somaMotos = async (apenasComNf: boolean, comFrete = false) => {
+  const somaMotos = async (valor: SQL, apenasComNf: boolean) => {
     const [r] = await db
-      .select({ total: sql<string>`COALESCE(SUM(${comFrete ? sql`${vendas.valor}::numeric` : valorDaMotoNosRelatoriosExpr()}), 0)` })
+      .select({ total: sql<string>`COALESCE(SUM(${valor}), 0)` })
       .from(vendas)
       .where(and(
         inArray(vendas.lojaId, lojaIds),
@@ -79,11 +79,11 @@ async function apurarBase(base: string, mes: string, lojaIds: string[], grupoId:
   }
 
   switch (base) {
-    case 'venda_motos':        return somaMotos(false)
-    case 'venda_motos_com_nf': return somaMotos(true)
+    case 'venda_motos':        return somaMotos(valorDaMotoNosRelatoriosExpr(), false)
+    case 'venda_motos_com_nf': return somaMotos(valorDaMotoNosRelatoriosExpr(), true)
     case 'venda_pecas':        return somaPecas()
     case 'faturamento_total': {
-      const [motos, pecas, os] = await Promise.all([somaMotos(false, true), somaPecas(), somaOS()])
+      const [motos, pecas, os] = await Promise.all([somaMotos(sql`${vendas.valor}::numeric`, false), somaPecas(), somaOS()])
       return motos + pecas + os
     }
     // A folha é a única base que não é uma soma: sai do mesmo cálculo da tela de

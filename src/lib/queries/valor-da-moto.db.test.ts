@@ -168,7 +168,7 @@ test('dashboard: rankings de vendedor, loja e modelo e o preço médio contam a 
   assert.equal(await d.getPrecoMedioVendas(filtros, { useLiquidoValue: true }), LIQUIDO_MOTOS_A / 5)
 })
 
-test('fechamento, coletiva e individual (relatórios de venda de motos) contam a moto, sem o frete; a forma de pagamento segue com o total', async () => {
+test('fechamento (consolidado, vendedores, modelos, diário), coletiva (consolidado) e individual (vendedor) contam a moto, sem o frete; a forma de pagamento do fechamento segue com o total', async () => {
   const [a] = contas
   const mes = { grupoId: a.grupoId, lojaIds: [a.lojaId], ano: 2026, mes: 9 }
   const { dadosFechamento } = await import('./fechamento')
@@ -188,7 +188,7 @@ test('fechamento, coletiva e individual (relatórios de venda de motos) contam a
   assert.deepEqual(i.vendedores.map(v => [v.usuarioId, v.faturamento]), [[vendedorA, LIQUIDO_MOTOS_A]])
 })
 
-test('faturamento por origem da venda (marketing) conta a moto, sem o frete', async () => {
+test('faturamento por origem da venda (resumo e por origem, no marketing) conta a moto, sem o frete', async () => {
   const m = await import('./marketing')
   const [a] = contas
   assert.equal((await m.resumoVendasPorOrigem(a.grupoId, SETEMBRO.dataInicio, SETEMBRO.dataFim)).faturamento, BRUTO_MOTOS_A)

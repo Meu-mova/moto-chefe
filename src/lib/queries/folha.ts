@@ -93,9 +93,6 @@ export type FolhaDoMes = {
   }
 }
 
-// Comissão e premiação OTE de vendedor são calculadas sobre o líquido da MOTO: a parte paga em cartão e já conciliada
-// sai pelo líquido da operadora, e o frete cobrado do cliente não entra (#796).
-
 /**
  * Busca tudo que a folha do mês precisa.
  *
@@ -150,6 +147,7 @@ export async function buscarDadosFolha({
     db
       .select({
         vendedorId: vendas.vendedorId,
+        // Comissão e premiação OTE saem do líquido da moto: cartão conciliado pelo líquido, sem o frete cobrado (#796).
         total: sql<string>`COALESCE(SUM(${valorLiquidoDaMotoExpr()}), 0)`,
       })
       .from(vendas)

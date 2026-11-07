@@ -21,10 +21,11 @@ type Db = typeof import('@/lib/db')
 let db: Db['db']
 let execRows: Db['execRows']
 let base: Base
+let outra: Base
 
 const idDe = async (q: ReturnType<typeof sql>) => (await execRows(q))[0].id as string
 
-async function novaVenda(vendedorId: string, valor: number, entrega: unknown, nf: string | null) {
+async function novaVenda(base: Base, vendedorId: string, valor: number, entrega: unknown, nf: string | null) {
   const modeloId = await idDe(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
     values ('CP796', ${randomUUID()}, 'autopropelido', '1000', 'hub', '32') returning id`)
   const motoId = await idDe(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, grupo_entrada_id)
@@ -50,9 +51,16 @@ before(async () => {
   const socioId = await semearUsuario(db, base, { papel: 'admin_socio', rotulo: 'socio', comConta: true })
   usuario = { id: socioId, papel: 'admin_socio', lojaId: base.lojaId, contaId: base.contaId, gruposAcesso: [base.grupoId] }
   const vendedorId = await semearUsuario(db, base, { papel: 'vendedor', rotulo: 'vend' })
-  // Moto 10.000 + frete 350, com NF; moto 8.000 sem frete e sem NF. Setembro é o mês apurado da competência de outubro.
-  await novaVenda(vendedorId, 10350, { modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', frete: 350 }, 'NF796')
-  await novaVenda(vendedorId, 8000, null, null)
+  // Moto 10.000 + frete 350, com NF; moto 8.000 sem Entrega; moto 2.000 com "entregar" e frete nulo. Setembro é o mês
+  // apurado da competência de outubro.
+  const entregar = { modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente' }
+  await novaVenda(base, vendedorId, 10350, { ...entregar, frete: 350 }, 'NF796')
+  await novaVenda(base, vendedorId, 8000, null, null)
+  await novaVenda(base, vendedorId, 2000, { ...entregar, frete: null }, null)
+  // Venda com frete da Conta B no mesmo mês: não entra em nenhuma conta da Conta A.
+  const nomeB = randomUUID()
+  outra = await semearContaBase(db, { prefixo: 'CP796', nome: nomeB, cnpj: nomeB })
+  await novaVenda(outra, await semearUsuario(db, outra, { papel: 'vendedor', rotulo: 'vend' }), 50350, { ...entregar, frete: 350 }, 'NF796B')
   for (const c of CONTAS) {
     await db.execute(sql`insert into contas_pagar (grupo_id, descricao, tipo, dia_vencimento, formula_base, formula_percentual, formula_mes_ref)
       values (${base.grupoId}, ${c.descricao}, 'automatica', 10, ${c.formula}, 10, 'anterior')`)
@@ -65,24 +73,26 @@ after(async () => {
   cacheMock.restore()
   await db.execute(sql`delete from contas_pagar_ocorrencias where conta_id in (select id from contas_pagar where grupo_id = ${base.grupoId})`)
   await db.execute(sql`delete from contas_pagar where grupo_id = ${base.grupoId}`)
-  await db.execute(sql`delete from vendas where loja_id = ${base.lojaId}`)
-  await db.execute(sql`delete from pedidos_venda where loja_id = ${base.lojaId}`)
-  await db.execute(sql`delete from motos where loja_id = ${base.lojaId}`)
+  for (const b of [base, outra]) {
+    await db.execute(sql`delete from vendas where loja_id = ${b.lojaId}`)
+    await db.execute(sql`delete from pedidos_venda where loja_id = ${b.lojaId}`)
+    await db.execute(sql`delete from motos where loja_id = ${b.lojaId}`)
+    await db.execute(sql`delete from usuarios where loja_id = ${b.lojaId}`)
+    await db.execute(sql`delete from lojas where id = ${b.lojaId}`)
+    await db.execute(sql`delete from grupos where id = ${b.grupoId}`)
+    await db.execute(sql`delete from contas where id = ${b.contaId}`)
+  }
   await db.execute(sql`delete from modelos where marca = 'CP796'`)
-  await db.execute(sql`delete from usuarios where loja_id = ${base.lojaId}`)
-  await db.execute(sql`delete from lojas where id = ${base.lojaId}`)
-  await db.execute(sql`delete from grupos where id = ${base.grupoId}`)
-  await db.execute(sql`delete from contas where id = ${base.contaId}`)
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
-test('conta por percentual: venda de motos e com NF sem o frete; faturamento total com o frete', async () => {
+test('conta por percentual: venda de motos e com NF sem o frete; faturamento total com o frete; a venda da Conta B não entra', async () => {
   const { listarContasDoMesAction } = await import('@/app/(dashboard)/contas-pagar/actions')
   const { doMes } = await listarContasDoMesAction('2026-10')
   const valor = Object.fromEntries(doMes.map(o => [o.descricao, Number(o.valor)]))
   assert.deepEqual(valor, {
-    'CP796 motos': 1800,
+    'CP796 motos': 2000,
     'CP796 motos com NF': 1000,
-    'CP796 faturamento total': 1835,
+    'CP796 faturamento total': 2035,
   })
 })

@@ -436,7 +436,7 @@ export async function resumoVendasPorOrigem(
       count(*)::int                                          as vendas,
       count(v.origem_id)::int                                as com_origem,
       count(*) filter (where v.origem_id is null)::int        as sem_origem,
-      coalesce(sum(${valorDaMotoNosRelatoriosSql()}), 0)::float8                      as faturamento
+      coalesce(sum(${valorDaMotoNosRelatoriosSql()}), 0)::float8 as faturamento
     FROM vendas v
     JOIN lojas lo ON lo.id = v.loja_id
     WHERE lo.grupo_id = ${grupoId}
