@@ -10,6 +10,7 @@ import type { PapelBase } from '@/lib/gestao-usuarios'
 import type { PadraoSimulador } from '@/lib/simulador-padrao'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
 import type { EntregaVenda } from '@/lib/notagateway/entrega'
+import type { TipoItemPedido } from '@/lib/pedido-venda-regras'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -589,7 +590,7 @@ export const pedidosVenda = pgTable('pedidos_venda', {
 export const pedidosVendaItens = pgTable('pedidos_venda_itens', {
   id: uuid('id').primaryKey().defaultRandom(),
   pedidoVendaId: uuid('pedido_venda_id').notNull().references(() => pedidosVenda.id, { onDelete: 'cascade' }),
-  tipo: text('tipo').notNull(),
+  tipo: text('tipo').$type<TipoItemPedido>().notNull(),
   motoId: uuid('moto_id').references(() => motos.id),
   pecaId: uuid('peca_id').references(() => pecasCatalogo.id),
   quantidade: numeric('quantidade', { precision: 10, scale: 2 }).notNull().default('1'),

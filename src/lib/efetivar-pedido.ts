@@ -4,6 +4,7 @@ import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, rese
 import { hojeBrt } from '@/lib/data-venda'
 import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
+import { gravarMotoDoPedido } from '@/lib/pedido-venda'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -100,6 +101,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     // A Entrega vem do pedido, lido aqui sob a trava: a efetivação não a recebe do navegador.
     entrega: pedido.entrega,
   }).returning({ id: vendas.id })
+  await gravarMotoDoPedido(tx, { pedidoId: d.pedidoId, motoId: pedido.motoId, valor })
 
   if (reservaAtiva) {
     await tx.update(reservas).set({ status: 'convertida' }).where(eq(reservas.id, reservaAtiva.id))

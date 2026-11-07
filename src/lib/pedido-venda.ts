@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { historicoEstoque, motos, pedidosVenda, reservas, transferencias } from '@/lib/db/schema'
+import { historicoEstoque, motos, pedidosVenda, pedidosVendaItens, reservas, transferencias } from '@/lib/db/schema'
 import { motivoBloqueioCriarPedido, podeCancelarPedido, type QuemCancela } from '@/lib/pedido-venda-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
@@ -41,6 +41,8 @@ export async function criarPedidoTx(
     observacao: d.observacao,
     entrega: d.entrega,
   }).returning({ id: pedidosVenda.id })
+  // Sem valor: o Novo pedido ainda não pede o valor da moto (#783); a efetivação preenche.
+  await gravarMotoDoPedido(tx, { pedidoId: pedido.id, motoId: d.motoId, valor: null })
 
   await tx.insert(historicoEstoque).values({
     motoId: d.motoId,
@@ -100,4 +102,24 @@ export async function cancelarPedidoTx(
     referenciaId: d.pedidoId,
     observacao: d.observacao ? `Pedido de venda cancelado — ${d.observacao}` : 'Pedido de venda cancelado',
   })
+}
+
+/**
+ * Grava a moto como item do pedido, com o valor (nulo = ainda não informado). Se o item já
+ * existe, só troca o valor: assim a efetivação preenche o item do Novo pedido e o pedido de
+ * antes dos itens (#774) ganha o seu. O conflito e o setWhere são pelo próprio pedido, que quem
+ * chama já travou e conferiu na Conta: não alcança linha de outro pedido.
+ */
+export async function gravarMotoDoPedido(
+  tx: Tx,
+  d: { pedidoId: string; motoId: string; valor: string | null },
+): Promise<void> {
+  await tx.insert(pedidosVendaItens)
+    .values({ pedidoVendaId: d.pedidoId, tipo: 'moto', motoId: d.motoId, valorUnitario: d.valor })
+    .onConflictDoUpdate({
+      target: [pedidosVendaItens.pedidoVendaId, pedidosVendaItens.motoId],
+      targetWhere: sql`moto_id is not null`,
+      set: { valorUnitario: d.valor },
+      setWhere: eq(pedidosVendaItens.pedidoVendaId, d.pedidoId),
+    })
 }
