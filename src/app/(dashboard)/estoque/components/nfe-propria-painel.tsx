@@ -241,7 +241,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
   const faltamRenave = renave ? camposFaltando(renave).length : 0
-  const faltamTransporte = exigeEntrega && (!validarDadosTransporte(transporte).ok || !!conflitoDaUfDoFormulario(previa.entrega, transporte))
+  const conflitoDeUf = exigeEntrega ? conflitoDaUfDoFormulario(previa.entrega, transporte) : null
+  const faltamTransporte = exigeEntrega && (!validarDadosTransporte(transporte).ok || !!conflitoDeUf)
   const porParte = renave ? faltandoPorParte(renave) : null
   const comEtapas = !!(r && renave && porParte && !bloqueadaProducao)
   const passos = comEtapas && porParte && (
@@ -432,7 +433,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       )}
       {comEtapas && faltamTransporte && (
         <p className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">
-          Complete o frete e o endereço de entrega na etapa Entrega antes de transmitir.
+          {conflitoDeUf ?? 'Complete o frete e o endereço de entrega na etapa Entrega antes de transmitir.'}
         </p>
       )}
 

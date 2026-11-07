@@ -280,6 +280,11 @@ test('venda dentro do estado mostra o selo de dentro do estado', async () => {
 })
 
 // Decisão do Luis (07/11/2026, #726): no faturamento direto, UF do formulário diferente da Entrega "Entregar" trava a nota.
+const ENTREGAR_SP = {
+  modo: 'entregar', modalidade: modalidade4, recebe: null,
+  endereco: { cep: '', logradouro: 'Rua B', numero: '20', complemento: '', bairro: 'Centro', cidade: '3509502', nomeCidade: 'Campinas', uf: 'SP' },
+} as const
+
 test('faturamento direto de venda "Entregar" em SP com o formulário em MG: a etapa Entrega diz a frase e não deixa conferir', async () => {
   const entrega = {
     modo: 'entregar', modalidade: modalidade4, recebe: null,
@@ -292,4 +297,15 @@ test('faturamento direto de venda "Entregar" em SP com o formulário em MG: a et
   await click(/^Conferir nota$/)
   assert.match(container.textContent ?? '', /A UF da entrega no formulário da nota é diferente da Entrega da venda\. Corrija antes de emitir\./)
   assert.ok(container.querySelector('select#modalidade-frete'), 'continua na etapa Entrega')
+})
+
+test('pelo atalho das etapas, a conferência diz o conflito de UF, não a frase genérica do frete', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...preview, entrega: ENTREGAR_SP }) }
+  const { container, click, escolherFrete } = await abrirPainel()
+  await click(/^Avançar/); await click(/^Avançar/); await click(/^Avançar/)
+  await escolherFrete(modalidade4)
+  await click(/Conferir/)
+  const texto = container.textContent ?? ''
+  assert.match(texto, /A UF da entrega no formulário da nota é diferente da Entrega da venda\. Corrija antes de emitir\./)
+  assert.doesNotMatch(texto, /Complete o frete e o endereço de entrega/)
 })
