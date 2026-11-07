@@ -50,12 +50,17 @@ export function valorLiquidoSql(v = 'v') {
 
 /**
  * Frete cobrado do cliente (4b da #726): mora em `vendas.entrega->'frete'` e soma no valor da venda, nos
- * pagamentos e no caixa. Ausente ou nulo = sem frete.
+ * pagamentos e no caixa. Ausente ou nulo = sem frete. Só conta na Entrega "entregar", o mesmo critério do
+ * `freteDaVenda` de `src/lib/notagateway/entrega.ts`.
  */
-export const freteDaVendaExpr = () => sql`COALESCE((${vendas.entrega}->>'frete')::numeric, 0)`
+export const freteDaVendaExpr = () =>
+  sql`CASE WHEN ${vendas.entrega}->>'modo' = 'entregar' THEN COALESCE((${vendas.entrega}->>'frete')::numeric, 0) ELSE 0 END`
 
 /** O mesmo frete para o SQL cru, com `v` como alias de vendas. */
-export const freteDaVendaSql = (v = 'v') => sql`COALESCE((${sql.raw(v)}.entrega->>'frete')::numeric, 0)`
+export const freteDaVendaSql = (v = 'v') => {
+  const a = sql.raw(v)
+  return sql`CASE WHEN ${a}.entrega->>'modo' = 'entregar' THEN COALESCE((${a}.entrega->>'frete')::numeric, 0) ELSE 0 END`
+}
 
 /**
  * Valor da MOTO vendida: o valor da venda sem o frete cobrado (#796). Comissão, metas, relatório da fábrica,

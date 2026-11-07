@@ -21,8 +21,8 @@ let vl: ValorLiquido
 const ENTREGAR = { modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente' }
 const DIA = '2026-09-15T15:00:00Z'
 const contas: Base[] = []
-const venda: Record<'frete' | 'semFrete' | 'retira' | 'cartao' | 'editada' | 'outraConta', string> = {
-  frete: '', semFrete: '', retira: '', cartao: '', editada: '', outraConta: '',
+const venda: Record<'frete' | 'semFrete' | 'retira' | 'retiraComFrete' | 'cartao' | 'editada' | 'outraConta', string> = {
+  frete: '', semFrete: '', retira: '', retiraComFrete: '', cartao: '', editada: '', outraConta: '',
 }
 let vendedorA = ''
 
@@ -54,6 +54,8 @@ before(async () => {
   venda.frete = await novaVenda(contaA, vendedorA, 10350, { ...ENTREGAR, frete: 350 })
   venda.semFrete = await novaVenda(contaA, vendedorA, 8000, null)
   venda.retira = await novaVenda(contaA, vendedorA, 6000, { modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' })
+  // Frete fora do modo 'entregar' não existe pelo servidor do 4b; o SQL segue a mesma regra do TS e não o desconta.
+  venda.retiraComFrete = await novaVenda(contaB, vendedorB, 4350, { modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte', frete: 350 })
   // Cartão conciliado: bruto 5.350, líquido 5.250 (taxa 100). Líquido da moto = 5.250 − 350 (decisão do Luis, 07/11).
   venda.cartao = await novaVenda(contaA, vendedorA, 5350, { ...ENTREGAR, frete: 350 })
   await db.execute(sql`insert into conciliacoes_cartao (grupo_id, operadora, data_transacao, valor_bruto, valor_liquido, venda_id, conciliado)
@@ -85,6 +87,7 @@ const ESPERADO = {
   retira: { frete: 0, moto: 6000, liquidoMoto: 6000 },
   cartao: { frete: 350, moto: 5000, liquidoMoto: 4900 },
   editada: { frete: 350, moto: 0, liquidoMoto: 0 },
+  retiraComFrete: { frete: 0, moto: 4350, liquidoMoto: 4350 },
 }
 
 test('valor da moto = valor da venda menos o frete (mínimo 0); sem frete, igual ao valor de hoje; cartão: líquido menos o frete inteiro', async () => {
