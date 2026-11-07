@@ -584,7 +584,7 @@ export const pedidosVenda = pgTable('pedidos_venda', {
 })
 
 // ─── pedidos_venda_itens (o que o cliente leva no pedido, com valor; #770) ───
-// Checks (tipo, moto só no item moto, peça só no brinde/acessório) e o porquê de não ter
+// Checks (tipo, moto só no item moto, peça só no brinde/acessório, quantidade) e o porquê de não ter
 // grupo_id ficam na migração 0178.
 export const pedidosVendaItens = pgTable('pedidos_venda_itens', {
   id: uuid('id').primaryKey().defaultRandom(),

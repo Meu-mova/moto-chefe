@@ -24,7 +24,8 @@ create table pedidos_venda_itens (
   criado_em       timestamptz not null default now(),
   constraint pedidos_venda_itens_tipo_ck check (tipo in ('moto', 'brinde', 'acessorio', 'frete')),
   constraint pedidos_venda_itens_moto_ck check ((tipo = 'moto') = (moto_id is not null)),
-  constraint pedidos_venda_itens_peca_ck check ((tipo in ('brinde', 'acessorio')) = (peca_id is not null))
+  constraint pedidos_venda_itens_peca_ck check ((tipo in ('brinde', 'acessorio')) = (peca_id is not null)),
+  constraint pedidos_venda_itens_quantidade_ck check (quantidade > 0 and (tipo <> 'moto' or quantidade = 1))
 );
 
 -- A mesma moto não entra duas vezes no mesmo pedido.
