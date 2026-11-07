@@ -208,3 +208,13 @@ test('lista de vendas traz o valor da venda (o que o cliente pagou) e o valor da
   assert.deepEqual([Number(daFrete?.valor), Number(daFrete?.valorMoto)], [10350, 10000])
   assert.equal(lista.reduce((s, v) => s + Number(v.valorMoto), 0), BRUTO_MOTOS_A)
 })
+
+test('KPIs do dashboard: faturamento com o frete e faturamento das motos sem ele, no bruto e no líquido', async () => {
+  const { getKPIs } = await import('./dashboard')
+  const [a] = contas
+  const filtros = { ...SETEMBRO, lojaId: [a.lojaId] }
+  const bruto = await getKPIs(filtros)
+  assert.deepEqual([bruto.totalVendas, bruto.faturamento, bruto.faturamentoMoto], [5, 29900, BRUTO_MOTOS_A])
+  const liquido = await getKPIs(filtros, { useLiquidoValue: true })
+  assert.deepEqual([liquido.faturamento, liquido.faturamentoMoto], [29800, LIQUIDO_MOTOS_A])
+})

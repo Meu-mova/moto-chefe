@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarPainel, variacao, type EntradaPainel } from './dashboard-painel'
 
-const kpis = { totalVendas: 9, faturamento: 101931, estoque: 4, valorEstoque: 0, transferenciasPendentes: 0, garantiasAtivas: 0, osAbertas: 7 }
-const kpisAnt = { ...kpis, totalVendas: 3, faturamento: 29980 }
+const kpis = { totalVendas: 9, faturamento: 101931, faturamentoMoto: 101931, estoque: 4, valorEstoque: 0, transferenciasPendentes: 0, garantiasAtivas: 0, osAbertas: 7 }
+const kpisAnt = { ...kpis, totalVendas: 3, faturamento: 29980, faturamentoMoto: 29980 }
 const base: EntradaPainel = {
   kpis, kpisAnt, papel: 'admin_socio', isVendedor: false, motoMaisVendida: { modelo: 'JET', total: 2 },
   conciliacaoPendentes: 0, faturamentoOS: { servicos: 0, pecas: 0 }, faixasOTE: [],
@@ -41,7 +41,7 @@ test('conciliação com pendência vira alerta e leva à tela', () => {
 test('ticket médio é faturamento ÷ motos, e zero sem vendas', () => {
   const t = montarPainel(base).manchete[2]
   assert.equal(t.valor, 'R$ 11.325,67')
-  assert.equal(montarPainel({ ...base, kpis: { ...kpis, totalVendas: 0, faturamento: 0 } }).manchete[2].valor, 'R$ 0,00')
+  assert.equal(montarPainel({ ...base, kpis: { ...kpis, totalVendas: 0, faturamento: 0, faturamentoMoto: 0 } }).manchete[2].valor, 'R$ 0,00')
 })
 
 test('variação contra o período anterior', () => {
@@ -57,4 +57,17 @@ test('vendedor: comissão a 0,5% do faturamento e premiação pela faixa, com a 
   const premiacao = p.indicadores.find(i => i.rotulo === 'Premiação OTE')!
   assert.equal(premiacao.valor, 'R$ 300,00')
   assert.equal(premiacao.dica, 'novo · R$ 0,00 no período anterior')
+})
+
+test('vendedor: comissão, premiação OTE e % dos descontos saem do faturamento das motos; o total de vendas segue com o frete (#796)', () => {
+  const comFrete = { ...kpis, faturamento: 20000, faturamentoMoto: 10000 }
+  const p = montarPainel({
+    ...base, papel: 'vendedor', isVendedor: true, kpis: comFrete, kpisAnt: { ...comFrete, faturamento: 0, faturamentoMoto: 0 },
+    faixasOTE: [{ valorMinimoVendas: '15000', premiacao: '300' }],
+    descontos: { qtd: 1, margem: 1000, preco: 0, estimados: 0 },
+  })
+  assert.equal(p.manchete[0].valor, 'R$ 20.000,00')
+  assert.equal(p.manchete[2].valor, 'R$ 50,00')
+  assert.equal(p.indicadores.find(i => i.rotulo === 'Premiação OTE')?.valor, 'R$ 0,00')
+  assert.equal(p.indicadores.find(i => i.rotulo === 'Descontos')?.dica, '1 venda · 10% do faturamento')
 })

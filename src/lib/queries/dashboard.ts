@@ -61,8 +61,12 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
 
   // Uma única query com UNION ALL — 1 round-trip ao banco em vez de 5
   const valorV = useLiquido ? valorLiquidoExpr() : sql`${vendas.valor}`
+  // Só as motos, sem o frete cobrado: comissão, premiação e % de desconto do vendedor (#796).
+  const valorMoto = useLiquido ? valorLiquidoDaMotoExpr() : valorDaMotoExpr()
   const rows = await execRows(sql`
     SELECT 'v'  AS t, count(*)::int AS n, coalesce(sum(${valorV}), 0)::numeric AS val FROM ${vendas} WHERE ${vendasCond}
+    UNION ALL
+    SELECT 'vm',       count(*)::int,     coalesce(sum(${valorMoto}), 0)::numeric                  FROM ${vendas}         WHERE ${vendasCond}
     UNION ALL
     SELECT 'e',        count(*)::int,     coalesce(sum(${motos.precoCompra}),  0)::numeric        FROM ${motos}          WHERE ${estoqueCond}
     UNION ALL
@@ -79,6 +83,7 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   return {
     totalVendas:             Number(m.v?.n  ?? 0),
     faturamento:             Number(m.v?.val ?? 0),
+    faturamentoMoto:         Number(m.vm?.val ?? 0),
     estoque:                 Number(m.e?.n  ?? 0),
     valorEstoque:            Number(m.e?.val ?? 0),
     transferenciasPendentes: Number(m.tr?.n ?? 0),

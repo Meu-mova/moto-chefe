@@ -8,6 +8,8 @@ import { plural } from '@/lib/texto'
 export type KPIs = {
   totalVendas: number
   faturamento: number
+  /** Só as motos, sem o frete cobrado: base da comissão, da premiação e do % de desconto do vendedor (#796). */
+  faturamentoMoto: number
   estoque: number
   valorEstoque: number
   transferenciasPendentes: number
@@ -67,19 +69,19 @@ const ticket = (k: KPIs) => k.totalVendas ? k.faturamento / k.totalVendas : 0
 export function montarPainel(e: EntradaPainel): { manchete: Manchete[]; indicadores: Indicador[] } {
   const { kpis, kpisAnt } = e
   if (e.isVendedor) {
-    const premiacao = calcularPremiacao(kpis.faturamento, e.faixasOTE)
-    const premiacaoAnt = calcularPremiacao(kpisAnt.faturamento, e.faixasOTE)
+    const premiacao = calcularPremiacao(kpis.faturamentoMoto, e.faixasOTE)
+    const premiacaoAnt = calcularPremiacao(kpisAnt.faturamentoMoto, e.faixasOTE)
     const varPremiacao = variacao(premiacao, premiacaoAnt)
     const indicadores: Indicador[] = [
       { rotulo: 'Mais vendida', valor: e.motoMaisVendida ? `${e.motoMaisVendida.modelo} (${e.motoMaisVendida.total})` : '—', alerta: false },
       { rotulo: 'Premiação OTE', valor: brl(premiacao), alerta: false, dica: `${varPremiacao ? `${varPremiacao.texto} · ` : ''}${brl(premiacaoAnt)} no período anterior` },
     ]
-    if (e.descontos) indicadores.push(indicadorDesconto(e.descontos, kpis.faturamento))
+    if (e.descontos) indicadores.push(indicadorDesconto(e.descontos, kpis.faturamentoMoto))
     return {
       manchete: [
         manchete('Total de vendas', kpis.faturamento, kpisAnt.faturamento, brl, 'valor'),
         manchete('Motos vendidas', kpis.totalVendas, kpisAnt.totalVendas, qtd, 'quantidade'),
-        manchete('Comissão', kpis.faturamento * COMISSAO_PADRAO, kpisAnt.faturamento * COMISSAO_PADRAO, brl, null),
+        manchete('Comissão', kpis.faturamentoMoto * COMISSAO_PADRAO, kpisAnt.faturamentoMoto * COMISSAO_PADRAO, brl, null),
       ],
       indicadores,
     }
