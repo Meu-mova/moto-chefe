@@ -112,6 +112,10 @@ export async function removerMotos(usuario: UsuarioQueArquiva, motoIds: string[]
 
   return exec.transaction(async tx => {
     const doLote = await travarDoAlcance(tx, usuario, ids)
+    // OS e pedido recebem pagamento sem tocar a linha da moto: travados aqui, o pagamento gravado
+    // antes aparece na conferência abaixo, e o que chegar depois espera e encontra tudo apagado.
+    await tx.select({ id: ordensServico.id }).from(ordensServico).where(inArray(ordensServico.motoId, ids)).for('update')
+    await tx.select({ id: pedidosVenda.id }).from(pedidosVenda).where(inArray(pedidosVenda.motoId, ids)).for('update')
     // Impedimentos num comando depois da trava: o snapshot dele já vê a venda ou o pedido que quem
     // segurava a moto gravou. Quem chegar depois espera a trava e encontra a moto apagada.
     const achadas = await motosComImpedimentos(tx, inArray(motos.id, ids))
