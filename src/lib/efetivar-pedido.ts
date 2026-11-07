@@ -5,6 +5,7 @@ import { hojeBrt } from '@/lib/data-venda'
 import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { gravarMotoDoPedido } from '@/lib/pedido-venda'
+import { freteDaVenda } from '@/lib/notagateway/entrega'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -16,6 +17,7 @@ export type DadosEfetivarPedido = {
   clienteId: string | null
   clienteNome: string
   clienteCpf: string
+  /** Valor da moto digitado na efetivação; o frete cobrado vem do pedido e se soma aqui (#726). */
   valor: number
   formaPagamento: string
   origem: { origemId: string; origemDetalhe: string | null }
@@ -80,7 +82,8 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     .limit(1)
 
   const agora = new Date()
-  const valor = d.valor.toFixed(2)
+  const total = Math.round((d.valor + freteDaVenda(pedido.entrega)) * 100) / 100
+  const valor = total.toFixed(2)
   const [venda] = await tx.insert(vendas).values({
     pedidoVendaId: d.pedidoId,
     motoId: pedido.motoId,
@@ -93,7 +96,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     clienteCpf: d.clienteCpf,
     valor,
     formaPagamento: d.formaPagamento,
-    pagamentos: [{ tipo: d.formaPagamento, valor: d.valor }],
+    pagamentos: [{ tipo: d.formaPagamento, valor: total }],
     reservaId: reservaAtiva?.id ?? null,
     dataVenda: agora,
     origemId: d.origem.origemId,

@@ -178,3 +178,52 @@ test('Conta B não cria pedido "Entregar" na moto da Conta A nem lê o endereço
   assert.deepEqual(await efetivar(pedido.id as string, a.origemId), { ok: true, dados: undefined })
   assert.equal(await vendaDoUsuarioParaNf(b.aux, eq(vendas.motoId, a.motoId)), null)
 })
+
+// Frete cobrado (#726, 4b): soma no valor da venda, nas formas de pagamento e no caixa; vem do pedido, não do navegador.
+const COM_FRETE = { ...ENTREGAR, frete: 350 }
+const vendaDaMoto = (motoId: string) => execRows(sql`select valor, pagamentos, entrega->'frete' as frete, id from vendas where moto_id = ${motoId}`)
+
+test('pedido com frete: a efetivação grava moto + frete no valor e no pagamento', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  assert.deepEqual(pedido.entrega, COM_FRETE)
+  usuario = a.aux
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', 'pix', undefined, a.origemId), { ok: true, dados: undefined })
+  const [venda] = await vendaDaMoto(a.motoId)
+  assert.equal(Number(venda.valor), 10350)
+  assert.deepEqual(venda.pagamentos, [{ tipo: 'pix', valor: 10350 }])
+  assert.equal(venda.frete, 350)
+})
+
+test('pedido com frete pago em dinheiro: o caixa recebe o total', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  usuario = a.aux
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', 'dinheiro', undefined, a.origemId), { ok: true, dados: undefined })
+  const [venda] = await vendaDaMoto(a.motoId)
+  assert.deepEqual(await execRows(sql`select valor from lancamentos_caixa where venda_id = ${venda.id}`), [{ valor: '10350.00' }])
+})
+
+test('frete com modalidade em que a loja não faz o frete é recusado e nada é gravado', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', { ...COM_FRETE, modalidade: 'ContratacaoPorContaDoDestinatario' }),
+    { ok: false, erro: 'O frete cobrado só vale com "Loja leva com veículo próprio" ou "Loja contrata e paga a transportadora".' })
+  assert.deepEqual(await pedidosDaMoto(a.motoId), [])
+})
+
+test('Conta B não efetiva o pedido com frete da Conta A: mesma frase, frete da A intacto e nenhuma venda', async () => {
+  const a = await semearConta()
+  const b = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  usuario = b.aux
+  assert.deepEqual(await efetivar(pedido.id as string, b.origemId), { ok: false, erro: 'Pedido não encontrado' })
+  assert.deepEqual((await pedidosDaMoto(a.motoId))[0].entrega, COM_FRETE)
+  assert.deepEqual(await vendasDaMoto(a.motoId), [])
+})
