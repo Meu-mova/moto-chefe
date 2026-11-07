@@ -1,10 +1,10 @@
 import { db, execRows } from '@/lib/db'
 import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao, vendasPecas } from '@/lib/db/schema'
-import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
+import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { STATUS_OS_ABERTA } from '@/lib/os-transicao'
-import { valorLiquidoExpr } from './valor-liquido'
+import { valorDaMotoExpr, valorLiquidoDaMotoExpr, valorLiquidoExpr } from './valor-liquido'
 import { motoNoShowroom } from './showroom'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
@@ -330,8 +330,8 @@ export async function getPrecoMedioVendas(filtros: Filtros, opts?: { useLiquidoV
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
   const mediaExpr = opts?.useLiquidoValue
-    ? sql<number>`AVG(${valorLiquidoExpr()})`
-    : avg(vendas.valor)
+    ? sql<number>`AVG(${valorLiquidoDaMotoExpr()})`
+    : sql<number>`AVG(${valorDaMotoExpr()})`
 
   const [result] = await db
     .select({ media: mediaExpr })
@@ -363,14 +363,14 @@ export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>)
       nome: usuarios.nome,
       loja: lojaVendedor.nome,
       totalVendas: count(),
-      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
+      faturamento: sql<string>`sum(${valorLiquidoDaMotoExpr()})`,
     })
     .from(vendas)
     .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
     .leftJoin(lojaVendedor, eq(usuarios.lojaId, lojaVendedor.id))
     .where(and(...conditions))
     .groupBy(vendas.vendedorId, usuarios.nome, lojaVendedor.nome)
-    .orderBy(sql`sum(${valorLiquidoExpr()}) DESC`)
+    .orderBy(sql`sum(${valorLiquidoDaMotoExpr()}) DESC`)
 }
 
 export async function getModelosMaisVendidos(filtros: Filtros, { nomeOriginal = false }: OpcoesRankingModelo = {}) {
@@ -391,7 +391,7 @@ export async function getModelosMaisVendidos(filtros: Filtros, { nomeOriginal = 
       modelo: nome,
       marca: modelos.marca,
       totalVendas: count(),
-      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
+      faturamento: sql<string>`sum(${valorLiquidoDaMotoExpr()})`,
     })
     .from(vendas)
     .innerJoin(motos, eq(vendas.motoId, motos.id))
@@ -414,13 +414,13 @@ export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
       lojaId: vendas.lojaId,
       loja: lojas.nome,
       totalVendas: count(),
-      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
+      faturamento: sql<string>`sum(${valorLiquidoDaMotoExpr()})`,
     })
     .from(vendas)
     .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
     .where(and(...conditions))
     .groupBy(vendas.lojaId, lojas.nome)
-    .orderBy(sql`sum(${valorLiquidoExpr()}) DESC`)
+    .orderBy(sql`sum(${valorLiquidoDaMotoExpr()}) DESC`)
 }
 
 // Faturamento de Ordens de Serviço — só conta OS já paga/concluída (status 'concluida'),

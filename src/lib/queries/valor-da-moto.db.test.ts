@@ -148,3 +148,19 @@ test('desconto contra o preço mínimo aparece mesmo com o frete somado à venda
   const total = await totalDescontos({ dataInicio: '2026-09-01', dataFim: '2026-09-30', lojaId: [a.lojaId] })
   assert.deepEqual({ qtd: total.qtd, preco: total.preco, margem: total.margem }, { qtd: 1, preco: 200, margem: 200 })
 })
+
+const SETEMBRO = { dataInicio: '2026-09-01', dataFim: '2026-09-30' }
+
+test('dashboard: rankings de vendedor, loja e modelo e o preço médio contam a moto, sem o frete', async () => {
+  const d = await import('./dashboard')
+  const [a] = contas
+  const filtros = { ...SETEMBRO, lojaId: [a.lojaId] }
+  const vendedores = await d.getRankingVendedores(filtros)
+  assert.deepEqual(vendedores.map(v => Number(v.faturamento)), [LIQUIDO_MOTOS_A])
+  const lojasRank = await d.getRankingLojas(filtros)
+  assert.deepEqual(lojasRank.map(l => Number(l.faturamento)), [LIQUIDO_MOTOS_A])
+  const modelos = await d.getModelosMaisVendidos(filtros)
+  assert.equal(modelos.reduce((s, m) => s + Number(m.faturamento), 0), LIQUIDO_MOTOS_A)
+  assert.equal(await d.getPrecoMedioVendas(filtros), BRUTO_MOTOS_A / 5)
+  assert.equal(await d.getPrecoMedioVendas(filtros, { useLiquidoValue: true }), LIQUIDO_MOTOS_A / 5)
+})
