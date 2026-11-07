@@ -16,11 +16,12 @@ type Db = typeof import('@/lib/db')
 type Tx = Parameters<Parameters<Db['db']['transaction']>[0]>[0]
 let db: Db['db']
 let pedidoDoUsuario: typeof import('@/lib/pedido-do-usuario')['pedidoDoUsuario']
+let itensDoPedido: typeof import('@/lib/pedido-do-usuario')['itensDoPedido']
 let motoDoUsuario: typeof import('@/lib/moto-do-usuario')['motoDoUsuario']
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ pedidoDoUsuario } = await import('@/lib/pedido-do-usuario'))
+  ;({ pedidoDoUsuario, itensDoPedido } = await import('@/lib/pedido-do-usuario'))
   ;({ motoDoUsuario } = await import('@/lib/moto-do-usuario'))
 })
 
@@ -44,6 +45,7 @@ async function semearConta(tx: Tx, nome: string, cnpj: string) {
   const [moto] = await linhas(tx, sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
     values (${'PV404-' + nome}, ${modelo.id}, ${base.lojaId}, 'CINZA', '1', 'montada', 'disponivel') returning id`)
   const [pedido] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${moto.id}, ${base.lojaId}, ${auxId}) returning id`)
+  await linhas(tx, sql`insert into pedidos_venda_itens (pedido_venda_id, tipo, moto_id, valor_unitario) values (${pedido.id}, 'moto', ${moto.id}, 15000) returning id`)
   return {
     motoId: moto.id as string,
     pedidoId: pedido.id as string,
@@ -71,6 +73,19 @@ test('Conta B (aux e sócio) não acha pedido nem moto da Conta A, igual a um id
       assert.equal(await pedidoDoUsuario(usuario, crypto.randomUUID(), tx), null)
       assert.equal(await motoDoUsuario(usuario, a.motoId, tx), null)
       assert.equal(await motoDoUsuario(usuario, crypto.randomUUID(), tx), null)
+    }
+  })
+})
+
+test('itens do pedido (#774): a própria Conta lê; Conta B recebe null, igual a um id inexistente', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '00000000040424')
+    const b = await semearConta(tx, 'B', '00000000040425')
+    const daMotoA = [{ tipo: 'moto', motoId: a.motoId, pecaId: null, quantidade: '1.00', valorUnitario: '15000.00' }]
+    for (const usuario of [a.aux, a.socio]) assert.deepEqual(await itensDoPedido(usuario, a.pedidoId, tx), daMotoA)
+    for (const usuario of [b.aux, b.socio]) {
+      assert.equal(await itensDoPedido(usuario, a.pedidoId, tx), null)
+      assert.equal(await itensDoPedido(usuario, crypto.randomUUID(), tx), null)
     }
   })
 })
