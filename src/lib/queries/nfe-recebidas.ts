@@ -66,6 +66,9 @@ export function classificarBusca(texto: string): { tipo: 'chave' | 'numero'; val
  * a mesma aritmética usada no filtro de busca por número e no número exibido
  * na tela (reaproveitada, não reescrita, nas três).
  */
+/** Número da NF de entrada da moto como Notas recebidas compara: só os dígitos. O Remover moto (#692) usa o mesmo. */
+export const numeroDaNfDaMoto = (coluna: SQL) => sql`regexp_replace(COALESCE(${coluna}, ''), '[^0-9]', '', 'g')`
+
 export async function listarNotasRecebidas(grupoId: string, filtros: FiltrosNotas = {}): Promise<NotaRecebida[]> {
   const condicoes: SQL[] = [sql`n.grupo_id = ${grupoId}`]
 
@@ -95,7 +98,7 @@ export async function listarNotasRecebidas(grupoId: string, filtros: FiltrosNota
       SELECT 1 FROM motos m
         JOIN lojas l ON l.id = m.loja_id
        WHERE l.grupo_id = ${grupoId}
-         AND regexp_replace(COALESCE(m.nota_fiscal_entrada, ''), '[^0-9]', '', 'g')
+         AND ${numeroDaNfDaMoto(sql.raw('m.nota_fiscal_entrada'))}
              = ltrim(substring(n.chave from 26 for 9), '0')
     )`
 

@@ -16,7 +16,7 @@ import { RecusaUsuario } from '@/lib/resultado-action'
 import { ehUuid } from '@/lib/uuid'
 import { motivoDoArquivoValido, motivoQueImpedeArquivar, podeArquivarMotos, recusaDoLote, type PendenciasDaMoto } from '@/lib/arquivar-moto-regras'
 
-type Exec = Pick<typeof db, 'select' | 'update' | 'insert' | 'transaction'>
+export type Exec = Pick<typeof db, 'select' | 'update' | 'insert' | 'transaction'>
 
 export type UsuarioQueArquiva = Parameters<typeof listarGruposVisiveis>[0] & {
   id: string
@@ -24,17 +24,17 @@ export type UsuarioQueArquiva = Parameters<typeof listarGruposVisiveis>[0] & {
   grupoLiberado?: string | null
 }
 
-const NAO_ENCONTRADA = 'Moto não encontrada'
+export const NAO_ENCONTRADA = 'Moto não encontrada'
 const LIMITE_DA_BUSCA = 50
 
 // A query tem join: a coluna da moto precisa ir qualificada na subconsulta (AGENTS.md, Drizzle).
-const daMoto = sql.raw('"motos"."id"')
+export const daMoto = sql.raw('"motos"."id"')
 type ComMoto = typeof reservas | typeof pedidosVenda | typeof aprovacoesVenda | typeof transferencias | typeof garantias | typeof vendas | typeof ordensServico
-const temLinha = (exec: Exec, tabela: ComMoto, condicao?: SQL) =>
+export const temLinha = (exec: Exec, tabela: ComMoto, condicao?: SQL) =>
   sql<boolean>`${exists(exec.select({ um: sql`1` }).from(tabela).where(and(eq(tabela.motoId, daMoto), condicao)))}`
 
 /** Grupos que a pessoa vê (o admin_geral vê todos), sempre dentro da Conta da sessão. null = nenhum. */
-async function alcance(usuario: UsuarioQueArquiva, exec: Exec): Promise<SQL | undefined | null> {
+export async function alcance(usuario: UsuarioQueArquiva, exec: Exec): Promise<SQL | undefined | null> {
   if (usuario.papel === 'admin_geral') return undefined
   if (!usuario.contaId) return null
   const grupoIds = (await listarGruposVisiveis(usuario, undefined, exec)).map(g => g.id)
@@ -46,7 +46,7 @@ async function alcance(usuario: UsuarioQueArquiva, exec: Exec): Promise<SQL | un
 }
 
 // O que o log guarda da moto, ao arquivar e ao desarquivar.
-const dadosDaMoto = () => ({
+export const dadosDaMoto = () => ({
   id: motos.id,
   chassi: motos.chassi,
   nfEntrada: motos.notaFiscalEntrada,
@@ -55,10 +55,18 @@ const dadosDaMoto = () => ({
   modelo: nomeDoModeloNaLoja(motos.lojaId),
 })
 
+/** A moto com loja e modelo (o que o log guarda) e os campos de cada ação: Arquivar, Desarquivar, Remover. */
+export function motosComDados<C extends Record<string, SQL | SQL.Aliased>>(exec: Exec, campos: C, onde: SQL | undefined) {
+  return exec.select({ ...dadosDaMoto(), ...campos })
+    .from(motos)
+    .innerJoin(lojas, eq(lojas.id, motos.lojaId))
+    .innerJoin(modelos, eq(modelos.id, motos.modeloId))
+    .where(onde)
+}
+
 function motosComPendencias(exec: Exec, onde: SQL | undefined) {
   const osAberta = inArray(ordensServico.status, [...STATUS_OS_ABERTA])
-  return exec.select({
-    ...dadosDaMoto(),
+  return motosComDados(exec, {
     temVenda: temLinha(exec, vendas),
     reservaAtiva: temLinha(exec, reservas, eq(reservas.status, 'ativa')),
     pedidoPendente: temLinha(exec, pedidosVenda, eq(pedidosVenda.status, 'pendente')),
@@ -68,11 +76,7 @@ function motosComPendencias(exec: Exec, onde: SQL | undefined) {
     osAbertaExiste: temLinha(exec, ordensServico, osAberta),
     // Número da primeira OS aberta, para a frase "Feche a OS nº X".
     osAbertaNumero: sql<number | null>`(select min(${ordensServico.numero}) from ${ordensServico} where ${ordensServico.motoId} = ${daMoto} and ${osAberta})`,
-  })
-    .from(motos)
-    .innerJoin(lojas, eq(lojas.id, motos.lojaId))
-    .innerJoin(modelos, eq(modelos.id, motos.modeloId))
-    .where(and(motoNaoArquivada(), onde))
+  }, and(motoNaoArquivada(), onde))
 }
 
 type LinhaDaMoto = Awaited<ReturnType<typeof motosComPendencias>>[number]
@@ -99,11 +103,11 @@ export async function motosParaArquivar(usuario: UsuarioQueArquiva, termo: strin
 }
 
 /**
- * Trava as motos pedidas que estão no estado esperado (arquivada ou não) e no alcance de quem pede.
+ * Trava as motos pedidas que estão no estado esperado (arquivada, não arquivada ou qualquer um) e no alcance de quem pede.
  * Faltou uma: "Moto não encontrada", igual para outra Conta, fora do alcance e inexistente.
  * Devolve o where para a gravação repetir. Lote vazio passa: quem chama dá a frase dele.
  */
-async function travarDoAlcance(tx: Exec, usuario: UsuarioQueArquiva, ids: string[], estado: SQL): Promise<SQL | undefined> {
+export async function travarDoAlcance(tx: Exec, usuario: UsuarioQueArquiva, ids: string[], estado?: SQL): Promise<SQL | undefined> {
   const onde = await alcance(usuario, tx)
   // Sem alcance, o where não acha nada, nem com o lote vazio que passa daqui.
   const doLote = and(estado, onde === null ? sql`false` : onde, inArray(motos.id, ids))
@@ -139,13 +143,14 @@ export async function arquivarMotos(usuario: UsuarioQueArquiva, motoIds: string[
   })
 }
 
-type MotoDoLog = { id: string; chassi: string; modelo: string | null; loja: string; lojaId: string; nfEntrada: string | null }
+export type MotoDoLog = { id: string; chassi: string; modelo: string | null; loja: string; lojaId: string; nfEntrada: string | null }
 
-async function registrarNoLog(tx: NonNullable<Parameters<typeof registrarAcaoSensivel>[1]>, tipo: 'moto_arquivada' | 'moto_desarquivada', usuarioId: string, achadas: MotoDoLog[], motivo: string) {
+/** Uma linha por moto; `extra` acrescenta ao detalhe o que é de cada ação (o Remover põe o que saiu junto). */
+export async function registrarNoLog(tx: NonNullable<Parameters<typeof registrarAcaoSensivel>[1]>, tipo: 'moto_arquivada' | 'moto_desarquivada' | 'moto_removida', usuarioId: string, achadas: MotoDoLog[], motivo: string, extra: (m: MotoDoLog) => Record<string, unknown> = () => ({})) {
   for (const m of achadas) {
     await registrarAcaoSensivel({
       tipo, usuarioId, lojaId: m.lojaId,
-      detalhe: { motoId: m.id, chassi: m.chassi, modelo: m.modelo, loja: m.loja, nfEntrada: m.nfEntrada, motivo },
+      detalhe: { motoId: m.id, chassi: m.chassi, modelo: m.modelo, loja: m.loja, nfEntrada: m.nfEntrada, motivo, ...extra(m) },
     }, tx)
   }
 }
@@ -169,10 +174,7 @@ export async function desarquivarMotos(usuario: UsuarioQueArquiva, motoIds: stri
 
   return exec.transaction(async tx => {
     const doLote = await travarDoAlcance(tx, usuario, ids, motoArquivada())
-    const achadas = await tx.select(dadosDaMoto()).from(motos)
-      .innerJoin(lojas, eq(lojas.id, motos.lojaId))
-      .innerJoin(modelos, eq(modelos.id, motos.modeloId))
-      .where(doLote)
+    const achadas = await motosComDados(tx, {}, doLote)
 
     // Os três juntos (check motos_arquivo_completo), com a Conta e o alcance repetidos no where.
     const devolvidas = await tx.update(motos)
