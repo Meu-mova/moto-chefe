@@ -99,6 +99,8 @@ export type PreviaNfe =
         observacao: string
         /** Dentro ou fora do estado, pela mesma função do payload (#725). */
         operacao: OperacaoDaVenda
+        /** Frete cobrado que vai no item da nota (`itens[].frete`); zero sem frete (#726). */
+        freteNaNota: number
       } | null
       notas: NotaResumo[]
       /** Valores atuais do cadastro, para corrigir a nota recusada (#347). */
@@ -335,6 +337,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
         },
         observacao: e.observacao,
         operacao: operacaoDosDados(dados),
+        freteNaNota: item.frete ?? 0,
       }
     }
 

@@ -36,6 +36,7 @@ const preview: Extract<PreviaNfe, { ok: true }> = {
     valor: 1000, pagamentos: [{ tipo: 'Dinheiro', valor: 1000 }],
     tributos: { pis: '49', cofins: '49', aproximado: null }, observacao: '',
     operacao: { interestadual: false, motivo: 'retira', ufOrigem: 'MG', ufDestino: 'MG' },
+    freteNaNota: 0,
   },
   notas: [],
   correcao: {
@@ -308,4 +309,18 @@ test('pelo atalho das etapas, a conferência diz o conflito de UF, não a frase 
   const texto = container.textContent ?? ''
   assert.match(texto, /A UF da entrega no formulário da nota é diferente da Entrega da venda\. Corrija antes de emitir\./)
   assert.doesNotMatch(texto, /Complete o frete e o endereço de entrega/)
+})
+
+test('a prévia mostra o frete cobrado que vai na nota; sem frete, a linha não aparece', async () => {
+  const semRenave = { ...preview, exigeRenave: false, renave: null }
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...semRenave, resumo: { ...semRenave.resumo!, freteNaNota: 350 } }) }
+  const { container, click } = await abrirPainel()
+  assert.match(container.textContent ?? '', /com frete de R\$\s*350,00/)
+  await click(/^Valor/)
+  assert.match(container.textContent ?? '', /Frete na nota: R\$\s*350,00 \(soma no total e no ICMS\)/)
+  await act(async () => root!.unmount()); root = undefined; document.body.replaceChildren()
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => semRenave }
+  const semFrete = await abrirPainel()
+  await semFrete.click(/^Valor/)
+  assert.doesNotMatch(semFrete.container.textContent ?? '', /Frete na nota|com frete de/)
 })
