@@ -67,3 +67,6 @@ export function primeiraOsComDinheiro(oss: OsDaMoto[]): { numero: number | null 
   const os = oss.find(temDinheiro)
   return os ? { numero: os.numero } : null
 }
+
+/** O que sai junto com a moto, por tipo; as chaves são as mesmas que o log grava em `saiu`. */
+export type SaiJunto = Partial<Record<'os' | 'itensDeOs' | 'transferencias' | 'cupons' | 'reservas' | 'pedidos' | 'aprovacoes' | 'historico', number>>

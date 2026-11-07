@@ -14,7 +14,7 @@ import {
   alcance, daMoto, motosComDados, NAO_ENCONTRADA, registrarNoLog, temLinha, travarDoAlcance, type Exec, type UsuarioQueArquiva,
 } from '@/lib/arquivar-motos'
 import { podeRemoverMotos } from '@/lib/arquivar-moto-regras'
-import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type ImpedimentosDeRemover, type OsDaMoto } from '@/lib/remover-moto-regras'
+import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type ImpedimentosDeRemover, type OsDaMoto, type SaiJunto } from '@/lib/remover-moto-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { ehUuid } from '@/lib/uuid'
 import { motoNaoVendida } from '@/lib/queries/showroom'
@@ -79,7 +79,7 @@ const saiuDaMoto = (saidas: Record<string, (string | null)[]>, motoId: string): 
     .filter(([, n]) => n > 0))
 
 /** Apaga o que depende das motos (já conferidas sem venda nem dinheiro). Devolve o id da moto de cada linha apagada. */
-async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<string, (string | null)[]>> {
+async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<keyof SaiJunto, (string | null)[]>> {
   const os = await tx.select({ id: ordensServico.id, motoId: ordensServico.motoId }).from(ordensServico).where(inArray(ordensServico.motoId, ids))
   const osIds = os.map(o => o.id)
   const motoDaOs = new Map(os.map(o => [o.id, o.motoId]))
