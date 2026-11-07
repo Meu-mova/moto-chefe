@@ -48,6 +48,7 @@ const preview: Extract<PreviaNfe, { ok: true }> = {
     moto: { ncm: '87116000', cest: '' },
   },
   podeConfigurarFiscal: false, avisoEmissor: null,
+  entrega: null,
 }
 
 
@@ -276,4 +277,19 @@ test('venda dentro do estado mostra o selo de dentro do estado', async () => {
   const { container } = await abrirPainel()
   assert.match(container.textContent ?? '', /Dentro do estado \(MG para MG\)/)
   assert.match(container.textContent ?? '', /O cliente retira a moto na loja: vale a regra de dentro do estado\./)
+})
+
+// Decisão do Luis (07/11/2026, #726): no faturamento direto, UF do formulário diferente da Entrega "Entregar" trava a nota.
+test('faturamento direto de venda "Entregar" em SP com o formulário em MG: a etapa Entrega diz a frase e não deixa conferir', async () => {
+  const entrega = {
+    modo: 'entregar', modalidade: modalidade4, recebe: null,
+    endereco: { cep: '', logradouro: 'Rua B', numero: '20', complemento: '', bairro: 'Centro', cidade: '3509502', nomeCidade: 'Campinas', uf: 'SP' },
+  } as const
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...preview, entrega }) }
+  const { container, click, escolherFrete } = await abrirPainel()
+  await click(/^Avançar/); await click(/^Avançar/); await click(/^Avançar/)
+  await escolherFrete(modalidade4)
+  await click(/^Conferir nota$/)
+  assert.match(container.textContent ?? '', /A UF da entrega no formulário da nota é diferente da Entrega da venda\. Corrija antes de emitir\./)
+  assert.ok(container.querySelector('select#modalidade-frete'), 'continua na etapa Entrega')
 })
