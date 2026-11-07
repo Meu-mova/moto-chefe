@@ -164,3 +164,23 @@ test('dashboard: rankings de vendedor, loja e modelo e o preço médio contam a 
   assert.equal(await d.getPrecoMedioVendas(filtros), BRUTO_MOTOS_A / 5)
   assert.equal(await d.getPrecoMedioVendas(filtros, { useLiquidoValue: true }), LIQUIDO_MOTOS_A / 5)
 })
+
+test('fechamento, coletiva e individual (relatórios de venda de motos) contam a moto, sem o frete; a forma de pagamento segue com o total', async () => {
+  const [a] = contas
+  const mes = { grupoId: a.grupoId, lojaIds: [a.lojaId], ano: 2026, mes: 9 }
+  const { dadosFechamento } = await import('./fechamento')
+  const f = await dadosFechamento(mes)
+  assert.deepEqual([f.consolidado.faturamento, f.consolidado.faturamentoBruto], [LIQUIDO_MOTOS_A, BRUTO_MOTOS_A])
+  assert.equal(f.vendedores.reduce((s, v) => s + v.total, 0), LIQUIDO_MOTOS_A)
+  assert.equal(f.modelos.reduce((s, m) => s + m.total, 0), LIQUIDO_MOTOS_A)
+  assert.equal(f.diario.reduce((s, d) => s + d.total, 0), LIQUIDO_MOTOS_A)
+  assert.equal(f.pagamento.reduce((s, p) => s + p.total, 0), 29900)
+
+  const { dadosColetiva } = await import('./coletiva')
+  const c = await dadosColetiva(mes)
+  assert.deepEqual([c.consolidado.faturamento, c.consolidado.faturamentoBruto], [LIQUIDO_MOTOS_A, BRUTO_MOTOS_A])
+
+  const { dadosIndividual } = await import('./individual')
+  const i = await dadosIndividual(mes)
+  assert.deepEqual(i.vendedores.map(v => [v.usuarioId, v.faturamento]), [[vendedorA, LIQUIDO_MOTOS_A]])
+})
