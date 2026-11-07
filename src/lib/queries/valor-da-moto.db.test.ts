@@ -125,3 +125,12 @@ test('metas de faturamento (mês e dia) contam o valor da moto, sem o frete', as
   assert.deepEqual([...(await realizadoDoMes([a.lojaId], 2026, 9)).entries()], [[a.lojaId, BRUTO_MOTOS_A]])
   assert.equal(await vendidoNoDia([a.lojaId], 2026, 9, 15), BRUTO_MOTOS_A)
 })
+
+test('relatório da fábrica soma o valor da moto, sem o frete', async () => {
+  const { carregarRelatorioFabrica } = await import('./relatorio-fabrica')
+  const [a] = contas
+  const aux = { id: vendedorA, papel: 'aux_adm', lojaId: a.lojaId, contaId: a.contaId, gruposAcesso: [] }
+  const r = await carregarRelatorioFabrica(aux as unknown as Parameters<typeof carregarRelatorioFabrica>[0], '2026-09-01', '2026-09-30')
+  assert.equal(r.totalQtd, 5)
+  assert.equal(r.totalValor, BRUTO_MOTOS_A)
+})
