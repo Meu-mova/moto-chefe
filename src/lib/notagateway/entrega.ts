@@ -5,6 +5,7 @@
 import { lerDocumentoCliente } from '@/lib/documento'
 import { mascaraCep } from '@/lib/mascaras'
 import { brl } from '@/lib/dashboard-painel'
+import { centavos } from '@/lib/numero-br'
 import { tipoPessoa } from './venda'
 import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, NOME_DE_QUEM_RECEBE_LONGO, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
 
@@ -28,12 +29,16 @@ export const modalidadeComFrete = (m: ModalidadeFrete | '') => (MODALIDADES_COM_
 /** Frete cobrado gravado na Entrega (zero sem frete, na retirada e em venda antiga). */
 export const freteDaVenda = (entrega: EntregaVenda | null): number => (entrega?.modo === 'entregar' ? entrega.frete ?? 0 : 0)
 
+/** Valor da venda = moto + frete cobrado (#726). A mesma conta na tela, na efetivação, no editar venda e nos relatórios (#796). */
+export const totalComFrete = (valorDaMoto: number, entrega: EntregaVenda | null): number => centavos(valorDaMoto + freteDaVenda(entrega))
+export const valorDaMoto = (valorDaVenda: number, entrega: EntregaVenda | null): number => centavos(valorDaVenda - freteDaVenda(entrega))
+
 const SO_FRETE_DA_LOJA = 'O frete cobrado só vale com "Loja leva com veículo próprio" ou "Loja contrata e paga a transportadora".'
 
 function conferirFrete(frete: unknown, modalidade: ModalidadeFrete | ''): Conferida<{ frete: number | null }> {
   if (frete == null) return { ok: true, frete: null }
   if (!modalidadeComFrete(modalidade)) return { ok: false, erro: SO_FRETE_DA_LOJA }
-  const emReais = typeof frete === 'number' && Number.isFinite(frete) && frete > 0 && Math.round(frete * 100) / 100 === frete
+  const emReais = typeof frete === 'number' && Number.isFinite(frete) && frete > 0 && centavos(frete) === frete
   return emReais ? { ok: true, frete } : { ok: false, erro: 'Valor do frete inválido.' }
 }
 

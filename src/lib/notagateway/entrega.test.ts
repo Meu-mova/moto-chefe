@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
+import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, totalComFrete, valorDaMoto, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -247,4 +247,12 @@ test('venda com valor que não cobre o frete (editada depois) não emite', () =>
   assert.deepEqual(pendenciasDaEntrega(comFrete, 'Cliente', 350),
     ['O valor da venda não cobre o frete cobrado (R$ 350,00). Corrija o valor da venda antes de emitir.'])
   assert.deepEqual(pendenciasDaEntrega(comFrete, 'Cliente', 350.01), [])
+})
+
+test('valorDaMoto e totalComFrete: a mesma conta, em centavos, para a tela, a efetivação, o editar venda e os relatórios (#796)', () => {
+  const comFrete = { ...ENTREGAR_MA, frete: 350.1 } as EntregaVenda
+  assert.equal(totalComFrete(10000.2, comFrete), 10350.3)
+  assert.equal(valorDaMoto(10350.3, comFrete), 10000.2)
+  assert.equal(totalComFrete(10000, null), 10000)
+  assert.equal(valorDaMoto(10000, { modo: 'retira', modalidade: '' }), 10000)
 })

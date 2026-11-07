@@ -32,7 +32,7 @@ import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { conferirEntrega } from '@/lib/notagateway/entrega'
+import { conferirEntrega, valorDaMoto } from '@/lib/notagateway/entrega'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
@@ -1384,8 +1384,10 @@ async function editarVenda(vendaId: string, dados: {
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
-    // O item da moto acompanha o valor da venda (#774): a venda é só a moto.
-    await gravarMotoDoPedido(tx, { pedidoId: vendaAtual.pedidoVendaId, motoId: vendaAtual.motoId, valor: dados.valor })
+    // O item da moto acompanha o valor da venda (#774), sem o frete cobrado, que fica na Entrega (#726).
+    await gravarMotoDoPedido(tx, {
+      pedidoId: vendaAtual.pedidoVendaId, motoId: vendaAtual.motoId, valor: valorDaMoto(valorNum, vendaAtual.entrega).toFixed(2),
+    })
     await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, usuario.grupoLiberado, {
       ...comprador,
       // A edição manda o formulário inteiro: campo vazio apaga, como antes.

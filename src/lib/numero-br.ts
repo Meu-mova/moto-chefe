@@ -48,3 +48,6 @@ export function formatarNumeroBR(valor: string | number | null | undefined, casa
   if (!isFinite(n)) return ''
   return n.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas })
 }
+
+/** Valor em reais arredondado aos centavos (soma e subtração de dinheiro em ponto flutuante). */
+export const centavos = (v: number): number => Math.round(v * 100) / 100
