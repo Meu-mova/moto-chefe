@@ -433,6 +433,9 @@ export async function corrigirEReenviarNfAction(motoId: string, correcao: Correc
     if (!r.ok) return r
     const t = operacaoExigeEntrega(r.dados?.tipoOperacao) ? validarDadosTransporte(transporte) : null
     if (t && !t.ok) return { ok: false, error: t.erro }
+    // A mesma recusa do transmitir, antes de gravar: não há correção salva sem envio.
+    const conflito = t?.ok ? conflitoDaUfDoFormulario(e.venda.entrega, t.dados) : null
+    if (conflito) return { ok: false, error: conflito }
     await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
     return transmitirNfePropriaAction(motoId, r.dados, t?.ok ? t.dados : undefined)
   } catch (err) {

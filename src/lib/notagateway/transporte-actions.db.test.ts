@@ -443,3 +443,16 @@ test('faturamento direto de venda "Entregar" com a mesma UF no formulário: a no
   assert.equal(result.ok, true, JSON.stringify(result))
   assert.equal(net.payloads[0].transporte?.enderecoEntrega?.uf, 'PR')
 })
+
+test('corrigir e reenviar de venda "Entregar" com a UF do formulário diferente: recusa antes de gravar a correção', async () => {
+  const f = await fixture(true, {}, { entrega: ENTREGAR_PR })
+  user = f.user
+  const net = network(f)
+  await db.execute(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, x_prod, origem) values (${f.motoId}, 'X', '87116000', 'X', '0') on conflict (moto_id) do update set ncm = '87116000'`)
+  const antes = await snapshot(f)
+  const formularioMg: DadosTransporte = { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, cidade: '3170701', uf: 'MG' } }
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87119000', cest: '' } }, renave, formularioMg)
+  assert.deepEqual(result, { ok: false, error: UF_DO_FORMULARIO_DIFERENTE })
+  assert.deepEqual(net.requests, [])
+  assert.deepEqual(await snapshot(f), antes)
+})
