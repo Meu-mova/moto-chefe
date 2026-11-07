@@ -22,7 +22,7 @@ export function TransporteForm({ dados, onChange }: Props) {
     },
   }))
 
-  const texto = (campo: keyof EnderecoEntrega, nome: string) => (
+  const texto = (campo: 'logradouro' | 'numero' | 'bairro' | 'uf', nome: string) => (
     <div className="space-y-1">
       <Label htmlFor={`entrega-${campo}`}>{nome}</Label>
       <Input id={`entrega-${campo}`} value={endereco[campo]} onChange={e => setEndereco(campo, e.target.value)} />

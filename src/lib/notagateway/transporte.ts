@@ -42,13 +42,20 @@ const modalidadeLida = (token: unknown): ModalidadeFrete | undefined => {
 export type EnderecoEntrega = {
   tipoPessoaDestinatario: 'F' | 'J'
   cpfCnpjDestinatario: string
+  /** Manual da NG para NF-e modelo 55: opcional. A Entrega da venda manda o nome de quem recebe. */
+  nomeDestinatario?: string
   logradouro: string
   numero: string
+  complemento?: string
   bairro: string
   /** A Nota Gateway aceita nome ou código IBGE; o fluxo coleta o código. */
   cidade: string
   uf: string
+  cep?: string
 }
+
+/** O lugar da entrega, sem quem recebe: o que a Entrega da venda guarda e a NF exige. */
+export type LocalDeEntrega = Pick<EnderecoEntrega, 'logradouro' | 'numero' | 'complemento' | 'bairro' | 'cidade' | 'uf' | 'cep'>
 
 export type DadosTransporte = {
   modalidade: ModalidadeFrete | ''
@@ -63,13 +70,33 @@ export const DADOS_TRANSPORTE_VAZIOS = {
   },
 } satisfies DadosTransporte
 
-/** Tamanho máximo de xLgr, nro e xBairro no XML da NF-e (MOC 7.0). */
-const LIMITE_TEXTO_XML = 60
+/** Tamanho máximo de xNome, xLgr, nro, xCpl e xBairro no XML da NF-e (MOC 7.0). */
+export const LIMITE_TEXTO_XML = 60
 
-const CAMPOS_ENDERECO: [keyof EnderecoEntrega, string][] = [
-  ['cpfCnpjDestinatario', 'CPF ou CNPJ do destinatário'], ['logradouro', 'logradouro'],
-  ['numero', 'número'], ['bairro', 'bairro'], ['cidade', 'código IBGE do município'], ['uf', 'UF'],
+const CAMPOS_LOCAL: [keyof LocalDeEntrega, string][] = [
+  ['logradouro', 'logradouro'], ['numero', 'número'], ['bairro', 'bairro'], ['cidade', 'código IBGE do município'], ['uf', 'UF'],
 ]
+
+const ROTULO_LONGO = { logradouro: 'logradouro', numero: 'número', complemento: 'complemento', bairro: 'bairro' } as const
+
+const faltantesDoLocal = (local: LocalDeEntrega) => CAMPOS_LOCAL.filter(([campo]) => !local[campo]).map(([, rotulo]) => rotulo)
+
+const erroDeFormatoDoLocal = (local: LocalDeEntrega): string | null => {
+  const longo = (Object.keys(ROTULO_LONGO) as (keyof typeof ROTULO_LONGO)[]).find(c => (local[c] ?? '').length > LIMITE_TEXTO_XML)
+  if (longo) return `O ${ROTULO_LONGO[longo]} da entrega aceita no máximo ${LIMITE_TEXTO_XML} caracteres.`
+  if (!ufValida(local.uf)) return 'UF de entrega inválida.'
+  if (local.cep && !/^\d{8}$/.test(local.cep)) return 'O CEP da entrega deve ter 8 dígitos.'
+  return null
+}
+
+const ERRO_IBGE = 'Código IBGE do município deve ter 7 dígitos.'
+
+/** O que falta ou está errado no lugar da entrega (já normalizado); null se a NF aceita. */
+export function erroDoLocalDeEntrega(local: LocalDeEntrega): string | null {
+  const faltantes = faltantesDoLocal(local)
+  if (faltantes.length) return `Preencha os dados de entrega: ${faltantes.join(', ')}.`
+  return erroDeFormatoDoLocal(local) ?? (/^\d{7}$/.test(local.cidade) ? null : ERRO_IBGE)
+}
 
 export function normalizarDadosTransporte(dados: DadosTransporte): DadosTransporte {
   return {
@@ -94,15 +121,14 @@ export function validarDadosTransporte(
   if (!normalizados.enderecoEntrega) return { ok: false, erro: 'Preencha os dados do local de entrega.' }
 
   const endereco = normalizados.enderecoEntrega
-  const faltantes = CAMPOS_ENDERECO.filter(([campo]) => !endereco[campo]).map(([, rotulo]) => rotulo)
+  const faltantes = [...(endereco.cpfCnpjDestinatario ? [] : ['CPF ou CNPJ do destinatário']), ...faltantesDoLocal(endereco)]
   if (faltantes.length) return { ok: false, erro: `Preencha os dados de entrega: ${faltantes.join(', ')}.` }
-  const longo = (['logradouro', 'numero', 'bairro'] as const).find(c => endereco[c].length > LIMITE_TEXTO_XML)
-  if (longo) return { ok: false, erro: `O ${longo === 'numero' ? 'número' : longo} da entrega aceita no máximo ${LIMITE_TEXTO_XML} caracteres.` }
-  if (!ufValida(endereco.uf)) return { ok: false, erro: 'UF de entrega inválida.' }
+  const formato = erroDeFormatoDoLocal(endereco)
+  if (formato) return { ok: false, erro: formato }
   if (endereco.cpfCnpjDestinatario.length === 11 && !cpfValido(endereco.cpfCnpjDestinatario)) return { ok: false, erro: 'CPF do destinatário inválido.' }
   if (endereco.cpfCnpjDestinatario.length === 14 && !cnpjValido(endereco.cpfCnpjDestinatario)) return { ok: false, erro: 'CNPJ do destinatário inválido.' }
   if (![11, 14].includes(endereco.cpfCnpjDestinatario.length)) return { ok: false, erro: 'CPF ou CNPJ do destinatário deve ter 11 ou 14 dígitos.' }
-  if (!/^\d{7}$/.test(endereco.cidade)) return { ok: false, erro: 'Código IBGE do município deve ter 7 dígitos.' }
+  if (!/^\d{7}$/.test(endereco.cidade)) return { ok: false, erro: ERRO_IBGE }
   return { ok: true, dados: normalizados }
 }
 

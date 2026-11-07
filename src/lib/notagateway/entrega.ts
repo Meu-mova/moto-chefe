@@ -1,11 +1,18 @@
 /**
  * Entrega da venda (#682): onde a moto chega ao cliente e a modalidade do frete na nota. Nasce no
  * pedido, vai para a venda na efetivação e decide se a NF de saída é dentro ou fora do estado.
- * Este fluxo só oferece "Retira na loja"; "Entregar" (endereço, quem recebe, frete) vem no #726.
  */
-import { ehModalidade, MODALIDADE_INVALIDA, type ModalidadeFrete } from './transporte'
+import { lerDocumentoCliente } from '@/lib/documento'
+import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
 
-export type EntregaVenda = { modo: 'retira'; modalidade: ModalidadeFrete | '' }
+/** O lugar da entrega como a NF exige (cidade = código IBGE), mais o nome da cidade só para a tela. */
+export type EnderecoDaEntrega = Required<LocalDeEntrega> & { nomeCidade: string }
+/** Outra pessoa que recebe a moto; nulo = o comprador, lido da venda na hora da NF. */
+export type QuemRecebe = { nome: string; cpfCnpj: string }
+
+export type EntregaVenda =
+  | { modo: 'retira'; modalidade: ModalidadeFrete | '' }
+  | { modo: 'entregar'; modalidade: ModalidadeFrete | ''; endereco: EnderecoDaEntrega; recebe: QuemRecebe | null }
 
 /** Venda com Entrega e sem modalidade: o Novo pedido avisa e a NF não sai (#682). */
 export const AVISO_SEM_MODALIDADE = 'Escolha a modalidade do frete. Sem ela a nota não sai.'
@@ -16,14 +23,46 @@ export const PENDENCIA_SEM_MODALIDADE = 'Falta a modalidade do frete na Entrega 
 /** O que a Entrega impede de emitir; venda antiga (sem Entrega) não exige modalidade. */
 export const pendenciasDaEntrega = (entrega: EntregaVenda | null): string[] => (entrega && !entrega.modalidade ? [PENDENCIA_SEM_MODALIDADE] : [])
 
+type Conferida<T> = { ok: true } & T | { ok: false; erro: string }
+
+const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+
+const enderecoLido = (dado: unknown): EnderecoDaEntrega => {
+  const e = (dado ?? {}) as Record<string, unknown>
+  return {
+    cep: texto(e.cep).replace(/\D/g, ''), logradouro: texto(e.logradouro), numero: texto(e.numero),
+    complemento: texto(e.complemento), bairro: texto(e.bairro), cidade: texto(e.cidade),
+    nomeCidade: texto(e.nomeCidade), uf: texto(e.uf).toUpperCase(),
+  }
+}
+
+/** Outra pessoa recebe: nome e CPF/CNPJ com a mesma conferência do comprador (ADR-0015). */
+function conferirQuemRecebe(dado: unknown): Conferida<{ recebe: QuemRecebe | null }> {
+  if (dado == null) return { ok: true, recebe: null }
+  const r = dado as Record<string, unknown>
+  const nome = texto(r.nome)
+  if (!nome) return { ok: false, erro: 'Informe o nome de quem recebe.' }
+  if (nome.length > LIMITE_TEXTO_XML) return { ok: false, erro: `O nome de quem recebe aceita no máximo ${LIMITE_TEXTO_XML} caracteres.` }
+  const documento = lerDocumentoCliente(texto(r.cpfCnpj))
+  if (!documento.ok) return documento
+  return { ok: true, recebe: { nome, cpfCnpj: documento.documento } }
+}
+
 /** Confere a Entrega que veio do navegador e devolve só os campos que se gravam. */
-export function conferirEntrega(dado: unknown): { ok: true; entrega: EntregaVenda } | { ok: false; erro: string } {
+export function conferirEntrega(dado: unknown): Conferida<{ entrega: EntregaVenda }> {
   const { modo, modalidade } = (dado ?? {}) as { modo?: unknown; modalidade?: unknown }
-  if (modo !== 'retira' || typeof modalidade !== 'string') return { ok: false, erro: 'Escolha a entrega da venda.' }
+  if ((modo !== 'retira' && modo !== 'entregar') || typeof modalidade !== 'string') return { ok: false, erro: 'Escolha a entrega da venda.' }
   // Vazia grava: avise, não bloqueie. Quem barra a nota sem modalidade é a prévia da NF.
-  if (modalidade === '') return { ok: true, entrega: { modo, modalidade } }
-  if (!ehModalidade(modalidade)) return { ok: false, erro: MODALIDADE_INVALIDA }
-  return { ok: true, entrega: { modo, modalidade } }
+  if (modalidade !== '' && !ehModalidade(modalidade)) return { ok: false, erro: MODALIDADE_INVALIDA }
+  if (modo === 'retira') return { ok: true, entrega: { modo, modalidade } }
+
+  const { endereco: e, recebe: r } = dado as { endereco?: unknown; recebe?: unknown }
+  const endereco = enderecoLido(e)
+  const erro = erroDoLocalDeEntrega(endereco)
+  if (erro) return { ok: false, erro }
+  const recebe = conferirQuemRecebe(r)
+  if (!recebe.ok) return recebe
+  return { ok: true, entrega: { modo, modalidade, endereco, recebe: recebe.recebe } }
 }
 
 export type MotivoOperacao = 'retira' | 'retira_ciclomotor' | 'retira_contribuinte' | 'sem_entrega'

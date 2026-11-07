@@ -20,8 +20,8 @@ test('modalidade fora da lista 4.0 é recusada, inclusive o SemTransporte antigo
   }
 })
 
-test('sem entrega, ou com um modo que este fluxo não oferece, é recusada', () => {
-  for (const dado of [undefined, null, {}, 'retira', { modo: 'entregar', modalidade: '' }, { modo: 'retira' }]) {
+test('sem entrega, ou com um modo que não existe, é recusada', () => {
+  for (const dado of [undefined, null, {}, 'retira', { modo: 'buscar', modalidade: '' }, { modo: 'retira' }]) {
     assert.deepEqual(conferirEntrega(dado), { ok: false, erro: 'Escolha a entrega da venda.' })
   }
 })
@@ -31,6 +31,53 @@ test('campo a mais que o navegador mande não é gravado', () => {
     conferirEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte', valorFrete: 999 }),
     { ok: true, entrega: { modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' } },
   )
+})
+
+// "Entregar" (#726): o endereço sai do Novo pedido; quem recebe vazio é o comprador, lido na hora da NF.
+const LOCAL_MA = {
+  cep: '65000-000', logradouro: ' Rua de exemplo ', numero: '100', complemento: '', bairro: 'Centro',
+  cidade: '2111300', nomeCidade: 'São Luís', uf: 'ma',
+}
+const ENTREGAR_MA: EntregaVenda = {
+  modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente',
+  endereco: { cep: '65000000', logradouro: 'Rua de exemplo', numero: '100', complemento: '', bairro: 'Centro', cidade: '2111300', nomeCidade: 'São Luís', uf: 'MA' },
+  recebe: null,
+}
+
+test('entregar com o endereço completo e o comprador recebendo grava o endereço limpo, sem campo a mais', () => {
+  assert.deepEqual(
+    conferirEntrega({ modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', endereco: { ...LOCAL_MA, extra: 1 }, recebe: null, valorFrete: 9 }),
+    { ok: true, entrega: ENTREGAR_MA },
+  )
+})
+
+test('entregar sem a modalidade grava: a prévia da NF avisa depois, como na retirada', () => {
+  const r = conferirEntrega({ modo: 'entregar', modalidade: '', endereco: LOCAL_MA, recebe: null })
+  assert.deepEqual(r, { ok: true, entrega: { ...ENTREGAR_MA, modalidade: '' } })
+})
+
+test('entregar sem endereço, ou com campo da NF faltando, diz o que falta', () => {
+  assert.deepEqual(conferirEntrega({ modo: 'entregar', modalidade: '', recebe: null }),
+    { ok: false, erro: 'Preencha os dados de entrega: logradouro, número, bairro, código IBGE do município, UF.' })
+  assert.deepEqual(conferirEntrega({ modo: 'entregar', modalidade: '', endereco: { ...LOCAL_MA, bairro: ' ' }, recebe: null }),
+    { ok: false, erro: 'Preencha os dados de entrega: bairro.' })
+})
+
+test('entregar com município fora do código IBGE, UF inválida, CEP incompleto ou texto longo demais é recusado', () => {
+  const com = (campo: Partial<typeof LOCAL_MA>) => conferirEntrega({ modo: 'entregar', modalidade: '', endereco: { ...LOCAL_MA, ...campo }, recebe: null })
+  assert.deepEqual(com({ cidade: 'São Luís' }), { ok: false, erro: 'Código IBGE do município deve ter 7 dígitos.' })
+  assert.deepEqual(com({ uf: 'XX' }), { ok: false, erro: 'UF de entrega inválida.' })
+  assert.deepEqual(com({ cep: '65000' }), { ok: false, erro: 'O CEP da entrega deve ter 8 dígitos.' })
+  assert.deepEqual(com({ complemento: 'x'.repeat(61) }), { ok: false, erro: 'O complemento da entrega aceita no máximo 60 caracteres.' })
+})
+
+test('outra pessoa recebe: nome e CPF/CNPJ conferidos como os do comprador (ADR-0015)', () => {
+  const recebe = (r: unknown) => conferirEntrega({ modo: 'entregar', modalidade: '', endereco: LOCAL_MA, recebe: r })
+  assert.deepEqual(recebe({ nome: ' Maria Exemplo ', cpfCnpj: '529.982.247-25' }),
+    { ok: true, entrega: { ...ENTREGAR_MA, modalidade: '', recebe: { nome: 'Maria Exemplo', cpfCnpj: '52998224725' } } })
+  assert.deepEqual(recebe({ nome: 'Maria Exemplo', cpfCnpj: '529.982.247-24' }), { ok: false, erro: 'CPF inválido. Confira os números.' })
+  assert.deepEqual(recebe({ nome: '', cpfCnpj: '529.982.247-25' }), { ok: false, erro: 'Informe o nome de quem recebe.' })
+  assert.deepEqual(recebe({ nome: 'x'.repeat(61), cpfCnpj: '529.982.247-25' }), { ok: false, erro: 'O nome de quem recebe aceita no máximo 60 caracteres.' })
 })
 
 // Dentro ou fora do estado pela Entrega (#682 Q1, com as exceções do contador de Teresina em 05/11).
