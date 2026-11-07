@@ -27,6 +27,7 @@ export async function listarVendas(filtros?: {
       valor:            vendas.valor,
       formaPagamento:   vendas.formaPagamento,
       pagamentos:       vendas.pagamentos,
+      entrega:          vendas.entrega,
       clienteNome:      vendas.clienteNome,
       clienteCpf:       vendas.clienteCpf,
       clienteCelular:   vendas.clienteCelular,

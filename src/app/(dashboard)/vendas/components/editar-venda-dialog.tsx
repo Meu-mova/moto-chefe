@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { podeAlterarValorVenda } from '@/lib/valor-venda'
+import { freteDaVenda, valorDaMoto } from '@/lib/notagateway/entrega'
+import { brl } from '@/lib/dashboard-painel'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
@@ -238,6 +240,12 @@ export function EditarVendaDialog({ venda: v, papel, vendedores, origens, gatilh
                     // Sem campo: o aux_adm não altera o valor (#293).
                     <p className="flex h-9 items-center rounded-md border bg-muted px-3 text-muted-foreground">
                       {lerValor(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                  )}
+                  {/* O frete cobrado está dentro do valor da venda (#726): quem corrige o preço da moto precisa saber. */}
+                  {freteDaVenda(v.entrega) > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Inclui o frete cobrado de {brl(freteDaVenda(v.entrega))}: a moto sai na nota por {brl(valorDaMoto(lerValor(valor), v.entrega))}.
                     </p>
                   )}
                 </div>
