@@ -94,7 +94,7 @@ test('cada pendência recusa com a sua frase e não grava nada', async () => {
   })
 })
 
-test('venda registrada recusa e orienta cancelar a venda ou remover', async () => {
+test('venda registrada recusa e orienta cancelar a venda antes', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000068805', '00000000068806')
     const id = await a.novaMoto('VEN', a.base.lojaId, 'vendida')

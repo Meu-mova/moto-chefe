@@ -13,7 +13,7 @@ import {
 import {
   alcance, daMoto, motosComDados, NAO_ENCONTRADA, registrarNoLog, temLinha, travarDoAlcance, type Exec, type UsuarioQueArquiva,
 } from '@/lib/arquivar-motos'
-import { podeArquivarMotos } from '@/lib/arquivar-moto-regras'
+import { podeRemoverMotos } from '@/lib/arquivar-moto-regras'
 import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type ImpedimentosDeRemover, type OsDaMoto } from '@/lib/remover-moto-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { ehUuid } from '@/lib/uuid'
@@ -58,7 +58,7 @@ const impedimentosDa = (m: LinhaDaMoto): ImpedimentosDeRemover => ({
 /** Motos para o passo "Escolher": qualquer situação, inclusive arquivada, com o motivo de não poder. */
 export async function motosParaRemover(usuario: UsuarioQueArquiva, termo: string, exec: Exec = db) {
   const busca = termo.trim()
-  if (!podeArquivarMotos(usuario.papel) || !busca) return []
+  if (!podeRemoverMotos(usuario.papel) || !busca) return []
   const onde = await alcance(usuario, exec)
   if (onde === null) return []
   const linhas = await motosComImpedimentos(exec, and(onde, or(ilike(motos.chassi, `%${busca}%`), ilike(motos.notaFiscalEntrada, `%${busca}%`))))
@@ -106,7 +106,7 @@ async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<string, 
 
 /** Remove o lote inteiro ou nada. Uma linha no log por moto, com a contagem do que saiu junto. */
 export async function removerMotos(usuario: UsuarioQueArquiva, motoIds: string[], motivo: string, confirmacao: string, exec: Exec = db) {
-  if (!podeArquivarMotos(usuario.papel)) throw new RecusaUsuario('Sem permissão para remover motos.')
+  if (!podeRemoverMotos(usuario.papel)) throw new RecusaUsuario('Sem permissão para remover motos.')
   const ids = [...new Set(motoIds)]
   if (!ids.every(ehUuid)) throw new RecusaUsuario(NAO_ENCONTRADA)
 

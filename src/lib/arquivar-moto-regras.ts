@@ -22,6 +22,9 @@ const PAPEIS_QUE_ARQUIVAM = ['admin_geral', 'admin_socio']
 
 export const podeArquivarMotos = (papel: string): boolean => PAPEIS_QUE_ARQUIVAM.includes(papel)
 
+/** Remover moto (#692): os mesmos papéis do Arquivar (decisão 5 da #677). */
+export const podeRemoverMotos = podeArquivarMotos
+
 // Ordem da lista = ordem da frase mostrada: a venda primeiro, porque a saída dela é outra ação.
 const RECUSAS: Recusa<PendenciasDaMoto>[] = [
   [p => p.temVenda, () => 'Tem venda registrada. Cancele a venda antes de arquivar.'],

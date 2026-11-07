@@ -38,9 +38,9 @@ export async function buscarMotosParaRemoverAction(termo: string) {
 export async function removerMotosAction(motoIds: string[], motivo: string, confirmacao: string) {
   const usuario = await getUsuarioLogado()
   const resultado = await acao(() => removerMotos(usuario, motoIds, motivo, confirmacao))
+  // Além da moto, saem OS, transferências e histórico; a NF de entrada pode voltar a pendente.
   if (resultado.ok) {
-    revalidatePath('/estoque')
-    revalidatePath('/radar')
+    for (const rota of ['/estoque', '/radar', '/ordens-servico', '/transferencias', '/agenda', '/radar-fiscal']) revalidatePath(rota)
   }
   return resultado
 }
