@@ -255,14 +255,19 @@ test('admin_rede remove só no grupo liberado, com ele ativo', async () => {
   })
 })
 
-test('moto arquivada também se remove, e o chassi removido pode entrar de novo', async () => {
+test('moto arquivada também se remove, e o chassi removido passa na conferência da Entrada', async () => {
+  const { conferirMotosDaEntrada } = await import('@/lib/entrada-motos')
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000069241', '00000000069242')
     const m = await a.novaMoto('ARQ')
     await tx.execute(sql`update motos set arquivada_em = now(), arquivada_por = ${a.socioId}, motivo_arquivo = 'golpe' where id = ${m}`)
+    const [{ modelo_id: modeloId }] = await linhas(tx, sql`select modelo_id from motos where id = ${m}`)
+    const daNota = [{ chassi: `${P}AARQ`, cor: 'CINZA', modeloId, precoCompra: '1000', notaFiscal: 'NFA77' }]
+    const conferir = async () => (await conferirMotosDaEntrada(tx, a.base.lojaId, daNota, { grupoLiberado: null })).erros
+    assert.equal((await conferir()).length, 1, 'antes, o chassi arquivado barra a entrada')
+
     assert.deepEqual((await motosParaRemover(a.socio, `${P}AARQ`, tx)).map(x => [x.chassi, x.bloqueio]), [[`${P}AARQ`, null]])
     assert.deepEqual(await removerMotos(a.socio, [m], 'importada errada', 'CONFIRMAR', tx), { removidas: 1 })
-    const deNovo = await a.novaMoto('ARQ')
-    assert.equal(await existe(tx, deNovo), true)
+    assert.deepEqual(await conferir(), [])
   })
 })

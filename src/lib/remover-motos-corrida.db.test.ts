@@ -1,7 +1,8 @@
-// Teste de banco: Postgres descartável. Corrida do Remover moto (#692, achado 7 da r1).
-// Uma sessão grava o pagamento no cartão de uma OS da moto e segura a linha; o Remover entra
-// enquanto ela não confirmou. Ao soltar, o Remover tem de ver o pagamento e recusar, sem apagar a
-// OS paga. Os dados são gravados de verdade (duas conexões) e apagados no after.
+// Teste de banco: Postgres descartável. Remover moto (#692) com dados gravados de verdade, apagados no after:
+// - corrida (achado 7 da r1): uma sessão grava o pagamento no cartão de uma OS da moto e segura a linha;
+//   o Remover entra antes de ela confirmar e, ao soltar, tem de ver o pagamento e recusar;
+// - Notas recebidas (achado 6), que lê fora de transação: a NF de entrada só volta a "pendente"
+//   quando não sobra moto dela no grupo.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import pg from 'pg'
@@ -19,6 +20,7 @@ const P = 'RMC692'
 type Db = typeof import('@/lib/db')
 let db: Db['db']
 let removerMotos: typeof import('@/lib/remover-motos')['removerMotos']
+let listarNotasRecebidas: typeof import('@/lib/queries/nfe-recebidas')['listarNotasRecebidas']
 let conta: Awaited<ReturnType<typeof semearContaComMotos>>
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,6 +29,7 @@ const linhas = async (q: ReturnType<typeof sql>) => ((await db.execute(q)) as un
 before(async () => {
   ;({ db } = await import('@/lib/db'))
   ;({ removerMotos } = await import('@/lib/remover-motos'))
+  ;({ listarNotasRecebidas } = await import('@/lib/queries/nfe-recebidas'))
   conta = await semearContaComMotos(db, P, 'A', '00000000069251', '00000000069252')
 })
 
@@ -73,4 +76,19 @@ test('pagamento no cartão gravado na OS durante a remoção: o Remover espera, 
     await pagador.query('rollback').catch(() => {})
     await pagador.end()
   }
+})
+
+test('a NF de entrada só volta a "pendente" em Notas recebidas quando sai a última moto dela no grupo', async () => {
+  // Número 88 nas posições 26 a 34 da chave; só as duas motos deste teste têm essa NF.
+  const chave = '3'.repeat(25) + '000000088' + '0'.repeat(10)
+  await db.execute(sql`insert into nfe_recebidas (grupo_id, chave, nsu, emitente_cnpj, emitente_nome, data_emissao, situacao)
+    values (${conta.base.grupoId}, ${chave}, '1', '00000000000191', 'Fábrica', now(), 'completa')`)
+  const jaLancada = async () => (await listarNotasRecebidas(conta.base.grupoId)).find(n => n.chave === chave)?.jaLancada
+  const [m1, m2] = [await conta.novaMoto('NF1'), await conta.novaMoto('NF2')]
+  await db.execute(sql`update motos set nota_fiscal_entrada = 'NF88' where id in (${m1}, ${m2})`)
+
+  await removerMotos(conta.socio, [m1], 'duplicada', 'CONFIRMAR')
+  assert.equal(await jaLancada(), true, 'a outra moto da NF continua')
+  await removerMotos(conta.socio, [m2], 'NF do grupo errado', 'CONFIRMAR')
+  assert.equal(await jaLancada(), false)
 })
