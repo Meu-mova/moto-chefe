@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { confirmacaoValida, motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, SEM_IMPEDIMENTO, type ImpedimentosDeRemover } from './remover-moto-regras'
+import { avisoDasPecas, confirmacaoValida, motivoQueImpedeRemover, oQueSaiJunto, primeiraOsComDinheiro, recusaDaRemocao, SEM_IMPEDIMENTO, type ImpedimentosDeRemover } from './remover-moto-regras'
 
 const com = (p: Partial<ImpedimentosDeRemover>): ImpedimentosDeRemover => ({ ...SEM_IMPEDIMENTO, ...p })
 
@@ -59,4 +59,17 @@ test('OS com pagamento registrado tem dinheiro, mesmo sem caixa nem conciliaçã
   assert.equal(primeiraOsComDinheiro([os({ formaPagamento: 'Gratuita', valorTotal: '0' })]), null)
   assert.equal(primeiraOsComDinheiro([os({ formaPagamento: 'Cortesia / Garantia', valorTotal: '150' })]), null)
   assert.equal(primeiraOsComDinheiro([]), null)
+})
+
+test('o que sai junto vira uma linha por tipo, no singular ou plural, e tipo sem linha some', () => {
+  assert.deepEqual(oQueSaiJunto({ os: 1, itensDeOs: 2, historico: 3, transferencias: 0 }), ['1 OS', '2 itens de OS', '3 registros do histórico'])
+  assert.deepEqual(oQueSaiJunto({ cupons: 2, pedidos: 2, aprovacoes: 1 }),
+    ['2 cupons de revisão', '2 pedidos cancelados', '1 aprovação já respondida'])
+  assert.deepEqual(oQueSaiJunto({}), [])
+})
+
+test('peças usadas em OS viram aviso, no singular ou plural', () => {
+  assert.equal(avisoDasPecas(0), null)
+  assert.equal(avisoDasPecas(1), '1 item de peça usado em OS não volta ao estoque de peças.')
+  assert.equal(avisoDasPecas(3), '3 itens de peça usados em OS não voltam ao estoque de peças.')
 })

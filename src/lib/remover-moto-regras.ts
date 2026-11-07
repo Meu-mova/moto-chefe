@@ -1,6 +1,7 @@
 // Regras do Remover moto (#692; ADR-0020 com o adendo de 07/11/2026): puras, usadas pelo diálogo e pelo servidor.
 import { motivoDoArquivoValido } from '@/lib/arquivar-moto-regras'
 import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
+import { plural } from '@/lib/texto'
 import { primeiraRecusa, recusaDasMotos, type Recusa } from '@/lib/recusa-de-motos'
 
 /**
@@ -71,3 +72,21 @@ export function primeiraOsComDinheiro(oss: OsDaMoto[]): { numero: number | null 
 
 /** O que sai junto com a moto, por tipo; as chaves são as mesmas que o log grava em `saiu`. */
 export type SaiJunto = Partial<Record<'os' | 'itensDeOs' | 'transferencias' | 'cupons' | 'pedidos' | 'aprovacoes' | 'historico', number>>
+
+// Ordem da lista = ordem mostrada no passo Conferir.
+const NOMES: [keyof SaiJunto, string, string][] = [
+  ['os', 'OS', 'OS'],
+  ['itensDeOs', 'item de OS', 'itens de OS'],
+  ['transferencias', 'transferência', 'transferências'],
+  ['cupons', 'cupom de revisão', 'cupons de revisão'],
+  ['pedidos', 'pedido cancelado', 'pedidos cancelados'],
+  ['aprovacoes', 'aprovação já respondida', 'aprovações já respondidas'],
+  ['historico', 'registro do histórico', 'registros do histórico'],
+]
+
+export const oQueSaiJunto = (s: SaiJunto): string[] =>
+  NOMES.filter(([tipo]) => (s[tipo] ?? 0) > 0).map(([tipo, um, varios]) => plural(s[tipo]!, um, varios))
+
+/** As peças da OS já saíram do estoque de peças; remover a OS não as devolve (ADR-0020). */
+export const avisoDasPecas = (n: number): string | null =>
+  n === 0 ? null : n === 1 ? '1 item de peça usado em OS não volta ao estoque de peças.' : `${n} itens de peça usados em OS não voltam ao estoque de peças.`
