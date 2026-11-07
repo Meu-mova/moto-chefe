@@ -14,7 +14,7 @@ import { NfeRecusa } from './nfe-recusa'
 import { TransporteForm } from './transporte-form'
 import { DADOS_TRANSPORTE_VAZIOS, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
 import { tipoPessoa } from '@/lib/notagateway/venda'
-import { textoDaOperacao, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { conflitoDaUfDoFormulario, textoDaOperacao, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, corrigirEReenviarNfAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
@@ -183,6 +183,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   function avancarDoTransporte() {
     const validacao = validarDadosTransporte(transporte)
     if (!validacao.ok) { setErro(validacao.erro); return }
+    const conflito = conflitoDaUfDoFormulario(previa?.entrega ?? null, validacao.dados)
+    if (conflito) { setErro(conflito); return }
     setErro('')
     setPasso(PARTES_RENAVE.length + 1)
   }
@@ -239,7 +241,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
   const faltamRenave = renave ? camposFaltando(renave).length : 0
-  const faltamTransporte = exigeEntrega && !validarDadosTransporte(transporte).ok
+  const conflitoDeUf = exigeEntrega ? conflitoDaUfDoFormulario(previa.entrega, transporte) : null
+  const faltamTransporte = exigeEntrega && (!validarDadosTransporte(transporte).ok || !!conflitoDeUf)
   const porParte = renave ? faltandoPorParte(renave) : null
   const comEtapas = !!(r && renave && porParte && !bloqueadaProducao)
   const passos = comEtapas && porParte && (
@@ -430,7 +433,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       )}
       {comEtapas && faltamTransporte && (
         <p className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">
-          Complete o frete e o endereço de entrega na etapa Entrega antes de transmitir.
+          {conflitoDeUf ?? 'Complete o frete e o endereço de entrega na etapa Entrega antes de transmitir.'}
         </p>
       )}
 

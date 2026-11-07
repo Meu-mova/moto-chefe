@@ -32,7 +32,7 @@ import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { recusaSemVenda } from '@/lib/notas-emitidas'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
-import { pendenciasDaEntrega, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { conflitoDaUfDoFormulario, pendenciasDaEntrega, type EntregaVenda, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -107,6 +107,8 @@ export type PreviaNfe =
       podeConfigurarFiscal: boolean
       /** A NF sai por outro CNPJ da Conta, o que comprou a moto (#552). */
       avisoEmissor: string | null
+      /** Entrega da venda: a tela do faturamento direto confere o formulário com ela (`conflitoDaUfDoFormulario`). */
+      entrega: EntregaVenda | null
     }
 
 const avisoEmissor = (e: { nome: string; cnpj: string }) => `A NF desta moto sai pelo CNPJ de ${e.nome} (${formatarCpfCnpj(e.cnpj)})`
@@ -152,7 +154,7 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
     clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
     clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
     valor, pagamentos: pagamentosMova, temFicha: !!ficha,
-  }), ...pendenciasDaEntrega(venda.entrega)]
+  }), ...pendenciasDaEntrega(venda.entrega, venda.clienteNome)]
   if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
 
   const regra: RegraSaida | null = regraRow
@@ -365,6 +367,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
       },
       podeConfigurarFiscal: podeConfigurarFiscal(usuario.papel),
       avisoEmissor: e.emissor.outroCnpj ? avisoEmissor(e.emissor) : null,
+      entrega: e.venda.entrega,
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }
@@ -430,6 +433,9 @@ export async function corrigirEReenviarNfAction(motoId: string, correcao: Correc
     if (!r.ok) return r
     const t = operacaoExigeEntrega(r.dados?.tipoOperacao) ? validarDadosTransporte(transporte) : null
     if (t && !t.ok) return { ok: false, error: t.erro }
+    // A mesma recusa do transmitir, antes de gravar: não há correção salva sem envio.
+    const conflito = t?.ok ? conflitoDaUfDoFormulario(e.venda.entrega, t.dados) : null
+    if (conflito) return { ok: false, error: conflito }
     await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
     return transmitirNfePropriaAction(motoId, r.dados, t?.ok ? t.dados : undefined)
   } catch (err) {
@@ -530,6 +536,8 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     if (operacaoExigeEntrega(renaveValidado?.tipoOperacao)) {
       const t = validarDadosTransporte(transporte)
       if (!t.ok) return { ok: false, error: t.erro }
+      const conflito = conflitoDaUfDoFormulario(e.venda.entrega, t.dados)
+      if (conflito) return { ok: false, error: conflito }
       transporteValidado = t.dados
     }
     if (!e.regra) return { ok: false, error: 'Regra fiscal do grupo não cadastrada' }

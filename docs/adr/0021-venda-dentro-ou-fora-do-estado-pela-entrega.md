@@ -31,7 +31,14 @@ A decisão é do MOVA.
     que *"o estado não aceita, considera venda interestadual"*;
   - o cliente tem inscrição estadual (indicador "contribuinte"): *"deve ser feita VENDA INTERESTADUAL"*.
   Nesses dois casos a nota sai interestadual, ainda sem `enderecoEntrega`.
-- **Entregar** (#726) compara a UF da entrega com a do emitente.
+- **Entregar** (#726): entrega em outra UF que a do emitente = interestadual, com `enderecoEntrega`.
+  Entrega na UF do emitente = dentro do estado, com as **mesmas duas exceções** da retirada (cliente de
+  outra UF com moto ciclomotor ou com inscrição estadual = interestadual): decisão do Luis em 07/11/2026,
+  comentada na #726, porque a moto fica na UF da loja nos dois modos e a I08-70 (521) não tem exceção
+  por local de entrega.
+- **Faturamento direto** (tpOp 2) com "Entregar": até a #728 o endereço de entrega sai do formulário da
+  nota; se a UF dele diferir da UF da Entrega da venda, a nota não sai (pendência, decisão do Luis em
+  07/11/2026), porque a operação decidida pela Entrega não bateria com o local de entrega enviado.
 - **Venda sem Entrega** (anterior à 0175) segue a regra antiga, pela UF do cliente; a prévia avisa.
 - A modalidade do frete vai sempre explícita na venda com Entrega; sem ela a prévia avisa e a nota
   não sai.
