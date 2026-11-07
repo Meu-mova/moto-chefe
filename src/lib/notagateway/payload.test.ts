@@ -356,3 +356,20 @@ test('outra pessoa recebe: nome, documento e tipo de pessoa dela no enderecoEntr
 test('entregar sem modalidade não monta a nota, como a retirada', () => {
   assert.throws(() => montarNfeVendaMoto({ ...VENDA, entrega: { ...ENTREGAR_SP, modalidade: '' } as EntregaVenda }, REGRA), new RegExp(AVISO_SEM_MODALIDADE))
 })
+
+// Frete cobrado (#726, 4b): está somado no valor da venda; na nota o item vale a moto e o frete vai em itens[].frete
+// (manual NG modelo 55: "parcela do frete ... incluída no valor total do item e ... considerada no cálculo do imposto").
+test('com frete, o item vale o valor da moto, o frete vai no item e a base do ICMS de fora é o total', () => {
+  const venda = { ...VENDA, valor: 10350, pagamentos: [{ tipo: 'PagamentoInstantaneoPix', valor: 10350 }], entrega: { ...ENTREGAR_SP, frete: 350 } as EntregaVenda }
+  const p = montarNfeVendaMoto(venda, REGRA)
+  assert.equal(p.itens[0].valorUnitario, 10000)
+  assert.equal(p.itens[0].frete, 350)
+  assert.equal(p.itens[0].impostos.icms.baseCalculo, 10350)
+  assert.deepEqual(p.pedido.pagamento.formas.map(f => f.valor), [10350])
+})
+
+test('sem frete, o item não leva a chave frete e vale o valor da venda', () => {
+  const p = montarNfeVendaMoto({ ...VENDA, entrega: ENTREGAR_SP }, REGRA)
+  assert.equal('frete' in p.itens[0], false)
+  assert.equal(p.itens[0].valorUnitario, VENDA.valor)
+})
