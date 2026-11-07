@@ -50,6 +50,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
 
   const moto = motos.find(m => m.id === motoId)
   const freteLigado = entrega.modo === 'entregar' && entrega.comFrete && modalidadeComFrete(entrega.modalidade)
+  const frete = freteDoFormulario(entrega)
 
   return (
     <>
@@ -110,7 +111,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
                   <div className="space-y-1">
                     <Label htmlFor="pedido-frete">Valor cobrado do cliente</Label>
                     <CurrencyInput id="pedido-frete" value={entrega.frete} onChange={frete => setEntrega(anterior => ({ ...anterior, frete }))} placeholder="0,00" />
-                    {!(Number(entrega.frete) > 0) && (
+                    {!frete && (
                       <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">Informe o valor do frete. Sem ele o pedido sai sem frete.</p>
                     )}
                     <p className="text-xs text-muted-foreground">Frete precisa de entrega: a opção &quot;Entregar&quot; fica marcada.</p>
@@ -128,10 +129,10 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
                   <dd className="text-right">{textoDaEntrega(entregaDoFormulario(entrega))}</dd>
                   <dt className="text-muted-foreground">Modalidade</dt>
                   <dd className="text-right">{textoDaModalidade(entrega.modalidade) ?? 'Não escolhida'}</dd>
-                  {freteDoFormulario(entrega) > 0 && (
+                  {frete > 0 && (
                     <>
                       <dt className="text-muted-foreground">Frete</dt>
-                      <dd className="text-right">{brl(freteDoFormulario(entrega))}</dd>
+                      <dd className="text-right">{brl(frete)}</dd>
                     </>
                   )}
                 </dl>
