@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CepInput } from '@/components/ui/cep-input'
@@ -7,7 +8,7 @@ import { DocumentoClienteInput } from '@/components/documento-cliente'
 import { useBuscaCep } from '@/components/use-busca-cep'
 import { lerDocumentoCliente } from '@/lib/documento'
 import { UFS } from '@/lib/sefaz/uf'
-import { type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
+import { conferirQuemRecebe, type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
 
 /** O que a tela edita: trocar de "Entregar" para "Retira" e voltar não apaga o endereço digitado. */
 export type EntregaDoFormulario = Pick<EntregaVenda, 'modalidade'> & {
@@ -27,9 +28,8 @@ export const entregaDoFormulario = (f: EntregaDoFormulario): EntregaVenda => (f.
   ? { modo: 'retira', modalidade: f.modalidade }
   : { modo: 'entregar', modalidade: f.modalidade, endereco: f.endereco, recebe: f.outraPessoa ? f.recebe : null })
 
-/** Documento de quem recebe digitado e errado: a tela não deixa criar (ADR-0015); o servidor confere de novo. */
-export const quemRecebeInvalido = (f: EntregaDoFormulario) => f.modo === 'entregar' && f.outraPessoa
-  && (!f.recebe.nome.trim() || !lerDocumentoCliente(f.recebe.cpfCnpj).ok)
+/** Quem recebe recusado pela mesma regra do servidor (ADR-0015, até 60 caracteres): a tela não deixa criar. */
+export const quemRecebeInvalido = (f: EntregaDoFormulario) => f.modo === 'entregar' && f.outraPessoa && !conferirQuemRecebe(f.recebe).ok
 
 const OPCOES: { modo: EntregaVenda['modo']; titulo: string; ajuda: string }[] = [
   { modo: 'retira', titulo: 'Retira na loja', ajuda: 'O cliente leva daqui.' },
@@ -54,13 +54,22 @@ export function EntregaCampos({ valor, onChange }: Props) {
   const mudar = (patch: Partial<EntregaDoFormulario>) => onChange(anterior => ({ ...anterior, ...patch }))
   const mudarEndereco = (patch: Partial<EnderecoDaEntrega>) =>
     onChange(anterior => ({ ...anterior, endereco: { ...anterior.endereco, ...patch } }))
-  const { busca, buscar } = useBuscaCep(e => mudarEndereco({
-    ...(e.logradouro ? { logradouro: e.logradouro } : {}), ...(e.bairro ? { bairro: e.bairro } : {}),
-    nomeCidade: e.cidade, uf: e.uf, cidade: e.ibge,
-  }))
+  const mudarRecebe = (patch: Partial<QuemRecebe>) => onChange(anterior => ({ ...anterior, recebe: { ...anterior.recebe, ...patch } }))
+  // O código IBGE vem do CEP; trocar cidade ou UF à mão apaga o código e pede o novo (rejeição 279).
+  const [ibgeAMao, setIbgeAMao] = useState(false)
+  const mudarMunicipio = (patch: Partial<EnderecoDaEntrega>) => { setIbgeAMao(true); mudarEndereco({ ...patch, cidade: '' }) }
+  const { busca, buscar } = useBuscaCep(e => {
+    setIbgeAMao(!e.ibge)
+    mudarEndereco({
+      ...(e.logradouro ? { logradouro: e.logradouro } : {}), ...(e.bairro ? { bairro: e.bairro } : {}),
+      nomeCidade: e.cidade, uf: e.uf, cidade: e.ibge,
+    })
+  })
   const e = valor.endereco
-  // O código IBGE vem do CEP; só se pede à mão quando a busca falha ou a cidade foi trocada à mão.
-  const pedeIbge = busca === 'nao_achou' || (!!e.nomeCidade && !/^\d{7}$/.test(e.cidade))
+  const pedeIbge = busca === 'nao_achou' || ibgeAMao
+  const recebe = conferirQuemRecebe(valor.recebe)
+  // Documento errado o próprio campo já mostra; aqui só o que é do nome.
+  const erroDoNome = !recebe.ok && lerDocumentoCliente(valor.recebe.cpfCnpj).ok ? recebe.erro : null
 
   return (
     <div className="space-y-4">
@@ -96,12 +105,11 @@ export function EntregaCampos({ valor, onChange }: Props) {
             ))}
             <div className="space-y-1 sm:col-span-4">
               <Label htmlFor="entrega-nomeCidade">Cidade</Label>
-              {/* Trocar a cidade à mão invalida o código IBGE que veio do CEP. */}
-              <Input id="entrega-nomeCidade" value={e.nomeCidade} onChange={ev => mudarEndereco({ nomeCidade: ev.target.value, cidade: '' })} />
+              <Input id="entrega-nomeCidade" value={e.nomeCidade} onChange={ev => mudarMunicipio({ nomeCidade: ev.target.value })} />
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label htmlFor="entrega-uf">UF</Label>
-              <select id="entrega-uf" value={e.uf} onChange={ev => mudarEndereco({ uf: ev.target.value })} className={CLASSE_SELECT_NATIVO}>
+              <select id="entrega-uf" value={e.uf} onChange={ev => mudarMunicipio({ uf: ev.target.value })} className={CLASSE_SELECT_NATIVO}>
                 <option value="">Escolha</option>
                 {UFS.map(u => <option key={u.sigla} value={u.sigla}>{u.sigla}</option>)}
               </select>
@@ -124,12 +132,13 @@ export function EntregaCampos({ valor, onChange }: Props) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label htmlFor="entrega-recebe-nome">Nome de quem recebe</Label>
-                <Input id="entrega-recebe-nome" value={valor.recebe.nome} onChange={ev => mudar({ recebe: { ...valor.recebe, nome: ev.target.value } })} />
+                <Input id="entrega-recebe-nome" value={valor.recebe.nome} onChange={ev => mudarRecebe({ nome: ev.target.value })} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="entrega-recebe-doc">CPF ou CNPJ de quem recebe</Label>
-                <DocumentoClienteInput id="entrega-recebe-doc" value={valor.recebe.cpfCnpj} onChange={cpfCnpj => mudar({ recebe: { ...valor.recebe, cpfCnpj } })} />
+                <DocumentoClienteInput id="entrega-recebe-doc" value={valor.recebe.cpfCnpj} onChange={cpfCnpj => mudarRecebe({ cpfCnpj })} />
               </div>
+              {erroDoNome && <p className="text-xs text-destructive sm:col-span-2">{erroDoNome}</p>}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">Quem recebe é o próprio comprador.</p>

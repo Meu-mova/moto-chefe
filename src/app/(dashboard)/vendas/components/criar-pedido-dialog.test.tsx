@@ -51,8 +51,11 @@ async function montar() {
   let montado = true
   montados.push(() => act(async () => { if (!montado) return; montado = false; root.unmount(); container.remove() }))
   await clique(botao('Criar Pedido de Venda'))
-  // A busca do CEP responde depois da tecla: espera o React aplicar o endereço.
-  const esperarBuscaDoCep = () => act(() => esperar(50))
+  // A busca do CEP responde depois da tecla: espera o "Buscando o CEP..." sumir, não um tempo fixo.
+  const esperarBuscaDoCep = async () => {
+    for (let i = 0; i < 40 && /Buscando o CEP/.test(textoDaTela()); i++) await act(() => esperar(5))
+    assert.doesNotMatch(textoDaTela(), /Buscando o CEP/, 'a busca do CEP não terminou')
+  }
   return { clique, esperarBuscaDoCep }
 }
 
@@ -169,4 +172,37 @@ test('voltar para "Retira na loja" envia só a retirada, sem o endereço digitad
   await t.clique(opcaoDeEntrega(/Retira na loja/))
   await t.clique(botao('Criar pedido'))
   assert.deepEqual(criar.mock.calls[0].arguments[2], { modo: 'retira', modalidade: 'TransporteProprioPorContaDoRemetente' })
+})
+
+const temCampoIbge = () => [...document.querySelectorAll('label')].some(l => /^Código IBGE do município/.test(l.textContent ?? ''))
+
+test('trocar a UF depois do CEP apaga o código IBGE e pede o novo, que fica visível até o fim', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await escolher(campo<HTMLSelectElement>(/^UF/), 'PI')
+  assert.equal(campo<HTMLInputElement>(/^Código IBGE do município/).value, '')
+  await digitar(campo<HTMLInputElement>(/^Código IBGE do município/), '2211001')
+  assert.equal(temCampoIbge(), true)
+  await t.clique(botao('Criar pedido'))
+  assert.deepEqual((criar.mock.calls[0].arguments[2] as { endereco: object }).endereco, { ...ENDERECO_SAO_LUIS, uf: 'PI', cidade: '2211001' })
+})
+
+test('trocar a cidade à mão depois do CEP apaga o código IBGE e pede o novo', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await digitar(campo<HTMLInputElement>(/^Cidade/), 'Paço do Lumiar')
+  assert.equal(campo<HTMLInputElement>(/^Código IBGE do município/).value, '')
+})
+
+test('nome de quem recebe com mais de 60 caracteres: a tela mostra a mesma recusa do servidor e não deixa criar', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await t.clique(campo<HTMLInputElement>(/^Outra pessoa recebe/))
+  await digitar(campo<HTMLInputElement>(/^Nome de quem recebe/), 'x'.repeat(61))
+  await digitar(campo<HTMLInputElement>(/^CPF ou CNPJ de quem recebe/), '52998224725')
+  assert.match(textoDaTela(), /O nome de quem recebe aceita no máximo 60 caracteres\./)
+  assert.equal(botao('Criar pedido')?.disabled, true)
 })
