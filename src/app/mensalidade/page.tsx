@@ -27,7 +27,7 @@ export default async function MensalidadePage() {
   const usuario = await getUsuarioLogado()
   const ativo = await grupoAtivoDaRequisicao(usuario).catch(() => null)
   const paga = podePagarMensalidade(usuario.papel)
-  const visiveis = await gruposDaMensalidade(usuario, ativo)
+  const visiveis = await gruposDaMensalidade(usuario, async () => ativo).catch(() => [])
   const abertas = await abertasCobraveis({ grupoIds: visiveis.map(g => g.id) })
   const hoje = hojeBrt()
   const bloqueado = estaBloqueado(abertas.filter(a => a.m.grupoId === ativo?.id).map(a => a.m.vencimento), hoje)

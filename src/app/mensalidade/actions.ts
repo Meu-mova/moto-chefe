@@ -12,6 +12,8 @@ import { MENSALIDADE_NAO_ENCONTRADA, podePagarMensalidade, valorAtualizado } fro
 import { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
 import { gruposDaMensalidade } from '@/lib/mensalidade/grupos'
 
+const LINK_INDISPONIVEL = 'Não deu para gerar o link agora. Tente de novo em alguns minutos.'
+
 /**
  * Devolve o link para pagar a mensalidade. Vencida, o valor muda com o atraso: o
  * link é refeito com multa e juros e o antigo é encerrado (contrato 4.4).
@@ -23,10 +25,12 @@ export async function linkPagamentoAction(mensalidadeId: string): Promise<{ ok: 
   if (!ehUuid(mensalidadeId)) return { ok: false, erro: MENSALIDADE_NAO_ENCONTRADA }
 
   // Os mesmos grupos da lista da tela, dentro da consulta: mensalidade de outra Conta e id
-  // inexistente recebem a mesma frase (#773).
-  const ativo = await grupoAtivoDaRequisicao(u).catch(() => null)
-  const grupoIds = (await gruposDaMensalidade(u, ativo)).map(g => g.id)
-  const [m] = await abertasCobraveis({ grupoIds, mensalidadeId })
+  // inexistente recebem a mesma frase (#773). Erro do banco não vira "não encontrada" (#578).
+  const lida = await gruposDaMensalidade(u, () => grupoAtivoDaRequisicao(u))
+    .then(grupos => abertasCobraveis({ grupoIds: grupos.map(g => g.id), mensalidadeId }))
+    .then(([m]) => ({ m }), () => null)
+  if (!lida) return { ok: false, erro: LINK_INDISPONIVEL }
+  const { m } = lida
   if (!m) return { ok: false, erro: MENSALIDADE_NAO_ENCONTRADA }
 
   const { acrescimo, total } = valorAtualizado(Number(m.m.valor), m.m.vencimento, hojeBrt())
@@ -48,6 +52,6 @@ export async function linkPagamentoAction(mensalidadeId: string): Promise<{ ok: 
     if (antiga && antiga !== pref.id) await expirarPreferencia(antiga).catch(() => {})
     return { ok: true, url: pref.init_point }
   } catch {
-    return { ok: false, erro: 'Não deu para gerar o link agora. Tente de novo em alguns minutos.' }
+    return { ok: false, erro: LINK_INDISPONIVEL }
   }
 }

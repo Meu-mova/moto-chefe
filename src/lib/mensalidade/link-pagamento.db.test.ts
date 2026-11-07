@@ -123,3 +123,10 @@ test('admin_geral com a Conta A ativa não paga a mensalidade da Conta B; a do g
   assert.deepEqual(preferenciasCriadas, [])
   assert.equal((await linkPagamentoAction(semente.mensalidadeA)).ok, true)
 })
+
+test('erro do banco ao ler os grupos não vira "não encontrada": responde que o link não saiu agora', async () => {
+  // loja_id que não é UUID faz o Postgres recusar a leitura do grupo da própria loja.
+  usuarioDaSessao = { ...socioA, lojaId: 'nao-e-uuid' }
+  assert.deepEqual(await linkPagamentoAction(semente.mensalidadeA), { ok: false, erro: 'Não deu para gerar o link agora. Tente de novo em alguns minutos.' })
+  assert.deepEqual(preferenciasCriadas, [])
+})
