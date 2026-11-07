@@ -138,10 +138,29 @@ test('entregar em outra UF que a do emitente é para outro estado, qualquer que 
     { interestadual: true, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'MA' })
 })
 
+const ENTREGAR_PI: EntregaVenda = { ...ENTREGAR_MA, endereco: { ...ENTREGAR_MA.endereco, cidade: '2211001', uf: 'PI' } } as EntregaVenda
+
 test('entregar na UF do emitente é dentro do estado, mesmo com cliente de outra UF', () => {
-  const entregaPi: EntregaVenda = { ...ENTREGAR_MA, endereco: { ...ENTREGAR_MA.endereco, uf: 'PI' } } as EntregaVenda
-  assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, entrega: entregaPi, ciclomotor: true, clienteContribuinte: true }),
+  assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, entrega: ENTREGAR_PI }),
     { interestadual: false, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'PI' })
+})
+
+// Decisão do Luis (07/11/2026, #726): as exceções da retirada valem também para "Entregar" na UF do emitente.
+test('entregar na UF do emitente de ciclomotor para cliente de outra UF é para outro estado', () => {
+  assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, entrega: ENTREGAR_PI, ciclomotor: true }),
+    { interestadual: true, motivo: 'entregar_ciclomotor', ufOrigem: 'PI', ufDestino: 'MA' })
+})
+
+test('entregar na UF do emitente para cliente contribuinte (com IE) de outra UF é para outro estado', () => {
+  assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, entrega: ENTREGAR_PI, clienteContribuinte: true }),
+    { interestadual: true, motivo: 'entregar_contribuinte', ufOrigem: 'PI', ufDestino: 'MA' })
+})
+
+test('o porquê das exceções da entrega na UF da loja', () => {
+  assert.equal(textoDaOperacao({ interestadual: true, motivo: 'entregar_ciclomotor', ufOrigem: 'PI', ufDestino: 'MA' }).porque,
+    'A loja entrega no estado dela, mas a moto se emplaca no estado do cliente (ciclomotor): a venda é para outro estado.')
+  assert.equal(textoDaOperacao({ interestadual: true, motivo: 'entregar_contribuinte', ufOrigem: 'PI', ufDestino: 'MA' }).porque,
+    'A loja entrega no estado dela, mas o cliente tem inscrição estadual em outro estado: a venda é para outro estado.')
 })
 
 test('o porquê da entrega diz que vale a UF do endereço de entrega', () => {

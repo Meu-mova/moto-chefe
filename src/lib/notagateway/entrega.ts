@@ -83,7 +83,8 @@ export function transporteDaEntrega(
   }
 }
 
-export type MotivoOperacao = 'retira' | 'retira_ciclomotor' | 'retira_contribuinte' | 'entregar' | 'sem_entrega'
+export type MotivoOperacao =
+  | 'retira' | 'retira_ciclomotor' | 'retira_contribuinte' | 'entregar' | 'entregar_ciclomotor' | 'entregar_contribuinte' | 'sem_entrega'
 export type OperacaoDaVenda = { interestadual: boolean; motivo: MotivoOperacao; ufOrigem: string; ufDestino: string }
 
 type DadosDaOperacao = {
@@ -98,23 +99,23 @@ type DadosDaOperacao = {
 }
 
 /**
- * Dentro ou fora do estado pela Entrega, não pela UF do cliente (#682, ADR-0021). Entregar vale a UF
- * do endereço de entrega comparada com a do emitente (#726). Retira na loja é
- * venda dentro do estado, salvo moto que se emplaca ou cliente com IE de outra UF, que o contador de
- * Teresina mandou sair como interestadual (05/11/2026). Prévia, payload e tela decidem por aqui.
+ * Dentro ou fora do estado pela Entrega, não pela UF do cliente (#682, ADR-0021). Entregar em outra UF
+ * é para outro estado (#726). Retirada ou entrega na UF da loja é dentro do estado, salvo moto que se
+ * emplaca ou cliente com IE de outra UF, que o contador de Teresina mandou sair como interestadual
+ * (05/11/2026; o Luis estendeu à entrega em 07/11/2026). Prévia, payload e tela decidem por aqui.
  */
 export function operacaoDaVenda(d: DadosDaOperacao): OperacaoDaVenda {
   const ufOrigem = d.ufEmitente.trim().toUpperCase()
   const ufCliente = d.ufCliente.trim().toUpperCase()
   const paraOCliente = (motivo: MotivoOperacao) => ({ interestadual: ufCliente !== ufOrigem, motivo, ufOrigem, ufDestino: ufCliente })
   if (!d.entrega) return paraOCliente('sem_entrega')
-  if (d.entrega.modo === 'entregar') {
-    const ufDestino = d.entrega.endereco.uf.trim().toUpperCase()
-    return { interestadual: ufDestino !== ufOrigem, motivo: 'entregar', ufOrigem, ufDestino }
-  }
-  if (ufCliente !== ufOrigem && d.ciclomotor) return paraOCliente('retira_ciclomotor')
-  if (ufCliente !== ufOrigem && d.clienteContribuinte) return paraOCliente('retira_contribuinte')
-  return { interestadual: false, motivo: 'retira', ufOrigem, ufDestino: ufOrigem }
+  const entregar = d.entrega.modo === 'entregar'
+  const ufEntrega = d.entrega.modo === 'entregar' ? d.entrega.endereco.uf.trim().toUpperCase() : ufOrigem
+  if (ufEntrega !== ufOrigem) return { interestadual: true, motivo: 'entregar', ufOrigem, ufDestino: ufEntrega }
+  // A moto fica na UF da loja (retirada ou entrega lá): as exceções do contador valem para os dois modos.
+  if (ufCliente !== ufOrigem && d.ciclomotor) return paraOCliente(entregar ? 'entregar_ciclomotor' : 'retira_ciclomotor')
+  if (ufCliente !== ufOrigem && d.clienteContribuinte) return paraOCliente(entregar ? 'entregar_contribuinte' : 'retira_contribuinte')
+  return { interestadual: false, motivo: entregar ? 'entregar' : 'retira', ufOrigem, ufDestino: ufOrigem }
 }
 
 const PORQUE: Record<MotivoOperacao, string> = {
@@ -122,6 +123,8 @@ const PORQUE: Record<MotivoOperacao, string> = {
   retira_ciclomotor: 'O cliente retira na loja, mas a moto se emplaca no estado dele (ciclomotor): a venda é para outro estado.',
   retira_contribuinte: 'O cliente retira na loja, mas tem inscrição estadual em outro estado: a venda é para outro estado.',
   entregar: 'A loja entrega a moto: vale a UF do endereço de entrega.',
+  entregar_ciclomotor: 'A loja entrega no estado dela, mas a moto se emplaca no estado do cliente (ciclomotor): a venda é para outro estado.',
+  entregar_contribuinte: 'A loja entrega no estado dela, mas o cliente tem inscrição estadual em outro estado: a venda é para outro estado.',
   sem_entrega: 'Esta venda não tem a Entrega informada: vale a UF do endereço do cliente. Confira antes de emitir.',
 }
 
