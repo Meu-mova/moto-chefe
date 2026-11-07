@@ -128,3 +128,21 @@ test('venda com Entrega e sem modalidade do frete não emite; com modalidade ou 
   assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }), [])
   assert.deepEqual(pendenciasDaEntrega(null), [])
 })
+
+test('entregar em outra UF que a do emitente é para outro estado, qualquer que seja a UF do cliente', () => {
+  assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, entrega: ENTREGAR_MA }),
+    { interestadual: true, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'MA' })
+  assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, ufCliente: 'PI', entrega: ENTREGAR_MA }),
+    { interestadual: true, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'MA' })
+})
+
+test('entregar na UF do emitente é dentro do estado, mesmo com cliente de outra UF', () => {
+  const entregaPi: EntregaVenda = { ...ENTREGAR_MA, endereco: { ...ENTREGAR_MA.endereco, uf: 'PI' } } as EntregaVenda
+  assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, entrega: entregaPi, ciclomotor: true, clienteContribuinte: true }),
+    { interestadual: false, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'PI' })
+})
+
+test('o porquê da entrega diz que vale a UF do endereço de entrega', () => {
+  assert.deepEqual(textoDaOperacao({ interestadual: true, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'MA' }),
+    { selo: 'Para outro estado (PI para MA)', porque: 'A loja entrega a moto: vale a UF do endereço de entrega.' })
+})
