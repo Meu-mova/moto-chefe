@@ -20,7 +20,8 @@ export type EntregaVenda =
 export const textoDaEntrega = (entrega: EntregaVenda): string => {
   if (entrega.modo === 'retira') return 'Retira na loja'
   const { nomeCidade, cidade, uf } = entrega.endereco
-  return uf ? `Entregar em ${nomeCidade || cidade}/${uf}` : 'Entregar'
+  const lugar = nomeCidade || cidade
+  return uf && lugar ? `Entregar em ${lugar}/${uf}` : 'Entregar'
 }
 
 /** Endereço da entrega numa linha (efetivação): só o que foi preenchido. */

@@ -202,5 +202,6 @@ test('o endereço da entrega numa linha, para a efetivação: sem complemento va
 test('o resumo diz para onde vai a entrega; sem UF ainda, só "Entregar"', () => {
   assert.equal(textoDaEntrega(ENTREGAR_MA), 'Entregar em São Luís/MA')
   assert.equal(textoDaEntrega({ ...ENTREGAR_MA, endereco: { ...ENTREGAR_MA.endereco, nomeCidade: '', cidade: '', uf: '' } } as EntregaVenda), 'Entregar')
+  assert.equal(textoDaEntrega({ ...ENTREGAR_MA, endereco: { ...ENTREGAR_MA.endereco, nomeCidade: '', cidade: '' } } as EntregaVenda), 'Entregar')
   assert.equal(textoDaEntrega({ modo: 'retira', modalidade: '' }), 'Retira na loja')
 })
