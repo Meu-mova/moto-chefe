@@ -315,8 +315,9 @@ _Evitar_: origem (sozinho); confundir com **Origem da venda**, que é por onde o
 **Entrega da venda**:
 Onde a moto chega ao cliente, informada no Novo pedido e levada para a venda na efetivação: retira
 na loja ou entregar num endereço (com quem recebe: o comprador ou outra pessoa), com a modalidade do frete
-na nota. Decide se a NF de saída é dentro ou fora do estado (ADR-0021): na entrega, vale a UF do endereço de
-entrega. Venda anterior à Entrega fica sem ela e segue a UF do cliente.
+na nota. Decide se a NF de saída é dentro ou fora do estado (ADR-0021): entrega em outra UF é para outro
+estado; retirada ou entrega na UF da loja é dentro do estado, salvo moto que se emplaca (ciclomotor) ou
+cliente com inscrição estadual de outra UF. Venda anterior à Entrega fica sem ela e segue a UF do cliente.
 _Evitar_: endereço de entrega como sinônimo do endereço do cliente
 
 **Retira na loja**:

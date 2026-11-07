@@ -85,8 +85,9 @@ No MOVA (`src/lib/notagateway/entrega.ts`, `payload.ts`):
 - `operacaoDaVenda` decide dentro ou fora do estado pela Entrega; o CFOP, o CST e a alíquota seguem a decisão.
 - **Retira na loja**: `cliente.endereco` com o endereço real e `transporte: { frete: { modalidade } }`, sem
   `enderecoEntrega`. Cliente de outra UF sai interestadual só com moto ciclomotor ou indicador "contribuinte".
-- **Entregar** (#726): a UF do endereço de entrega comparada com a do emitente decide a operação, qualquer que
-  seja a UF do cliente. `cliente.endereco` leva o endereço real e `transporte.enderecoEntrega` o lugar da
+- **Entregar** (#726): entrega em outra UF que a do emitente sai interestadual, qualquer que seja a UF do
+  cliente; entrega na UF do emitente segue as exceções da retirada (ciclomotor ou contribuinte de outra UF =
+  interestadual; ADR-0021). `cliente.endereco` leva o endereço real e `transporte.enderecoEntrega` o lugar da
   entrega, com `cidade` em código IBGE da UF da entrega (MOC 7.0 Anexo I, G07-30, p. 88: *"Código Município do Local
   de Entrega (2 primeiras posições) difere do Código da UF do Local de Entrega"*, rejeição 279). Quem recebe é o
   comprador da venda, lido na hora da nota; "Outra pessoa recebe" troca nome e CPF/CNPJ (conferido pelo ADR-0015).
