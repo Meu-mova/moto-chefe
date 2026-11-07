@@ -11,7 +11,7 @@ type Executor = Pick<typeof db, 'select'>
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 /** Conta no where: undefined = admin_geral (todas), null = sem Conta (nenhuma). */
-const daContaDo = (usuario: { papel: string; contaId: string | null; grupoLiberado?: string | null }) =>
+export const daContaDo = (usuario: { papel: string; contaId: string | null; grupoLiberado?: string | null }) =>
   usuario.papel === 'admin_geral' ? undefined
     : usuario.contaId ? inArray(motos.lojaId, lojasDoEscopo(usuario)) : null
 

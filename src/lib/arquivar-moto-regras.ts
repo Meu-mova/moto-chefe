@@ -37,9 +37,12 @@ export function motivoQueImpedeArquivar(p: PendenciasDaMoto): string | null {
   return recusa ? recusa[1](p) : null
 }
 
+/** O motivo do arquivamento só precisa dizer alguma coisa. A tela habilita o envio pela mesma regra. */
+export const motivoDoArquivoValido = (motivo: string): boolean => motivo.trim().length > 0
+
 /** Recusa o lote inteiro se faltar motivo, faltar moto ou uma delas estiver travada. */
 export function recusaDoLote(lote: { motivo: string; motos: { chassi: string; pendencias: PendenciasDaMoto }[] }): string | null {
-  if (!lote.motivo.trim()) return 'Escreva o motivo do arquivamento.'
+  if (!motivoDoArquivoValido(lote.motivo)) return 'Escreva o motivo do arquivamento.'
   if (lote.motos.length === 0) return 'Escolha ao menos uma moto.'
   const travada = lote.motos
     .map(m => ({ chassi: m.chassi, motivo: motivoQueImpedeArquivar(m.pendencias) }))
@@ -49,3 +52,6 @@ export function recusaDoLote(lote: { motivo: string; motos: { chassi: string; pe
 
 /** Vender, reservar, pedir, transferir ou abrir garantia em moto arquivada (#688, decisão do Luis). */
 export const MOTO_ARQUIVADA = 'Esta moto está arquivada. Desarquive pelo RADAR.'
+
+/** Entrada de um chassi que já é moto arquivada da Conta (#691). */
+export const CHASSI_ARQUIVADO = 'Este chassi está arquivado. Desarquive pelo RADAR.'

@@ -8,7 +8,7 @@ name: Migrações
 # A lista de `paths` se repete nos dois gatilhos: mude as duas juntas.
 on:
   pull_request:
-    branches: [dev, main]
+    branches: [dev, main, 'feature/**']
     paths:
       - 'src/lib/db/migrations/**'
       - 'supabase/**'
