@@ -49,5 +49,5 @@ export async function itensDoPedido(
     })
     .from(pedidosVendaItens)
     .where(eq(pedidosVendaItens.pedidoVendaId, pedidoId))
-    .orderBy(asc(pedidosVendaItens.criadoEm))
+    .orderBy(asc(pedidosVendaItens.criadoEm), asc(pedidosVendaItens.id))
 }

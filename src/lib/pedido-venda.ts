@@ -107,8 +107,9 @@ export async function cancelarPedidoTx(
 /**
  * Grava a moto como item do pedido, com o valor (nulo = ainda não informado). Se o item já
  * existe, só troca o valor: assim a efetivação preenche o item do Novo pedido e o pedido de
- * antes dos itens (#774) ganha o seu. O conflito e o setWhere são pelo próprio pedido, que quem
- * chama já travou e conferiu na Conta: não alcança linha de outro pedido.
+ * antes dos itens (#774) ganha o seu. Quem chama já travou o pedido e o conferiu na Conta. O
+ * conflito (pedido, moto) só casa linha deste pedido; o setWhere repete isso por extenso, como a
+ * regra de upsert do AGENTS.md pede, mas não acrescenta trava.
  */
 export async function gravarMotoDoPedido(
   tx: Tx,

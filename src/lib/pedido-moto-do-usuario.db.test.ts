@@ -77,12 +77,13 @@ test('Conta B (aux e sócio) não acha pedido nem moto da Conta A, igual a um id
   })
 })
 
-test('itens do pedido (#774): a própria Conta lê; Conta B recebe null, igual a um id inexistente', async () => {
+test('itens do pedido (#774): a própria Conta e o admin_geral leem; Conta B recebe null, igual a um id inexistente', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000040424')
     const b = await semearConta(tx, 'B', '00000000040425')
     const daMotoA = [{ tipo: 'moto', motoId: a.motoId, pecaId: null, quantidade: '1.00', valorUnitario: '15000.00' }]
-    for (const usuario of [a.aux, a.socio]) assert.deepEqual(await itensDoPedido(usuario, a.pedidoId, tx), daMotoA)
+    const adminGeral = { papel: 'admin_geral', lojaId: null, gruposAcesso: null, contaId: null }
+    for (const usuario of [a.aux, a.socio, adminGeral]) assert.deepEqual(await itensDoPedido(usuario, a.pedidoId, tx), daMotoA)
     for (const usuario of [b.aux, b.socio]) {
       assert.equal(await itensDoPedido(usuario, a.pedidoId, tx), null)
       assert.equal(await itensDoPedido(usuario, crypto.randomUUID(), tx), null)
