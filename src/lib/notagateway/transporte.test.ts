@@ -140,3 +140,23 @@ test('o texto da modalidade é o da lista da tela; vazia ou fora da lista não t
   assert.equal(textoDaModalidade(''), undefined)
   assert.equal(textoDaModalidade('SemTransporte'), undefined)
 })
+
+// MOC 7.0 Anexo I, G07-30 (rejeição 279): as 2 primeiras posições do município são o código da UF da entrega.
+test('código IBGE de um município de outra UF que a da entrega é recusado', () => {
+  const resultado = validarDadosTransporte({
+    modalidade: 'ContratacaoPorContaDoDestinatario', enderecoEntrega: { ...ENTREGA_COMPLETA, cidade: '2111300' },
+  })
+  assert.deepEqual(resultado, { ok: false, erro: 'O código IBGE do município não é da UF de entrega.' })
+})
+
+test('nome de quem recebe e complemento vindos da tela saem aparados, e passam de 60 caracteres só com recusa', () => {
+  const ok = validarDadosTransporte({
+    modalidade: 'ContratacaoPorContaDoDestinatario',
+    enderecoEntrega: { ...ENTREGA_COMPLETA, nomeDestinatario: ' Maria ', complemento: ' Casa 2 ' },
+  })
+  assert.deepEqual(ok, { ok: true, dados: { modalidade: 'ContratacaoPorContaDoDestinatario',
+    enderecoEntrega: { ...ENTREGA_COMPLETA, nomeDestinatario: 'Maria', complemento: 'Casa 2' } } })
+  assert.deepEqual(validarDadosTransporte({
+    modalidade: 'ContratacaoPorContaDoDestinatario', enderecoEntrega: { ...ENTREGA_COMPLETA, nomeDestinatario: 'x'.repeat(61) },
+  }), { ok: false, erro: 'O nome de quem recebe aceita no máximo 60 caracteres.' })
+})

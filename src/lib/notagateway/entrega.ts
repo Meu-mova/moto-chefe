@@ -3,7 +3,8 @@
  * pedido, vai para a venda na efetivação e decide se a NF de saída é dentro ou fora do estado.
  */
 import { lerDocumentoCliente } from '@/lib/documento'
-import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
+import { tipoPessoa } from './venda'
+import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, NOME_DE_QUEM_RECEBE_LONGO, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
 
 /** O lugar da entrega como a NF exige (cidade = código IBGE), mais o nome da cidade só para a tela. */
 export type EnderecoDaEntrega = Required<LocalDeEntrega> & { nomeCidade: string }
@@ -36,13 +37,13 @@ const enderecoLido = (dado: unknown): EnderecoDaEntrega => {
   }
 }
 
-/** Outra pessoa recebe: nome e CPF/CNPJ com a mesma conferência do comprador (ADR-0015). */
-function conferirQuemRecebe(dado: unknown): Conferida<{ recebe: QuemRecebe | null }> {
+/** Outra pessoa recebe: nome e CPF/CNPJ com a mesma conferência do comprador (ADR-0015). Tela e servidor. */
+export function conferirQuemRecebe(dado: unknown): Conferida<{ recebe: QuemRecebe | null }> {
   if (dado == null) return { ok: true, recebe: null }
   const r = dado as Record<string, unknown>
   const nome = texto(r.nome)
   if (!nome) return { ok: false, erro: 'Informe o nome de quem recebe.' }
-  if (nome.length > LIMITE_TEXTO_XML) return { ok: false, erro: `O nome de quem recebe aceita no máximo ${LIMITE_TEXTO_XML} caracteres.` }
+  if (nome.length > LIMITE_TEXTO_XML) return { ok: false, erro: NOME_DE_QUEM_RECEBE_LONGO }
   const documento = lerDocumentoCliente(texto(r.cpfCnpj))
   if (!documento.ok) return documento
   return { ok: true, recebe: { nome, cpfCnpj: documento.documento } }
@@ -59,16 +60,14 @@ export function conferirEntrega(dado: unknown): Conferida<{ entrega: EntregaVend
   const { endereco: e, recebe: r } = dado as { endereco?: unknown; recebe?: unknown }
   const endereco = enderecoLido(e)
   const erro = erroDoLocalDeEntrega(endereco)
+    ?? (endereco.nomeCidade.length > LIMITE_TEXTO_XML ? `A cidade da entrega aceita no máximo ${LIMITE_TEXTO_XML} caracteres.` : null)
   if (erro) return { ok: false, erro }
   const recebe = conferirQuemRecebe(r)
   if (!recebe.ok) return recebe
   return { ok: true, entrega: { modo, modalidade, endereco, recebe: recebe.recebe } }
 }
 
-/**
- * O transporte da NF para "Entregar": quem recebe vazio é o comprador da venda (#726). O tipo de pessoa
- * sai do documento na normalização de `validarDadosTransporte`, a mesma do faturamento direto.
- */
+/** O transporte da NF para "Entregar": quem recebe vazio é o comprador da venda (#726). */
 export function transporteDaEntrega(
   entrega: Extract<EntregaVenda, { modo: 'entregar' }>,
   comprador: { nome: string; cpfCnpj: string },
@@ -78,7 +77,7 @@ export function transporteDaEntrega(
   return {
     modalidade: entrega.modalidade,
     enderecoEntrega: {
-      tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: quem.cpfCnpj, nomeDestinatario: quem.nome,
+      tipoPessoaDestinatario: tipoPessoa(quem.cpfCnpj), cpfCnpjDestinatario: quem.cpfCnpj, nomeDestinatario: quem.nome,
       logradouro, numero, bairro, cidade, uf, ...(complemento ? { complemento } : {}), ...(cep ? { cep } : {}),
     },
   }

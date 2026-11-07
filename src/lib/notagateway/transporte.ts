@@ -1,4 +1,4 @@
-import { ufValida } from '@/lib/sefaz/uf'
+import { UFS, ufValida } from '@/lib/sefaz/uf'
 import { cnpjValido, cpfValido, soDigitosDoc } from '@/lib/documento'
 import { tipoPessoa } from './venda'
 
@@ -89,13 +89,20 @@ const erroDeFormatoDoLocal = (local: LocalDeEntrega): string | null => {
   return null
 }
 
-const ERRO_IBGE = 'Código IBGE do município deve ter 7 dígitos.'
+/** Município em código IBGE e da UF da entrega: MOC 7.0 Anexo I, G07-30 (rejeição 279). */
+const erroDoMunicipio = (local: LocalDeEntrega): string | null => {
+  if (!/^\d{7}$/.test(local.cidade)) return 'Código IBGE do município deve ter 7 dígitos.'
+  if (UFS.find(u => u.sigla === local.uf)?.codigo !== local.cidade.slice(0, 2)) return 'O código IBGE do município não é da UF de entrega.'
+  return null
+}
+
+export const NOME_DE_QUEM_RECEBE_LONGO = `O nome de quem recebe aceita no máximo ${LIMITE_TEXTO_XML} caracteres.`
 
 /** O que falta ou está errado no lugar da entrega (já normalizado); null se a NF aceita. */
 export function erroDoLocalDeEntrega(local: LocalDeEntrega): string | null {
   const faltantes = faltantesDoLocal(local)
   if (faltantes.length) return `Preencha os dados de entrega: ${faltantes.join(', ')}.`
-  return erroDeFormatoDoLocal(local) ?? (/^\d{7}$/.test(local.cidade) ? null : ERRO_IBGE)
+  return erroDeFormatoDoLocal(local) ?? erroDoMunicipio(local)
 }
 
 export function normalizarDadosTransporte(dados: DadosTransporte): DadosTransporte {
@@ -108,6 +115,8 @@ export function normalizarDadosTransporte(dados: DadosTransporte): DadosTranspor
       logradouro: dados.enderecoEntrega.logradouro.trim(), numero: dados.enderecoEntrega.numero.trim(),
       bairro: dados.enderecoEntrega.bairro.trim(), cidade: dados.enderecoEntrega.cidade.trim(),
       uf: dados.enderecoEntrega.uf.trim().toUpperCase(),
+      ...(dados.enderecoEntrega.nomeDestinatario !== undefined ? { nomeDestinatario: dados.enderecoEntrega.nomeDestinatario.trim() } : {}),
+      ...(dados.enderecoEntrega.complemento !== undefined ? { complemento: dados.enderecoEntrega.complemento.trim() } : {}),
     } } : {}),
   }
 }
@@ -125,10 +134,12 @@ export function validarDadosTransporte(
   if (faltantes.length) return { ok: false, erro: `Preencha os dados de entrega: ${faltantes.join(', ')}.` }
   const formato = erroDeFormatoDoLocal(endereco)
   if (formato) return { ok: false, erro: formato }
+  if ((endereco.nomeDestinatario ?? '').length > LIMITE_TEXTO_XML) return { ok: false, erro: NOME_DE_QUEM_RECEBE_LONGO }
   if (endereco.cpfCnpjDestinatario.length === 11 && !cpfValido(endereco.cpfCnpjDestinatario)) return { ok: false, erro: 'CPF do destinatário inválido.' }
   if (endereco.cpfCnpjDestinatario.length === 14 && !cnpjValido(endereco.cpfCnpjDestinatario)) return { ok: false, erro: 'CNPJ do destinatário inválido.' }
   if (![11, 14].includes(endereco.cpfCnpjDestinatario.length)) return { ok: false, erro: 'CPF ou CNPJ do destinatário deve ter 11 ou 14 dígitos.' }
-  if (!/^\d{7}$/.test(endereco.cidade)) return { ok: false, erro: ERRO_IBGE }
+  const municipio = erroDoMunicipio(endereco)
+  if (municipio) return { ok: false, erro: municipio }
   return { ok: true, dados: normalizados }
 }
 

@@ -69,6 +69,8 @@ test('entregar com município fora do código IBGE, UF inválida, CEP incompleto
   assert.deepEqual(com({ uf: 'XX' }), { ok: false, erro: 'UF de entrega inválida.' })
   assert.deepEqual(com({ cep: '65000' }), { ok: false, erro: 'O CEP da entrega deve ter 8 dígitos.' })
   assert.deepEqual(com({ complemento: 'x'.repeat(61) }), { ok: false, erro: 'O complemento da entrega aceita no máximo 60 caracteres.' })
+  assert.deepEqual(com({ uf: 'PI' }), { ok: false, erro: 'O código IBGE do município não é da UF de entrega.' })
+  assert.deepEqual(com({ nomeCidade: 'x'.repeat(61) }), { ok: false, erro: 'A cidade da entrega aceita no máximo 60 caracteres.' })
 })
 
 test('outra pessoa recebe: nome e CPF/CNPJ conferidos como os do comprador (ADR-0015)', () => {
