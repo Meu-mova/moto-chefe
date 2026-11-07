@@ -105,7 +105,7 @@ async function main() {
   }
 
   // A mesma conferência da gravação, só leitura: chassi já cadastrado e modelo aparecem já na simulação.
-  const { erros: recusasDaGravacao } = await conferirMotosDaEntrada(db, loja.id, plano.motos)
+  const { erros: recusasDaGravacao } = await conferirMotosDaEntrada(db, loja.id, plano.motos, { grupoLiberado: null })
   if (recusasDaGravacao.length) {
     console.log(`\n${recusasDaGravacao.length} recusa(s) da gravação:`)
     recusasDaGravacao.forEach(e => console.log(`  - ${e}`))

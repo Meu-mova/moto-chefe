@@ -20,6 +20,10 @@ export function podeCancelarPedido(usuario: QuemCancela, pedido: PedidoParaCance
   return false
 }
 
+/** Tipos de item do pedido de venda (#770). O check da migração 0178 repete esta lista. */
+export const TIPOS_ITEM_PEDIDO = ['moto', 'brinde', 'acessorio', 'frete'] as const
+export type TipoItemPedido = (typeof TIPOS_ITEM_PEDIDO)[number]
+
 export type MotoParaPedido = { status: string; disponibilidade: string | null }
 
 /** Motivo para não criar pedido com esta moto, ou null quando pode. */

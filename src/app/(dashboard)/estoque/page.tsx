@@ -16,6 +16,8 @@ import { listarUsuariosDoGrupo } from '@/lib/usuarios-do-grupo'
 import { listarModelosDaConta } from '@/lib/modelos-da-conta'
 import { listarOrigensAtivasDoGrupo } from '@/lib/queries/origens-venda'
 import { PrintButton } from '../relatorio-fabrica/print-button'
+import { MaisAcoesShowroom } from './components/mais-acoes-showroom'
+import { podeArquivarMotos, podeRemoverMotos } from '@/lib/arquivar-moto-regras'
 import { motoVendidaSemVendaPorChassi } from '@/lib/motos-vendidas-sem-venda'
 import { filtrosDoShowroom, paramsDoShowroom, type ParamsShowroom } from '@/lib/showroom-filtros'
 
@@ -86,7 +88,8 @@ export default async function EstoquePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      {/* Celular: os botões descem para baixo do título (com o "Mais ações" a linha estourava a tela, #688). */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h1 className="text-2xl font-bold">Showroom</h1>
         <p className="text-muted-foreground text-sm">
@@ -96,7 +99,13 @@ export default async function EstoquePage({
         </p>
       </div>
         {/* Imprime o que está filtrado: os mesmos parâmetros da URL (#512). */}
-        <PrintButton href={`/estoque/imprimir?${new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][])}`} rotulo="Imprimir" />
+        <div className="flex shrink-0 gap-2">
+          <PrintButton href={`/estoque/imprimir?${new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][])}`} rotulo="Imprimir" />
+          {/* Mesma regra do servidor; o admin_rede no grupo liberado chega aqui como admin_socio. */}
+          {(podeArquivarMotos(usuario.papel) || podeRemoverMotos(usuario.papel)) && (
+            <MaisAcoesShowroom podeArquivar={podeArquivarMotos(usuario.papel)} podeRemover={podeRemoverMotos(usuario.papel)} />
+          )}
+        </div>
       </div>
       <StatusCards counts={counts} />
       <EstoqueFiltros
