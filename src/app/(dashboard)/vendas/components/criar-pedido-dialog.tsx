@@ -10,14 +10,12 @@ import { CLASSE_SELECT_NATIVO } from '@/components/ui/select-nativo'
 import { criarPedidoVendaAction } from '../actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { textoDaModalidade } from '@/lib/notagateway/transporte'
-import { AVISO_SEM_MODALIDADE, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { AVISO_SEM_MODALIDADE, textoDaEntrega } from '@/lib/notagateway/entrega'
+import { EntregaCampos, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from './entrega-campos'
 
 type Moto = { id: string; chassi: string; marca: string; modelo: string; cor: string; lojaNome: string }
 
 type Props = { motos: Moto[]; papel: string }
-
-// "Entregar" (endereço, quem recebe e frete) entra no #726; até lá a Entrega é sempre a retirada.
-const ENTREGA_INICIAL: EntregaVenda = { modo: 'retira', modalidade: '' }
 
 const nomeDaMoto = (m: Moto) => `${m.marca} ${m.modelo}, chassi ${m.chassi} (${m.cor}), ${m.lojaNome}`
 
@@ -26,19 +24,19 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
   const [open, setOpen] = useState(false)
   const [motoId, setMotoId] = useState('')
   const [observacao, setObservacao] = useState('')
-  const [entrega, setEntrega] = useState<EntregaVenda>(ENTREGA_INICIAL)
+  const [entrega, setEntrega] = useState<EntregaDoFormulario>(ENTREGA_DO_FORMULARIO_INICIAL)
   const [loading, setLoading] = useState(false)
 
   async function handleCriar() {
     if (!motoId) return
     setLoading(true)
     try {
-      const r = await criarPedidoVendaAction(motoId, observacao, entrega)
+      const r = await criarPedidoVendaAction(motoId, observacao, entregaDoFormulario(entrega))
       if (!r.ok) { toast.error(r.erro); return }
       setOpen(false)
       setMotoId('')
       setObservacao('')
-      setEntrega(ENTREGA_INICIAL)
+      setEntrega(ENTREGA_DO_FORMULARIO_INICIAL)
     } catch (e: any) {
       toast.error(e.message)
     } finally {
@@ -83,18 +81,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
             </section>
 
             <section className="space-y-4 border-t border-border pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-6">
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold">Entrega</h3>
-                <div role="radiogroup" aria-label="Como a moto chega ao cliente">
-                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-primary bg-primary-soft p-3">
-                    <input type="radio" name="pedido-entrega" value="retira" checked readOnly className="mt-1 size-4 accent-primary" />
-                    <span>
-                      <span className="block text-sm font-medium">Retira na loja</span>
-                      <span className="block text-sm text-muted-foreground">O cliente leva daqui.</span>
-                    </span>
-                  </label>
-                </div>
-              </div>
+              <EntregaCampos valor={entrega} onChange={setEntrega} />
               <div className="space-y-2">
                 <Label htmlFor="pedido-modalidade">Modalidade do frete na nota</Label>
                 <ModalidadeFreteSelect
@@ -113,7 +100,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
                   <dt className="text-muted-foreground">Moto</dt>
                   <dd className="text-right">{moto ? `${moto.marca} ${moto.modelo}` : 'Nenhuma'}</dd>
                   <dt className="text-muted-foreground">Entrega</dt>
-                  <dd className="text-right">Retira na loja</dd>
+                  <dd className="text-right">{textoDaEntrega(entregaDoFormulario(entrega))}</dd>
                   <dt className="text-muted-foreground">Modalidade</dt>
                   <dd className="text-right">{textoDaModalidade(entrega.modalidade) ?? 'Não escolhida'}</dd>
                 </dl>
@@ -122,7 +109,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" className="h-11" onClick={() => setOpen(false)}>Cancelar</Button>
-            <Button className="h-11" onClick={handleCriar} disabled={loading || !motoId}>
+            <Button className="h-11" onClick={handleCriar} disabled={loading || !motoId || quemRecebeInvalido(entrega)}>
               {loading ? 'Criando...' : 'Criar pedido'}
             </Button>
           </DialogFooter>

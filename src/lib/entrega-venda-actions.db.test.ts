@@ -133,3 +133,48 @@ test('a NF da Conta A lê a Entrega da venda; a Conta B não acha a venda, igual
   assert.equal(await vendaDoUsuarioParaNf(b.aux, eq(vendas.motoId, a.motoId)), null)
   assert.equal(await vendaDoUsuarioParaNf(b.aux, eq(vendas.motoId, randomUUID())), null)
 })
+
+// "Entregar" (#726): endereço e quem recebe saem do Novo pedido e chegam à venda sem redigitar.
+const ENTREGAR = {
+  modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente',
+  endereco: { cep: '65000000', logradouro: 'Rua de exemplo', numero: '100', complemento: '', bairro: 'Centro', cidade: '2111300', nomeCidade: 'São Luís', uf: 'MA' },
+  recebe: { nome: 'Pessoa que recebe', cpfCnpj: '52998224725' },
+} as const
+
+test('o Novo pedido grava "Entregar" com endereço e quem recebe, e a efetivação leva para a venda', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  assert.deepEqual(pedido.entrega, ENTREGAR)
+  usuario = a.aux
+  assert.deepEqual(await efetivar(pedido.id as string, a.origemId), { ok: true, dados: undefined })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: ENTREGAR }])
+})
+
+test('"Outra pessoa recebe" com CPF inválido é recusado como o do comprador e nada é gravado', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(
+    await criarPedidoVendaAction(a.motoId, '', { ...ENTREGAR, recebe: { nome: 'Pessoa que recebe', cpfCnpj: '529.982.247-24' } }),
+    { ok: false, erro: 'CPF inválido. Confira os números.' },
+  )
+  assert.deepEqual(await pedidosDaMoto(a.motoId), [])
+})
+
+test('Conta B não cria pedido "Entregar" na moto da Conta A nem lê o endereço da venda da A', async () => {
+  const a = await semearConta()
+  const b = await semearConta()
+  usuario = b.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: false, erro: 'Moto não encontrada' })
+  assert.deepEqual(await pedidosDaMoto(a.motoId), [])
+
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  usuario = b.aux
+  assert.deepEqual(await efetivar(pedido.id as string, b.origemId), { ok: false, erro: 'Pedido não encontrado' })
+  usuario = a.aux
+  assert.deepEqual(await efetivar(pedido.id as string, a.origemId), { ok: true, dados: undefined })
+  assert.equal(await vendaDoUsuarioParaNf(b.aux, eq(vendas.motoId, a.motoId)), null)
+})

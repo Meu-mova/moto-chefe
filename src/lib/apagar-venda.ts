@@ -1,6 +1,6 @@
 /**
- * Apaga uma venda de moto e o que depende dela. Hoje serve ao "Cancelar venda"; o "Remover moto"
- * (ADR-0020, #692) vai reusar, para as duas formas de apagar venda não divergirem.
+ * Apaga uma venda de moto e o que depende dela, para o "Cancelar venda". O "Remover moto" não
+ * apaga venda: recusa moto com venda (ADR-0020, adendo de 2026-11-07).
  */
 import { eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'

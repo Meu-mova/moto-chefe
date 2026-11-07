@@ -1,4 +1,4 @@
-import { ufValida } from '@/lib/sefaz/uf'
+import { codigoDaUf, ufValida } from '@/lib/sefaz/uf'
 import { cnpjValido, cpfValido, soDigitosDoc } from '@/lib/documento'
 import { tipoPessoa } from './venda'
 
@@ -42,13 +42,20 @@ const modalidadeLida = (token: unknown): ModalidadeFrete | undefined => {
 export type EnderecoEntrega = {
   tipoPessoaDestinatario: 'F' | 'J'
   cpfCnpjDestinatario: string
+  /** Manual da NG para NF-e modelo 55: opcional. A Entrega da venda manda o nome de quem recebe. */
+  nomeDestinatario?: string
   logradouro: string
   numero: string
+  complemento?: string
   bairro: string
   /** A Nota Gateway aceita nome ou código IBGE; o fluxo coleta o código. */
   cidade: string
   uf: string
+  cep?: string
 }
+
+/** O lugar da entrega, sem quem recebe: o que a Entrega da venda guarda e a NF exige. */
+export type LocalDeEntrega = Pick<EnderecoEntrega, 'logradouro' | 'numero' | 'complemento' | 'bairro' | 'cidade' | 'uf' | 'cep'>
 
 export type DadosTransporte = {
   modalidade: ModalidadeFrete | ''
@@ -63,13 +70,41 @@ export const DADOS_TRANSPORTE_VAZIOS = {
   },
 } satisfies DadosTransporte
 
-/** Tamanho máximo de xLgr, nro e xBairro no XML da NF-e (MOC 7.0). */
-const LIMITE_TEXTO_XML = 60
+/** Tamanho máximo de xNome, xLgr, nro, xCpl e xBairro no XML da NF-e (MOC 7.0). */
+export const LIMITE_TEXTO_XML = 60
 
-const CAMPOS_ENDERECO: [keyof EnderecoEntrega, string][] = [
-  ['cpfCnpjDestinatario', 'CPF ou CNPJ do destinatário'], ['logradouro', 'logradouro'],
-  ['numero', 'número'], ['bairro', 'bairro'], ['cidade', 'código IBGE do município'], ['uf', 'UF'],
+const CAMPOS_LOCAL: [keyof LocalDeEntrega, string][] = [
+  ['logradouro', 'logradouro'], ['numero', 'número'], ['bairro', 'bairro'], ['cidade', 'código IBGE do município'], ['uf', 'UF'],
 ]
+
+const ROTULO_LONGO = { logradouro: 'logradouro', numero: 'número', complemento: 'complemento', bairro: 'bairro' } as const
+
+const faltantesDoLocal = (local: LocalDeEntrega) => CAMPOS_LOCAL.filter(([campo]) => !local[campo]).map(([, rotulo]) => rotulo)
+
+const erroDeFormatoDoLocal = (local: LocalDeEntrega): string | null => {
+  const longo = (Object.keys(ROTULO_LONGO) as (keyof typeof ROTULO_LONGO)[]).find(c => (local[c] ?? '').length > LIMITE_TEXTO_XML)
+  if (longo) return `O ${ROTULO_LONGO[longo]} da entrega aceita no máximo ${LIMITE_TEXTO_XML} caracteres.`
+  if (!ufValida(local.uf)) return 'UF de entrega inválida.'
+  if (local.cep && !/^\d{8}$/.test(local.cep)) return 'O CEP da entrega deve ter 8 dígitos.'
+  return null
+}
+
+/** Município em código IBGE e da UF da entrega: MOC 7.0 Anexo I, G07-30 (rejeição 279). */
+const erroDoMunicipio = (local: LocalDeEntrega): string | null => {
+  if (!/^\d{7}$/.test(local.cidade)) return 'Código IBGE do município deve ter 7 dígitos.'
+  // A UF já passou por `ufValida` (erroDeFormatoDoLocal), então codigoDaUf não lança.
+  if (codigoDaUf(local.uf) !== local.cidade.slice(0, 2)) return 'O código IBGE do município não é da UF de entrega.'
+  return null
+}
+
+export const NOME_DE_QUEM_RECEBE_LONGO = `O nome de quem recebe aceita no máximo ${LIMITE_TEXTO_XML} caracteres.`
+
+/** O que falta ou está errado no lugar da entrega (já normalizado); null se a NF aceita. */
+export function erroDoLocalDeEntrega(local: LocalDeEntrega): string | null {
+  const faltantes = faltantesDoLocal(local)
+  if (faltantes.length) return `Preencha os dados de entrega: ${faltantes.join(', ')}.`
+  return erroDeFormatoDoLocal(local) ?? erroDoMunicipio(local)
+}
 
 export function normalizarDadosTransporte(dados: DadosTransporte): DadosTransporte {
   return {
@@ -81,6 +116,8 @@ export function normalizarDadosTransporte(dados: DadosTransporte): DadosTranspor
       logradouro: dados.enderecoEntrega.logradouro.trim(), numero: dados.enderecoEntrega.numero.trim(),
       bairro: dados.enderecoEntrega.bairro.trim(), cidade: dados.enderecoEntrega.cidade.trim(),
       uf: dados.enderecoEntrega.uf.trim().toUpperCase(),
+      ...(dados.enderecoEntrega.nomeDestinatario !== undefined ? { nomeDestinatario: dados.enderecoEntrega.nomeDestinatario.trim() } : {}),
+      ...(dados.enderecoEntrega.complemento !== undefined ? { complemento: dados.enderecoEntrega.complemento.trim() } : {}),
     } } : {}),
   }
 }
@@ -94,15 +131,16 @@ export function validarDadosTransporte(
   if (!normalizados.enderecoEntrega) return { ok: false, erro: 'Preencha os dados do local de entrega.' }
 
   const endereco = normalizados.enderecoEntrega
-  const faltantes = CAMPOS_ENDERECO.filter(([campo]) => !endereco[campo]).map(([, rotulo]) => rotulo)
+  const faltantes = [...(endereco.cpfCnpjDestinatario ? [] : ['CPF ou CNPJ do destinatário']), ...faltantesDoLocal(endereco)]
   if (faltantes.length) return { ok: false, erro: `Preencha os dados de entrega: ${faltantes.join(', ')}.` }
-  const longo = (['logradouro', 'numero', 'bairro'] as const).find(c => endereco[c].length > LIMITE_TEXTO_XML)
-  if (longo) return { ok: false, erro: `O ${longo === 'numero' ? 'número' : longo} da entrega aceita no máximo ${LIMITE_TEXTO_XML} caracteres.` }
-  if (!ufValida(endereco.uf)) return { ok: false, erro: 'UF de entrega inválida.' }
+  const formato = erroDeFormatoDoLocal(endereco)
+  if (formato) return { ok: false, erro: formato }
+  if ((endereco.nomeDestinatario ?? '').length > LIMITE_TEXTO_XML) return { ok: false, erro: NOME_DE_QUEM_RECEBE_LONGO }
   if (endereco.cpfCnpjDestinatario.length === 11 && !cpfValido(endereco.cpfCnpjDestinatario)) return { ok: false, erro: 'CPF do destinatário inválido.' }
   if (endereco.cpfCnpjDestinatario.length === 14 && !cnpjValido(endereco.cpfCnpjDestinatario)) return { ok: false, erro: 'CNPJ do destinatário inválido.' }
   if (![11, 14].includes(endereco.cpfCnpjDestinatario.length)) return { ok: false, erro: 'CPF ou CNPJ do destinatário deve ter 11 ou 14 dígitos.' }
-  if (!/^\d{7}$/.test(endereco.cidade)) return { ok: false, erro: 'Código IBGE do município deve ter 7 dígitos.' }
+  const municipio = erroDoMunicipio(endereco)
+  if (municipio) return { ok: false, erro: municipio }
   return { ok: true, dados: normalizados }
 }
 

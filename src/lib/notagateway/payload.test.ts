@@ -318,3 +318,41 @@ test('faturamento direto (ciclomotor) com Entrega "Retira na loja" e cliente de 
   assert.equal(comEntrega.itens[0].cfop, '6404')
   assert.deepEqual(comEntrega, semEntrega)
 })
+
+// "Entregar" (#726): enderecoEntrega com quem recebe (vazio = comprador); a UF da entrega decide a operação.
+const ENTREGAR_SP: EntregaVenda = {
+  modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente',
+  endereco: { cep: '13010000', logradouro: 'Rua B', numero: '20', complemento: 'Casa 2', bairro: 'Cambuí', cidade: '3509502', nomeCidade: 'Campinas', uf: 'SP' },
+  recebe: null,
+}
+const ENDERECO_ENTREGA_SP = {
+  tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: '35281765043', nomeDestinatario: 'BRUNA MARIA ASSIS DA SILVA', pais: null,
+  logradouro: 'Rua B', numero: '20', complemento: 'Casa 2', bairro: 'Cambuí', cidade: '3509502', uf: 'SP', cep: '13010000',
+}
+
+test('entregar em outra UF, cliente da UF da loja: nota para outro estado, endereço real do cliente e enderecoEntrega com o comprador', () => {
+  const p = montarNfeVendaMoto({ ...VENDA, entrega: ENTREGAR_SP }, REGRA)
+  assert.equal(p.itens[0].cfop, '6404')
+  assert.deepEqual(p.itens[0].impostos.icms, { situacaoTributaria: '00', origem: 0, aliquota: 12, baseCalculo: 8725.85 })
+  assert.equal(p.cliente.endereco.uf, 'MG')
+  assert.deepEqual(p.transporte, { frete: { modalidade: 'TransporteProprioPorContaDoRemetente' }, enderecoEntrega: ENDERECO_ENTREGA_SP })
+})
+
+test('entregar na UF do emitente: nota de dentro do estado, com enderecoEntrega', () => {
+  const entregaMg: EntregaVenda = { ...ENTREGAR_SP, endereco: { ...ENTREGAR_SP.endereco, cidade: '3170701', uf: 'MG' } } as EntregaVenda
+  const p = montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP, entrega: entregaMg }, REGRA)
+  assert.equal(p.itens[0].cfop, '5405')
+  assert.equal(p.transporte?.enderecoEntrega?.uf, 'MG')
+  assert.equal(p.cliente.endereco.uf, 'SP')
+})
+
+test('outra pessoa recebe: nome, documento e tipo de pessoa dela no enderecoEntrega', () => {
+  const entrega = { ...ENTREGAR_SP, recebe: { nome: 'EMPRESA RECEBEDORA', cpfCnpj: '11222333000181' } } as EntregaVenda
+  const p = montarNfeVendaMoto({ ...VENDA, entrega }, REGRA)
+  assert.deepEqual(p.transporte?.enderecoEntrega,
+    { ...ENDERECO_ENTREGA_SP, tipoPessoaDestinatario: 'J', cpfCnpjDestinatario: '11222333000181', nomeDestinatario: 'EMPRESA RECEBEDORA' })
+})
+
+test('entregar sem modalidade não monta a nota, como a retirada', () => {
+  assert.throws(() => montarNfeVendaMoto({ ...VENDA, entrega: { ...ENTREGAR_SP, modalidade: '' } as EntregaVenda }, REGRA), new RegExp(AVISO_SEM_MODALIDADE))
+})

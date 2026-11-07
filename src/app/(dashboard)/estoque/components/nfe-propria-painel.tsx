@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, ExternalLink, FileDown, Loader2, RefreshCw, Send } from 'lucide-react'
+import { MarcadorDePassos } from '@/components/marcador-de-passos'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -14,7 +15,7 @@ import { NfeRecusa } from './nfe-recusa'
 import { TransporteForm } from './transporte-form'
 import { DADOS_TRANSPORTE_VAZIOS, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
 import { tipoPessoa } from '@/lib/notagateway/venda'
-import { textoDaOperacao, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { conflitoDaUfDoFormulario, textoDaOperacao, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, corrigirEReenviarNfAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
@@ -183,6 +184,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   function avancarDoTransporte() {
     const validacao = validarDadosTransporte(transporte)
     if (!validacao.ok) { setErro(validacao.erro); return }
+    const conflito = conflitoDaUfDoFormulario(previa?.entrega ?? null, validacao.dados)
+    if (conflito) { setErro(conflito); return }
     setErro('')
     setPasso(PARTES_RENAVE.length + 1)
   }
@@ -239,7 +242,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   const r = previa.resumo
   const bloqueadaProducao = !teste && !!previa.jaFaturada
   const faltamRenave = renave ? camposFaltando(renave).length : 0
-  const faltamTransporte = exigeEntrega && !validarDadosTransporte(transporte).ok
+  const conflitoDeUf = exigeEntrega ? conflitoDaUfDoFormulario(previa.entrega, transporte) : null
+  const faltamTransporte = exigeEntrega && (!validarDadosTransporte(transporte).ok || !!conflitoDeUf)
   const porParte = renave ? faltandoPorParte(renave) : null
   const comEtapas = !!(r && renave && porParte && !bloqueadaProducao)
   const passos = comEtapas && porParte && (
@@ -430,7 +434,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       )}
       {comEtapas && faltamTransporte && (
         <p className="border-l-2 border-l-destructive pl-3 text-sm text-destructive">
-          Complete o frete e o endereço de entrega na etapa Entrega antes de transmitir.
+          {conflitoDeUf ?? 'Complete o frete e o endereço de entrega na etapa Entrega antes de transmitir.'}
         </p>
       )}
 
@@ -480,31 +484,13 @@ function transporteDoComprador(c: Previa['correcao']['comprador']): DadosTranspo
 
 /** As etapas do ciclomotor, com quantos campos faltam em cada uma. Clicar leva à etapa. */
 function Passos({ nomes, faltam, atual, onIr }: { nomes: string[]; faltam: number[]; atual: number; onIr: (i: number) => void }) {
+  const ultimo = nomes.length - 1
   return (
-    <ol className={cn('grid gap-1.5', nomes.length === 5 ? 'grid-cols-5' : 'grid-cols-4')}>
-      {nomes.map((nome, i) => {
-        const ultimo = i === nomes.length - 1
-        const f = faltam[i]
-        return (
-          <li key={nome}>
-            <button
-              type="button"
-              onClick={() => onIr(i)}
-              aria-current={i === atual ? 'step' : undefined}
-              className={cn(
-                'w-full rounded-md px-1 py-1.5 text-center text-xs',
-                i === atual ? 'bg-primary font-semibold text-primary-foreground' : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {i + 1}. {nome}
-              <span className={cn('block text-[11px]', f && i !== atual && 'text-destructive')}>
-                {f ? (ultimo ? `faltam ${f} no total` : `faltam ${f}`) : (ultimo ? 'pronto' : 'completo')}
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ol>
+    <MarcadorDePassos nomes={nomes} atual={atual} onIr={onIr} legenda={i => (
+      <span className={cn('block text-[11px]', faltam[i] && i !== atual && 'text-destructive')}>
+        {faltam[i] ? (i === ultimo ? `faltam ${faltam[i]} no total` : `faltam ${faltam[i]}`) : (i === ultimo ? 'pronto' : 'completo')}
+      </span>
+    )} />
   )
 }
 

@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { DialogoTelaCheia } from '@/components/dialogo-tela-cheia'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Loader2, X, XCircle } from 'lucide-react'
+import { Loader2, XCircle } from 'lucide-react'
 import { cancelarVendaCompletaAction } from '../actions'
 import { travaDoCancelamentoDaVendaAction } from '../nfe-propria-actions'
 
@@ -107,24 +107,7 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
       </Button>
       )}
 
-      <Dialog open={open} onOpenChange={o => (o ? setOpen(true) : fechar())}>
-        <DialogContent
-          showCloseButton={false}
-          className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0"
-        >
-          <div className="flex items-center gap-2 border-b border-border px-2 py-2 sm:px-4">
-            <button type="button" onClick={fechar} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted sm:hidden">
-              <ArrowLeft className="size-5" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <DialogTitle className="text-base font-semibold">Cancelar venda</DialogTitle>
-              <DialogDescription className="truncate text-xs">{descricao}</DialogDescription>
-            </div>
-            <button type="button" onClick={fechar} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted sm:block">
-              <X className="size-5" />
-            </button>
-          </div>
-
+      <DialogoTelaCheia aberto={open} onFechar={fechar} titulo="Cancelar venda" descricao={descricao} fechaClicandoFora className="sm:max-w-lg">
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
           {conferencia.estado === 'conferindo' ? (
             <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
@@ -217,8 +200,7 @@ export function CancelarVendaButton({ vendaId, descricao, valorRecebido = 0, not
               </Button>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+      </DialogoTelaCheia>
     </>
   )
 }

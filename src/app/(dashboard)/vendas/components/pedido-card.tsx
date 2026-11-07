@@ -116,7 +116,7 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
           {(podeEfetivar || podeCancelar) && (
             <div className="flex gap-2 pt-1 border-t border-border">
               {podeEfetivar && (
-                <EfetivarDialog pedidoId={p.id} chassi={p.chassi} modelo={`${p.marca} ${p.modelo}`} origens={origens} />
+                <EfetivarDialog pedidoId={p.id} chassi={p.chassi} modelo={`${p.marca} ${p.modelo}`} origens={origens} entrega={p.entrega} />
               )}
               {podeCancelar && (
                 <Button size="sm" variant="ghost"

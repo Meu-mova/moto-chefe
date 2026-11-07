@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink, FileCheck, RefreshCw, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ExternalLink, FileCheck, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { DialogoTelaCheia } from '@/components/dialogo-tela-cheia'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { criarRascunhoBlingAction, confirmarNFSaidaAction, atualizarRascunhoBlingAction } from '../../vendas/actions'
@@ -169,28 +169,14 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, abrirAoM
     <>
       {gatilho ? gatilho(abrir) : <NfSaidaGatilho blingNfeId={blingNfeId} onClick={abrir} />}
 
-      <Dialog open={aberto} onOpenChange={fechar} disablePointerDismissal>
-        <DialogContent
-          showCloseButton={false}
-          // Emissão pelo MOVA: altura fixa, para as etapas do ciclomotor não mudarem o tamanho a cada passo.
-          className={cn(
-            'flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:ring-0',
-            etapa === 'propria' && 'sm:h-[90vh] sm:max-w-2xl',
-          )}
-        >
-          <div className="flex items-center gap-2 border-b border-border px-2 py-2 sm:px-4">
-            <button type="button" onClick={fechar} aria-label="Voltar" className="rounded-md p-2 text-foreground hover:bg-muted sm:hidden">
-              <ArrowLeft className="size-5" />
-            </button>
-            <div className="min-w-0 flex-1">
-              <DialogTitle className="text-base font-semibold">NF de saída</DialogTitle>
-              <DialogDescription className="truncate text-xs">{descricao}</DialogDescription>
-            </div>
-            <button type="button" onClick={fechar} aria-label="Fechar" className="hidden rounded-md p-2 text-muted-foreground hover:bg-muted sm:block">
-              <X className="size-5" />
-            </button>
-          </div>
-
+      <DialogoTelaCheia
+        aberto={aberto}
+        onFechar={fechar}
+        titulo="NF de saída"
+        descricao={descricao}
+        // Emissão pelo MOVA: altura fixa, para as etapas do ciclomotor não mudarem o tamanho a cada passo.
+        className={cn('sm:max-w-xl', etapa === 'propria' && 'sm:h-[90vh] sm:max-w-2xl')}
+      >
           <div className="flex-1 overflow-y-auto px-4 pt-4">
           {etapa === 'verificando' && (
             <p className="py-10 text-center text-sm text-muted-foreground">Verificando o contrato desta venda…</p>
@@ -339,8 +325,7 @@ export function NfSaidaButton({ motoId, descricao, blingNfeId, gatilho, abrirAoM
             </div>
           )}
           </div>
-        </DialogContent>
-      </Dialog>
+      </DialogoTelaCheia>
     </>
   )
 }

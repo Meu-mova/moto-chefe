@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MotoActions } from './components/moto-actions'
+import { AcoesOuArquivada } from '../components/acoes-ou-arquivada'
 import { AprovacaoVendaCard } from './components/aprovacao-venda-card'
 import { EditarMotoButton } from './components/editar-moto-button'
 import { CorrigirPrecoCompraButton } from './components/corrigir-preco-compra-button'
@@ -31,9 +32,10 @@ import { statusLabel, disponibilidadeLabel, type Status, type Disponibilidade } 
 
 export default async function MotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [moto, usuario] = await Promise.all([buscarMoto(id), getUsuarioLogado()])
-  // Rota do PAI: a tabela não tem item por id.
+  const usuario = await getUsuarioLogado()
+  // Rota do PAI: a tabela não tem item por id. Antes de buscar dados (review.md, #579).
   if (!usuarioPodeAcessar(usuario, '/estoque')) redirect('/dashboard')
+  const moto = await buscarMoto(usuario, id)
 
   // Moto de grupo que o usuário não vê: 404, como id inexistente (não revela que existe).
   if (!moto) notFound()
@@ -93,7 +95,8 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* Celular: os cards empilham; lado a lado só do md para cima (#688). */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Informações</CardTitle>
@@ -149,6 +152,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
           </CardContent>
         </Card>
 
+        <AcoesOuArquivada arquivada={moto.arquivadaEm ? { em: moto.arquivadaEm, por: moto.arquivadaPorNome, motivo: moto.motivoArquivo } : null}>
         <MotoActions
         moto={moto}
         papel={usuario.papel}
@@ -165,6 +169,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
         demandasCompativeis={demandasCompativeis}
         origens={origens}
       />
+        </AcoesOuArquivada>
       </div>
 
       {moto.disponibilidade === 'aguardando_aprovacao' && moto.aprovacaoPendenteId && (
@@ -180,7 +185,8 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
       )}
 
       <Tabs defaultValue="historico">
-        <TabsList>
+        {/* Celular: as 4 abas não cabem; rolam dentro da barra, não a página (mesmo padrão de /pecas). */}
+        <TabsList className="max-w-full justify-start overflow-x-auto overflow-y-hidden lg:overflow-visible">
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="os">Ordens de Serviço</TabsTrigger>
           <TabsTrigger value="garantias">Garantias</TabsTrigger>
