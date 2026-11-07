@@ -3,12 +3,14 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { mensalidades } from '@/lib/db/schema'
 import { getUsuarioLogado } from '@/lib/auth'
-import { podeUsuarioVerGrupo } from '@/lib/grupo'
+import { grupoAtivoDaRequisicao } from '@/lib/grupo'
+import { ehUuid } from '@/lib/uuid'
 import { hojeBrt } from '@/lib/data-venda'
 import { urlBase } from '@/lib/assinatura/url'
 import { criarPreferencia, expirarPreferencia } from '@/lib/mercadopago/cliente'
-import { podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
+import { MENSALIDADE_NAO_ENCONTRADA, podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
 import { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
+import { gruposDaMensalidade } from '@/lib/mensalidade/grupos'
 
 /**
  * Devolve o link para pagar a mensalidade. Vencida, o valor muda com o atraso: o
@@ -18,14 +20,14 @@ export async function linkPagamentoAction(mensalidadeId: string): Promise<{ ok: 
   const u = await getUsuarioLogado()
   if (!podePagarMensalidade(u.papel)) return { ok: false, erro: 'Só o responsável da empresa paga a mensalidade' }
 
-  const [alvo] = await db.select({ grupoId: mensalidades.grupoId }).from(mensalidades)
-    .where(eq(mensalidades.id, mensalidadeId)).limit(1)
-  if (!alvo) return { ok: false, erro: 'Mensalidade não encontrada ou já paga' }
-  // Só paga a mensalidade de um grupo que enxerga (mesma checagem do seletor de grupo).
-  if (!(await podeUsuarioVerGrupo(u, alvo.grupoId))) return { ok: false, erro: 'Mensalidade de outra empresa' }
+  if (!ehUuid(mensalidadeId)) return { ok: false, erro: MENSALIDADE_NAO_ENCONTRADA }
 
-  const [m] = await abertasCobraveis({ grupoIds: [alvo.grupoId], mensalidadeId })
-  if (!m) return { ok: false, erro: 'Mensalidade não encontrada, já paga ou de grupo isento' }
+  // Os mesmos grupos da lista da tela, dentro da consulta: mensalidade de outra Conta e id
+  // inexistente recebem a mesma frase (#773).
+  const ativo = await grupoAtivoDaRequisicao(u).catch(() => null)
+  const grupoIds = (await gruposDaMensalidade(u, ativo)).map(g => g.id)
+  const [m] = await abertasCobraveis({ grupoIds, mensalidadeId })
+  if (!m) return { ok: false, erro: MENSALIDADE_NAO_ENCONTRADA }
 
   const { acrescimo, total } = valorAtualizado(Number(m.m.valor), m.m.vencimento, hojeBrt())
   if (m.m.linkPagamento && acrescimo === Number(m.m.acrescimo)) return { ok: true, url: m.m.linkPagamento }

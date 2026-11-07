@@ -81,6 +81,12 @@ export function podePagarMensalidade(papel: string): boolean {
   return papel === 'admin_socio' || papel === 'admin_geral'
 }
 
+/**
+ * Única resposta do "Pagar" quando a mensalidade não está na lista do usuário: outra Conta, id
+ * inexistente e já paga não se distinguem (#773).
+ */
+export const MENSALIDADE_NAO_ENCONTRADA = 'Mensalidade não encontrada ou já paga'
+
 /** Valor a cobrar hoje: o da mensalidade mais o acréscimo do atraso, se houver. */
 export function valorAtualizado(valor: number, venc: string, hoje: string): { acrescimo: number; total: number } {
   const acrescimo = acrescimoAtraso(valor, venc, hoje)
