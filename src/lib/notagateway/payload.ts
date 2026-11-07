@@ -15,8 +15,9 @@
  *    a SEFAZ aceitou.
  * 3. **A venda** — cliente, valor e formas de pagamento.
  *
- * A UF do cliente decide entre a operação interna e a interestadual, e não é só
- * o CFOP que muda: em MG a venda interna sai CST 60 (ST já recolhida pela
+ * A Entrega da venda decide entre a operação interna e a interestadual
+ * (`operacaoDaVenda`, ADR-0021); venda sem Entrega segue a UF do cliente. Não é
+ * só o CFOP que muda: em MG a venda interna sai CST 60 (ST já recolhida pela
  * fábrica) e a interestadual sai CST 00 com ICMS destacado a 12%.
  */
 
@@ -24,6 +25,7 @@ import { ehCartao, type FormaPagamentoNfe } from './venda'
 import type { IndicadorIe } from '../documento'
 import { operacaoExigeEntrega, type VeiculoNovo } from './veiculo'
 import { validarDadosTransporte, type DadosTransporte } from './transporte'
+import { AVISO_SEM_MODALIDADE, operacaoDaVenda, type EntregaVenda } from './entrega'
 
 export type RegraSaida = {
   naturezaOperacao: string
@@ -93,13 +95,26 @@ export type DadosVendaMoto = {
     origem: string
     /** Grupo veicProd (RENAVE). Só ciclomotor — ver ./veiculo. */
     veiculo?: VeiculoNovo
+    /** Moto que se emplaca (`exigeRenave`): retirada por cliente de outra UF sai interestadual. */
+    ciclomotor: boolean
   }
   valor: number
   /** Já no vocabulário da API — ver `formaPagamentoNfe` em ./venda. */
   pagamentos: FormaPagamentoNfe[]
   informacoesAdicionais?: string
   transporte?: DadosTransporte
+  /** Entrega da venda; nula ou ausente = venda anterior à Entrega, nota pela regra antiga. */
+  entrega?: EntregaVenda | null
 }
+
+/** Dentro ou fora do estado desta nota: a prévia mostra o mesmo que o payload usa. */
+export const operacaoDosDados = (venda: DadosVendaMoto) => operacaoDaVenda({
+  entrega: venda.entrega ?? null,
+  ufEmitente: venda.ufEmitente,
+  ufCliente: venda.cliente.endereco.uf,
+  clienteContribuinte: venda.cliente.indicadorIe === 'contribuinte',
+  ciclomotor: venda.moto.ciclomotor,
+})
 
 export type ImpostosItem = {
   percentualAproximadoTributos?: {
@@ -191,7 +206,11 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
   const transporteValidado = operacaoExigeEntrega(moto.veiculo?.tipoOperacao) ? validarDadosTransporte(venda.transporte) : null
   if (transporteValidado && !transporteValidado.ok) throw new Error(transporteValidado.erro)
 
-  const interestadual = cliente.endereco.uf.toUpperCase() !== venda.ufEmitente.toUpperCase()
+  // Fora do faturamento direto, a venda com Entrega manda só a modalidade: retira na loja não leva enderecoEntrega.
+  const freteDaEntrega = !transporteValidado && venda.entrega ? venda.entrega.modalidade : null
+  if (freteDaEntrega === '') throw new Error(AVISO_SEM_MODALIDADE)
+
+  const { interestadual } = operacaoDosDados(venda)
 
   const icms: ImpostosItem['icms'] = {
     situacaoTributaria: interestadual ? regra.cstIcmsInterestadual : regra.cstIcmsInterno,
@@ -307,6 +326,7 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
         uf: transporteValidado.dados.enderecoEntrega!.uf,
       },
     } } : {}),
+    ...(freteDaEntrega ? { transporte: { frete: { modalidade: freteDaEntrega } } } : {}),
     informacoesAdicionais: venda.informacoesAdicionais ?? null,
   }
 }

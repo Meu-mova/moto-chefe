@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm'
 import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 import { RENAVE_COMPLETO_FATURAMENTO_DIRETO } from '@/test/renave-completo'
 import type { DadosTransporte } from './transporte'
+import { PENDENCIA_SEM_MODALIDADE, type EntregaVenda } from './entrega'
 import type { montarNfeVendaMoto } from './payload'
 
 const url = process.env.TEST_DATABASE_URL
@@ -47,7 +48,9 @@ async function rows<T>(query: ReturnType<typeof sql>): Promise<T[]> {
 }
 const insertId = async (query: ReturnType<typeof sql>) => (await rows<{ id: string }>(query))[0].id
 
-async function fixture(rejected = false, rejectedPayload: unknown = {}) {
+type Opcoes = { categoria?: string; entrega?: EntregaVenda; ufCliente?: string }
+
+async function fixture(rejected = false, rejectedPayload: unknown = {}, { categoria = 'ciclomotor', entrega, ufCliente = 'MG' }: Opcoes = {}) {
   const suffix = randomUUID()
   const base = await semearContaBase(db, { prefixo: 'TR650', nome: suffix, cnpj: suffix })
   const id = await semearUsuario(db, base, { papel: 'aux_adm', comConta: true })
@@ -58,7 +61,7 @@ async function fixture(rejected = false, rejectedPayload: unknown = {}) {
   await db.execute(sql`insert into regras_fiscais_saida (grupo_id, natureza_operacao, cfop_interno, cst_icms_interno,
     cfop_interestadual, cst_icms_interestadual, cst_pis, cst_cofins)
     values (${base.grupoId}, 'Venda', '5102', '00', '6102', '00', '49', '49')`)
-  const modelId = await insertId(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('Teste', ${suffix}, 'ciclomotor', '1000W', 'Brushless', '45') returning id`)
+  const modelId = await insertId(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('Teste', ${suffix}, ${categoria}, '1000W', 'Brushless', '45') returning id`)
   const motoId = await insertId(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status)
     values (${suffix}, ${modelId}, ${base.lojaId}, 'PRETA', '1', 'vendida') returning id`)
   await db.execute(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, x_prod, origem)
@@ -67,10 +70,10 @@ async function fixture(rejected = false, rejectedPayload: unknown = {}) {
   const [sale] = await rows<{ id: string; numero: number }>(sql`insert into vendas
     (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf,
       cliente_logradouro, cliente_numero, cliente_bairro, cliente_cidade, cliente_estado, cliente_cep,
-      valor, forma_pagamento, pagamentos, nf_liberada_em)
+      valor, forma_pagamento, pagamentos, nf_liberada_em, entrega)
     values (${orderId}, ${motoId}, ${base.lojaId}, ${id}, ${id}, 'Comprador sintético', '35281765043',
-      'Rua Comprador', '10', 'Centro', 'Varginha', 'MG', '37000000', 1000, 'dinheiro',
-      '[{"tipo":"dinheiro","valor":1000}]'::jsonb, now()) returning id, numero`)
+      'Rua Comprador', '10', 'Centro', 'Varginha', ${ufCliente}, '37000000', 1000, 'dinheiro',
+      '[{"tipo":"dinheiro","valor":1000}]'::jsonb, now(), ${entrega ? JSON.stringify(entrega) : null}::jsonb) returning id, numero`)
   const externalId = `mova-homolog-${sale.numero}-1`
   const noteId = rejected ? await insertId(sql`insert into notas_fiscais_saida
     (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, numero, serie, motivo_status, payload)
@@ -341,5 +344,45 @@ test('tipo de pessoa incoerente vindo da tela é corrigido pelo documento antes 
   const net = network(f)
   const result = await actions.transmitirNfePropriaAction(f.motoId, renave, { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, tipoPessoaDestinatario: 'J' } })
   assert.equal(result.ok, true, JSON.stringify(result))
-  assert.equal(net.payloads[0].transporte?.enderecoEntrega.tipoPessoaDestinatario, 'F')
+  assert.equal(net.payloads[0].transporte?.enderecoEntrega?.tipoPessoaDestinatario, 'F')
+})
+
+// Entrega da venda (#725): a NF lê a Entrega gravada na venda; emitente MG (Consultar Empresa sintético), cliente de SP.
+const RETIRA: EntregaVenda = { modo: 'retira', modalidade: 'TransporteProprioPorContaDoDestinatario' }
+const REVENDA = { ...renave, tipoOperacao: 'VendaConcessionaria' }
+
+test('venda com Entrega "Retira na loja" e cliente de outra UF: prévia e nota dentro do estado, só a modalidade no transporte', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: RETIRA, ufCliente: 'SP' })
+  user = f.user
+  const net = network(f)
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.ok(previa.ok && previa.resumo, JSON.stringify(previa))
+  assert.deepEqual(previa.resumo.operacao, { interestadual: false, motivo: 'retira', ufOrigem: 'MG', ufDestino: 'MG' })
+  const result = await actions.transmitirNfePropriaAction(f.motoId)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].itens[0].cfop, '5102')
+  assert.equal(net.payloads[0].cliente.endereco.uf, 'SP')
+  assert.deepEqual(net.payloads[0].transporte, { frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' } })
+})
+
+test('ciclomotor com Entrega "Retira na loja" e cliente de outra UF: nota para outro estado, sem endereço de entrega', async () => {
+  const f = await fixture(false, {}, { entrega: RETIRA, ufCliente: 'SP' })
+  user = f.user
+  const net = network(f)
+  const result = await actions.transmitirNfePropriaAction(f.motoId, REVENDA)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].itens[0].cfop, '6102')
+  assert.deepEqual(net.payloads[0].transporte, { frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' } })
+})
+
+test('venda com Entrega sem modalidade: prévia lista a pendência e transmitir recusa com a mesma frase, sem nota nem chamada de envio', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: { modo: 'retira', modalidade: '' }, ufCliente: 'SP' })
+  user = f.user
+  const net = network(f)
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.ok(previa.ok)
+  assert.deepEqual(previa.pendencias, [PENDENCIA_SEM_MODALIDADE])
+  assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId), { ok: false, error: PENDENCIA_SEM_MODALIDADE })
+  assert.equal(await numeroDeNotas(f), 0)
+  assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
 })

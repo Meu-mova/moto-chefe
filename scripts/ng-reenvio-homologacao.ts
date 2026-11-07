@@ -55,7 +55,7 @@ function dadosSinteticos(idExterno: string, ufEmitente: string, ncm: string): Da
       indicadorIe: 'nao_contribuinte',
       endereco: { uf: 'MG', cidade: 'Pouso Alegre', logradouro: 'Rua Teste Sintetico', numero: '100', bairro: 'Centro', cep: '37550-000' },
     },
-    moto: { xProd: 'MOTO ELETRICA TESTE REENVIO 2000W', codigo: 'TESTE-REENVIO', ncm, cest: '2600100', unidade: 'UN', origem: '0' },
+    moto: { xProd: 'MOTO ELETRICA TESTE REENVIO 2000W', codigo: 'TESTE-REENVIO', ncm, cest: '2600100', unidade: 'UN', origem: '0', ciclomotor: false },
     valor,
     pagamentos: [{ tipo: 'pix', valor }].map(formaPagamentoNfe),
     informacoesAdicionais: 'Teste de reenvio com o mesmo id (#347). Sem valor fiscal.',

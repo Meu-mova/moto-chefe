@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarNfeVendaMoto, origemDeSaida, type DadosVendaMoto, type RegraSaida } from './payload'
+import { AVISO_SEM_MODALIDADE, type EntregaVenda } from './entrega'
+import HOJE from './payload-sem-entrega.golden.json'
 
 // Regra do Sul de Minas, extraída das 198 notas que ele já emitiu pelo Bling.
 const REGRA: RegraSaida = {
@@ -42,6 +44,7 @@ const VENDA: DadosVendaMoto = {
     cest: '2600100',
     unidade: 'UN',
     origem: '4',
+    ciclomotor: false,
   },
   valor: 8725.85,
   pagamentos: [{ tipo: 'PagamentoInstantaneoPix', valor: 8725.85 }],
@@ -268,4 +271,50 @@ test('SemTransporte não chega ao payload: a montagem recusa', () => {
 
 test('faturamento direto não monta payload sem transporte e endereço de entrega', () => {
   assert.throws(() => montarNfeVendaMoto({ ...VENDA, moto: { ...VENDA.moto, veiculo: FATURAMENTO_DIRETO } }, REGRA), /Selecione a modalidade do frete/)
+})
+
+// Entrega da venda (#725): a operação sai da Entrega; o endereço real do cliente vai sempre em cliente.endereco.
+const RETIRA: EntregaVenda = { modo: 'retira', modalidade: 'TransporteProprioPorContaDoDestinatario' }
+const CLIENTE_SP = { ...VENDA.cliente, endereco: { ...VENDA.cliente.endereco, uf: 'SP', cidade: 'Campinas' } }
+
+test('venda sem Entrega sai byte a byte igual a antes da Entrega existir (interna e para outro estado)', () => {
+  assert.equal(JSON.stringify(montarNfeVendaMoto(VENDA, REGRA)), JSON.stringify(HOJE.interna))
+  assert.equal(JSON.stringify(montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP }, REGRA)), JSON.stringify(HOJE.interestadual))
+  assert.equal(JSON.stringify(montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP, entrega: null }, REGRA)), JSON.stringify(HOJE.interestadual))
+})
+
+test('retira na loja, cliente de outra UF: nota de dentro do estado, endereço real do cliente, modalidade sem endereço de entrega', () => {
+  const p = montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP, entrega: RETIRA }, REGRA)
+  assert.equal(p.itens[0].cfop, '5405')
+  assert.deepEqual(p.itens[0].impostos.icms, { situacaoTributaria: '60', origem: 0 })
+  assert.equal(p.cliente.endereco.uf, 'SP')
+  assert.equal(p.cliente.endereco.cidade, 'Campinas')
+  assert.deepEqual(p.transporte, { frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' } })
+})
+
+test('retira na loja de ciclomotor, cliente de outra UF: nota para outro estado, sem endereço de entrega', () => {
+  const p = montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP, moto: { ...VENDA.moto, ciclomotor: true }, entrega: RETIRA }, REGRA)
+  assert.equal(p.itens[0].cfop, '6404')
+  assert.deepEqual(p.itens[0].impostos.icms, { situacaoTributaria: '00', origem: 0, aliquota: 12, baseCalculo: 8725.85 })
+  assert.deepEqual(p.transporte, { frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' } })
+})
+
+test('retira na loja de cliente contribuinte de outra UF: nota para outro estado, sem endereço de entrega', () => {
+  const cliente = { ...CLIENTE_SP, tipoPessoa: 'J' as const, cpfCnpj: '11222333000181', indicadorIe: 'contribuinte' as const, inscricaoEstadual: '110042490114' }
+  const p = montarNfeVendaMoto({ ...VENDA, cliente, entrega: RETIRA }, REGRA)
+  assert.equal(p.itens[0].cfop, '6404')
+  assert.deepEqual(p.transporte, { frete: { modalidade: 'TransporteProprioPorContaDoDestinatario' } })
+})
+
+test('venda com Entrega e sem modalidade não monta a nota', () => {
+  assert.throws(() => montarNfeVendaMoto({ ...VENDA, entrega: { modo: 'retira', modalidade: '' } }, REGRA), new RegExp(AVISO_SEM_MODALIDADE))
+})
+
+test('faturamento direto (ciclomotor) com Entrega "Retira na loja" e cliente de outra UF: 6404 e o transporte do formulário, igual a antes', () => {
+  const ciclomotorFaturamentoDireto = { ...VENDA.moto, ciclomotor: true, veiculo: FATURAMENTO_DIRETO }
+  const transporte = { modalidade: 'ContratacaoPorContaDoRemetente' as const, enderecoEntrega: ENTREGA_MG }
+  const comEntrega = montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP, entrega: RETIRA, moto: ciclomotorFaturamentoDireto, transporte }, REGRA)
+  const semEntrega = montarNfeVendaMoto({ ...VENDA, cliente: CLIENTE_SP, moto: ciclomotorFaturamentoDireto, transporte }, REGRA)
+  assert.equal(comEntrega.itens[0].cfop, '6404')
+  assert.deepEqual(comEntrega, semEntrega)
 })

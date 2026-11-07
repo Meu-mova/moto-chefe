@@ -2,6 +2,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { ChevronDown, ExternalLink, FileDown, Loader2, RefreshCw, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,6 +14,7 @@ import { NfeRecusa } from './nfe-recusa'
 import { TransporteForm } from './transporte-form'
 import { DADOS_TRANSPORTE_VAZIOS, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
 import { tipoPessoa } from '@/lib/notagateway/venda'
+import { textoDaOperacao, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, corrigirEReenviarNfAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
@@ -356,6 +358,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
 
       {r && (
         <div>
+          <SeloDaOperacao operacao={r.operacao} />
           <p className="text-sm text-muted-foreground">Confira antes de enviar. Toque num bloco para ver tudo.</p>
           <Bloco titulo="Cliente" resumo={r.cliente.nome}>
             <p>{r.cliente.nome}</p>
@@ -371,7 +374,6 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
             <p className="text-muted-foreground">
               Origem {r.produto.origemSaida}
               {r.produto.origemEntrada !== r.produto.origemSaida && ` (entrou como ${r.produto.origemEntrada})`}
-              {r.interestadual && ' · venda para fora do estado'}
             </p>
             {previa.ficha && cestEdicao == null && (
               <Button type="button" size="sm" variant="outline" className="mt-2 h-11" onClick={() => setCestEdicao(previa.ficha?.cest ?? '')}>
@@ -622,5 +624,16 @@ function Resultado({ r, teste, previa, erroCorrecao, pending, renave, renaveOrig
       renave={renave} renaveOrigem={renaveOrigem} onRenave={onRenave}
       onSalvarEReenviar={onSalvarEReenviar} onEmitirDeNovo={onTentarDeNovo} onVoltar={onVoltar}
     />
+  )
+}
+
+/** Dentro ou fora do estado, como o servidor decidiu pela Entrega da venda (#725). */
+function SeloDaOperacao({ operacao }: { operacao: OperacaoDaVenda }) {
+  const { selo, porque } = textoDaOperacao(operacao)
+  return (
+    <div className="mb-3 space-y-1">
+      <Badge className={operacao.interestadual ? 'bg-warning/10 text-warning' : 'bg-primary-soft text-primary-text'}>{selo}</Badge>
+      <p className="text-sm text-muted-foreground">{porque}</p>
+    </div>
   )
 }

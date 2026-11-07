@@ -24,10 +24,16 @@ let db: Db['db']
 let execRows: Db['execRows']
 let criarPedidoVendaAction: Actions['criarPedidoVendaAction']
 let efetivarVendaAction: Actions['efetivarVendaAction']
+let vendaDoUsuarioParaNf: typeof import('@/lib/venda-do-usuario')['vendaDoUsuarioParaNf']
+let vendas: typeof import('@/lib/db/schema')['vendas']
+let eq: typeof import('drizzle-orm')['eq']
 
 before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
   ;({ criarPedidoVendaAction, efetivarVendaAction } = await import('@/app/(dashboard)/vendas/actions'))
+  ;({ vendaDoUsuarioParaNf } = await import('@/lib/venda-do-usuario'))
+  ;({ vendas } = await import('@/lib/db/schema'))
+  ;({ eq } = await import('drizzle-orm'))
 })
 after(async () => {
   authMock.restore()
@@ -114,4 +120,16 @@ test('Conta B não efetiva o pedido da Conta A: mesma frase de pedido inexistent
   assert.deepEqual(daOutraConta, { ok: false, erro: 'Pedido não encontrado' })
   assert.deepEqual(await pedidosDaMoto(a.motoId), [{ id: pedidoId, status: 'pendente', entrega: RETIRA }])
   assert.deepEqual(await vendasDaMoto(a.motoId), [])
+})
+
+test('a NF da Conta A lê a Entrega da venda; a Conta B não acha a venda, igual a uma moto sem venda (cenário 17)', async () => {
+  const a = await semearConta()
+  const b = await semearConta()
+  const pedidoId = await criarPedido(a)
+  usuario = a.aux
+  assert.deepEqual(await efetivar(pedidoId, a.origemId), { ok: true, dados: undefined })
+
+  assert.deepEqual((await vendaDoUsuarioParaNf(a.aux, eq(vendas.motoId, a.motoId)))?.entrega, RETIRA)
+  assert.equal(await vendaDoUsuarioParaNf(b.aux, eq(vendas.motoId, a.motoId)), null)
+  assert.equal(await vendaDoUsuarioParaNf(b.aux, eq(vendas.motoId, randomUUID())), null)
 })
