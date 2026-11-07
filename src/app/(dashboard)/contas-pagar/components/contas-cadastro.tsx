@@ -153,7 +153,7 @@ export function ContasCadastro({ contas, lojas, mes }: {
                 </td>
                 <td className="px-4 py-2 text-xs">
                   {c.tipo === 'unica'
-                    ? dataPuraBr((c.dataVencimento ?? '—').slice(0, 10))
+                    ? (c.dataVencimento ? dataPuraBr(c.dataVencimento.slice(0, 10)) : '—')
                     : `todo dia ${c.diaVencimento}`}
                 </td>
                 <td className="px-4 py-2 text-right font-medium tabular-nums">

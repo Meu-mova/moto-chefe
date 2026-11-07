@@ -3,7 +3,6 @@ import { formatarNumeroBR } from '@/lib/numero-br'
 import type { SituacaoMensalidade } from '@/lib/mensalidade/bloqueio'
 import { dataPuraBr } from '@/lib/data-venda'
 
-
 /**
  * Faixa no topo para quem paga a mensalidade: a do grupo ativo e, embaixo, os outros
  * grupos da empresa com mensalidade em aberto (variante B escolhida em 19/10/2026).

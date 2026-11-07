@@ -16,7 +16,7 @@ import {
   ROTULO_MOTIVO_FORA,
   type ConfigDespesas,
 } from './despesas-operacionais'
-import { dataPuraBr } from '@/lib/data-venda'
+import { dataPuraBr } from './data-venda'
 
 /** As três fontes de despesa, como `fontesDespesaDoPeriodo` as entrega. */
 export type FontesDespesa = {

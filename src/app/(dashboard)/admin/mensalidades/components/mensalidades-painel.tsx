@@ -7,7 +7,6 @@ import { formatarNumeroBR } from '@/lib/numero-br'
 import { marcarIsentoAction, conferirPagamentoAction, type GrupoMensalidade } from '../actions'
 import { dataPuraBr } from '@/lib/data-venda'
 
-
 function Situacao({ g, hoje }: { g: GrupoMensalidade; hoje: string }) {
   if (g.isento) return <Badge variant="outline" className="border-border text-muted-foreground">Isento</Badge>
   if (g.bloqueado) return <Badge variant="outline" className="border-destructive text-destructive">Bloqueado</Badge>

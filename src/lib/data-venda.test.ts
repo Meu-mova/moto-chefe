@@ -105,7 +105,7 @@ test('dataPuraBr: data pura sai no mesmo dia, onde o diaBrt daria o dia anterior
   assert.equal(diaBrt('2026-10-09'), '08/10/2026')
 })
 
-test('dataPuraBr: 1º de janeiro não volta para o ano anterior', () => {
+test('dataPuraBr: 1º de janeiro sai com o ano do próprio texto', () => {
   assert.equal(dataPuraBr('2026-01-01'), '01/01/2026')
 })
 
