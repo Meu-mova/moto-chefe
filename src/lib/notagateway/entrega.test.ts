@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, operacaoDaVenda, pendenciasDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
+import { conferirEntrega, conflitoDaUfDoFormulario, operacaoDaVenda, pendenciasDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -166,4 +166,16 @@ test('o porquê das exceções da entrega na UF da loja', () => {
 test('o porquê da entrega diz que vale a UF do endereço de entrega', () => {
   assert.deepEqual(textoDaOperacao({ interestadual: true, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'MA' }),
     { selo: 'Para outro estado (PI para MA)', porque: 'A loja entrega a moto: vale a UF do endereço de entrega.' })
+})
+
+// Decisão do Luis (07/11/2026): no faturamento direto o endereço de entrega ainda vem do formulário da nota (#728).
+test('faturamento direto: a UF do formulário diferente da Entrega da venda impede a nota; igual, ou sem "Entregar", não', () => {
+  const formulario = (uf: string) => ({ modalidade: 'TransporteProprioPorContaDoRemetente' as const,
+    enderecoEntrega: { tipoPessoaDestinatario: 'F' as const, cpfCnpjDestinatario: '52998224725', logradouro: 'R', numero: '1', bairro: 'B', cidade: '2111300', uf } })
+  assert.equal(conflitoDaUfDoFormulario(ENTREGAR_MA, formulario('PI')),
+    'A UF da entrega no formulário da nota é diferente da Entrega da venda. Corrija antes de emitir.')
+  assert.equal(conflitoDaUfDoFormulario(ENTREGAR_MA, formulario('ma')), null)
+  assert.equal(conflitoDaUfDoFormulario({ modo: 'retira', modalidade: '' }, formulario('PI')), null)
+  assert.equal(conflitoDaUfDoFormulario(null, formulario('PI')), null)
+  assert.equal(conflitoDaUfDoFormulario(ENTREGAR_MA, undefined), null)
 })

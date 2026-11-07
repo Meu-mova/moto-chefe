@@ -32,7 +32,7 @@ import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { recusaSemVenda } from '@/lib/notas-emitidas'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
-import { pendenciasDaEntrega, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { conflitoDaUfDoFormulario, pendenciasDaEntrega, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -530,6 +530,8 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     if (operacaoExigeEntrega(renaveValidado?.tipoOperacao)) {
       const t = validarDadosTransporte(transporte)
       if (!t.ok) return { ok: false, error: t.erro }
+      const conflito = conflitoDaUfDoFormulario(e.venda.entrega, t.dados)
+      if (conflito) return { ok: false, error: conflito }
       transporteValidado = t.dados
     }
     if (!e.regra) return { ok: false, error: 'Regra fiscal do grupo não cadastrada' }

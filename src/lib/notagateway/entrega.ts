@@ -21,6 +21,18 @@ export const AVISO_SEM_MODALIDADE = 'Escolha a modalidade do frete. Sem ela a no
 /** Pendência da prévia da NF: diz onde corrigir. A edição da Entrega na venda chega no #727. */
 export const PENDENCIA_SEM_MODALIDADE = 'Falta a modalidade do frete na Entrega da venda. Corrija a Entrega na venda para a nota sair.'
 
+export const UF_DO_FORMULARIO_DIFERENTE = 'A UF da entrega no formulário da nota é diferente da Entrega da venda. Corrija antes de emitir.'
+
+/**
+ * Faturamento direto de venda "Entregar": até a #728 o endereço de entrega sai do formulário da nota, e a
+ * operação sai da Entrega. UFs diferentes dariam nota que não bate com o local de entrega (decisão do Luis,
+ * 07/11/2026). Tela e transmitir decidem por aqui.
+ */
+export function conflitoDaUfDoFormulario(entrega: EntregaVenda | null, formulario: DadosTransporte | undefined): string | null {
+  const uf = formulario?.enderecoEntrega?.uf.trim().toUpperCase()
+  return entrega?.modo === 'entregar' && uf && uf !== entrega.endereco.uf ? UF_DO_FORMULARIO_DIFERENTE : null
+}
+
 /** O que a Entrega impede de emitir; venda antiga (sem Entrega) não exige modalidade. */
 export const pendenciasDaEntrega = (entrega: EntregaVenda | null): string[] => (entrega && !entrega.modalidade ? [PENDENCIA_SEM_MODALIDADE] : [])
 

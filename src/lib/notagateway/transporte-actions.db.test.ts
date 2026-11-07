@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm'
 import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 import { RENAVE_COMPLETO_FATURAMENTO_DIRETO } from '@/test/renave-completo'
 import type { DadosTransporte } from './transporte'
-import { PENDENCIA_SEM_MODALIDADE, type EntregaVenda } from './entrega'
+import { PENDENCIA_SEM_MODALIDADE, UF_DO_FORMULARIO_DIFERENTE, type EntregaVenda } from './entrega'
 import type { montarNfeVendaMoto } from './payload'
 
 const url = process.env.TEST_DATABASE_URL
@@ -423,4 +423,23 @@ test('venda "Entregar" com outra pessoa recebendo: enderecoEntrega com nome, doc
     ...expectedTransport.enderecoEntrega, tipoPessoaDestinatario: 'J', cpfCnpjDestinatario: '11222333000181',
     nomeDestinatario: 'Empresa que recebe', cep: '80010000',
   })
+})
+
+test('faturamento direto de venda "Entregar" com a UF do formulário diferente da Entrega: transmitir recusa, sem nota nem envio', async () => {
+  const f = await fixture(false, {}, { entrega: ENTREGAR_PR })
+  user = f.user
+  const net = network(f)
+  const formularioMg: DadosTransporte = { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, cidade: '3170701', uf: 'MG' } }
+  assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId, renave, formularioMg), { ok: false, error: UF_DO_FORMULARIO_DIFERENTE })
+  assert.equal(await numeroDeNotas(f), 0)
+  assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
+})
+
+test('faturamento direto de venda "Entregar" com a mesma UF no formulário: a nota sai', async () => {
+  const f = await fixture(false, {}, { entrega: ENTREGAR_PR })
+  user = f.user
+  const net = network(f)
+  const result = await actions.transmitirNfePropriaAction(f.motoId, renave, transport)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].transporte?.enderecoEntrega?.uf, 'PR')
 })
