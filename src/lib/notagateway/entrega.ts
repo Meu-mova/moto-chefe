@@ -29,7 +29,10 @@ export const modalidadeComFrete = (m: ModalidadeFrete | '') => (MODALIDADES_COM_
 /** Frete cobrado gravado na Entrega (zero sem frete, na retirada e em venda antiga). */
 export const freteDaVenda = (entrega: EntregaVenda | null): number => (entrega?.modo === 'entregar' ? entrega.frete ?? 0 : 0)
 
-/** Valor da venda = moto + frete cobrado (#726). A mesma conta na tela, na efetivação e no editar venda. */
+/**
+ * Valor da venda = moto + frete cobrado (#726). A mesma conta na tela, na efetivação e no editar venda. Sem piso:
+ * abaixo do frete é pendência da NF e item moto sem valor. Os relatórios (#796) têm regra própria, com piso 0.
+ */
 export const totalComFrete = (valorDaMoto: number, frete: number): number => centavos(valorDaMoto + frete)
 export const valorDaMoto = (valorDaVenda: number, frete: number): number => centavos(valorDaVenda - frete)
 
