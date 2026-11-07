@@ -45,14 +45,15 @@ export function useEnvioDoLote<T>(semResposta: string) {
   const [feito, setFeito] = useState<T | null>(null)
   const enviou = useRef(false)
 
-  async function enviar(chamada: () => Promise<ResultadoAction<T>>) {
+  /** `aoConcluir` roda depois do ok do servidor (ex.: fechar e avisar, no lugar da tela de concluído). */
+  async function enviar(chamada: () => Promise<ResultadoAction<T>>, aoConcluir?: (dados: T) => void) {
     if (enviou.current) return
     enviou.current = true
     setEnviando(true)
     setErro(null)
     try {
       const r = await chamada()
-      if (r.ok) setFeito(r.dados)
+      if (r.ok) { setFeito(r.dados); aoConcluir?.(r.dados) }
       else setErro(r.erro)
     } catch {
       setErro(semResposta)
