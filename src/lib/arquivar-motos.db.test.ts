@@ -118,7 +118,7 @@ test('venda registrada recusa e orienta cancelar a venda ou remover', async () =
     const [ped] = await linhas(tx, sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id, status) values (${id}, ${a.base.lojaId}, ${a.auxId}, 'efetivado') returning id`)
     await tx.execute(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
       values (${ped.id}, ${id}, ${a.base.lojaId}, ${a.auxId}, ${a.auxId}, 'Cliente', '52998224725', 1000, 'pix')`)
-    await assert.rejects(arquivarMotos(a.socio, [id], 'motivo', tx), recusa(`${P}AVEN: Tem venda registrada. Cancele a venda ou use Remover moto.`))
+    await assert.rejects(arquivarMotos(a.socio, [id], 'motivo', tx), recusa(`${P}AVEN: Tem venda registrada. Cancele a venda antes de arquivar.`))
   })
 })
 

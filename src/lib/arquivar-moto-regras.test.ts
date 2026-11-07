@@ -20,7 +20,7 @@ test('moto sem pendência, inclusive a marcada vendida sem venda (golpe), arquiv
 })
 
 test('cada pendência recusa com a frase que diz o que fazer', () => {
-  assert.equal(motivoQueImpedeArquivar(com({ temVenda: true })), 'Tem venda registrada. Cancele a venda ou use Remover moto.')
+  assert.equal(motivoQueImpedeArquivar(com({ temVenda: true })), 'Tem venda registrada. Cancele a venda antes de arquivar.')
   assert.equal(motivoQueImpedeArquivar(com({ reservaAtiva: true })), 'Tem reserva em aberto. Cancele ou finalize a reserva antes de arquivar.')
   assert.equal(motivoQueImpedeArquivar(com({ pedidoPendente: true })), 'Tem pedido de venda em aberto. Efetive ou cancele o pedido antes de arquivar.')
   assert.equal(motivoQueImpedeArquivar(com({ aprovacaoPendente: true })), 'Tem venda aguardando aprovação. Aprove ou recuse antes de arquivar.')
@@ -34,7 +34,7 @@ test('OS aberta sem número ainda recusa', () => {
 })
 
 test('com várias pendências, a venda vem primeiro', () => {
-  assert.equal(motivoQueImpedeArquivar(com({ garantiaAtiva: true, temVenda: true })), 'Tem venda registrada. Cancele a venda ou use Remover moto.')
+  assert.equal(motivoQueImpedeArquivar(com({ garantiaAtiva: true, temVenda: true })), 'Tem venda registrada. Cancele a venda antes de arquivar.')
 })
 
 test('lote: motivo em branco recusa antes de olhar as motos', () => {

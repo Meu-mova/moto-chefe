@@ -23,7 +23,7 @@ export const podeArquivarMotos = (papel: string): boolean => PAPEIS_QUE_ARQUIVAM
 
 // Ordem da lista = ordem da frase mostrada: a venda primeiro, porque a saída dela é outra ação.
 const RECUSAS: [(p: PendenciasDaMoto) => boolean, (p: PendenciasDaMoto) => string][] = [
-  [p => p.temVenda, () => 'Tem venda registrada. Cancele a venda ou use Remover moto.'],
+  [p => p.temVenda, () => 'Tem venda registrada. Cancele a venda antes de arquivar.'],
   [p => p.reservaAtiva, () => 'Tem reserva em aberto. Cancele ou finalize a reserva antes de arquivar.'],
   [p => p.pedidoPendente, () => 'Tem pedido de venda em aberto. Efetive ou cancele o pedido antes de arquivar.'],
   [p => p.aprovacaoPendente, () => 'Tem venda aguardando aprovação. Aprove ou recuse antes de arquivar.'],
