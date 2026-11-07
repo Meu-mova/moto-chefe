@@ -10,6 +10,8 @@ test('moto que nunca passou pelo comercial nem pelo financeiro pode ser removida
 
 test('cada impedimento recusa com a frase que diz o que fazer', () => {
   assert.equal(motivoQueImpedeRemover(com({ temVenda: true })), 'Esta moto tem venda. Cancele a venda antes de remover.')
+  assert.equal(motivoQueImpedeRemover(com({ marcadaVendida: true })), 'Esta moto está marcada como vendida, com venda fora do MOVA. Moto vendida não se remove.')
+  assert.equal(motivoQueImpedeRemover(com({ temGarantia: true })), 'Esta moto tem garantia registrada. Moto com garantia não se remove.')
   assert.equal(motivoQueImpedeRemover(com({ aprovacaoPendente: true })), 'Esta moto tem venda aguardando aprovação. Aprove ou recuse antes de remover.')
   assert.equal(motivoQueImpedeRemover(com({ pedidoPendente: true })), 'Esta moto tem pedido de venda em aberto. Cancele o pedido antes de remover.')
   assert.equal(motivoQueImpedeRemover(com({ reservaAtiva: true })), 'Esta moto tem reserva em aberto. Cancele a reserva antes de remover.')

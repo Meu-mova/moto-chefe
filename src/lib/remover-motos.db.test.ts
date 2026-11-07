@@ -60,7 +60,7 @@ const logsDa = (tx: Tx, motoIds: string[]) =>
 test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico de veículos e o agendamento; log com a contagem', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '00000000069201', '00000000069202')
-    const m = await a.novaMoto('1', a.base.lojaId, 'vendida')
+    const m = await a.novaMoto('1')
     const chassi = `${P}A1`
     await historico(tx, a, m)
     await historico(tx, a, m)
@@ -74,7 +74,6 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     // Aprovação de pagamento da OS já respondida: aponta para a OS, sem moto; sai junto, não fica órfã.
     const aprovacaoDaOs = await idDe(tx, sql`insert into aprovacoes_venda (origem, os_id, loja_id, vendedor_id, valor, dados_venda, motivo, tipo, status)
       values ('os', ${osId}, ${a.base.lojaId}, ${a.auxId}, 100, '{}', 'Pagamento via Transferência Bancária', 'pagamento_sensivel', 'recusada') returning id`)
-    await tx.execute(sql`insert into garantias (moto_id, loja_id, descricao, data_inicio, data_fim, os_id) values (${m}, ${a.base.lojaId}, 'bateria', '2026-01-01', '2027-01-01', ${osId})`)
     await tx.execute(sql`insert into cupons_revisao (grupo_id, loja_id, codigo, valido_ate, moto_id, os_id) values (${a.base.grupoId}, ${a.base.lojaId}, ${P + 'CUPOM'}, '2027-01-01', ${m}, ${osId})`)
     await tx.execute(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status)
       values (${m}, ${a.base.lojaId}, ${a.auxId}, 100, 'pix', '2026-12-01', 'cancelada')`)
@@ -88,7 +87,7 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     assert.deepEqual(await removerMotos(a.socio, [m], '  NF do grupo errado  ', ' CONFIRMAR ', tx), { removidas: 1 })
 
     assert.equal(await existe(tx, m), false)
-    for (const tabela of ['historico_estoque', 'ordens_servico', 'transferencias', 'garantias', 'cupons_revisao', 'reservas', 'pedidos_venda', 'aprovacoes_venda', 'motos_fiscal', 'motos_renave']) {
+    for (const tabela of ['historico_estoque', 'ordens_servico', 'transferencias', 'cupons_revisao', 'reservas', 'pedidos_venda', 'aprovacoes_venda', 'motos_fiscal', 'motos_renave']) {
       assert.equal((await linhas(tx, sql`select 1 from ${sql.identifier(tabela)} where moto_id = ${m}`)).length, 0, tabela)
     }
     assert.equal((await linhas(tx, sql`select 1 from os_itens where os_id = ${osId}`)).length, 0)
@@ -103,7 +102,7 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     assert.deepEqual(logs[0].detalhe, {
       motoId: m, chassi, modelo: `${P} A`, loja: (await linhas(tx, sql`select nome from lojas where id = ${a.base.lojaId}`))[0].nome,
       nfEntrada: 'NFA77', motivo: 'NF do grupo errado',
-      saiu: { os: 1, itensDeOs: 2, transferencias: 1, garantias: 1, cupons: 1, reservas: 1, pedidos: 1, aprovacoes: 2, historico: 2 },
+      saiu: { os: 1, itensDeOs: 2, transferencias: 1, cupons: 1, reservas: 1, pedidos: 1, aprovacoes: 2, historico: 2 },
     })
   })
 })
@@ -117,6 +116,10 @@ test('uma recusa por tipo: venda, aprovação, pedido, reserva, PIX no pedido e 
         await tx.execute(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento)
           values (${pedido}, ${m}, ${a.base.lojaId}, ${a.auxId}, ${a.auxId}, 'Cliente sintético', '52998224725', 1000, 'pix')`)
       }, 'Esta moto tem venda. Cancele a venda antes de remover.'],
+      ['VSV', m => tx.execute(sql`update motos set disponibilidade = 'vendida' where id = ${m}`),
+        'Esta moto está marcada como vendida, com venda fora do MOVA. Moto vendida não se remove.'],
+      ['GAR', m => tx.execute(sql`insert into garantias (moto_id, loja_id, descricao, data_inicio, data_fim, status) values (${m}, ${a.base.lojaId}, 'bateria', '2025-01-01', '2026-01-01', 'encerrada')`),
+        'Esta moto tem garantia registrada. Moto com garantia não se remove.'],
       ['APR', m => tx.execute(sql`insert into aprovacoes_venda (moto_id, loja_id, vendedor_id, valor, dados_venda, motivo) values (${m}, ${a.base.lojaId}, ${a.auxId}, 100, '{}', 'desconto')`),
         'Esta moto tem venda aguardando aprovação. Aprove ou recuse antes de remover.'],
       ['PED', m => novoPedido(tx, a, m), 'Esta moto tem pedido de venda em aberto. Cancele o pedido antes de remover.'],

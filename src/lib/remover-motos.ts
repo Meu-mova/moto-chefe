@@ -17,6 +17,7 @@ import { podeArquivarMotos } from '@/lib/arquivar-moto-regras'
 import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type ImpedimentosDeRemover, type OsDaMoto } from '@/lib/remover-moto-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { ehUuid } from '@/lib/uuid'
+import { motoNaoVendida } from '@/lib/queries/showroom'
 
 const LIMITE_DA_BUSCA = 50
 
@@ -35,6 +36,8 @@ function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
   return exec.select({
     ...dadosDaMoto(),
     temVenda: temLinha(exec, vendas),
+    marcadaVendida: sql<boolean>`not (${motoNaoVendida()})`,
+    temGarantia: temLinha(exec, garantias),
     aprovacaoPendente: temLinha(exec, aprovacoesVenda, eq(aprovacoesVenda.status, 'pendente')),
     pedidoPendente: temLinha(exec, pedidosVenda, eq(pedidosVenda.status, 'pendente')),
     reservaAtiva: temLinha(exec, reservas, eq(reservas.status, 'ativa')),
@@ -52,7 +55,7 @@ function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
 type LinhaDaMoto = Awaited<ReturnType<typeof motosComImpedimentos>>[number]
 
 const impedimentosDa = (m: LinhaDaMoto): ImpedimentosDeRemover => ({
-  temVenda: m.temVenda, aprovacaoPendente: m.aprovacaoPendente, pedidoPendente: m.pedidoPendente,
+  temVenda: m.temVenda, marcadaVendida: m.marcadaVendida, temGarantia: m.temGarantia, aprovacaoPendente: m.aprovacaoPendente, pedidoPendente: m.pedidoPendente,
   reservaAtiva: m.reservaAtiva, pedidoComPix: m.pedidoComPix,
   osComDinheiro: primeiraOsComDinheiro(m.osDaMoto),
 })
@@ -87,22 +90,19 @@ async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<string, 
   const motoDaOs = new Map(os.map(o => [o.id, o.motoId]))
   const itens = osIds.length === 0 ? [] : await tx.select({ osId: osItens.osId }).from(osItens).where(inArray(osItens.osId, osIds))
   if (osIds.length > 0) {
-    // O agendamento que virou OS continua na agenda, sem a OS; garantia e cupom de outra moto, idem.
+    // O agendamento que virou OS continua na agenda, sem a OS.
     await tx.update(agendamentos).set({ osId: null }).where(inArray(agendamentos.osId, osIds))
-    await tx.update(garantias).set({ osId: null }).where(inArray(garantias.osId, osIds))
-    await tx.update(cuponsRevisao).set({ osId: null }).where(inArray(cuponsRevisao.osId, osIds))
   }
   const motoIds = (linhas: { motoId: string | null }[]) => linhas.map(l => l.motoId)
   // A ordem conta: o que aponta para a OS sai antes dela.
   return {
-    // A da moto e a de pagamento da OS (sem moto, origem 'os'); a pendente já recusou a remoção.
+    // A da moto e a de pagamento da OS (sem moto, origem 'os'); a pendente já recusou a remoção. Cupom aponta para a OS.
     aprovacoes: (await tx.delete(aprovacoesVenda).where(or(inArray(aprovacoesVenda.motoId, ids), osIds.length === 0 ? sql`false` : inArray(aprovacoesVenda.osId, osIds)))
       .returning({ motoId: aprovacoesVenda.motoId, osId: aprovacoesVenda.osId })).map(l => l.motoId ?? (l.osId ? motoDaOs.get(l.osId) ?? null : null)),
+    cupons: motoIds(await tx.delete(cuponsRevisao).where(inArray(cuponsRevisao.motoId, ids)).returning({ motoId: cuponsRevisao.motoId })),
     os: os.length === 0 ? [] : motoIds(await tx.delete(ordensServico).where(inArray(ordensServico.id, osIds)).returning({ motoId: ordensServico.motoId })),
     itensDeOs: itens.map(i => motoDaOs.get(i.osId) ?? null),
     transferencias: motoIds(await tx.delete(transferencias).where(inArray(transferencias.motoId, ids)).returning({ motoId: transferencias.motoId })),
-    garantias: motoIds(await tx.delete(garantias).where(inArray(garantias.motoId, ids)).returning({ motoId: garantias.motoId })),
-    cupons: motoIds(await tx.delete(cuponsRevisao).where(inArray(cuponsRevisao.motoId, ids)).returning({ motoId: cuponsRevisao.motoId })),
     reservas: motoIds(await tx.delete(reservas).where(inArray(reservas.motoId, ids)).returning({ motoId: reservas.motoId })),
     pedidos: motoIds(await tx.delete(pedidosVenda).where(inArray(pedidosVenda.motoId, ids)).returning({ motoId: pedidosVenda.motoId })),
     historico: motoIds(await tx.delete(historicoEstoque).where(inArray(historicoEstoque.motoId, ids)).returning({ motoId: historicoEstoque.motoId })),

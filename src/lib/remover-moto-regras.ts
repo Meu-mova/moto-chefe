@@ -8,6 +8,9 @@ import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
  */
 export type ImpedimentosDeRemover = {
   temVenda: boolean
+  /** Marcada vendida sem linha em vendas: venda pelo Bling ou golpe (#544). */
+  marcadaVendida: boolean
+  temGarantia: boolean
   aprovacaoPendente: boolean
   pedidoPendente: boolean
   reservaAtiva: boolean
@@ -18,7 +21,7 @@ export type ImpedimentosDeRemover = {
 }
 
 export const SEM_IMPEDIMENTO: ImpedimentosDeRemover = {
-  temVenda: false, aprovacaoPendente: false, pedidoPendente: false, reservaAtiva: false, pedidoComPix: false, osComDinheiro: null,
+  temVenda: false, marcadaVendida: false, temGarantia: false, aprovacaoPendente: false, pedidoPendente: false, reservaAtiva: false, pedidoComPix: false, osComDinheiro: null,
 }
 
 const FINANCEIRO = 'tem pagamento registrado. Moto que passou pelo financeiro não se remove.'
@@ -26,6 +29,8 @@ const FINANCEIRO = 'tem pagamento registrado. Moto que passou pelo financeiro n�
 // Ordem da lista = ordem da frase mostrada: a venda primeiro, porque a saída dela é o Cancelar venda.
 const RECUSAS: [(i: ImpedimentosDeRemover) => boolean, (i: ImpedimentosDeRemover) => string][] = [
   [i => i.temVenda, () => 'Esta moto tem venda. Cancele a venda antes de remover.'],
+  [i => i.marcadaVendida, () => 'Esta moto está marcada como vendida, com venda fora do MOVA. Moto vendida não se remove.'],
+  [i => i.temGarantia, () => 'Esta moto tem garantia registrada. Moto com garantia não se remove.'],
   [i => i.aprovacaoPendente, () => 'Esta moto tem venda aguardando aprovação. Aprove ou recuse antes de remover.'],
   [i => i.pedidoPendente, () => 'Esta moto tem pedido de venda em aberto. Cancele o pedido antes de remover.'],
   [i => i.reservaAtiva, () => 'Esta moto tem reserva em aberto. Cancele a reserva antes de remover.'],
