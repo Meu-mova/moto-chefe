@@ -15,7 +15,9 @@ aqui fica a lista curta de conferência.
 - **Função, helper ou constante nova: o revisor procura pelo comportamento** (#628, #629: as
   revisões acharam `diaCurtoBrt` reescrito e `mesAdjacente` repetido só porque buscaram o que a
   função faz). Conferir: para cada `function`/`const` novo exportado ou repetido em mais de um
-  arquivo, `git grep` pelo trecho típico do código; cópia achada é "deveria".
+  arquivo, `git grep` pelo trecho típico do código; cópia achada é "deveria". Busque também as
+  variantes do mesmo trecho (#794: o grep de `x.split('-')` não achou 6 cópias que faziam
+  `slice(0, 10)` antes do `split` nem as que usavam `format(..., 'dd/MM/yyyy')` do date-fns).
 
 ## Interface
 
