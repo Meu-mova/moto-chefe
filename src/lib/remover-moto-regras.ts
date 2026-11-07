@@ -1,5 +1,6 @@
 // Regras do Remover moto (#692; ADR-0020 com o adendo de 07/11/2026): puras, usadas pelo diálogo e pelo servidor.
 import { motivoDoArquivoValido } from '@/lib/arquivar-moto-regras'
+import { pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 
 /**
  * O que mostra que a moto já passou pelo comercial ou pelo financeiro. Remover é só para a moto
@@ -12,7 +13,7 @@ export type ImpedimentosDeRemover = {
   reservaAtiva: boolean
   /** PIX ligado a um pedido da moto, mesmo cancelado: apagar o pedido mexeria no financeiro. */
   pedidoComPix: boolean
-  /** OS da moto com lançamento de caixa, cartão ou PIX. */
+  /** OS da moto com pagamento registrado, lançado no caixa, conciliado ou aguardando aprovação. */
   osComDinheiro: { numero: number | null } | null
 }
 
@@ -20,7 +21,7 @@ export const SEM_IMPEDIMENTO: ImpedimentosDeRemover = {
   temVenda: false, aprovacaoPendente: false, pedidoPendente: false, reservaAtiva: false, pedidoComPix: false, osComDinheiro: null,
 }
 
-const FINANCEIRO = 'tem dinheiro lançado (caixa, cartão ou PIX). Moto que passou pelo financeiro não se remove.'
+const FINANCEIRO = 'tem pagamento registrado. Moto que passou pelo financeiro não se remove.'
 
 // Ordem da lista = ordem da frase mostrada: a venda primeiro, porque a saída dela é o Cancelar venda.
 const RECUSAS: [(i: ImpedimentosDeRemover) => boolean, (i: ImpedimentosDeRemover) => string][] = [
@@ -50,4 +51,20 @@ export function recusaDaRemocao(lote: { motivo: string; confirmacao: string; mot
     .map(m => ({ chassi: m.chassi, motivo: motivoQueImpedeRemover(m.impedimentos) }))
     .find(m => m.motivo !== null)
   return impedida ? `${impedida.chassi}: ${impedida.motivo}` : null
+}
+
+/** OS da moto como o banco devolve; `financeiro` = caixa, cartão ou PIX ligado a ela, ou pagamento aguardando aprovação. */
+export type OsDaMoto = { numero: number | null; formaPagamento: string | null; pagamentos: unknown; valorTotal: string | number | null; financeiro: boolean }
+
+// Formas que não recebem dinheiro (os tipos de pagamentosEfetivosOS).
+const SEM_COBRANCA = ['gratuita', 'cortesia']
+
+// Cartão, PIX e transferência ficam só na OS até a conciliação; só o dinheiro vai ao caixa (pagamento-os.ts).
+const temDinheiro = (os: OsDaMoto): boolean =>
+  os.financeiro || pagamentosEfetivosOS(os.formaPagamento, os.pagamentos, os.valorTotal == null ? null : String(os.valorTotal))
+    .some(p => !SEM_COBRANCA.includes(p.tipo) && Number(p.valor) > 0)
+
+export function primeiraOsComDinheiro(oss: OsDaMoto[]): { numero: number | null } | null {
+  const os = oss.find(temDinheiro)
+  return os ? { numero: os.numero } : null
 }

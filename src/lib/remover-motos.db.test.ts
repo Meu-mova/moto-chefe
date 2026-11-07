@@ -65,10 +65,15 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     await historico(tx, a, m)
     await historico(tx, a, m)
     const osId = await novaOs(tx, a, m, 69201)
+    // Itens somados dão valor_total, mas sem pagamento a OS não passou pelo financeiro.
+    await tx.execute(sql`update ordens_servico set valor_total = 120 where id = ${osId}`)
     await tx.execute(sql`insert into os_itens (os_id, tipo, descricao) values (${osId}, 'peca', 'pneu'), (${osId}, 'servico', 'montagem')`)
     const agId = await idDe(tx, sql`insert into agendamentos (loja_id, cliente_nome, cliente_fone, tipo_servico, data_hora_inicio, os_id)
       values (${a.base.lojaId}, 'Cliente', '35999990000', 'Montagem', '2026-11-03T13:00:00Z', ${osId}) returning id`)
     await tx.execute(sql`insert into transferencias (moto_id, loja_origem_id, loja_destino_id, solicitado_por) values (${m}, ${a.base.lojaId}, ${a.outro.lojaId}, ${a.auxId})`)
+    // Aprovação de pagamento da OS já respondida: aponta para a OS, sem moto; sai junto, não fica órfã.
+    const aprovacaoDaOs = await idDe(tx, sql`insert into aprovacoes_venda (origem, os_id, loja_id, vendedor_id, valor, dados_venda, motivo, tipo, status)
+      values ('os', ${osId}, ${a.base.lojaId}, ${a.auxId}, 100, '{}', 'Pagamento via Transferência Bancária', 'pagamento_sensivel', 'recusada') returning id`)
     await tx.execute(sql`insert into garantias (moto_id, loja_id, descricao, data_inicio, data_fim, os_id) values (${m}, ${a.base.lojaId}, 'bateria', '2026-01-01', '2027-01-01', ${osId})`)
     await tx.execute(sql`insert into cupons_revisao (grupo_id, loja_id, codigo, valido_ate, moto_id, os_id) values (${a.base.grupoId}, ${a.base.lojaId}, ${P + 'CUPOM'}, '2027-01-01', ${m}, ${osId})`)
     await tx.execute(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status)
@@ -87,6 +92,7 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
       assert.equal((await linhas(tx, sql`select 1 from ${sql.identifier(tabela)} where moto_id = ${m}`)).length, 0, tabela)
     }
     assert.equal((await linhas(tx, sql`select 1 from os_itens where os_id = ${osId}`)).length, 0)
+    assert.equal((await linhas(tx, sql`select 1 from aprovacoes_venda where id = ${aprovacaoDaOs}`)).length, 0)
     assert.deepEqual(await linhas(tx, sql`select os_id from agendamentos where id = ${agId}`), [{ os_id: null }])
     assert.equal((await linhas(tx, sql`select 1 from veiculos_historico where chassi = ${chassi}`)).length, 1)
 
@@ -97,7 +103,7 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     assert.deepEqual(logs[0].detalhe, {
       motoId: m, chassi, modelo: `${P} A`, loja: (await linhas(tx, sql`select nome from lojas where id = ${a.base.lojaId}`))[0].nome,
       nfEntrada: 'NFA77', motivo: 'NF do grupo errado',
-      saiu: { os: 1, itensDeOs: 2, transferencias: 1, garantias: 1, cupons: 1, reservas: 1, pedidos: 1, aprovacoes: 1, historico: 2 },
+      saiu: { os: 1, itensDeOs: 2, transferencias: 1, garantias: 1, cupons: 1, reservas: 1, pedidos: 1, aprovacoes: 2, historico: 2 },
     })
   })
 })
@@ -123,15 +129,26 @@ test('uma recusa por tipo: venda, aprovação, pedido, reserva, PIX no pedido e 
       ['OSC', async m => {
         const os = await novaOs(tx, a, m, 69211)
         await tx.execute(sql`insert into lancamentos_caixa (loja_id, usuario_id, tipo, categoria, valor, data, os_id) values (${a.base.lojaId}, ${a.auxId}, 'entrada', 'OS', 50, '2026-11-05', ${os})`)
-      }, 'A OS nº 69211 tem dinheiro lançado (caixa, cartão ou PIX). Moto que passou pelo financeiro não se remove.'],
+      }, 'A OS nº 69211 tem pagamento registrado. Moto que passou pelo financeiro não se remove.'],
       ['OSK', async m => {
         const os = await novaOs(tx, a, m, 69212)
         await tx.execute(sql`insert into conciliacoes_cartao (grupo_id, operadora, data_transacao, valor_bruto, os_id) values (${a.base.grupoId}, 'stone', '2026-11-05', 50, ${os})`)
-      }, 'A OS nº 69212 tem dinheiro lançado (caixa, cartão ou PIX). Moto que passou pelo financeiro não se remove.'],
+      }, 'A OS nº 69212 tem pagamento registrado. Moto que passou pelo financeiro não se remove.'],
+      ['OSN', async m => {
+        // Cartão ainda não conciliado: o pagamento só existe na OS (pagamento-os.ts lança no caixa só o dinheiro).
+        const os = await novaOs(tx, a, m, 69214)
+        await tx.execute(sql`update ordens_servico set pagamentos = '[{"tipo":"cartao_credito","valor":100}]', forma_pagamento = 'cartao_credito', valor_total = 100 where id = ${os}`)
+      }, 'A OS nº 69214 tem pagamento registrado. Moto que passou pelo financeiro não se remove.'],
+      ['OSA', async m => {
+        // Transferência sem aprovador: a aprovação aponta para a OS, sem moto (ordens-servico/actions.ts).
+        const os = await novaOs(tx, a, m, 69215)
+        await tx.execute(sql`insert into aprovacoes_venda (origem, os_id, loja_id, vendedor_id, valor, dados_venda, motivo, tipo, status)
+          values ('os', ${os}, ${a.base.lojaId}, ${a.auxId}, 100, '{}', 'Pagamento via Transferência Bancária', 'pagamento_sensivel', 'pendente')`)
+      }, 'A OS nº 69215 tem pagamento registrado. Moto que passou pelo financeiro não se remove.'],
       ['OSP', async m => {
         const os = await novaOs(tx, a, m, 69213)
         await tx.execute(sql`insert into pix_recebimentos_mcp (grupo_id, conta_id, banco, transacao_id, data, valor, os_id) values (${a.base.grupoId}, 'conta-sintetica', 'banco', ${P + 'OSP'}, now(), 10, ${os})`)
-      }, 'A OS nº 69213 tem dinheiro lançado (caixa, cartão ou PIX). Moto que passou pelo financeiro não se remove.'],
+      }, 'A OS nº 69213 tem pagamento registrado. Moto que passou pelo financeiro não se remove.'],
     ]
     for (const [sufixo, semear, frase] of casos) {
       const m = await a.novaMoto(sufixo)

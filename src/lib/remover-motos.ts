@@ -14,17 +14,22 @@ import {
   alcance, dadosDaMoto, daMoto, NAO_ENCONTRADA, registrarNoLog, temLinha, travarDoAlcance, type Exec, type UsuarioQueArquiva,
 } from '@/lib/arquivar-motos'
 import { podeArquivarMotos } from '@/lib/arquivar-moto-regras'
-import { motivoQueImpedeRemover, recusaDaRemocao, type ImpedimentosDeRemover } from '@/lib/remover-moto-regras'
+import { motivoQueImpedeRemover, primeiraOsComDinheiro, recusaDaRemocao, type ImpedimentosDeRemover, type OsDaMoto } from '@/lib/remover-moto-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { ehUuid } from '@/lib/uuid'
 
 const LIMITE_DA_BUSCA = 50
 
-// OS da moto (a de fora da subconsulta) com caixa, cartão ou PIX ligado a ela.
-const osComDinheiro = sql`${ordensServico.motoId} = ${daMoto} and (
-  exists (select 1 from ${lancamentosCaixa} where ${lancamentosCaixa.osId} = ${ordensServico.id})
-  or exists (select 1 from ${conciliacoesCartao} where ${conciliacoesCartao.osId} = ${ordensServico.id})
-  or exists (select 1 from ${pixRecebimentosMcp} where ${pixRecebimentosMcp.osId} = ${ordensServico.id}))`
+// OS da moto (a de fora da subconsulta), com o pagamento dela; a regra pura decide se é dinheiro.
+// `financeiro`: caixa, cartão ou PIX ligado à OS, ou pagamento por transferência aguardando aprovação.
+const osDaMoto = sql<OsDaMoto[]>`coalesce((select json_agg(json_build_object(
+    'numero', ${ordensServico.numero}, 'formaPagamento', ${ordensServico.formaPagamento},
+    'pagamentos', ${ordensServico.pagamentos}, 'valorTotal', ${ordensServico.valorTotal},
+    'financeiro', exists (select 1 from ${lancamentosCaixa} where ${lancamentosCaixa.osId} = ${ordensServico.id})
+      or exists (select 1 from ${conciliacoesCartao} where ${conciliacoesCartao.osId} = ${ordensServico.id})
+      or exists (select 1 from ${pixRecebimentosMcp} where ${pixRecebimentosMcp.osId} = ${ordensServico.id})
+      or exists (select 1 from ${aprovacoesVenda} where ${aprovacoesVenda.osId} = ${ordensServico.id} and ${aprovacoesVenda.status} = 'pendente')
+  ) order by ${ordensServico.numero}) from ${ordensServico} where ${ordensServico.motoId} = ${daMoto}), '[]'::json)`
 
 function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
   return exec.select({
@@ -36,8 +41,7 @@ function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
     pedidoComPix: sql<boolean>`${exists(exec.select({ um: sql`1` }).from(pixRecebimentosMcp)
       .innerJoin(pedidosVenda, eq(pedidosVenda.id, pixRecebimentosMcp.pedidoId))
       .where(eq(pedidosVenda.motoId, daMoto)))}`,
-    osComDinheiroExiste: sql<boolean>`exists (select 1 from ${ordensServico} where ${osComDinheiro})`,
-    osComDinheiroNumero: sql<number | null>`(select min(${ordensServico.numero}) from ${ordensServico} where ${osComDinheiro})`,
+    osDaMoto,
   })
     .from(motos)
     .innerJoin(lojas, eq(lojas.id, motos.lojaId))
@@ -50,7 +54,7 @@ type LinhaDaMoto = Awaited<ReturnType<typeof motosComImpedimentos>>[number]
 const impedimentosDa = (m: LinhaDaMoto): ImpedimentosDeRemover => ({
   temVenda: m.temVenda, aprovacaoPendente: m.aprovacaoPendente, pedidoPendente: m.pedidoPendente,
   reservaAtiva: m.reservaAtiva, pedidoComPix: m.pedidoComPix,
-  osComDinheiro: m.osComDinheiroExiste ? { numero: m.osComDinheiroNumero } : null,
+  osComDinheiro: primeiraOsComDinheiro(m.osDaMoto),
 })
 
 /** Motos para o passo "Escolher": qualquer situação, inclusive arquivada, com o motivo de não poder. */
@@ -85,12 +89,15 @@ async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<string, 
   if (osIds.length > 0) {
     // O agendamento que virou OS continua na agenda, sem a OS; garantia e cupom de outra moto, idem.
     await tx.update(agendamentos).set({ osId: null }).where(inArray(agendamentos.osId, osIds))
-    await tx.update(aprovacoesVenda).set({ osId: null }).where(inArray(aprovacoesVenda.osId, osIds))
     await tx.update(garantias).set({ osId: null }).where(inArray(garantias.osId, osIds))
     await tx.update(cuponsRevisao).set({ osId: null }).where(inArray(cuponsRevisao.osId, osIds))
   }
   const motoIds = (linhas: { motoId: string | null }[]) => linhas.map(l => l.motoId)
+  // A ordem conta: o que aponta para a OS sai antes dela.
   return {
+    // A da moto e a de pagamento da OS (sem moto, origem 'os'); a pendente já recusou a remoção.
+    aprovacoes: (await tx.delete(aprovacoesVenda).where(or(inArray(aprovacoesVenda.motoId, ids), osIds.length === 0 ? sql`false` : inArray(aprovacoesVenda.osId, osIds)))
+      .returning({ motoId: aprovacoesVenda.motoId, osId: aprovacoesVenda.osId })).map(l => l.motoId ?? (l.osId ? motoDaOs.get(l.osId) ?? null : null)),
     os: os.length === 0 ? [] : motoIds(await tx.delete(ordensServico).where(inArray(ordensServico.id, osIds)).returning({ motoId: ordensServico.motoId })),
     itensDeOs: itens.map(i => motoDaOs.get(i.osId) ?? null),
     transferencias: motoIds(await tx.delete(transferencias).where(inArray(transferencias.motoId, ids)).returning({ motoId: transferencias.motoId })),
@@ -98,7 +105,6 @@ async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<string, 
     cupons: motoIds(await tx.delete(cuponsRevisao).where(inArray(cuponsRevisao.motoId, ids)).returning({ motoId: cuponsRevisao.motoId })),
     reservas: motoIds(await tx.delete(reservas).where(inArray(reservas.motoId, ids)).returning({ motoId: reservas.motoId })),
     pedidos: motoIds(await tx.delete(pedidosVenda).where(inArray(pedidosVenda.motoId, ids)).returning({ motoId: pedidosVenda.motoId })),
-    aprovacoes: motoIds(await tx.delete(aprovacoesVenda).where(inArray(aprovacoesVenda.motoId, ids)).returning({ motoId: aprovacoesVenda.motoId })),
     historico: motoIds(await tx.delete(historicoEstoque).where(inArray(historicoEstoque.motoId, ids)).returning({ motoId: historicoEstoque.motoId })),
   }
 }
