@@ -188,3 +188,8 @@ test('entregar ao próprio comprador com nome acima de 60 caracteres: a prévia 
   assert.deepEqual(pendenciasDaEntrega({ ...ENTREGAR_MA, recebe: { nome: 'Maria', cpfCnpj: '52998224725' } } as EntregaVenda, longo), [])
   assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }, longo), [])
 })
+
+test('entregar em outra UF que a do emitente é para outro estado também para contribuinte e ciclomotor da UF da loja', () => {
+  assert.deepEqual(operacaoDaVenda({ ...PI_PARA_MA, ufCliente: 'PI', entrega: ENTREGAR_MA, ciclomotor: true, clienteContribuinte: true }),
+    { interestadual: true, motivo: 'entregar', ufOrigem: 'PI', ufDestino: 'MA' })
+})

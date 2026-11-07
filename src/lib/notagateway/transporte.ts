@@ -1,4 +1,4 @@
-import { UFS, ufValida } from '@/lib/sefaz/uf'
+import { codigoDaUf, ufValida } from '@/lib/sefaz/uf'
 import { cnpjValido, cpfValido, soDigitosDoc } from '@/lib/documento'
 import { tipoPessoa } from './venda'
 
@@ -92,7 +92,8 @@ const erroDeFormatoDoLocal = (local: LocalDeEntrega): string | null => {
 /** Município em código IBGE e da UF da entrega: MOC 7.0 Anexo I, G07-30 (rejeição 279). */
 const erroDoMunicipio = (local: LocalDeEntrega): string | null => {
   if (!/^\d{7}$/.test(local.cidade)) return 'Código IBGE do município deve ter 7 dígitos.'
-  if (UFS.find(u => u.sigla === local.uf)?.codigo !== local.cidade.slice(0, 2)) return 'O código IBGE do município não é da UF de entrega.'
+  // A UF já passou por `ufValida` (erroDeFormatoDoLocal), então codigoDaUf não lança.
+  if (codigoDaUf(local.uf) !== local.cidade.slice(0, 2)) return 'O código IBGE do município não é da UF de entrega.'
   return null
 }
 
