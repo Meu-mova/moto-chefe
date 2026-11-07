@@ -1,9 +1,8 @@
 'use client'
-import { useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CepInput } from '@/components/ui/cep-input'
-import { buscarEnderecoPorCep } from '@/lib/mascaras'
+import { useBuscaCep } from '@/components/use-busca-cep'
 import { faltamNoEnderecoSede, limparEnderecoSede, montarEnderecoSede, type EnderecoSede } from '@/lib/endereco-sede'
 import { UFS } from '@/lib/sefaz/uf'
 
@@ -27,22 +26,15 @@ export function EnderecoSedeCampos({ id, valor, onChange, disabled, erro, linhaA
   /** Linha gravada hoje: é a que vale no contrato enquanto os campos estiverem incompletos. */
   linhaAtual: string | null
 }) {
-  const [busca, setBusca] = useState<'buscando' | 'nao_achou' | null>(null)
-  // Resposta de um CEP já trocado não pode sobrescrever os campos do CEP novo.
-  const ultimoCep = useRef('')
   const montada = montarEnderecoSede(limparEnderecoSede(valor))
   const faltam = faltamNoEnderecoSede(limparEnderecoSede(valor))
+  // Só o que o ViaCEP trouxe; o resto (número, complemento) fica como está.
+  const { busca, buscar } = useBuscaCep(({ logradouro, bairro, cidade, uf }) =>
+    onChange(Object.fromEntries(Object.entries({ logradouro, bairro, cidade, uf }).filter(([, v]) => v))))
 
-  async function trocarCep(cep: string) {
+  function trocarCep(cep: string) {
     onChange({ cep })
-    ultimoCep.current = cep
-    if (cep.replace(/\D/g, '').length !== 8) { setBusca(null); return }
-    setBusca('buscando')
-    const e = await buscarEnderecoPorCep(cep)
-    if (ultimoCep.current !== cep) return
-    setBusca(e ? null : 'nao_achou')
-    // Só o que o ViaCEP trouxe; o resto (número, complemento) fica como está.
-    if (e) onChange(Object.fromEntries(Object.entries(e).filter(([, v]) => v)) as Partial<EnderecoSede>)
+    buscar(cep)
   }
 
   return (
