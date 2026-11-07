@@ -60,3 +60,21 @@ test('"Retira na loja" do pedido e pedido antigo sem Entrega', async () => {
   await abrir(null)
   assert.match(entregaNaTela(), /Pedido sem a Entrega informada/)
 })
+
+// Frete cobrado (#726, 4b): a efetivação mostra o frete do pedido e o total; o servidor soma o frete do pedido.
+test('pedido com frete: mostra o frete cobrado, pede o valor da moto e soma o total', async () => {
+  const { digitar } = await import('@/test/eventos-dom')
+  await abrir({ ...ENTREGAR, frete: 350 } as EntregaVenda)
+  assert.match(entregaNaTela(), /Frete cobrado: R\$\s*350,00/)
+  const rotulo = [...document.querySelectorAll('label')].find(l => /^Valor da moto/.test(l.textContent ?? ''))
+  assert.ok(rotulo, 'o campo de valor diz que é o valor da moto')
+  const campo = rotulo.parentElement!.querySelector('input')!
+  await digitar(campo, '1000000')
+  assert.match(document.body.textContent ?? '', /Total \(moto \+ frete\): R\$\s*10\.350,00/)
+})
+
+test('pedido sem frete continua com "Valor (R$)" e sem total à parte', async () => {
+  await abrir(ENTREGAR)
+  assert.ok([...document.querySelectorAll('label')].some(l => (l.textContent ?? '') === 'Valor (R$)'))
+  assert.doesNotMatch(document.body.textContent ?? '', /Total \(moto \+ frete\)/)
+})

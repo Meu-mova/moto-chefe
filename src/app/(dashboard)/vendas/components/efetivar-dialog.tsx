@@ -14,7 +14,8 @@ import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busc
 import { lerDocumentoCliente, mascararCpfCnpj, tipoPessoaSeCompleto } from '@/lib/documento'
 import { DocumentoClienteInput } from '@/components/documento-cliente'
 import { textoDaModalidade } from '@/lib/notagateway/transporte'
-import { enderecoDaEntregaEmLinha, textoDaEntrega, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { enderecoDaEntregaEmLinha, freteDaVenda, textoDaEntrega, totalComFrete, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { brl } from '@/lib/dashboard-painel'
 
 type Props = {
   pedidoId: string; chassi: string; modelo: string; origens: OrigemParaEscolher[]
@@ -32,6 +33,7 @@ function EntregaDoPedido({ entrega }: { entrega: EntregaVenda | null }) {
             <>
               <p className="text-muted-foreground">{enderecoDaEntregaEmLinha(entrega.endereco)}</p>
               <p className="text-muted-foreground">Quem recebe: {entrega.recebe?.nome ?? 'o comprador'}</p>
+              {freteDaVenda(entrega) > 0 && <p className="text-muted-foreground">Frete cobrado: {brl(freteDaVenda(entrega))}</p>}
             </>
           )}
           <p className="text-muted-foreground">Modalidade: {textoDaModalidade(entrega.modalidade) ?? 'não escolhida'}</p>
@@ -84,6 +86,7 @@ export function EfetivarDialog({ pedidoId, chassi, modelo, origens, entrega }: P
     }
   }
 
+  const frete = freteDaVenda(entrega)
   const juridica = tipoPessoaSeCompleto(clienteCpf) === 'juridica'
   const podeEfetivar = !!clienteNome && lerDocumentoCliente(clienteCpf).ok && !!valor && !!formaPagamento
     && origemPreenchida(origens, origemId, origemDetalhe)
@@ -113,8 +116,10 @@ export function EfetivarDialog({ pedidoId, chassi, modelo, origens, entrega }: P
             </div>
             <EntregaDoPedido entrega={entrega} />
             <div className="space-y-2">
-              <Label>Valor (R$)</Label>
+              <Label>{frete ? 'Valor da moto (R$)' : 'Valor (R$)'}</Label>
               <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" />
+              {/* O servidor soma o frete do pedido ao valor: aqui só se mostra o total. */}
+              {frete > 0 && <p className="text-sm font-medium">Total (moto + frete): {brl(totalComFrete(Number(valor) || 0, frete))}</p>}
             </div>
             <OrigemVendaSelect
               origens={origens}

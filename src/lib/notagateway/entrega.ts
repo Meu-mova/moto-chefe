@@ -4,8 +4,10 @@
  */
 import { lerDocumentoCliente } from '@/lib/documento'
 import { mascaraCep } from '@/lib/mascaras'
+import { brl } from '@/lib/dashboard-painel'
+import { centavos } from '@/lib/numero-br'
 import { tipoPessoa } from './venda'
-import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, NOME_DE_QUEM_RECEBE_LONGO, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
+import { ehModalidade, erroDoLocalDeEntrega, textoDaModalidade, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, NOME_DE_QUEM_RECEBE_LONGO, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
 
 /** O lugar da entrega como a NF exige (cidade = código IBGE), mais o nome da cidade só para a tela. */
 export type EnderecoDaEntrega = Required<LocalDeEntrega> & { nomeCidade: string }
@@ -14,7 +16,39 @@ export type QuemRecebe = { nome: string; cpfCnpj: string }
 
 export type EntregaVenda =
   | { modo: 'retira'; modalidade: ModalidadeFrete | '' }
-  | { modo: 'entregar'; modalidade: ModalidadeFrete | ''; endereco: EnderecoDaEntrega; recebe: QuemRecebe | null }
+  | {
+    modo: 'entregar'; modalidade: ModalidadeFrete | ''; endereco: EnderecoDaEntrega; recebe: QuemRecebe | null
+    /** Frete cobrado do cliente, em reais; ausente = sem frete. Está somado em `vendas.valor` (#726, #796). */
+    frete?: number
+  }
+
+/** Modalidades em que a loja faz o frete: só nelas o frete cobrado existe e vai na nota (decisão do Luis, 07/11/2026). */
+const MODALIDADES_COM_FRETE: readonly ModalidadeFrete[] = ['TransporteProprioPorContaDoRemetente', 'ContratacaoPorContaDoRemetente']
+export const modalidadeComFrete = (m: ModalidadeFrete | '') => (MODALIDADES_COM_FRETE as readonly string[]).includes(m)
+
+/** Frete cobrado gravado na Entrega (zero sem frete, na retirada e em venda antiga). */
+export const freteDaVenda = (entrega: EntregaVenda | null): number => (entrega?.modo === 'entregar' ? entrega.frete ?? 0 : 0)
+
+/**
+ * Valor da venda = moto + frete cobrado (#726). A mesma conta na tela, na efetivação e no editar venda. Sem piso:
+ * abaixo do frete é pendência da NF e item moto sem valor (`motoNaNota`). Relatórios podem ter regra própria.
+ */
+export const totalComFrete = (valorDaMoto: number, frete: number): number => centavos(valorDaMoto + frete)
+export const valorDaMoto = (valorDaVenda: number, frete: number): number => centavos(valorDaVenda - frete)
+/** A moto na nota e no item do pedido; nulo quando o valor da venda não cobre o frete (pendência da NF, tela e item sem valor). */
+export const motoNaNota = (valorDaVenda: number, frete: number): number | null => {
+  const moto = valorDaMoto(valorDaVenda, frete)
+  return moto > 0 ? moto : null
+}
+
+const SO_FRETE_DA_LOJA = `O frete cobrado só vale com ${MODALIDADES_COM_FRETE.map(m => `"${textoDaModalidade(m)}"`).join(' ou ')}.`
+
+function conferirFrete(frete: unknown, modalidade: ModalidadeFrete | ''): Conferida<{ frete: number | null }> {
+  if (frete == null) return { ok: true, frete: null }
+  if (!modalidadeComFrete(modalidade)) return { ok: false, erro: SO_FRETE_DA_LOJA }
+  const emReais = typeof frete === 'number' && Number.isFinite(frete) && frete > 0 && centavos(frete) === frete
+  return emReais ? { ok: true, frete } : { ok: false, erro: 'Valor do frete inválido.' }
+}
 
 /** Como a Entrega aparece no resumo do pedido e na efetivação. */
 export const textoDaEntrega = (entrega: EntregaVenda): string => {
@@ -52,12 +86,18 @@ const NOME_DO_CLIENTE_LONGO = `O nome do cliente passa de ${LIMITE_TEXTO_XML} ca
 
 /**
  * O que a Entrega impede de emitir; venda antiga (sem Entrega) não exige modalidade. Comprador que recebe
- * a entrega vai como `nomeDestinatario`, que a NF limita a 60 caracteres.
+ * a entrega vai como `nomeDestinatario`, que a NF limita a 60 caracteres. O frete sai do valor da venda:
+ * venda editada para menos que o frete deixaria a moto sem valor na nota.
  */
-export const pendenciasDaEntrega = (entrega: EntregaVenda | null, nomeDoComprador: string): string[] => [
-  ...(entrega && !entrega.modalidade ? [PENDENCIA_SEM_MODALIDADE] : []),
-  ...(entrega?.modo === 'entregar' && !entrega.recebe && nomeDoComprador.trim().length > LIMITE_TEXTO_XML ? [NOME_DO_CLIENTE_LONGO] : []),
-]
+export function pendenciasDaEntrega(entrega: EntregaVenda | null, nomeDoComprador: string, valorDaVenda: number): string[] {
+  const frete = freteDaVenda(entrega)
+  return [
+    ...(entrega && !entrega.modalidade ? [PENDENCIA_SEM_MODALIDADE] : []),
+    ...(entrega?.modo === 'entregar' && !entrega.recebe && nomeDoComprador.trim().length > LIMITE_TEXTO_XML ? [NOME_DO_CLIENTE_LONGO] : []),
+    ...(frete && motoNaNota(valorDaVenda, frete) === null
+      ? [`O valor da venda não cobre o frete cobrado (${brl(frete)}). Corrija em Editar venda: o valor da venda inclui o frete.`] : []),
+  ]
+}
 
 type Conferida<T> = { ok: true } & T | { ok: false; erro: string }
 
@@ -99,7 +139,9 @@ export function conferirEntrega(dado: unknown): Conferida<{ entrega: EntregaVend
   if (erro) return { ok: false, erro }
   const recebe = conferirQuemRecebe(r)
   if (!recebe.ok) return recebe
-  return { ok: true, entrega: { modo, modalidade, endereco, recebe: recebe.recebe } }
+  const frete = conferirFrete((dado as { frete?: unknown }).frete, modalidade)
+  if (!frete.ok) return frete
+  return { ok: true, entrega: { modo, modalidade, endereco, recebe: recebe.recebe, ...(frete.frete ? { frete: frete.frete } : {}) } }
 }
 
 /** O transporte da NF para "Entregar": quem recebe vazio é o comprador da venda (#726). */

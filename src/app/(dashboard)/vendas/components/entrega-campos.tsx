@@ -8,7 +8,7 @@ import { DocumentoClienteInput } from '@/components/documento-cliente'
 import { useBuscaCep } from '@/components/use-busca-cep'
 import { lerDocumentoCliente } from '@/lib/documento'
 import { UFS } from '@/lib/sefaz/uf'
-import { conferirQuemRecebe, type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
+import { conferirQuemRecebe, modalidadeComFrete, type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
 
 /** O que a tela edita: trocar de "Entregar" para "Retira" e voltar não apaga o endereço digitado. */
 export type EntregaDoFormulario = Pick<EntregaVenda, 'modalidade'> & {
@@ -16,17 +16,26 @@ export type EntregaDoFormulario = Pick<EntregaVenda, 'modalidade'> & {
   endereco: EnderecoDaEntrega
   outraPessoa: boolean
   recebe: QuemRecebe
+  /** "+ Frete" ligado e o valor como o `CurrencyInput` devolve ("350.00"). */
+  comFrete: boolean
+  frete: string
 }
 
 export const ENTREGA_DO_FORMULARIO_INICIAL: EntregaDoFormulario = {
-  modo: 'retira', modalidade: '', outraPessoa: false, recebe: { nome: '', cpfCnpj: '' },
+  modo: 'retira', modalidade: '', outraPessoa: false, recebe: { nome: '', cpfCnpj: '' }, comFrete: false, frete: '',
   endereco: { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', nomeCidade: '', uf: '' },
 }
 
+/** O frete cobrado vale só na entrega feita pela loja; trocar o modo ou a modalidade o tira (decisão do Luis, 07/11/2026). */
+export const freteDoFormulario = (f: EntregaDoFormulario): number =>
+  f.modo === 'entregar' && f.comFrete && modalidadeComFrete(f.modalidade) && Number(f.frete) > 0 ? Number(f.frete) : 0
+
 /** A Entrega que vai ao servidor: só o que o modo escolhido usa. Quem recebe vazio = o comprador. */
-export const entregaDoFormulario = (f: EntregaDoFormulario): EntregaVenda => (f.modo === 'retira'
-  ? { modo: 'retira', modalidade: f.modalidade }
-  : { modo: 'entregar', modalidade: f.modalidade, endereco: f.endereco, recebe: f.outraPessoa ? f.recebe : null })
+export function entregaDoFormulario(f: EntregaDoFormulario): EntregaVenda {
+  if (f.modo === 'retira') return { modo: 'retira', modalidade: f.modalidade }
+  const frete = freteDoFormulario(f)
+  return { modo: 'entregar', modalidade: f.modalidade, endereco: f.endereco, recebe: f.outraPessoa ? f.recebe : null, ...(frete ? { frete } : {}) }
+}
 
 /** Quem recebe recusado pela mesma regra do servidor (ADR-0015, até 60 caracteres): a tela não deixa criar. */
 export const quemRecebeInvalido = (f: EntregaDoFormulario) => f.modo === 'entregar' && f.outraPessoa && !conferirQuemRecebe(f.recebe).ok

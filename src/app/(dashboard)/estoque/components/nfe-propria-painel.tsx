@@ -401,7 +401,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
             )}
             {cestEdicao != null && erro && <p className="text-sm text-destructive">{erro}</p>}
           </Bloco>
-          <Bloco titulo="Valor" resumo={brl(r.valor)}>
+          <Bloco titulo="Valor" resumo={r.freteNaNota > 0 ? `${brl(r.valor)} com frete de ${brl(r.freteNaNota)}` : brl(r.valor)}>
+            {r.freteNaNota > 0 && <p className="text-muted-foreground">Frete na nota: {brl(r.freteNaNota)} (soma no total da nota)</p>}
             {r.pagamentos.map((p, i) => (
               <p key={i} className="flex justify-between text-muted-foreground">
                 <span>{ROTULO_PAGAMENTO[p.tipo] ?? p.tipo}</span><span className="tabular-nums">{brl(p.valor)}</span>
