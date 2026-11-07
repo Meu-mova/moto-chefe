@@ -110,6 +110,9 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
                   <div className="space-y-1">
                     <Label htmlFor="pedido-frete">Valor cobrado do cliente</Label>
                     <CurrencyInput id="pedido-frete" value={entrega.frete} onChange={frete => setEntrega(anterior => ({ ...anterior, frete }))} placeholder="0,00" />
+                    {!(Number(entrega.frete) > 0) && (
+                      <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">Informe o valor do frete. Sem ele o pedido sai sem frete.</p>
+                    )}
                     <p className="text-xs text-muted-foreground">Frete precisa de entrega: a opção &quot;Entregar&quot; fica marcada.</p>
                   </div>
                 ) : !modalidadeComFrete(entrega.modalidade) && (

@@ -243,3 +243,13 @@ test('"+ Frete" na retirada marca "Entregar"', async () => {
   await t.clique(botaoFrete())
   assert.equal(opcaoDeEntrega(/Entregar/)?.checked, true)
 })
+
+test('"Frete adicionado" sem valor avisa que o pedido sai sem frete (avisa, não bloqueia)', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await t.clique(botaoFrete())
+  assert.match(textoDaTela(), /Informe o valor do frete\. Sem ele o pedido sai sem frete\./)
+  await digitar(campo<HTMLInputElement>(/^Valor cobrado do cliente/), '35000')
+  assert.doesNotMatch(textoDaTela(), /Informe o valor do frete/)
+})
