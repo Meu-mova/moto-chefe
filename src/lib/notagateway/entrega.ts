@@ -15,6 +15,10 @@ export type EntregaVenda =
   | { modo: 'retira'; modalidade: ModalidadeFrete | '' }
   | { modo: 'entregar'; modalidade: ModalidadeFrete | ''; endereco: EnderecoDaEntrega; recebe: QuemRecebe | null }
 
+/** Como a Entrega aparece no resumo do pedido e na efetivação. */
+export const textoDaEntrega = (entrega: EntregaVenda): string =>
+  entrega.modo === 'retira' ? 'Retira na loja' : `Entregar em ${entrega.endereco.nomeCidade || entrega.endereco.cidade}/${entrega.endereco.uf}`
+
 /** Venda com Entrega e sem modalidade: o Novo pedido avisa e a NF não sai (#682). */
 export const AVISO_SEM_MODALIDADE = 'Escolha a modalidade do frete. Sem ela a nota não sai.'
 

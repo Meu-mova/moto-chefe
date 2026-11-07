@@ -10,7 +10,8 @@ export function mascaraCep(bruto: string): string {
   return d.replace(/(\d{5})(\d{1,3})$/, '$1-$2')
 }
 
-export type EnderecoCep = { logradouro: string; bairro: string; cidade: string; uf: string }
+/** `ibge`: código do município (7 dígitos), que a NF de saída pede no endereço de entrega. */
+export type EnderecoCep = { logradouro: string; bairro: string; cidade: string; uf: string; ibge: string }
 
 /** Endereço do CEP pelo ViaCEP. null quando o CEP está incompleto, não existe ou a busca falha. */
 export async function buscarEnderecoPorCep(cep: string): Promise<EnderecoCep | null> {
@@ -20,7 +21,7 @@ export async function buscarEnderecoPorCep(cep: string): Promise<EnderecoCep | n
     const res = await fetch(`https://viacep.com.br/ws/${d}/json/`)
     const data = await res.json()
     if (data.erro) return null
-    return { logradouro: data.logradouro ?? '', bairro: data.bairro ?? '', cidade: data.localidade ?? '', uf: data.uf ?? '' }
+    return { logradouro: data.logradouro ?? '', bairro: data.bairro ?? '', cidade: data.localidade ?? '', uf: data.uf ?? '', ibge: data.ibge ?? '' }
   } catch {
     return null
   }

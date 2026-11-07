@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
-import { clicar, escolher } from '@/test/eventos-dom'
+import { clicar, digitar, escolher } from '@/test/eventos-dom'
 
 const { desmontar: desmontarDom } = montarDom()
 after(desmontarDom)
@@ -18,6 +18,7 @@ mock.module('../actions', { namedExports: {
 const montados: (() => Promise<void>)[] = []
 afterEach(async () => {
   criar.mock.resetCalls()
+  mock.restoreAll()
   for (const desmontar of montados.splice(0)) await desmontar()
 })
 
@@ -50,13 +51,15 @@ async function montar() {
   let montado = true
   montados.push(() => act(async () => { if (!montado) return; montado = false; root.unmount(); container.remove() }))
   await clique(botao('Criar Pedido de Venda'))
-  return { clique }
+  // A busca do CEP responde depois da tecla: espera o React aplicar o endereço.
+  const esperarBuscaDoCep = () => act(() => esperar(50))
+  return { clique, esperarBuscaDoCep }
 }
 
-test('abre com "Retira na loja" marcada, sem "Entregar" e sem nenhuma modalidade escolhida, avisando', async () => {
+test('abre com "Retira na loja" marcada, "Entregar" desmarcada e sem nenhuma modalidade escolhida, avisando', async () => {
   await montar()
   assert.equal(opcaoDeEntrega(/Retira na loja/)?.checked, true)
-  assert.equal(opcaoDeEntrega(/Entregar/), undefined)
+  assert.equal(opcaoDeEntrega(/Entregar/)?.checked, false)
   assert.equal(campo<HTMLSelectElement>(/^Modalidade do frete na nota/).value, '')
   assert.match(textoDaTela(), new RegExp(AVISO))
   assert.match(resumo(), /Retira na loja/)
@@ -88,4 +91,82 @@ test('o cabeçalho mostra a loja da moto escolhida', async () => {
   assert.equal(subtitulo(), 'Escolha a moto para ver a loja do pedido.')
   await escolher(campo<HTMLSelectElement>(/^Moto disponível/), MOTO.id)
   assert.equal(subtitulo(), 'Loja Centro')
+})
+
+// "Entregar" (#726): o CEP preenche o endereço pela busca de CEP (ViaCEP, a fronteira de fora).
+const VIACEP_SAO_LUIS = { logradouro: 'Rua de exemplo', bairro: 'Centro', localidade: 'São Luís', uf: 'MA', ibge: '2111300' }
+function viaCep(resposta: object) {
+  mock.method(globalThis, 'fetch', async (url: string) => {
+    assert.match(String(url), /^https:\/\/viacep\.com\.br\/ws\/65000000\/json\/$/)
+    return Response.json(resposta)
+  })
+}
+
+async function entregarComCep(t: Awaited<ReturnType<typeof montar>>) {
+  await escolher(campo<HTMLSelectElement>(/^Moto disponível/), MOTO.id)
+  await t.clique(opcaoDeEntrega(/Entregar/))
+  await digitar(campo<HTMLInputElement>(/^CEP/), '65000000')
+  await t.esperarBuscaDoCep()
+  await digitar(campo<HTMLInputElement>(/^Número/), '100')
+  await escolher(campo<HTMLSelectElement>(/^Modalidade do frete na nota/), 'TransporteProprioPorContaDoRemetente')
+}
+
+const ENDERECO_SAO_LUIS = {
+  cep: '65000-000', logradouro: 'Rua de exemplo', numero: '100', complemento: '', bairro: 'Centro',
+  cidade: '2111300', nomeCidade: 'São Luís', uf: 'MA',
+}
+
+test('"Entregar": o CEP preenche rua, bairro, cidade, UF e o código IBGE; envia o endereço com o comprador recebendo', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  assert.equal(campo<HTMLInputElement>(/^Rua/).value, 'Rua de exemplo')
+  assert.equal(campo<HTMLSelectElement>(/^UF/).value, 'MA')
+  assert.equal([...document.querySelectorAll('label')].some(l => /Código IBGE/.test(l.textContent ?? '')), false)
+  assert.match(resumo(), /Entregar em São Luís\/MA/)
+  await t.clique(botao('Criar pedido'))
+  assert.deepEqual(criar.mock.calls.map(c => c.arguments), [[MOTO.id, '', {
+    modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', endereco: ENDERECO_SAO_LUIS, recebe: null,
+  }]])
+})
+
+test('CEP não encontrado: aparece o código IBGE do município para digitar', async () => {
+  viaCep({ erro: true })
+  const t = await montar()
+  await entregarComCep(t)
+  await digitar(campo<HTMLInputElement>(/^Rua/), 'Rua de exemplo')
+  await digitar(campo<HTMLInputElement>(/^Bairro/), 'Centro')
+  await digitar(campo<HTMLInputElement>(/^Cidade/), 'São Luís')
+  await escolher(campo<HTMLSelectElement>(/^UF/), 'MA')
+  await digitar(campo<HTMLInputElement>(/^Código IBGE do município/), '2111300')
+  await t.clique(botao('Criar pedido'))
+  assert.deepEqual(criar.mock.calls[0].arguments[2], {
+    modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', endereco: ENDERECO_SAO_LUIS, recebe: null,
+  })
+})
+
+test('"Outra pessoa recebe" com CPF inválido mostra o erro e não deixa criar; com CPF válido envia nome e documento', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await t.clique(campo<HTMLInputElement>(/^Outra pessoa recebe/))
+  await digitar(campo<HTMLInputElement>(/^Nome de quem recebe/), 'Maria Exemplo')
+  await digitar(campo<HTMLInputElement>(/^CPF ou CNPJ de quem recebe/), '52998224724')
+  assert.match(textoDaTela(), /CPF inválido\. Confira os números\./)
+  assert.equal(botao('Criar pedido')?.disabled, true)
+  await digitar(campo<HTMLInputElement>(/^CPF ou CNPJ de quem recebe/), '52998224725')
+  await t.clique(botao('Criar pedido'))
+  assert.deepEqual(criar.mock.calls[0].arguments[2], {
+    modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', endereco: ENDERECO_SAO_LUIS,
+    recebe: { nome: 'Maria Exemplo', cpfCnpj: '529.982.247-25' },
+  })
+})
+
+test('voltar para "Retira na loja" envia só a retirada, sem o endereço digitado', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await t.clique(opcaoDeEntrega(/Retira na loja/))
+  await t.clique(botao('Criar pedido'))
+  assert.deepEqual(criar.mock.calls[0].arguments[2], { modo: 'retira', modalidade: 'TransporteProprioPorContaDoRemetente' })
 })
