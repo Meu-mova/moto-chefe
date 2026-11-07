@@ -3,6 +3,7 @@
  * pedido, vai para a venda na efetivação e decide se a NF de saída é dentro ou fora do estado.
  */
 import { lerDocumentoCliente } from '@/lib/documento'
+import { mascaraCep } from '@/lib/mascaras'
 import { tipoPessoa } from './venda'
 import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, NOME_DE_QUEM_RECEBE_LONGO, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
 
@@ -16,13 +17,16 @@ export type EntregaVenda =
   | { modo: 'entregar'; modalidade: ModalidadeFrete | ''; endereco: EnderecoDaEntrega; recebe: QuemRecebe | null }
 
 /** Como a Entrega aparece no resumo do pedido e na efetivação. */
-export const textoDaEntrega = (entrega: EntregaVenda): string =>
-  entrega.modo === 'retira' ? 'Retira na loja' : `Entregar em ${entrega.endereco.nomeCidade || entrega.endereco.cidade}/${entrega.endereco.uf}`
+export const textoDaEntrega = (entrega: EntregaVenda): string => {
+  if (entrega.modo === 'retira') return 'Retira na loja'
+  const { nomeCidade, cidade, uf } = entrega.endereco
+  return uf ? `Entregar em ${nomeCidade || cidade}/${uf}` : 'Entregar'
+}
 
 /** Endereço da entrega numa linha (efetivação): só o que foi preenchido. */
 export const enderecoDaEntregaEmLinha = (e: EnderecoDaEntrega): string => [
   e.logradouro, e.numero, e.complemento, e.bairro, `${e.nomeCidade || e.cidade}/${e.uf}`,
-  e.cep ? `CEP ${e.cep.slice(0, 5)}-${e.cep.slice(5)}` : '',
+  e.cep ? `CEP ${mascaraCep(e.cep)}` : '',
 ].filter(Boolean).join(', ')
 
 /** Venda com Entrega e sem modalidade: o Novo pedido avisa e a NF não sai (#682). */

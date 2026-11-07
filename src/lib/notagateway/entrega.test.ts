@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, operacaoDaVenda, pendenciasDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
+import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -197,4 +197,10 @@ test('entregar em outra UF que a do emitente é para outro estado também para c
 test('o endereço da entrega numa linha, para a efetivação: sem complemento vazio e com o CEP formatado', () => {
   assert.equal(enderecoDaEntregaEmLinha(ENTREGAR_MA.endereco), 'Rua de exemplo, 100, Centro, São Luís/MA, CEP 65000-000')
   assert.equal(enderecoDaEntregaEmLinha({ ...ENTREGAR_MA.endereco, complemento: 'Casa 2', cep: '' }), 'Rua de exemplo, 100, Casa 2, Centro, São Luís/MA')
+})
+
+test('o resumo diz para onde vai a entrega; sem UF ainda, só "Entregar"', () => {
+  assert.equal(textoDaEntrega(ENTREGAR_MA), 'Entregar em São Luís/MA')
+  assert.equal(textoDaEntrega({ ...ENTREGAR_MA, endereco: { ...ENTREGAR_MA.endereco, nomeCidade: '', cidade: '', uf: '' } } as EntregaVenda), 'Entregar')
+  assert.equal(textoDaEntrega({ modo: 'retira', modalidade: '' }), 'Retira na loja')
 })

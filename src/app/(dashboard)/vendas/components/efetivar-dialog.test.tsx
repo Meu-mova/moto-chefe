@@ -1,4 +1,4 @@
-// Efetivação (#726): a Entrega chega pronta do pedido e só se mostra; o navegador não a manda de novo.
+// Efetivação (#726): a Entrega chega pronta do pedido e a tela só a mostra para conferir.
 // As Server Actions são a fronteira de fora; o resto roda de verdade.
 import { createElement } from 'react'
 import test, { after, afterEach, mock } from 'node:test'
