@@ -53,7 +53,7 @@ test('ranking: o detalhe do celular traz o que as colunas de desconto mostram', 
   assert.ok(texto.includes('no preço R$ 500,00 (0.5%)'))
 })
 
-test('rankings de vendedor, modelo e loja chamam a coluna de "Vendas em motos": o valor é sem o frete, diferente do "Total de vendas" do topo (#796)', () => {
+test('rankings de vendedor, modelo e loja chamam a coluna de "Vendas em motos", não de "Total de vendas" (#796)', () => {
   const vendedores = renderToStaticMarkup(createElement(TabelaRankingVendedores, { ranking: [{ vendedorId: 'a', nome: 'Ana', loja: 'L', totalVendas: 1, faturamento: '10000' }] }))
   const modelos = renderToStaticMarkup(createElement(TabelaModelosMaisVendidos, { modelos: [{ modelo: 'JET', marca: 'MC', totalVendas: 1, faturamento: '10000' }] }))
   const lojas = renderToStaticMarkup(createElement(TabelaRankingLojas, { ranking: [{ lojaId: 'l', loja: 'L', totalVendas: 1, faturamento: '10000' }] }))

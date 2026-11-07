@@ -8,7 +8,7 @@
  * Duas medidas, porque elas respondem coisas diferentes e a diferença entre as
  * duas é a taxa da maquininha:
  *   margem — quanto faltou pro piso DEPOIS das taxas
- *   preço  — quanto o vendedor cedeu na negociação, sobre o valor cheio
+ *   preço  — quanto o vendedor cedeu na negociação, sobre o valor cheio da moto (sem o frete, #796)
  *
  * Uma venda de 10.908 em 12x com piso de 10.490 tem preço 0 (vendeu acima da
  * tabela) e margem 500,99 (a taxa comeu). Sem as duas colunas não dá pra separar
