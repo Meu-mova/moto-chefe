@@ -6,11 +6,12 @@
 // moto viva: com a trava nova, reserva, venda direta, pedido de aprovação e aprovar venda gravam.
 // Fronteira de fora mockada: sessão, Supabase (nenhum gravador o chama mais; o módulo das
 // actions só o importa), next/cache, Kommo e WhatsApp.
-import { after, before, mock, test } from 'node:test'
+import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import pg from 'pg'
 import { sql } from 'drizzle-orm'
 import { semearContaBase, semearUsuario } from '@/test/semear-conta'
+import { mockarFronteiraDasVendas } from '@/test/fronteira-vendas'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -25,13 +26,7 @@ let usuarioDaSessao: Record<string, unknown> = {}
 
 type Db = typeof import('@/lib/db')
 let db: Db['db']
-const mocks = [
-  mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => usuarioDaSessao } }),
-  mock.module('@/lib/supabase/server', { namedExports: { createClient: async () => ({}) } }),
-  mock.module('next/cache', { namedExports: { revalidatePath: () => {} } }),
-  mock.module('@/lib/kommo', { namedExports: { virarLeadKommo: async () => ({ resultado: 'sem_lead' }) } }),
-  mock.module('@/lib/whatsapp/venda', { namedExports: { notificarVendaWhatsapp: async () => ({ resultado: 'desligado' }) } }),
-]
+const restaurarMocks = mockarFronteiraDasVendas(() => usuarioDaSessao)
 
 type Acoes = {
   reservar: typeof import('@/app/(dashboard)/vendas/actions')['registrarReservaAction']
@@ -86,7 +81,7 @@ after(async () => {
   await db.execute(sql`delete from lojas where grupo_id = ${semente.grupoId}`)
   await db.execute(sql`delete from grupos where id = ${semente.grupoId}`)
   await db.execute(sql`delete from contas where id = ${semente.contaId}`)
-  for (const m of mocks) m.restore()
+  restaurarMocks()
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
