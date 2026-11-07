@@ -179,3 +179,12 @@ test('faturamento direto: a UF do formulário diferente da Entrega da venda impe
   assert.equal(conflitoDaUfDoFormulario(null, formulario('PI')), null)
   assert.equal(conflitoDaUfDoFormulario(ENTREGAR_MA, undefined), null)
 })
+
+test('entregar ao próprio comprador com nome acima de 60 caracteres: a prévia pede para corrigir o nome do cliente', () => {
+  const longo = 'x'.repeat(61)
+  assert.deepEqual(pendenciasDaEntrega(ENTREGAR_MA, longo),
+    ['O nome do cliente passa de 60 caracteres, o limite da nota para quem recebe a entrega. Corrija o nome do cliente antes de emitir.'])
+  assert.deepEqual(pendenciasDaEntrega(ENTREGAR_MA, 'Cliente'), [])
+  assert.deepEqual(pendenciasDaEntrega({ ...ENTREGAR_MA, recebe: { nome: 'Maria', cpfCnpj: '52998224725' } } as EntregaVenda, longo), [])
+  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }, longo), [])
+})

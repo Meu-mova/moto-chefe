@@ -33,8 +33,16 @@ export function conflitoDaUfDoFormulario(entrega: EntregaVenda | null, formulari
   return entrega?.modo === 'entregar' && uf && uf !== entrega.endereco.uf ? UF_DO_FORMULARIO_DIFERENTE : null
 }
 
-/** O que a Entrega impede de emitir; venda antiga (sem Entrega) não exige modalidade. */
-export const pendenciasDaEntrega = (entrega: EntregaVenda | null): string[] => (entrega && !entrega.modalidade ? [PENDENCIA_SEM_MODALIDADE] : [])
+const NOME_DO_CLIENTE_LONGO = `O nome do cliente passa de ${LIMITE_TEXTO_XML} caracteres, o limite da nota para quem recebe a entrega. Corrija o nome do cliente antes de emitir.`
+
+/**
+ * O que a Entrega impede de emitir; venda antiga (sem Entrega) não exige modalidade. Comprador que recebe
+ * a entrega vai como `nomeDestinatario`, que a NF limita a 60 caracteres.
+ */
+export const pendenciasDaEntrega = (entrega: EntregaVenda | null, nomeDoComprador = ''): string[] => [
+  ...(entrega && !entrega.modalidade ? [PENDENCIA_SEM_MODALIDADE] : []),
+  ...(entrega?.modo === 'entregar' && !entrega.recebe && nomeDoComprador.trim().length > LIMITE_TEXTO_XML ? [NOME_DO_CLIENTE_LONGO] : []),
+]
 
 type Conferida<T> = { ok: true } & T | { ok: false; erro: string }
 
