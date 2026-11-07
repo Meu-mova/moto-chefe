@@ -8,9 +8,9 @@ test('lista do cadastro: as 3 com relatório, as de mercado e Outra (#471)', () 
   ])
 })
 
-test('só InfinityPay, Stone e PagueVeloz têm relatório importado (#471)', () => {
+test('InfinityPay, Stone, PagueVeloz e Cielo têm relatório importado (#471)', () => {
   assert.deepEqual(['infinitypay', 'stone', 'pagueveloz', 'rede', 'cielo', 'sicredi'].map(temRelatorio),
-    [true, true, true, false, false, false])
+    [true, true, true, false, true, false])
 })
 
 test('Outra vira código a partir do nome livre; as da lista mantêm o código (#471)', () => {

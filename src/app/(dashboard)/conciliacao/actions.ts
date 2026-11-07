@@ -117,13 +117,64 @@ function parseStone(text: string) {
   return rows
 }
 
+function parseCielo(text: string) {
+  const lines = text.split(/\r?\n/)
+  // O relatório "Detalhado de vendas" da Cielo começa com uma capa (Ouvidoria,
+  // filtros, totalizador) antes do cabeçalho das transações. Acha a linha de
+  // cabeçalho e lê a partir dela; "Data da venda;" (com ponto-e-vírgula) não se
+  // confunde com a linha de filtro "Data da venda: 30/10/2026 ...".
+  const inicio = lines.findIndex(l => l.startsWith('Data da venda;Hora da venda;'))
+  if (inicio === -1) return []
+
+  const rows = []
+  for (let i = inicio + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue
+    const c = lines[i].split(';')
+    if (c[8]?.trim() !== 'Aprovada') continue
+
+    // "Forma de pagamento": "Crédito à vista" / "Crédito parcelado loja 02x" /
+    // "Débito". Os trechos "dito"/"bito" são ASCII e sobrevivem a qualquer
+    // codificação do acento. PIX, saque e afins não são cartão e caem fora.
+    const forma = (c[3] ?? '').toLowerCase()
+    const ehDebito  = forma.includes('bito')
+    const ehCredito = forma.includes('dito')
+    if (!ehDebito && !ehCredito) continue
+
+    const [dd, mm, yyyy] = (c[0] ?? '').split('/')
+    const parcelado = forma.match(/(\d+)\s*x/)   // "02x" → 2; "à vista" → sem match
+    const auth = c[13]?.trim()
+
+    rows.push({
+      dataTransacao: `${yyyy}-${mm}-${dd}`,
+      tipo:          ehDebito ? 'debito' as const : 'credito' as const,
+      bandeira:      (c[4] ?? '').toLowerCase(),
+      parcelas:      parcelado ? parseInt(parcelado[1], 10) || 1 : 1,
+      autorizacao:   auth && !/^0+$/.test(auth) ? auth : null,   // Código de autorização
+      valorBruto:    parseBRL(c[5] ?? '0'),
+      valorLiquido:  parseBRL(c[7] ?? '0'),   // c[6] é a taxa; c[7] é o líquido
+      // "Código da venda" é o id único da transação na Cielo — chave de dedup estável.
+      // O "NSU/DOC" (c[14]) é um contador de 6 dígitos que reinicia por aparelho e
+      // se repetiria entre dias, derrubando venda legítima como "duplicada".
+      nsu:           c[15]?.trim() || c[14]?.trim() || null,
+      portador:      c[21]?.trim() || null,   // número do cartão mascarado
+      terminal:      c[28]?.trim() || null,   // "Número da máquina" — serial p/ trava de grupo
+    })
+  }
+  return rows
+}
+
 // ── Actions ──────────────────────────────────────────────────────────────────
 
-function detectarFormato(primeiraLinha: string): string | null {
+function detectarFormato(text: string): string | null {
+  const primeiraLinha = text.trimStart().split(/\r?\n/)[0] ?? ''
   if (primeiraLinha.startsWith('Data e hora'))        return 'infinitypay'
   if (primeiraLinha.startsWith('Cod PagueVeloz') ||
       primeiraLinha.startsWith('Cod Pague'))           return 'pagueveloz'
   if (primeiraLinha.startsWith('DOCUMENTO;STONECODE')) return 'stone'
+  // A 1ª linha da Cielo é a capa do relatório, não o cabeçalho — reconhece pela
+  // linha de cabeçalho das transações ou pelo título do relatório.
+  if (/^Data da venda;Hora da venda;/m.test(text) ||
+      text.includes('Detalhado de vendas Cielo'))      return 'cielo'
   return null
 }
 
@@ -152,8 +203,7 @@ async function importarRelatorio(formData: FormData) {
   }
 
   // Auto-detecta o formato pelo cabeçalho
-  const primeiraLinha = text.trim().split(/\r?\n/)[0] ?? ''
-  const formatoDetectado = detectarFormato(primeiraLinha)
+  const formatoDetectado = detectarFormato(text)
   const operadora = formatoDetectado ?? operadoraSelecionada
 
   if (formatoDetectado && formatoDetectado !== operadoraSelecionada) {
@@ -164,6 +214,7 @@ async function importarRelatorio(formData: FormData) {
   if (operadora === 'infinitypay')      rows = parseInfinityPay(text)
   else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
   else if (operadora === 'stone')       rows = parseStone(text)
+  else if (operadora === 'cielo')       rows = parseCielo(text)
   else throw new RecusaUsuario(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
   if (!(await maquininhasDoGrupo(db, grupo.id)).some(m => m.operadora === operadora)) {
     throw new RecusaUsuario('Maquininha não encontrada')
@@ -175,8 +226,8 @@ async function importarRelatorio(formData: FormData) {
   // o que aconteceu com uma transação de BH importada em Sul de Minas.
   // Cada maquininha pertence a um grupo, então o serial do aparelho denuncia o
   // engano antes de gravar qualquer coisa. O serial é achado por dois caminhos:
-  // na InfinityPay ele vem embutido no NSU; na Stone vem na coluna própria e é
-  // guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
+  // na InfinityPay ele vem embutido no NSU; na Stone e na Cielo vem na coluna
+  // própria e é guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
     // Só a Conta do grupo ativo: terminal visto em outra Conta conta como desconhecido (#460).
