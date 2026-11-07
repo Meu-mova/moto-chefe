@@ -20,7 +20,6 @@ after(() => acao.restore())
 const montados: (() => Promise<void>)[] = []
 afterEach(async () => { for (const desmontar of montados.splice(0)) await desmontar() })
 
-const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 async function montarTela() {
   const { act } = await import('react')
@@ -39,6 +38,8 @@ test('Pagar sem link: o motivo devolvido pela action aparece na tela', async () 
   const { act } = await montarTela()
   const pagar = [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').trim() === 'Pagar')
   assert.ok(pagar, 'botão Pagar não encontrado')
-  await act(async () => { pagar.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); await esperar(100) })
-  assert.ok((document.body.textContent ?? '').includes(ERRO), `erro fora da tela: ${document.body.textContent}`)
+  await act(async () => { pagar.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })) })
+  const naTela = () => (document.body.textContent ?? '').includes(ERRO)
+  for (let i = 0; i < 50 && !naTela(); i++) await act(async () => { await new Promise(r => setTimeout(r, 10)) })
+  assert.ok(naTela(), `erro fora da tela: ${document.body.textContent}`)
 })
