@@ -115,3 +115,10 @@ test('moto desarquivada (#691): rótulo próprio, sensível, com chassi, modelo 
   assert.equal(ehSensivel('moto_desarquivada'), true)
   assert.equal(ROTULO_TIPO.moto_desarquivada, 'Desarquivou moto')
 })
+
+test('moto removida (#692): rótulo próprio, sensível, com chassi, modelo e o motivo', () => {
+  const resumo = resumoDoEvento(ev({ tipo: 'moto_removida', detalhe: { motoId: 'm1', chassi: 'ABC123', modelo: 'JET', loja: 'Lavras', nfEntrada: '123', motivo: 'NF do grupo errado', saiu: { historico: 1 } } }))
+  assert.equal(resumo, 'ABC123 · JET · “NF do grupo errado”')
+  assert.equal(ehSensivel('moto_removida'), true)
+  assert.equal(ROTULO_TIPO.moto_removida, 'Removeu moto')
+})
