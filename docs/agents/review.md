@@ -37,6 +37,9 @@ aqui fica a lista curta de conferência.
 - **Escolher um registro do cadastro tem que levar tudo o que os passos seguintes exigem** (#577:
   cliente escolhido na efetivação não levava o endereço, e a NF recusava). Conferir: seguir o
   fluxo até o último passo que usa o dado (para venda, até a NF).
+- **Campo copiado para uma tabela nova: a Fase 0 lista todos os lugares que gravam o campo de
+  origem, não só quem cria o registro** (#774: o Editar venda, 4º lugar que grava o valor da venda,
+  ficou fora da Fase 0 e só a revisão pegou). Conferir: `git grep` de todo `update`/`insert` do campo.
 - **Ação sem volta usa o dado do registro, nunca o filtro da tela** (#600: o diálogo de inutilizar
   mostrava o ambiente do filtro, não o da nota). Conferir: ambiente, número, série e grupo saem do
   registro lido no servidor.
@@ -88,6 +91,8 @@ aqui fica a lista curta de conferência.
   `after(desmontar)`), nunca com `new JSDOM` e globais copiados à mão. A cópia foi parar em 8 arquivos e voltou
   em cada PR da folha (#628, #629) porque não havia helper para reusar. Cópia nova do boilerplate é achado "deveria" na revisão.
 - **`psql -c` não troca variável `:'x'`**: passe o SQL pela entrada padrão (`psql -v x=... <<EOF`).
+  Para ler o `returning`, use `psql -q`: sem ele, a saída traz também a linha `INSERT 0 n`, que
+  trocou um id por `undefined` e deu 3 falhas falsas na Etapa 6 do #773.
 
 ## Rodadas de implementação e revisão
 
