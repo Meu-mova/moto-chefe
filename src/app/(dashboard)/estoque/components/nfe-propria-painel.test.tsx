@@ -317,7 +317,7 @@ test('a prévia mostra o frete cobrado que vai na nota; sem frete, a linha não 
   const { container, click } = await abrirPainel()
   assert.match(container.textContent ?? '', /com frete de R\$\s*350,00/)
   await click(/^Valor/)
-  assert.match(container.textContent ?? '', /Frete na nota: R\$\s*350,00 \(soma no total e no ICMS\)/)
+  assert.match(container.textContent ?? '', /Frete na nota: R\$\s*350,00 \(soma no total da nota\)/)
   await act(async () => root!.unmount()); root = undefined; document.body.replaceChildren()
   acoes = { ...acoes, previsualizarNfePropriaAction: async () => semRenave }
   const semFrete = await abrirPainel()

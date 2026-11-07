@@ -85,7 +85,7 @@ export const pendenciasDaEntrega = (entrega: EntregaVenda | null, nomeDoComprado
   ...(entrega && !entrega.modalidade ? [PENDENCIA_SEM_MODALIDADE] : []),
   ...(entrega?.modo === 'entregar' && !entrega.recebe && nomeDoComprador.trim().length > LIMITE_TEXTO_XML ? [NOME_DO_CLIENTE_LONGO] : []),
   ...(freteDaVenda(entrega) && valorDaVenda <= freteDaVenda(entrega)
-    ? [`O valor da venda não cobre o frete cobrado (${brl(freteDaVenda(entrega))}). Corrija o valor da venda antes de emitir.`] : []),
+    ? [`O valor da venda não cobre o frete cobrado (${brl(freteDaVenda(entrega))}). Corrija em Editar venda: o valor da venda inclui o frete.`] : []),
 ]
 
 type Conferida<T> = { ok: true } & T | { ok: false; erro: string }

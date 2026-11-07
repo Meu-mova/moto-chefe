@@ -489,7 +489,7 @@ test('venda com frete editada para um valor que não cobre o frete: pendência e
   const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: { ...ENTREGAR_PR, frete: 1000 } as EntregaVenda })
   user = f.user
   const net = network(f)
-  const frase = 'O valor da venda não cobre o frete cobrado (R$ 1.000,00). Corrija o valor da venda antes de emitir.'
+  const frase = 'O valor da venda não cobre o frete cobrado (R$ 1.000,00). Corrija em Editar venda: o valor da venda inclui o frete.'
   const previa = await actions.previsualizarNfePropriaAction(f.motoId)
   assert.ok(previa.ok)
   assert.deepEqual(previa.pendencias, [frase])

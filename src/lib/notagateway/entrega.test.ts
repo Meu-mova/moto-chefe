@@ -245,7 +245,7 @@ test('freteDaVenda: o frete gravado, ou zero sem frete, na retirada e em venda a
 test('venda com valor que não cobre o frete (editada depois) não emite', () => {
   const comFrete = { ...ENTREGAR_MA, frete: 350 } as EntregaVenda
   assert.deepEqual(pendenciasDaEntrega(comFrete, 'Cliente', 350),
-    ['O valor da venda não cobre o frete cobrado (R$ 350,00). Corrija o valor da venda antes de emitir.'])
+    ['O valor da venda não cobre o frete cobrado (R$ 350,00). Corrija em Editar venda: o valor da venda inclui o frete.'])
   assert.deepEqual(pendenciasDaEntrega(comFrete, 'Cliente', 350.01), [])
 })
 
