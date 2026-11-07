@@ -9,7 +9,8 @@ import { Check, TriangleAlert } from 'lucide-react'
  * conferência embaixo. O erro só aparece com o documento completo, para não
  * ficar vermelho a cada tecla.
  */
-export function DocumentoClienteInput({ value, onChange, autoFocus, ocultarValido }: {
+export function DocumentoClienteInput({ id, value, onChange, autoFocus, ocultarValido }: {
+  id?: string
   value: string
   onChange: (mascarado: string) => void
   autoFocus?: boolean
@@ -21,6 +22,7 @@ export function DocumentoClienteInput({ value, onChange, autoFocus, ocultarValid
   return (
     <>
       <Input
+        id={id}
         value={value}
         onChange={e => onChange(mascararCpfCnpj(e.target.value))}
         placeholder="CPF ou CNPJ"

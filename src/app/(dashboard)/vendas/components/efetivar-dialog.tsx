@@ -13,10 +13,35 @@ import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busca'
 import { lerDocumentoCliente, mascararCpfCnpj, tipoPessoaSeCompleto } from '@/lib/documento'
 import { DocumentoClienteInput } from '@/components/documento-cliente'
+import { textoDaModalidade } from '@/lib/notagateway/transporte'
+import { enderecoDaEntregaEmLinha, textoDaEntrega, type EntregaVenda } from '@/lib/notagateway/entrega'
 
-type Props = { pedidoId: string; chassi: string; modelo: string; origens: OrigemParaEscolher[] }
+type Props = {
+  pedidoId: string; chassi: string; modelo: string; origens: OrigemParaEscolher[]
+  /** Vem do pedido e vai para a venda no servidor; aqui só se confere ("Alterar" é do #727). */
+  entrega: EntregaVenda | null
+}
 
-export function EfetivarDialog({ pedidoId, chassi, modelo, origens }: Props) {
+function EntregaDoPedido({ entrega }: { entrega: EntregaVenda | null }) {
+  return (
+    <section aria-label="Entrega do pedido" className="space-y-1 rounded-lg border border-border bg-muted p-3 text-sm">
+      {!entrega ? <p className="text-muted-foreground">Pedido sem a Entrega informada.</p> : (
+        <>
+          <p className="font-medium">{textoDaEntrega(entrega)} (do pedido)</p>
+          {entrega.modo === 'entregar' && (
+            <>
+              <p className="text-muted-foreground">{enderecoDaEntregaEmLinha(entrega.endereco)}</p>
+              <p className="text-muted-foreground">Quem recebe: {entrega.recebe?.nome ?? 'o comprador'}</p>
+            </>
+          )}
+          <p className="text-muted-foreground">Modalidade: {textoDaModalidade(entrega.modalidade) ?? 'não escolhida'}</p>
+        </>
+      )}
+    </section>
+  )
+}
+
+export function EfetivarDialog({ pedidoId, chassi, modelo, origens, entrega }: Props) {
   const [open, setOpen] = useState(false)
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [clienteSelecionado, setClienteSelecionado] = useState<{ id: string; nome: string } | null>(null)
@@ -86,6 +111,7 @@ export function EfetivarDialog({ pedidoId, chassi, modelo, origens }: Props) {
               <Label>CPF/CNPJ do Cliente</Label>
               <DocumentoClienteInput value={clienteCpf} onChange={setClienteCpf} />
             </div>
+            <EntregaDoPedido entrega={entrega} />
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
               <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" />

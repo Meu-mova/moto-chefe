@@ -3,6 +3,7 @@
  * pedido, vai para a venda na efetivação e decide se a NF de saída é dentro ou fora do estado.
  */
 import { lerDocumentoCliente } from '@/lib/documento'
+import { mascaraCep } from '@/lib/mascaras'
 import { tipoPessoa } from './venda'
 import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, NOME_DE_QUEM_RECEBE_LONGO, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
 
@@ -14,6 +15,20 @@ export type QuemRecebe = { nome: string; cpfCnpj: string }
 export type EntregaVenda =
   | { modo: 'retira'; modalidade: ModalidadeFrete | '' }
   | { modo: 'entregar'; modalidade: ModalidadeFrete | ''; endereco: EnderecoDaEntrega; recebe: QuemRecebe | null }
+
+/** Como a Entrega aparece no resumo do pedido e na efetivação. */
+export const textoDaEntrega = (entrega: EntregaVenda): string => {
+  if (entrega.modo === 'retira') return 'Retira na loja'
+  const { nomeCidade, cidade, uf } = entrega.endereco
+  const lugar = nomeCidade || cidade
+  return uf && lugar ? `Entregar em ${lugar}/${uf}` : 'Entregar'
+}
+
+/** Endereço da entrega numa linha (efetivação): só o que foi preenchido. */
+export const enderecoDaEntregaEmLinha = (e: EnderecoDaEntrega): string => [
+  e.logradouro, e.numero, e.complemento, e.bairro, `${e.nomeCidade || e.cidade}/${e.uf}`,
+  e.cep ? `CEP ${mascaraCep(e.cep)}` : '',
+].filter(Boolean).join(', ')
 
 /** Venda com Entrega e sem modalidade: o Novo pedido avisa e a NF não sai (#682). */
 export const AVISO_SEM_MODALIDADE = 'Escolha a modalidade do frete. Sem ela a nota não sai.'
