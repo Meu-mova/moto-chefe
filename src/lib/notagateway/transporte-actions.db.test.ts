@@ -469,3 +469,30 @@ test('venda "Entregar" ao próprio comprador com nome acima de 60 caracteres: a 
   assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId), { ok: false, error: frase })
   assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
 })
+
+// Frete cobrado (#726, 4b): a venda (1000) já tem o frete somado; a nota leva a moto no item e o frete em itens[].frete.
+test('venda "Entregar" com frete: prévia mostra o frete e a nota sai com o item sem o frete e o frete no item', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: { ...ENTREGAR_PR, frete: 350 } as EntregaVenda })
+  user = f.user
+  const net = network(f)
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.ok(previa.ok && previa.resumo, JSON.stringify(previa))
+  assert.equal(previa.resumo.freteNaNota, 350)
+  const result = await actions.transmitirNfePropriaAction(f.motoId)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].itens[0].valorUnitario, 650)
+  assert.equal(net.payloads[0].itens[0].frete, 350)
+  assert.deepEqual(net.payloads[0].pedido.pagamento.formas.map(p => p.valor), [1000])
+})
+
+test('venda com frete editada para um valor que não cobre o frete: pendência e transmitir recusa, sem envio', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: { ...ENTREGAR_PR, frete: 1000 } as EntregaVenda })
+  user = f.user
+  const net = network(f)
+  const frase = 'O valor da venda não cobre o frete cobrado (R$ 1.000,00). Corrija o valor da venda antes de emitir.'
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.ok(previa.ok)
+  assert.deepEqual(previa.pendencias, [frase])
+  assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId), { ok: false, error: frase })
+  assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
+})
