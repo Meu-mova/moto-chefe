@@ -87,13 +87,17 @@ No MOVA (`src/lib/notagateway/entrega.ts`, `payload.ts`):
   `enderecoEntrega`. Cliente de outra UF sai interestadual só com moto ciclomotor ou indicador "contribuinte".
 - **Entregar** (#726): a UF do endereço de entrega comparada com a do emitente decide a operação, qualquer que
   seja a UF do cliente. `cliente.endereco` leva o endereço real e `transporte.enderecoEntrega` o lugar da
-  entrega, com `cidade` em código IBGE (o CEP o traz pela busca de CEP; sem ela, digita-se). Quem recebe é o
+  entrega, com `cidade` em código IBGE da UF da entrega (MOC 7.0 Anexo I, G07-30, p. 88: *"Código Município do Local
+  de Entrega (2 primeiras posições) difere do Código da UF do Local de Entrega"*, rejeição 279). Quem recebe é o
   comprador da venda, lido na hora da nota; "Outra pessoa recebe" troca nome e CPF/CNPJ (conferido pelo ADR-0015).
+  Cliente de uma UF com entrega em outra, interestadual, não cai na 772: MOC 7.0 Anexo I, E12-30, p. 84, *"Exceção 1:
+  A regra de validação não se aplica se informada UF do local de entrega (tag: entrega/UF) diferente da UF do
+  emitente (tag: enderEmit/UF) e não informada UF do local de retirada"*.
 - **`nomeDestinatario`, `complemento` e `cep` da entrega**: a página de emissão (`updatedAt 2026-06-16`) **não
-  mostra** `nomeDestinatario` no JSON de `enderecoEntrega`. O manual da NG para NF-e modelo 55 (fora do repo) traz
-  *"transporte.enderecoEntrega.nomeDestinatario string Não Nome completo ou razão social do destinatário da
-  entrega."*, e também `complemento` e `cep` com obrigatório "Não". O MOVA manda os três só quando preenchidos;
-  nome até 60 caracteres (xNome do Grupo G, MOC 7.0).
+  mostra** `nomeDestinatario` no JSON de `enderecoEntrega`. O manual da NG para NF-e modelo 55 (fora do repo, linhas
+  761-784 da tabela de envio) traz *"transporte.enderecoEntrega.nomeDestinatario string Não Nome completo ou razão
+  social do destinatário da entrega."*, e também `complemento` e `cep` com obrigatório "Não". O MOVA manda os três só
+  quando preenchidos, aparados; nome e complemento até 60 caracteres (Grupo G do MOC 7.0).
 - Venda com Entrega e sem modalidade não monta a nota; a prévia lista a pendência.
 - Rejeição 773 (MOC 7.0, Anexo I, regra E12-40, p. 84-85 do [PDF oficial](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf)):
   *"operação é Interna no Estado (tag:idDest = 1) e operação não é com Consumidor final: UF do destinatário [...] difere
