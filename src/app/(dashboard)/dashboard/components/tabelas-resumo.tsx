@@ -133,7 +133,7 @@ export function TabelaModelosMaisVendidos({ modelos }: { modelos: ModeloVendido[
         </span>
       ),
     },
-    { titulo: 'Total de vendas', valor: m => formatCurrency(m.faturamento ?? 0), direita: true },
+    { titulo: 'Vendas em motos', dica: 'Só as motos, sem o frete cobrado.', valor: m => formatCurrency(m.faturamento ?? 0), direita: true },
   ]
   return (
     <Secao titulo="Modelos mais vendidos">
@@ -176,18 +176,18 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
     { titulo: 'Vendedor', valor: r => <span className="text-foreground">{r.nome}{r.vendedorId === vendedorAtualId ? ' (você)' : ''}</span>, principal: true },
     { titulo: 'Loja', valor: r => <span className="text-muted-foreground">{r.loja}</span>, secundaria: true },
     { titulo: 'Vendas', valor: r => r.totalVendas, direita: true },
-    { titulo: 'Total de vendas', valor: r => formatCurrency(r.faturamento ?? 0), direita: true },
+    { titulo: 'Vendas em motos', dica: 'Só as motos, sem o frete cobrado.', valor: r => formatCurrency(r.faturamento ?? 0), direita: true },
   ]
   if (descontos) {
     colunas.push(
       {
         titulo: 'Desc. margem', direita: true, secundaria: true,
-        dica: 'Quanto faltou para o preço mínimo depois das taxas de cartão. O % é sobre o faturamento do vendedor no período.',
+        dica: 'Quanto faltou para o preço mínimo depois das taxas de cartão. O % é sobre as vendas em motos do vendedor no período.',
         valor: r => <DescontoMargem d={descontos.porVendedor.get(r.vendedorId)} faturamento={Number(r.faturamento ?? 0)} />,
       },
       {
         titulo: 'Desc. preço', direita: true, secundaria: true,
-        dica: 'Quanto foi cedido na negociação, sobre o valor cheio da venda. O % é sobre o faturamento do vendedor no período.',
+        dica: 'Quanto foi cedido na negociação, sobre o valor da moto. O % é sobre as vendas em motos do vendedor no período.',
         valor: r => <DescontoPreco d={descontos.porVendedor.get(r.vendedorId)} faturamento={Number(r.faturamento ?? 0)} />,
       },
     )
@@ -270,7 +270,7 @@ export function TabelaRankingLojas({ ranking, lojaAtualId }: { ranking: RankingL
     { titulo: '#', valor: r => <span className="text-muted-foreground">{r.posicao}</span>, classe: 'w-8', dica: 'Posição' },
     { titulo: 'Loja', valor: r => <span className="text-foreground">{r.loja}{r.lojaId === lojaAtualId ? ' (sua loja)' : ''}</span>, principal: true },
     { titulo: 'Vendas', valor: r => r.totalVendas, direita: true },
-    { titulo: 'Total de vendas', valor: r => formatCurrency(r.faturamento ?? 0), direita: true },
+    { titulo: 'Vendas em motos', dica: 'Só as motos, sem o frete cobrado.', valor: r => formatCurrency(r.faturamento ?? 0), direita: true },
   ]
   return (
     <Secao titulo="Ranking de lojas">
