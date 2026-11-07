@@ -411,3 +411,16 @@ test('venda "Entregar" em outra UF com cliente da UF da loja: prévia e nota par
     enderecoEntrega: { ...expectedTransport.enderecoEntrega, nomeDestinatario: net.payloads[0].cliente.nome, cep: '80010000' },
   })
 })
+
+test('venda "Entregar" com outra pessoa recebendo: enderecoEntrega com nome, documento e tipo de pessoa dela', async () => {
+  const entrega = { ...ENTREGAR_PR, recebe: { nome: 'Empresa que recebe', cpfCnpj: '11222333000181' } } as EntregaVenda
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega })
+  user = f.user
+  const net = network(f)
+  const result = await actions.transmitirNfePropriaAction(f.motoId)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.deepEqual(net.payloads[0].transporte?.enderecoEntrega, {
+    ...expectedTransport.enderecoEntrega, tipoPessoaDestinatario: 'J', cpfCnpjDestinatario: '11222333000181',
+    nomeDestinatario: 'Empresa que recebe', cep: '80010000',
+  })
+})
