@@ -3,7 +3,7 @@
  * pedido, vai para a venda na efetivação e decide se a NF de saída é dentro ou fora do estado.
  */
 import { lerDocumentoCliente } from '@/lib/documento'
-import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
+import { ehModalidade, erroDoLocalDeEntrega, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
 
 /** O lugar da entrega como a NF exige (cidade = código IBGE), mais o nome da cidade só para a tela. */
 export type EnderecoDaEntrega = Required<LocalDeEntrega> & { nomeCidade: string }
@@ -63,6 +63,25 @@ export function conferirEntrega(dado: unknown): Conferida<{ entrega: EntregaVend
   const recebe = conferirQuemRecebe(r)
   if (!recebe.ok) return recebe
   return { ok: true, entrega: { modo, modalidade, endereco, recebe: recebe.recebe } }
+}
+
+/**
+ * O transporte da NF para "Entregar": quem recebe vazio é o comprador da venda (#726). O tipo de pessoa
+ * sai do documento na normalização de `validarDadosTransporte`, a mesma do faturamento direto.
+ */
+export function transporteDaEntrega(
+  entrega: Extract<EntregaVenda, { modo: 'entregar' }>,
+  comprador: { nome: string; cpfCnpj: string },
+): DadosTransporte {
+  const quem = entrega.recebe ?? comprador
+  const { logradouro, numero, complemento, bairro, cidade, uf, cep } = entrega.endereco
+  return {
+    modalidade: entrega.modalidade,
+    enderecoEntrega: {
+      tipoPessoaDestinatario: 'F', cpfCnpjDestinatario: quem.cpfCnpj, nomeDestinatario: quem.nome,
+      logradouro, numero, bairro, cidade, uf, ...(complemento ? { complemento } : {}), ...(cep ? { cep } : {}),
+    },
+  }
 }
 
 export type MotivoOperacao = 'retira' | 'retira_ciclomotor' | 'retira_contribuinte' | 'entregar' | 'sem_entrega'

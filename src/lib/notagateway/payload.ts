@@ -24,8 +24,8 @@
 import { ehCartao, type FormaPagamentoNfe } from './venda'
 import type { IndicadorIe } from '../documento'
 import { operacaoExigeEntrega, type VeiculoNovo } from './veiculo'
-import { validarDadosTransporte, type DadosTransporte } from './transporte'
-import { AVISO_SEM_MODALIDADE, operacaoDaVenda, type EntregaVenda } from './entrega'
+import { validarDadosTransporte, type DadosTransporte, type EnderecoEntrega } from './transporte'
+import { AVISO_SEM_MODALIDADE, operacaoDaVenda, transporteDaEntrega, type EntregaVenda } from './entrega'
 
 export type RegraSaida = {
   naturezaOperacao: string
@@ -186,6 +186,21 @@ function porAliquota(cst: string, aliquota: string | null): TributoPorAliquota {
   return { situacaoTributaria: cst, ...(a !== undefined ? { porAliquota: { aliquota: a } } : {}) }
 }
 
+/** `transporte.enderecoEntrega` da NG; nome, complemento e CEP só quando houver (manual modelo 55: opcionais). */
+const enderecoEntregaNg = (e: EnderecoEntrega) => ({
+  tipoPessoaDestinatario: e.tipoPessoaDestinatario,
+  cpfCnpjDestinatario: e.cpfCnpjDestinatario,
+  ...(e.nomeDestinatario ? { nomeDestinatario: e.nomeDestinatario } : {}),
+  pais: null,
+  logradouro: e.logradouro,
+  numero: e.numero,
+  ...(e.complemento ? { complemento: e.complemento } : {}),
+  bairro: e.bairro,
+  cidade: e.cidade,
+  uf: e.uf,
+  ...(e.cep ? { cep: e.cep } : {}),
+})
+
 export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
   const { moto, cliente } = venda
 
@@ -202,11 +217,14 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     )
   }
 
-  // Só o faturamento direto (tpOp 2) leva transporte: as outras operações seguem como antes (#650).
-  const transporteValidado = operacaoExigeEntrega(moto.veiculo?.tipoOperacao) ? validarDadosTransporte(venda.transporte) : null
+  // Faturamento direto (tpOp 2): o transporte do formulário da nota (#650). Fora dele, "Entregar" leva o
+  // endereço de entrega da venda (#726); sem modalidade, cai na recusa de baixo, como a retirada.
+  const entregar = venda.entrega?.modo === 'entregar' && venda.entrega.modalidade ? venda.entrega : null
+  const transporteValidado = operacaoExigeEntrega(moto.veiculo?.tipoOperacao) ? validarDadosTransporte(venda.transporte)
+    : entregar ? validarDadosTransporte(transporteDaEntrega(entregar, cliente)) : null
   if (transporteValidado && !transporteValidado.ok) throw new Error(transporteValidado.erro)
 
-  // Fora do faturamento direto, a venda com Entrega manda só a modalidade: retira na loja não leva enderecoEntrega.
+  // Retira na loja manda só a modalidade, sem enderecoEntrega.
   const freteDaEntrega = !transporteValidado && venda.entrega ? venda.entrega.modalidade : null
   if (freteDaEntrega === '') throw new Error(AVISO_SEM_MODALIDADE)
 
@@ -315,16 +333,7 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     itens: [item],
     ...(transporteValidado?.ok ? { transporte: {
       frete: { modalidade: transporteValidado.dados.modalidade },
-      enderecoEntrega: {
-        tipoPessoaDestinatario: transporteValidado.dados.enderecoEntrega!.tipoPessoaDestinatario,
-        cpfCnpjDestinatario: transporteValidado.dados.enderecoEntrega!.cpfCnpjDestinatario,
-        pais: null,
-        logradouro: transporteValidado.dados.enderecoEntrega!.logradouro,
-        numero: transporteValidado.dados.enderecoEntrega!.numero,
-        bairro: transporteValidado.dados.enderecoEntrega!.bairro,
-        cidade: transporteValidado.dados.enderecoEntrega!.cidade,
-        uf: transporteValidado.dados.enderecoEntrega!.uf,
-      },
+      enderecoEntrega: enderecoEntregaNg(transporteValidado.dados.enderecoEntrega!),
     } } : {}),
     ...(freteDaEntrega ? { transporte: { frete: { modalidade: freteDaEntrega } } } : {}),
     informacoesAdicionais: venda.informacoesAdicionais ?? null,
