@@ -2,8 +2,8 @@ import { Badge } from '@/components/ui/badge'
 import { formatarNumeroBR } from '@/lib/numero-br'
 import { estaBloqueado } from '@/lib/mensalidade/regras'
 import type { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
-import { BotaoPagar } from './botao-pagar'
 import { dataPuraBr } from '@/lib/data-venda'
+import { BotaoPagar } from './botao-pagar'
 
 type Aberta = Awaited<ReturnType<typeof abertasCobraveis>>[number]
 export type LinhaMensalidade = Aberta & { acrescimo: number; total: number }
