@@ -21,7 +21,7 @@ export const DESCONTO_REGISTRADO_DESDE = '2026-07-10'
 export type LinhaDesconto = {
   valorMinimoSnapshot: string | null
   liquidoSnapshot: string | null
-  /** Valor bruto da venda (vendas.valor). */
+  /** Valor bruto da moto: o valor da venda sem o frete cobrado (#796). */
   valor: string
   snapshotEstimado: boolean
 }

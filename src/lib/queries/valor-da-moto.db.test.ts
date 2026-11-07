@@ -67,6 +67,7 @@ after(async () => {
   const lojaIds = contas.map(c => c.lojaId)
   const em = (ids: string[]) => sql.join(ids.map(i => sql`${i}`), sql`, `)
   await db.execute(sql`delete from conciliacoes_cartao where grupo_id in (${em(contas.map(c => c.grupoId))})`)
+  await db.execute(sql`delete from aprovacoes_venda where loja_id in (${em(lojaIds)})`)
   await db.execute(sql`delete from vendas where loja_id in (${em(lojaIds)})`)
   await db.execute(sql`delete from pedidos_venda where loja_id in (${em(lojaIds)})`)
   await db.execute(sql`delete from motos where loja_id in (${em(lojaIds)})`)
@@ -133,4 +134,17 @@ test('relatório da fábrica soma o valor da moto, sem o frete', async () => {
   const r = await carregarRelatorioFabrica(aux as unknown as Parameters<typeof carregarRelatorioFabrica>[0], '2026-09-01', '2026-09-30')
   assert.equal(r.totalQtd, 5)
   assert.equal(r.totalValor, BRUTO_MOTOS_A)
+})
+
+test('desconto contra o preço mínimo aparece mesmo com o frete somado à venda (o frete não esconde desconto)', async () => {
+  const { descontosDasVendas, totalDescontos } = await import('./descontos')
+  const [a] = contas
+  // Mínimo 10.200; moto vendida a 10.000 + frete 350. Pelo valor da venda (10.350) o desconto sumiria.
+  await db.execute(sql`insert into aprovacoes_venda (moto_id, loja_id, vendedor_id, valor, dados_venda, motivo, status, data_resposta,
+      tipo, valor_minimo_snapshot, liquido_snapshot)
+    select v.moto_id, v.loja_id, v.vendedor_id, 10000, '{}'::jsonb, 'Abaixo do mínimo', 'aprovada', ${DIA}::timestamptz,
+      'valor_minimo', 10200, 10000 from vendas v where v.id = ${venda.frete}`)
+  assert.equal((await descontosDasVendas([venda.frete])).get(venda.frete)?.preco, 200)
+  const total = await totalDescontos({ dataInicio: '2026-09-01', dataFim: '2026-09-30', lojaId: [a.lojaId] })
+  assert.deepEqual({ qtd: total.qtd, preco: total.preco, margem: total.margem }, { qtd: 1, preco: 200, margem: 200 })
 })
