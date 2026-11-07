@@ -102,7 +102,7 @@ test('sócio da Conta A paga a própria mensalidade: recebe o link e ele fica gr
   assert.deepEqual(await gravadoNa(semente.mensalidadeA), { link_pagamento: `https://mp.teste/${P}`, mp_preference_id: `pref-${P}`, acrescimo: '0.00' })
 })
 
-test('admin_rede da Conta A com o grupo da Conta B liberado não paga a mensalidade da Conta B (a tela não a lista)', async () => {
+test('admin_rede da Conta A fora da persona não paga a mensalidade do grupo liberado da Conta B', async () => {
   const { a, b } = semente
   assert.ok(a && b)
   usuarioDaSessao = usuarioDaRede(
@@ -129,4 +129,17 @@ test('erro do banco ao ler os grupos não vira "não encontrada": responde que o
   usuarioDaSessao = { ...socioA, lojaId: 'nao-e-uuid' }
   assert.deepEqual(await linkPagamentoAction(semente.mensalidadeA), { ok: false, erro: 'Não deu para gerar o link agora. Tente de novo em alguns minutos.' })
   assert.deepEqual(preferenciasCriadas, [])
+})
+
+test('admin_rede na persona do grupo liberado da Conta B paga a mensalidade de B', async () => {
+  const { a, b } = semente
+  assert.ok(a && b)
+  usuarioDaSessao = usuarioDaRede(
+    { ...socioA, papel: 'admin_rede', lojaId: null, gruposAcesso: [a.grupoId], gruposAprovacao: [], contaId: a.contaId },
+    [{ grupoId: b.grupoId, contaId: b.contaId }],
+    b.grupoId,
+  )
+  grupoDoCookie = b.grupoId
+  assert.deepEqual(await linkPagamentoAction(semente.mensalidadeB), { ok: true, url: `https://mp.teste/${P}` })
+  assert.deepEqual(preferenciasCriadas, [semente.mensalidadeB])
 })
