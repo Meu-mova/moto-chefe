@@ -14,7 +14,8 @@ export type ImpedimentosDeRemover = {
   temGarantia: boolean
   aprovacaoPendente: boolean
   pedidoPendente: boolean
-  reservaAtiva: boolean
+  /** Qualquer reserva, ativa ou não: o sinal pago pelo cliente só está registrado nela, fora do caixa. */
+  temReserva: boolean
   /** PIX ligado a um pedido da moto, mesmo cancelado: apagar o pedido mexeria no financeiro. */
   pedidoComPix: boolean
   /** OS da moto com pagamento registrado, lançado no caixa, conciliado ou aguardando aprovação. */
@@ -22,7 +23,7 @@ export type ImpedimentosDeRemover = {
 }
 
 export const SEM_IMPEDIMENTO: ImpedimentosDeRemover = {
-  temVenda: false, marcadaVendida: false, temGarantia: false, aprovacaoPendente: false, pedidoPendente: false, reservaAtiva: false, pedidoComPix: false, osComDinheiro: null,
+  temVenda: false, marcadaVendida: false, temGarantia: false, aprovacaoPendente: false, pedidoPendente: false, temReserva: false, pedidoComPix: false, osComDinheiro: null,
 }
 
 const FINANCEIRO = 'tem pagamento registrado. Moto que passou pelo financeiro não se remove.'
@@ -34,7 +35,7 @@ const RECUSAS: Recusa<ImpedimentosDeRemover>[] = [
   [i => i.temGarantia, () => 'Esta moto tem garantia registrada. Moto com garantia não se remove.'],
   [i => i.aprovacaoPendente, () => 'Esta moto tem venda aguardando aprovação. Aprove ou recuse antes de remover.'],
   [i => i.pedidoPendente, () => 'Esta moto tem pedido de venda em aberto. Cancele o pedido antes de remover.'],
-  [i => i.reservaAtiva, () => 'Esta moto tem reserva em aberto. Cancele a reserva antes de remover.'],
+  [i => i.temReserva, () => 'Esta moto tem reserva, com sinal pago pelo cliente. Use Arquivar moto.'],
   [i => i.pedidoComPix, () => 'Um PIX recebido está ligado ao pedido desta moto. Remova a correspondência em PIX antes de remover.'],
   [i => i.osComDinheiro !== null, i => i.osComDinheiro?.numero != null ? `A OS nº ${i.osComDinheiro.numero} ${FINANCEIRO}` : `Uma OS desta moto ${FINANCEIRO}`],
 ]
@@ -69,4 +70,4 @@ export function primeiraOsComDinheiro(oss: OsDaMoto[]): { numero: number | null 
 }
 
 /** O que sai junto com a moto, por tipo; as chaves são as mesmas que o log grava em `saiu`. */
-export type SaiJunto = Partial<Record<'os' | 'itensDeOs' | 'transferencias' | 'cupons' | 'reservas' | 'pedidos' | 'aprovacoes' | 'historico', number>>
+export type SaiJunto = Partial<Record<'os' | 'itensDeOs' | 'transferencias' | 'cupons' | 'pedidos' | 'aprovacoes' | 'historico', number>>

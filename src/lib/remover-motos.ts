@@ -39,7 +39,7 @@ function motosComImpedimentos(exec: Exec, onde: SQL | undefined) {
     temGarantia: temLinha(exec, garantias),
     aprovacaoPendente: temLinha(exec, aprovacoesVenda, eq(aprovacoesVenda.status, 'pendente')),
     pedidoPendente: temLinha(exec, pedidosVenda, eq(pedidosVenda.status, 'pendente')),
-    reservaAtiva: temLinha(exec, reservas, eq(reservas.status, 'ativa')),
+    temReserva: temLinha(exec, reservas),
     pedidoComPix: sql<boolean>`${exists(exec.select({ um: sql`1` }).from(pixRecebimentosMcp)
       .innerJoin(pedidosVenda, eq(pedidosVenda.id, pixRecebimentosMcp.pedidoId))
       .where(eq(pedidosVenda.motoId, daMoto)))}`,
@@ -51,7 +51,7 @@ type LinhaDaMoto = Awaited<ReturnType<typeof motosComImpedimentos>>[number]
 
 const impedimentosDa = (m: LinhaDaMoto): ImpedimentosDeRemover => ({
   temVenda: m.temVenda, marcadaVendida: m.marcadaVendida, temGarantia: m.temGarantia, aprovacaoPendente: m.aprovacaoPendente, pedidoPendente: m.pedidoPendente,
-  reservaAtiva: m.reservaAtiva, pedidoComPix: m.pedidoComPix,
+  temReserva: m.temReserva, pedidoComPix: m.pedidoComPix,
   osComDinheiro: primeiraOsComDinheiro(m.osDaMoto),
 })
 
@@ -98,7 +98,6 @@ async function apagarDependentes(tx: Tx, ids: string[]): Promise<Record<keyof Sa
     os: os.length === 0 ? [] : motoIds(await tx.delete(ordensServico).where(inArray(ordensServico.id, osIds)).returning({ motoId: ordensServico.motoId })),
     itensDeOs: itens.map(i => motoDaOs.get(i.osId) ?? null),
     transferencias: motoIds(await tx.delete(transferencias).where(inArray(transferencias.motoId, ids)).returning({ motoId: transferencias.motoId })),
-    reservas: motoIds(await tx.delete(reservas).where(inArray(reservas.motoId, ids)).returning({ motoId: reservas.motoId })),
     pedidos: motoIds(await tx.delete(pedidosVenda).where(inArray(pedidosVenda.motoId, ids)).returning({ motoId: pedidosVenda.motoId })),
     historico: motoIds(await tx.delete(historicoEstoque).where(inArray(historicoEstoque.motoId, ids)).returning({ motoId: historicoEstoque.motoId })),
   }

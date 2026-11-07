@@ -195,13 +195,10 @@ test('venda com NF de saída em emissão na produção: recusa travada, nada apa
   assert.deepEqual(chamadasStorage, [])
 })
 
-test('caminho receitado no ADR-0020 (#692): moto vendida recusa o Remover; depois do Cancelar venda, ela sai com a reserva convertida e o pedido cancelado', async () => {
+test('caminho receitado no ADR-0020 (#692): moto vendida recusa o Remover; depois do Cancelar venda, ela sai com o pedido cancelado', async () => {
   const { removerMotos } = await import('@/lib/remover-motos')
   const c = await semearConta()
   const v = await semearVenda(c)
-  const reservaId = (await execRows(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status)
-    values (${v.motoId}, ${c.lojaId}, ${c.aux.id}, 100, 'pix', '2026-12-01', 'convertida') returning id`))[0].id as string
-  await execRows(sql`update vendas set reserva_id = ${reservaId} where id = ${v.id}`)
   const socioId = await semearUsuario(db, c, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comGrupo: true })
   const socio = { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [c.grupoId], contaId: c.contaId }
 
@@ -211,6 +208,22 @@ test('caminho receitado no ADR-0020 (#692): moto vendida recusa o Remover; depoi
 
   assert.deepEqual(await removerMotos(socio, [v.motoId], 'moto importada errada', 'CONFIRMAR'), { removidas: 1 })
   assert.deepEqual(await execRows(sql`select id from motos where id = ${v.motoId}`), [])
-  assert.deepEqual(await execRows(sql`select id from reservas where id = ${reservaId}`), [])
   assert.deepEqual(await execRows(sql`select id from pedidos_venda where id = ${v.pedidoId}`), [])
+})
+
+test('venda que veio de reserva (#692): depois do Cancelar venda, a reserva convertida, com o sinal, segura a moto', async () => {
+  const { removerMotos } = await import('@/lib/remover-motos')
+  const c = await semearConta()
+  const v = await semearVenda(c)
+  const reservaId = (await execRows(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status)
+    values (${v.motoId}, ${c.lojaId}, ${c.aux.id}, 500, 'pix', '2026-12-01', 'convertida') returning id`))[0].id as string
+  await execRows(sql`update vendas set reserva_id = ${reservaId} where id = ${v.id}`)
+  const socioId = await semearUsuario(db, c, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comGrupo: true })
+  const socio = { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [c.grupoId], contaId: c.contaId }
+  usuario = c.aux
+  assert.equal((await cancelarVendaCompletaAction(v.id, 'moto importada errada')).ok, true)
+
+  await assert.rejects(removerMotos(socio, [v.motoId], 'moto importada errada', 'CONFIRMAR'), /Esta moto tem reserva, com sinal pago pelo cliente\. Use Arquivar moto\./)
+  assert.equal((await execRows(sql`select id from reservas where id = ${reservaId}`)).length, 1)
+  assert.equal((await execRows(sql`select id from motos where id = ${v.motoId}`)).length, 1)
 })

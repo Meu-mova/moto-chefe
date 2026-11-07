@@ -75,8 +75,6 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     const aprovacaoDaOs = await idDe(tx, sql`insert into aprovacoes_venda (origem, os_id, loja_id, vendedor_id, valor, dados_venda, motivo, tipo, status)
       values ('os', ${osId}, ${a.base.lojaId}, ${a.auxId}, 100, '{}', 'Pagamento via Transferência Bancária', 'pagamento_sensivel', 'recusada') returning id`)
     await tx.execute(sql`insert into cupons_revisao (grupo_id, loja_id, codigo, valido_ate, moto_id, os_id) values (${a.base.grupoId}, ${a.base.lojaId}, ${P + 'CUPOM'}, '2027-01-01', ${m}, ${osId})`)
-    await tx.execute(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status)
-      values (${m}, ${a.base.lojaId}, ${a.auxId}, 100, 'pix', '2026-12-01', 'cancelada')`)
     await novoPedido(tx, a, m, 'cancelado')
     await tx.execute(sql`insert into aprovacoes_venda (moto_id, loja_id, vendedor_id, valor, dados_venda, motivo, status) values (${m}, ${a.base.lojaId}, ${a.auxId}, 100, '{}', 'desconto', 'recusada')`)
     await tx.execute(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, cest, x_prod) values (${m}, 'X', '87116000', null, 'MOTO LITERAL')`)
@@ -87,7 +85,7 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     assert.deepEqual(await removerMotos(a.socio, [m], '  NF do grupo errado  ', ' CONFIRMAR ', tx), { removidas: 1 })
 
     assert.equal(await existe(tx, m), false)
-    for (const tabela of ['historico_estoque', 'ordens_servico', 'transferencias', 'cupons_revisao', 'reservas', 'pedidos_venda', 'aprovacoes_venda', 'motos_fiscal', 'motos_renave']) {
+    for (const tabela of ['historico_estoque', 'ordens_servico', 'transferencias', 'cupons_revisao', 'pedidos_venda', 'aprovacoes_venda', 'motos_fiscal', 'motos_renave']) {
       assert.equal((await linhas(tx, sql`select 1 from ${sql.identifier(tabela)} where moto_id = ${m}`)).length, 0, tabela)
     }
     assert.equal((await linhas(tx, sql`select 1 from os_itens where os_id = ${osId}`)).length, 0)
@@ -102,7 +100,7 @@ test('sócio remove moto sem dinheiro com o que depende dela; ficam histórico d
     assert.deepEqual(logs[0].detalhe, {
       motoId: m, chassi, modelo: `${P} A`, loja: (await linhas(tx, sql`select nome from lojas where id = ${a.base.lojaId}`))[0].nome,
       nfEntrada: 'NFA77', motivo: 'NF do grupo errado',
-      saiu: { os: 1, itensDeOs: 2, transferencias: 1, cupons: 1, reservas: 1, pedidos: 1, aprovacoes: 2, historico: 2 },
+      saiu: { os: 1, itensDeOs: 2, transferencias: 1, cupons: 1, pedidos: 1, aprovacoes: 2, historico: 2 },
     })
   })
 })
@@ -124,7 +122,10 @@ test('uma recusa por tipo: venda, aprovação, pedido, reserva, PIX no pedido e 
         'Esta moto tem venda aguardando aprovação. Aprove ou recuse antes de remover.'],
       ['PED', m => novoPedido(tx, a, m), 'Esta moto tem pedido de venda em aberto. Cancele o pedido antes de remover.'],
       ['RES', m => tx.execute(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao) values (${m}, ${a.base.lojaId}, ${a.auxId}, 100, 'pix', '2026-12-01')`),
-        'Esta moto tem reserva em aberto. Cancele a reserva antes de remover.'],
+        'Esta moto tem reserva, com sinal pago pelo cliente. Use Arquivar moto.'],
+      // Reserva cancelada também: o sinal pago pelo cliente só está registrado nela (decisão do Luis, 07/11).
+      ['RSC', m => tx.execute(sql`insert into reservas (moto_id, loja_id, vendedor_id, valor_reserva, meio_pagamento, data_prevista_finalizacao, status) values (${m}, ${a.base.lojaId}, ${a.auxId}, 500, 'pix', '2026-12-01', 'cancelada')`),
+        'Esta moto tem reserva, com sinal pago pelo cliente. Use Arquivar moto.'],
       ['PXP', async m => {
         const pedido = await novoPedido(tx, a, m, 'cancelado')
         await tx.execute(sql`insert into pix_recebimentos_mcp (grupo_id, conta_id, banco, transacao_id, data, valor, pedido_id) values (${a.base.grupoId}, 'conta-sintetica', 'banco', ${P + 'PXP'}, now(), 10, ${pedido})`)

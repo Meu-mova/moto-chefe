@@ -14,14 +14,14 @@ test('cada impedimento recusa com a frase que diz o que fazer', () => {
   assert.equal(motivoQueImpedeRemover(com({ temGarantia: true })), 'Esta moto tem garantia registrada. Moto com garantia não se remove.')
   assert.equal(motivoQueImpedeRemover(com({ aprovacaoPendente: true })), 'Esta moto tem venda aguardando aprovação. Aprove ou recuse antes de remover.')
   assert.equal(motivoQueImpedeRemover(com({ pedidoPendente: true })), 'Esta moto tem pedido de venda em aberto. Cancele o pedido antes de remover.')
-  assert.equal(motivoQueImpedeRemover(com({ reservaAtiva: true })), 'Esta moto tem reserva em aberto. Cancele a reserva antes de remover.')
+  assert.equal(motivoQueImpedeRemover(com({ temReserva: true })), 'Esta moto tem reserva, com sinal pago pelo cliente. Use Arquivar moto.')
   assert.equal(motivoQueImpedeRemover(com({ pedidoComPix: true })), 'Um PIX recebido está ligado ao pedido desta moto. Remova a correspondência em PIX antes de remover.')
   assert.equal(motivoQueImpedeRemover(com({ osComDinheiro: { numero: 812 } })), 'A OS nº 812 tem pagamento registrado. Moto que passou pelo financeiro não se remove.')
   assert.equal(motivoQueImpedeRemover(com({ osComDinheiro: { numero: null } })), 'Uma OS desta moto tem pagamento registrado. Moto que passou pelo financeiro não se remove.')
 })
 
 test('com mais de um impedimento, a venda vem primeiro', () => {
-  assert.equal(motivoQueImpedeRemover(com({ reservaAtiva: true, temVenda: true })), 'Esta moto tem venda. Cancele a venda antes de remover.')
+  assert.equal(motivoQueImpedeRemover(com({ temReserva: true, temVenda: true })), 'Esta moto tem venda. Cancele a venda antes de remover.')
 })
 
 test('a confirmação é a palavra CONFIRMAR, em maiúsculas', () => {
