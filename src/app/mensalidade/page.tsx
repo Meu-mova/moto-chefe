@@ -17,8 +17,13 @@ export default async function MensalidadePage() {
   const usuario = await getUsuarioLogado()
   const ativo = await grupoAtivoDaRequisicao(usuario).catch(() => null)
   const paga = podePagarMensalidade(usuario.papel)
-  const visiveis = await gruposDaMensalidade(usuario, async () => ativo).catch(() => [])
-  const abertas = await abertasCobraveis({ grupoIds: visiveis.map(g => g.id) })
+  const leitura = await gruposDaMensalidade(usuario, async () => ativo)
+    .then(grupos => abertasCobraveis({ grupoIds: grupos.map(g => g.id) }))
+    .then(abertas => ({ abertas, falhou: false }), (e: unknown) => {
+      console.error('[mensalidade] leitura da página:', e instanceof Error ? e.message : e)
+      return { abertas: [], falhou: true }
+    })
+  const { abertas } = leitura
   const hoje = hojeBrt()
   const bloqueado = estaBloqueado(abertas.filter(a => a.m.grupoId === ativo?.id).map(a => a.m.vencimento), hoje)
   const linhas = abertas.map(a => ({ ...a, ...valorAtualizado(Number(a.m.valor), a.m.vencimento, hoje) }))
@@ -50,7 +55,7 @@ export default async function MensalidadePage() {
       </section>
 
       <main className="mx-auto max-w-6xl space-y-3 px-4 py-6 sm:px-6">
-        <ListaMensalidades paga={paga} linhas={linhas} hoje={hoje} />
+        <ListaMensalidades paga={paga} linhas={linhas} hoje={hoje} leituraFalhou={leitura.falhou} />
 
         <div className="flex justify-between pt-2 text-sm">
           {!bloqueado ? <Link href="/dashboard" className="text-primary-text underline">Voltar ao sistema</Link> : <span />}
