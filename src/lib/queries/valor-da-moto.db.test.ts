@@ -184,3 +184,11 @@ test('fechamento, coletiva e individual (relatórios de venda de motos) contam a
   const i = await dadosIndividual(mes)
   assert.deepEqual(i.vendedores.map(v => [v.usuarioId, v.faturamento]), [[vendedorA, LIQUIDO_MOTOS_A]])
 })
+
+test('faturamento por origem da venda (marketing) conta a moto, sem o frete', async () => {
+  const m = await import('./marketing')
+  const [a] = contas
+  assert.equal((await m.resumoVendasPorOrigem(a.grupoId, SETEMBRO.dataInicio, SETEMBRO.dataFim)).faturamento, BRUTO_MOTOS_A)
+  const porOrigem = await m.vendasPorOrigem(a.grupoId, SETEMBRO.dataInicio, SETEMBRO.dataFim)
+  assert.equal(porOrigem.reduce((s, o) => s + o.faturamento, 0), BRUTO_MOTOS_A)
+})
