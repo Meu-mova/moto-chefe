@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
+import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -125,10 +125,10 @@ test('o selo diz dentro ou fora do estado com as UFs, e o porquê diz qual regra
 })
 
 test('venda com Entrega e sem modalidade do frete não emite; com modalidade ou sem Entrega (venda antiga), nada pende', () => {
-  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: '' }, 'Cliente'),
+  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: '' }, 'Cliente', 1000),
     ['Falta a modalidade do frete na Entrega da venda. Corrija a Entrega na venda para a nota sair.'])
-  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }, 'Cliente'), [])
-  assert.deepEqual(pendenciasDaEntrega(null, 'Cliente'), [])
+  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }, 'Cliente', 1000), [])
+  assert.deepEqual(pendenciasDaEntrega(null, 'Cliente', 1000), [])
 })
 
 test('entregar em outra UF que a do emitente é para outro estado, qualquer que seja a UF do cliente', () => {
@@ -182,11 +182,11 @@ test('faturamento direto: a UF do formulário diferente da Entrega da venda impe
 
 test('entregar ao próprio comprador com nome acima de 60 caracteres: a prévia pede para corrigir o nome do cliente', () => {
   const longo = 'x'.repeat(61)
-  assert.deepEqual(pendenciasDaEntrega(ENTREGAR_MA, longo),
+  assert.deepEqual(pendenciasDaEntrega(ENTREGAR_MA, longo, 1000),
     ['O nome do cliente passa de 60 caracteres, o limite da nota para quem recebe a entrega. Corrija o nome do cliente antes de emitir.'])
-  assert.deepEqual(pendenciasDaEntrega(ENTREGAR_MA, 'Cliente'), [])
-  assert.deepEqual(pendenciasDaEntrega({ ...ENTREGAR_MA, recebe: { nome: 'Maria', cpfCnpj: '52998224725' } } as EntregaVenda, longo), [])
-  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }, longo), [])
+  assert.deepEqual(pendenciasDaEntrega(ENTREGAR_MA, 'Cliente', 1000), [])
+  assert.deepEqual(pendenciasDaEntrega({ ...ENTREGAR_MA, recebe: { nome: 'Maria', cpfCnpj: '52998224725' } } as EntregaVenda, longo, 1000), [])
+  assert.deepEqual(pendenciasDaEntrega({ modo: 'retira', modalidade: 'SemOcorrenciaDeTransporte' }, longo, 1000), [])
 })
 
 test('entregar em outra UF que a do emitente é para outro estado também para contribuinte e ciclomotor da UF da loja', () => {
@@ -204,4 +204,47 @@ test('o resumo diz para onde vai a entrega; sem UF ainda, só "Entregar"', () =>
   assert.equal(textoDaEntrega({ ...ENTREGAR_MA, endereco: { ...ENTREGAR_MA.endereco, nomeCidade: '', cidade: '', uf: '' } } as EntregaVenda), 'Entregar')
   assert.equal(textoDaEntrega({ ...ENTREGAR_MA, endereco: { ...ENTREGAR_MA.endereco, nomeCidade: '', cidade: '' } } as EntregaVenda), 'Entregar')
   assert.equal(textoDaEntrega({ modo: 'retira', modalidade: '' }), 'Retira na loja')
+})
+
+// Frete cobrado (#726, 4b): só na entrega, só com a loja levando ou contratando (decisão do Luis, 07/11/2026).
+const COM_FRETE = (modalidade: string, frete: unknown) =>
+  conferirEntrega({ modo: 'entregar', modalidade, endereco: LOCAL_MA, recebe: null, frete })
+
+test('frete cobrado com "Loja leva" ou "Loja contrata" grava o valor em reais', () => {
+  assert.deepEqual(COM_FRETE('TransporteProprioPorContaDoRemetente', 350),
+    { ok: true, entrega: { ...ENTREGAR_MA, frete: 350 } })
+  assert.deepEqual(COM_FRETE('ContratacaoPorContaDoRemetente', 99.9),
+    { ok: true, entrega: { ...ENTREGAR_MA, modalidade: 'ContratacaoPorContaDoRemetente', frete: 99.9 } })
+})
+
+test('sem frete (nulo ou ausente) a Entrega grava sem a chave', () => {
+  assert.deepEqual(COM_FRETE('TransporteProprioPorContaDoRemetente', null), { ok: true, entrega: ENTREGAR_MA })
+})
+
+test('frete com outra modalidade, zero, negativo, com mais de 2 casas ou que não é número é recusado', () => {
+  const soLoja = 'O frete cobrado só vale com "Loja leva com veículo próprio" ou "Loja contrata e paga a transportadora".'
+  assert.deepEqual(COM_FRETE('ContratacaoPorContaDoDestinatario', 350), { ok: false, erro: soLoja })
+  assert.deepEqual(COM_FRETE('', 350), { ok: false, erro: soLoja })
+  for (const frete of [0, -10, 10.555, '350', Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.deepEqual(COM_FRETE('TransporteProprioPorContaDoRemetente', frete), { ok: false, erro: 'Valor do frete inválido.' }, String(frete))
+  }
+})
+
+test('retirada na loja não leva frete, mesmo que o navegador mande', () => {
+  assert.deepEqual(conferirEntrega({ modo: 'retira', modalidade: 'TransporteProprioPorContaDoRemetente', frete: 350 }),
+    { ok: true, entrega: { modo: 'retira', modalidade: 'TransporteProprioPorContaDoRemetente' } })
+})
+
+test('freteDaVenda: o frete gravado, ou zero sem frete, na retirada e em venda antiga', () => {
+  assert.equal(freteDaVenda({ ...ENTREGAR_MA, frete: 350 } as EntregaVenda), 350)
+  assert.equal(freteDaVenda(ENTREGAR_MA), 0)
+  assert.equal(freteDaVenda({ modo: 'retira', modalidade: '' }), 0)
+  assert.equal(freteDaVenda(null), 0)
+})
+
+test('venda com valor que não cobre o frete (editada depois) não emite', () => {
+  const comFrete = { ...ENTREGAR_MA, frete: 350 } as EntregaVenda
+  assert.deepEqual(pendenciasDaEntrega(comFrete, 'Cliente', 350),
+    ['O valor da venda não cobre o frete cobrado (R$ 350,00). Corrija o valor da venda antes de emitir.'])
+  assert.deepEqual(pendenciasDaEntrega(comFrete, 'Cliente', 350.01), [])
 })
