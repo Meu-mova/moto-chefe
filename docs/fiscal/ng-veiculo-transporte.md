@@ -85,6 +85,15 @@ No MOVA (`src/lib/notagateway/entrega.ts`, `payload.ts`):
 - `operacaoDaVenda` decide dentro ou fora do estado pela Entrega; o CFOP, o CST e a alíquota seguem a decisão.
 - **Retira na loja**: `cliente.endereco` com o endereço real e `transporte: { frete: { modalidade } }`, sem
   `enderecoEntrega`. Cliente de outra UF sai interestadual só com moto ciclomotor ou indicador "contribuinte".
+- **Entregar** (#726): a UF do endereço de entrega comparada com a do emitente decide a operação, qualquer que
+  seja a UF do cliente. `cliente.endereco` leva o endereço real e `transporte.enderecoEntrega` o lugar da
+  entrega, com `cidade` em código IBGE (o CEP o traz pela busca de CEP; sem ela, digita-se). Quem recebe é o
+  comprador da venda, lido na hora da nota; "Outra pessoa recebe" troca nome e CPF/CNPJ (conferido pelo ADR-0015).
+- **`nomeDestinatario`, `complemento` e `cep` da entrega**: a página de emissão (`updatedAt 2026-06-16`) **não
+  mostra** `nomeDestinatario` no JSON de `enderecoEntrega`. O manual da NG para NF-e modelo 55 (fora do repo) traz
+  *"transporte.enderecoEntrega.nomeDestinatario string Não — Nome completo ou razão social do destinatário da
+  entrega."*, e também `complemento` e `cep` com obrigatório "Não". O MOVA manda os três só quando preenchidos;
+  nome até 60 caracteres (xNome do Grupo G, MOC 7.0).
 - Venda com Entrega e sem modalidade não monta a nota; a prévia lista a pendência.
 - Rejeição 773 (MOC 7.0, Anexo I, regra E12-40, p. 84-85 do [PDF oficial](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf)):
   *"operação é Interna no Estado (tag:idDest = 1) e operação não é com Consumidor final: UF do destinatário [...] difere
