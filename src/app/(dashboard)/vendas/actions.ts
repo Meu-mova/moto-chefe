@@ -32,7 +32,7 @@ import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { conferirEntrega, valorDaMoto } from '@/lib/notagateway/entrega'
+import { conferirEntrega, freteDaVenda, valorDaMoto } from '@/lib/notagateway/entrega'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
@@ -1384,10 +1384,10 @@ async function editarVenda(vendaId: string, dados: {
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
-    // O item da moto acompanha o valor da venda (#774), sem o frete cobrado, que fica na Entrega (#726).
-    await gravarMotoDoPedido(tx, {
-      pedidoId: vendaAtual.pedidoVendaId, motoId: vendaAtual.motoId, valor: valorDaMoto(valorNum, vendaAtual.entrega).toFixed(2),
-    })
+    // O item da moto acompanha o valor da venda (#774), sem o frete cobrado, que fica na Entrega (#726). Valor que não
+    // cobre o frete deixa o item sem valor (nunca negativo); a prévia da NF trava até corrigir.
+    const moto = valorDaMoto(valorNum, freteDaVenda(vendaAtual.entrega))
+    await gravarMotoDoPedido(tx, { pedidoId: vendaAtual.pedidoVendaId, motoId: vendaAtual.motoId, valor: moto > 0 ? moto.toFixed(2) : null })
     await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, usuario.grupoLiberado, {
       ...comprador,
       // A edição manda o formulário inteiro: campo vazio apaga, como antes.

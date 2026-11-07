@@ -5,7 +5,7 @@ import { hojeBrt } from '@/lib/data-venda'
 import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { totalComFrete } from '@/lib/notagateway/entrega'
+import { freteDaVenda, totalComFrete } from '@/lib/notagateway/entrega'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -82,7 +82,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     .limit(1)
 
   const agora = new Date()
-  const total = totalComFrete(d.valor, pedido.entrega)
+  const total = totalComFrete(d.valor, freteDaVenda(pedido.entrega))
   const valor = total.toFixed(2)
   const [venda] = await tx.insert(vendas).values({
     pedidoVendaId: d.pedidoId,

@@ -252,4 +252,13 @@ test('efetivar com frete: o item moto vale a moto e a venda vale moto + frete; e
   }), { ok: true, dados: undefined })
   assert.deepEqual(await itemDaMoto(a.motoId), [{ valor_unitario: '11000.00' }])
   assert.equal(Number((await vendaDaMoto(a.motoId))[0].valor), 11350)
+  assert.deepEqual(await execRows(sql`select count(*)::int as n from pedidos_venda_itens i join pedidos_venda p on p.id = i.pedido_venda_id
+    where p.moto_id = ${a.motoId} and i.tipo = 'frete'`), [{ n: 0 }])
+
+  // Valor que não cobre o frete: o item moto fica sem valor (nunca negativo ou zero); a prévia da NF trava com a pendência.
+  assert.deepEqual(await editarVendaAction(venda.id as string, {
+    valor: '300', dataVenda: '2026-11-07', pagamentos: [{ tipo: 'pix', valor: 300 }],
+    clienteNome: 'Cliente sintético', clienteCpf: '52998224725',
+  }), { ok: true, dados: undefined })
+  assert.deepEqual(await itemDaMoto(a.motoId), [{ valor_unitario: null }])
 })

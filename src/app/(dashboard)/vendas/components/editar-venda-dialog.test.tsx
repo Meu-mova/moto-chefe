@@ -27,7 +27,7 @@ async function abrir(entrega: unknown) {
   const { EditarVendaDialog } = await import('./editar-venda-dialog')
   const venda = {
     id: 'v1', numero: 1, lojaId: 'l1', valor: '10350.00', dataVenda: new Date('2026-11-07T12:00:00Z'),
-    pagamentos: [{ tipo: 'pix', valor: 10350 }], clienteNome: 'Cliente', clienteCpf: '52998224725', entrega,
+    pagamentos: [{ tipo: 'pix', valor: 10350 }], clienteNome: 'Cliente', clienteCpf: '52998224725', freteCobrado: (entrega as { frete?: number } | null)?.frete ?? null,
   } as unknown as VendaComDetalhes
   const container = document.createElement('div')
   document.body.appendChild(container)
@@ -50,4 +50,12 @@ test('venda com frete: o valor total diz que inclui o frete e por quanto a moto 
 test('venda sem frete: nenhum aviso de frete', async () => {
   await abrir(null)
   assert.doesNotMatch(texto(), /Inclui o frete/)
+})
+
+test('valor que não cobre o frete: a tela diz para corrigir, sem valor negativo para a moto', async () => {
+  await abrir(ENTREGA)
+  const campo = [...document.querySelectorAll('label')].find(l => /^Valor Total/.test(l.textContent ?? ''))!.parentElement!.querySelector('input')!
+  await digitar(campo, '30000')
+  assert.match(texto(), /O valor não cobre o frete cobrado de R\$\s*350,00\. Corrija o valor: ele inclui o frete\./)
+  assert.doesNotMatch(texto(), /a moto sai na nota por/)
 })

@@ -119,7 +119,7 @@ export function EfetivarDialog({ pedidoId, chassi, modelo, origens, entrega }: P
               <Label>{frete ? 'Valor da moto (R$)' : 'Valor (R$)'}</Label>
               <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" />
               {/* O servidor soma o frete do pedido ao valor: aqui só se mostra o total. */}
-              {frete > 0 && <p className="text-sm font-medium">Total (moto + frete): {brl(totalComFrete(Number(valor) || 0, entrega))}</p>}
+              {frete > 0 && <p className="text-sm font-medium">Total (moto + frete): {brl(totalComFrete(Number(valor) || 0, frete))}</p>}
             </div>
             <OrigemVendaSelect
               origens={origens}

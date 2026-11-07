@@ -249,10 +249,9 @@ test('venda com valor que não cobre o frete (editada depois) não emite', () =>
   assert.deepEqual(pendenciasDaEntrega(comFrete, 'Cliente', 350.01), [])
 })
 
-test('valorDaMoto e totalComFrete: a mesma conta, em centavos, para a tela, a efetivação, o editar venda e os relatórios (#796)', () => {
-  const comFrete = { ...ENTREGAR_MA, frete: 350.1 } as EntregaVenda
-  assert.equal(totalComFrete(10000.2, comFrete), 10350.3)
-  assert.equal(valorDaMoto(10350.3, comFrete), 10000.2)
-  assert.equal(totalComFrete(10000, null), 10000)
-  assert.equal(valorDaMoto(10000, { modo: 'retira', modalidade: '' }), 10000)
+test('valorDaMoto e totalComFrete: a mesma conta, em centavos, para a tela, a efetivação e o editar venda', () => {
+  assert.equal(totalComFrete(10000.2, 350.1), 10350.3)
+  assert.equal(valorDaMoto(10350.3, 350.1), 10000.2)
+  assert.equal(totalComFrete(10000, 0), 10000)
+  assert.equal(valorDaMoto(10000, 0), 10000)
 })

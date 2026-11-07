@@ -27,7 +27,8 @@ export async function listarVendas(filtros?: {
       valor:            vendas.valor,
       formaPagamento:   vendas.formaPagamento,
       pagamentos:       vendas.pagamentos,
-      entrega:          vendas.entrega,
+      /** Só o frete cobrado (#726), não a Entrega inteira: a lista não precisa do endereço nem de quem recebe. */
+      freteCobrado:     sql<number | null>`(${vendas.entrega}->>'frete')::float8`,
       clienteNome:      vendas.clienteNome,
       clienteCpf:       vendas.clienteCpf,
       clienteCelular:   vendas.clienteCelular,
