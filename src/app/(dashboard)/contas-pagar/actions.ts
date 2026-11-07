@@ -14,6 +14,7 @@ import {
   mesApurado, ultimoDiaDoMes, valorAutomatico,
 } from '@/lib/contas-pagar'
 import { buscarDadosFolha, agregarFolha } from '@/lib/queries/folha'
+import { valorDaMotoExpr } from '@/lib/queries/valor-liquido'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 
@@ -38,9 +39,10 @@ async function apurarBase(base: string, mes: string, lojaIds: string[], grupoId:
   const inicio = inicioDoDiaBrt(`${mes}-01`)
   const fim = fimDoDiaBrt(`${mes}-${String(ultimoDiaDoMes(mes)).padStart(2, '0')}`)
 
-  const somaMotos = async (apenasComNf: boolean) => {
+  // "Venda de motos" é só a moto; o faturamento total conta o frete cobrado como receita, como o DRE (#796).
+  const somaMotos = async (apenasComNf: boolean, comFrete = false) => {
     const [r] = await db
-      .select({ total: sql<string>`COALESCE(SUM(${vendas.valor}::numeric), 0)` })
+      .select({ total: sql<string>`COALESCE(SUM(${comFrete ? sql`${vendas.valor}::numeric` : valorDaMotoExpr()}), 0)` })
       .from(vendas)
       .where(and(
         inArray(vendas.lojaId, lojaIds),
@@ -81,7 +83,7 @@ async function apurarBase(base: string, mes: string, lojaIds: string[], grupoId:
     case 'venda_motos_com_nf': return somaMotos(true)
     case 'venda_pecas':        return somaPecas()
     case 'faturamento_total': {
-      const [motos, pecas, os] = await Promise.all([somaMotos(false), somaPecas(), somaOS()])
+      const [motos, pecas, os] = await Promise.all([somaMotos(false, true), somaPecas(), somaOS()])
       return motos + pecas + os
     }
     // A folha é a única base que não é uma soma: sai do mesmo cálculo da tela de
