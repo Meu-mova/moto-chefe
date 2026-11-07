@@ -344,3 +344,91 @@ describe('funções chamadas por supabase.rpc', () => {
     assert.deepEqual(chamadas.filter(n => dependentes.includes(n)), [])
   })
 })
+
+// Itens do pedido (#774): expand. O pedido de 1 moto passa a ter a moto como item; o resto
+// continua lendo pedidos_venda.moto_id, então os cenários acima não mudam.
+describe('itens do pedido (#774)', () => {
+  const itens = async (s: Semente, pedidoId: string) => ((await s.tx.execute(sql`
+    select tipo, moto_id as "motoId", quantidade, valor_unitario as "valorUnitario"
+    from pedidos_venda_itens where pedido_venda_id = ${pedidoId} order by criado_em`)) as unknown as { rows: any[] }).rows
+
+  const efetivar = (s: Semente, pedidoId: string, valor: number) => efetivarPedidoTx(s.tx, {
+    pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
+    clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor, formaPagamento: 'pix',
+    origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
+  })
+
+  test('I1: Novo pedido grava a moto como item, quantidade 1, sem valor (a tela não pede valor até o #783)', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
+      assert.deepEqual(await itens(s, pedidoId), [{ tipo: 'moto', motoId, quantidade: '1.00', valorUnitario: null }])
+    })
+  })
+
+  test('I2: efetivar grava o valor da venda no item da moto, sem item novo', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
+      await efetivar(s, pedidoId, 15000)
+      assert.deepEqual(await itens(s, pedidoId), [{ tipo: 'moto', motoId, quantidade: '1.00', valorUnitario: '15000.00' }])
+    })
+  })
+
+  test('I3: pedido anterior aos itens (sem item) efetiva igual e ganha o item com o valor', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      assert.deepEqual(await itens(s, s.pedidoId), [])
+      await efetivar(s, s.pedidoId, 9000)
+      assert.deepEqual(await estado(s, s.motoId, s.pedidoId), { disponibilidade: null, status: 'vendida', pedido: 'efetivado' })
+      assert.deepEqual(await itens(s, s.pedidoId), [{ tipo: 'moto', motoId: s.motoId, quantidade: '1.00', valorUnitario: '9000.00' }])
+    })
+  })
+
+  test('I4: cancelar não mexe no item; pedido sem item também cancela', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const motoId = await outraMoto(s, 'montada', 'disponivel')
+      const { pedidoId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
+      const aux = { id: s.auxId, papel: 'aux_adm', lojaId: s.lojaId }
+      await cancelarPedidoTx(tx, { pedidoId, usuario: aux, observacao: null })
+      await cancelarPedidoTx(tx, { pedidoId: s.pedidoId, usuario: aux, observacao: null })
+      assert.deepEqual(await itens(s, pedidoId), [{ tipo: 'moto', motoId, quantidade: '1.00', valorUnitario: null }])
+      assert.deepEqual(await itens(s, s.pedidoId), [])
+    })
+  })
+
+  test('I5: o banco recusa item incoerente (moto sem moto, peça sem peça, frete com moto ou peça, moto 2x ou com quantidade 2)', async () => {
+    await emTransacaoDesfeita(async tx => {
+      const s = await semear(tx)
+      const peca = await s.linha(sql`insert into pecas_catalogo (nome, valor, conta_id) select 'Capacete', 300, conta_id from grupos where id = ${s.grupoId} returning id`)
+      const inserir = (tipo: string, motoId: string | null, pecaId: string | null, quantidade = 1) =>
+        sql`insert into pedidos_venda_itens (pedido_venda_id, tipo, moto_id, peca_id, quantidade) values (${s.pedidoId}, ${tipo}, ${motoId}, ${pecaId}, ${quantidade})`
+      // Savepoint: a recusa não aborta a transação do teste. Confere o nome da regra que recusou,
+      // para um erro qualquer (FK, sintaxe) não passar por recusa certa.
+      const recusaPor = (q: ReturnType<typeof sql>, regra: string) => assert.rejects(
+        tx.transaction(async sp => { await sp.execute(q) }),
+        (e: { cause?: { constraint?: string } }) => e.cause?.constraint === regra,
+        regra,
+      )
+      const casos: [ReturnType<typeof sql>, string][] = [
+        [inserir('moto', null, null), 'pedidos_venda_itens_moto_ck'],
+        [inserir('acessorio', s.motoId, peca.id), 'pedidos_venda_itens_moto_ck'],
+        [inserir('frete', s.motoId, null), 'pedidos_venda_itens_moto_ck'],
+        [inserir('brinde', null, null), 'pedidos_venda_itens_peca_ck'],
+        [inserir('moto', s.motoId, peca.id), 'pedidos_venda_itens_peca_ck'],
+        [inserir('frete', null, peca.id), 'pedidos_venda_itens_peca_ck'],
+        [inserir('moto', s.motoId, null, 2), 'pedidos_venda_itens_quantidade_ck'],
+        [inserir('acessorio', null, peca.id, 0), 'pedidos_venda_itens_quantidade_ck'],
+        [inserir('servico', null, null), 'pedidos_venda_itens_tipo_ck'],
+      ]
+      for (const [q, regra] of casos) await recusaPor(q, regra)
+      await tx.execute(inserir('moto', s.motoId, null))
+      await tx.execute(inserir('brinde', null, peca.id, 2))
+      await tx.execute(inserir('frete', null, null))
+      await recusaPor(inserir('moto', s.motoId, null), 'pedidos_venda_itens_moto_key')
+    })
+  })
+})

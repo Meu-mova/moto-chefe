@@ -31,7 +31,7 @@ import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
-import { cancelarPedidoTx, criarPedidoTx } from '@/lib/pedido-venda'
+import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
 import { conferirEntrega } from '@/lib/notagateway/entrega'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
@@ -299,6 +299,8 @@ async function criarVendaTx(
     dataPedido: dataVendaFinal,
     dataAtualizacao: dataVendaFinal,
   }).returning({ id: pedidosVenda.id })
+  // O mesmo valor da venda: no "Vender" a venda é só a moto.
+  await gravarMotoDoPedido(tx, { pedidoId: pedido.id, motoId: moto.id, valor: data.valorTotal })
 
   // Pedido de aprovação gravado antes da IE chega sem os campos: vira não contribuinte.
   const icms = lerContribuinteIcms(data.clienteCpf, data.clienteIndicadorIe, data.clienteInscricaoEstadual)
@@ -1382,6 +1384,8 @@ async function editarVenda(vendaId: string, dados: {
         } : {}),
       })
       .where(eq(vendas.id, vendaId))
+    // O item da moto acompanha o valor da venda (#774): a venda é só a moto.
+    await gravarMotoDoPedido(tx, { pedidoId: vendaAtual.pedidoVendaId, motoId: vendaAtual.motoId, valor: dados.valor })
     await gravarCompradorDaVenda(tx, { id: vendaId, lojaId: vendaAtual.lojaId }, usuario.grupoLiberado, {
       ...comprador,
       // A edição manda o formulário inteiro: campo vazio apaga, como antes.
