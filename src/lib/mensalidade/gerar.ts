@@ -77,7 +77,7 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
         // Cobrança que já nasce vencida (cron parado, 1ª rodada com atrasadas) leva
         // multa e juros no link; senão o webhook aceitaria o valor base como pago.
         const link = await gerarLink(m, g.grupo_nome, g.email, hoje)
-        // Outro caminho (1º acesso, "Pagar") gravou o link primeiro e já mandou o e-mail.
+        // Outro caminho (1º acesso, "Pagar") gravou o link primeiro; na adesão, ele já mandou o e-mail.
         if (!link.gravou) continue
         r.links++
         // O link já foi gravado e a próxima rodada não reenvia: a falha precisa aparecer.
