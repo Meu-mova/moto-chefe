@@ -31,7 +31,8 @@ export const freteDaVenda = (entrega: EntregaVenda | null): number => (entrega?.
 
 /**
  * Valor da venda = moto + frete cobrado (#726). A mesma conta na tela, na efetivação e no editar venda. Sem piso:
- * abaixo do frete é pendência da NF e item moto sem valor (`motoNaNota`). Relatórios podem ter regra própria.
+ * abaixo do frete é pendência da NF e item moto sem valor (`motoNaNota`). Os relatórios (#796) têm regra própria, com piso 0
+ * (`valorDaMotoNosRelatoriosExpr` em `src/lib/queries/valor-liquido.ts`).
  */
 export const totalComFrete = (valorDaMoto: number, frete: number): number => centavos(valorDaMoto + frete)
 export const valorDaMoto = (valorDaVenda: number, frete: number): number => centavos(valorDaVenda - frete)

@@ -220,7 +220,7 @@ export function TabelaRankingVendedores({ ranking, vendedorAtualId, descontos }:
 
 // Duas medidas porque a diferença entre elas é a taxa da maquininha: uma venda
 // acima da tabela parcelada em 12x tem desconto de preço zero e margem positiva.
-// Cada uma leva o próprio percentual sobre o faturamento do vendedor no período —
+// Cada uma leva o próprio percentual sobre as vendas em motos do vendedor no período —
 // é a taxa que compara quem vendeu 3 motos com quem vendeu 30.
 type Desconto = { qtd: number; margem: number; preco: number; estimados: number }
 
