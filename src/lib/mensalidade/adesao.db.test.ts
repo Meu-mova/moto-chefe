@@ -1,7 +1,7 @@
 // Teste de banco: Postgres descartável. Cobrança da adesão no 1º acesso (#803): só o grupo com
 // contrato assinado na versão 2 ganha a cobrança, uma só, no valor da taxa da ficha; ela bloqueia
 // o grupo na hora e a baixa libera. Regime antigo, taxa zero/vazia e grupo isento não cobram.
-// Fronteira mockada: só o cookie do grupo ativo (next/headers); o resto é banco.
+// Fronteira mockada: cookie do grupo ativo (next/headers), sessão, Mercado Pago e e-mail; o resto é banco.
 import { after, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -17,7 +17,18 @@ process.env.DATABASE_URL = url
 
 const P = 'ADE803'
 let grupoDoCookie: string | undefined
-const cookie = mock.module('next/headers', { namedExports: { cookies: async () => ({ get: (nome: string) => (nome === 'grupoAtivo' && grupoDoCookie ? { value: grupoDoCookie } : undefined) }) } })
+let usuarioDaSessao: Record<string, unknown> = {}
+const mocks = [
+  mock.module('next/headers', { namedExports: { cookies: async () => ({ get: (nome: string) => (nome === 'grupoAtivo' && grupoDoCookie ? { value: grupoDoCookie } : undefined) }) } }),
+  mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => usuarioDaSessao } }),
+  mock.module('@/lib/mercadopago/cliente', {
+    namedExports: {
+      criarPreferencia: async (p: { mensalidadeId: string }) => ({ id: `pref-${p.mensalidadeId}`, init_point: `https://mp.teste/${p.mensalidadeId}` }),
+      expirarPreferencia: async () => {},
+    },
+  }),
+  mock.module('@/lib/email', { namedExports: { enviarEmail: async () => ({ status: 'enviado', id: 'x' }) } }),
+]
 type Db = typeof import('@/lib/db')
 let db: Db['db']
 let registrarPrimeiroAcesso: typeof import('@/lib/primeiro-acesso')['registrarPrimeiroAcesso']
@@ -65,7 +76,7 @@ before(async () => {
 })
 
 after(async () => {
-  cookie.restore()
+  for (const m of mocks) m.restore()
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
@@ -140,30 +151,45 @@ test('sócio com dois grupos da mesma Conta: a faixa mostra a adesão em aberto 
     { bloqueado: false, aberta: null, outros: [{ nome: `${P} Filial`, bloqueado: true }] })
 })
 
-test('admin_rede na persona do grupo liberado da Conta B registra o 1º acesso e cria a adesão de B; fora da persona não mexe em B', async () => {
-  // Decisão do Luis (09/11/2026): a persona conta como 1º acesso. Consequência: com a adesão em aberto,
-  // B fica bloqueado e sai das liberações vivas do admin_rede até o cliente pagar.
+test('admin_rede na persona do grupo liberado B cria a adesão de B, continua com B e paga; fora da persona não mexe nem acha a adesão', async () => {
+  // Decisão do Luis (09/11/2026, opção B): a persona conta como 1º acesso, e a adesão em aberto não tira
+  // B das liberações vivas: o admin_rede cai na /mensalidade de B e pode pagar (como na #773).
   const { gruposLiberadosVivos, usuarioDaRede } = await import('@/lib/grupos-liberados')
   const { grupoAtivoDaRequisicao } = await import('@/lib/grupo')
   const { registrarSePrimeiroAcesso } = await import('@/lib/primeiro-acesso')
+  const { linkPagamentoAction } = await import('@/app/mensalidade/actions')
+  const { MENSALIDADE_NAO_ENCONTRADA } = await import('@/lib/mensalidade/regras')
   const a = await grupoComAdesao('RedeA', { taxa: '0' })
   const b = await grupoComAdesao('RedeB', { versao: 2 })
   const id = await semearUsuario(db, a, { papel: 'admin_rede', rotulo: 'rede', semLoja: true, comGrupo: true, comConta: true })
   await db.execute(sql`insert into grupos_liberados (usuario_id, grupo_id, liberado_por) values (${id}, ${b.grupoId}, ${id})`)
   const base = { id, email: 'rede@teste.invalid', papel: 'admin_rede', lojaId: null, gruposAcesso: [a.grupoId], gruposAprovacao: [], contaId: a.contaId }
   // Como em auth.ts: liberações vivas do banco e a persona é o grupo do cookie.
-  const acessar = async (grupoNoCookie: string) => {
+  const entrar = async (grupoNoCookie: string) => {
     grupoDoCookie = grupoNoCookie
-    const u = usuarioDaRede(base, await gruposLiberadosVivos(id, ACESSO), grupoNoCookie)
-    return registrarSePrimeiroAcesso(u.papel, await grupoAtivoDaRequisicao(u), ACESSO)
+    usuarioDaSessao = usuarioDaRede(base, await gruposLiberadosVivos(id, ACESSO), grupoNoCookie)
+    const u = usuarioDaSessao as ReturnType<typeof usuarioDaRede<typeof base>>
+    const grupo = await grupoAtivoDaRequisicao(u)
+    await registrarSePrimeiroAcesso(u.papel, grupo, ACESSO)
+    return grupo
   }
 
-  await acessar(a.grupoId)
+  assert.equal((await entrar(a.grupoId)).id, a.grupoId)
   assert.equal(await primeiroAcessoDo(b.grupoId), null)
   assert.deepEqual(await adesoesDo(b.grupoId), [])
 
-  await acessar(b.grupoId)
+  assert.equal((await entrar(b.grupoId)).id, b.grupoId)
+  const [adesao] = await adesoesDo(b.grupoId)
+  assert.equal(adesao.valor, '399.00')
   assert.equal((await primeiroAcessoDo(b.grupoId))?.toISOString(), ACESSO.toISOString())
-  assert.deepEqual((await adesoesDo(b.grupoId)).map(x => x.valor), ['399.00'])
-  assert.deepEqual((await gruposLiberadosVivos(id, ACESSO)).map(l => l.grupoId), [])
+
+  // Próxima página: B continua liberado, a persona continua em B e o Pagar acha a adesão.
+  assert.deepEqual((await gruposLiberadosVivos(id, ACESSO)).map(l => l.grupoId), [b.grupoId])
+  assert.equal((await entrar(b.grupoId)).id, b.grupoId)
+  assert.equal((await situacaoMensalidade(b.grupoId, [], ACESSO)).bloqueado, true)
+  assert.deepEqual(await linkPagamentoAction(adesao.id), { ok: true, url: `https://mp.teste/${adesao.id}` })
+
+  // Fora da persona: a mesma adesão não é achada.
+  await entrar(a.grupoId)
+  assert.deepEqual(await linkPagamentoAction(adesao.id), { ok: false, erro: MENSALIDADE_NAO_ENCONTRADA })
 })

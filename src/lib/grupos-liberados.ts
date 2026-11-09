@@ -19,7 +19,9 @@ export type GrupoLiberado = { grupoId: string; contaId: string }
 
 /**
  * Liberações vivas do usuário: não revogadas, de grupo ativo e não bloqueado por falta de
- * pagamento (o bloqueio da Conta dona derruba também o acesso de fora).
+ * pagamento (o bloqueio da Conta dona derruba também o acesso de fora). A adesão em aberto não
+ * derruba: o admin_rede que fez o 1º acesso pela persona cai na /mensalidade e paga (decisão do
+ * Luis, 09/11/2026, #803).
  */
 export async function gruposLiberadosVivos(usuarioId: string, agora: Date = new Date(), exec: Executor = db): Promise<GrupoLiberado[]> {
   const linhas = await exec.select({ grupoId: grupos.id, contaId: grupos.contaId })
@@ -29,7 +31,8 @@ export async function gruposLiberadosVivos(usuarioId: string, agora: Date = new 
   if (!linhas.length) return []
   const abertas = await abertasCobraveis({ grupoIds: linhas.map(l => l.grupoId) }, exec)
   const hoje = hojeBrt(agora)
-  return linhas.filter(l => !estaBloqueado(abertas.filter(a => a.m.grupoId === l.grupoId).map(a => a.m), hoje))
+  const mensalidadesDo = (grupoId: string) => abertas.filter(a => a.m.grupoId === grupoId && a.m.tipo === 'mensalidade').map(a => a.m)
+  return linhas.filter(l => !estaBloqueado(mensalidadesDo(l.grupoId), hoje))
 }
 
 type UsuarioBase = {
