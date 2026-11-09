@@ -6,7 +6,7 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
-import { semearContaBase, type Base } from '@/test/semear-conta'
+import { semearContaBase, semearGrupo, type Base } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -29,8 +29,13 @@ const linhas = async (q: ReturnType<typeof sql>) => ((await db.execute(q)) as un
 const ACESSO = new Date('2026-11-10T01:00:00Z')
 
 let cnpjSeq = 0
-async function grupoComAdesao(nome: string, o: { versao?: 1 | 2; status?: string; taxa?: string | null; isento?: boolean; taxaConfig?: string } = {}): Promise<Base> {
-  const g = await semearContaBase(db, { prefixo: P, nome, cnpj: `0000000080${String(++cnpjSeq).padStart(4, '0')}` })
+async function grupoComAdesao(
+  nome: string, o: { versao?: 1 | 2; status?: string; taxa?: string | null; isento?: boolean; taxaConfig?: string; contaId?: string } = {},
+): Promise<Base> {
+  const cnpj = `0000000080${String(++cnpjSeq).padStart(4, '0')}`
+  const g = o.contaId
+    ? { prefixo: P, nome, contaId: o.contaId, ...(await semearGrupo(db, o.contaId, { prefixo: P, nome, cnpj })) }
+    : await semearContaBase(db, { prefixo: P, nome, cnpj })
   const [a] = await linhas(sql`insert into adesoes_mova (loja, responsavel, celular, cnpj_arquivo_path, store_login, usuarios, grupo_id, taxa_implantacao, valor_mensal, email)
     values (${g.nome}, 'Resp', '35999999999', 'x', 'login', '[]'::jsonb, ${g.grupoId}, ${o.taxa === undefined ? '399.00' : o.taxa}, 499, 'resp@teste.invalid') returning id`)
   if (o.versao) {
@@ -121,14 +126,13 @@ test('adesão em aberto bloqueia o grupo na hora; o pagamento aprovado libera; n
   assert.equal((await situacaoMensalidade(g.grupoId, [], ACESSO)).bloqueado, false)
 })
 
-test('Conta B não vê a adesão da Conta A; o sócio vê a adesão em aberto de outro grupo dele', async () => {
-  const a = await grupoComAdesao('ContaA', { versao: 2 })
-  const b = await grupoComAdesao('ContaB', { versao: 2, taxa: '0' })
-  await registrarPrimeiroAcesso(a.grupoId, ACESSO)
-  await registrarPrimeiroAcesso(b.grupoId, ACESSO)
-  const deB = await situacaoMensalidade(b.grupoId, [b.grupoId], ACESSO)
-  assert.deepEqual({ bloqueado: deB.bloqueado, aberta: deB.aberta, outros: deB.outros }, { bloqueado: false, aberta: null, outros: [] })
-  // Grupo ativo sem nada, outro grupo visível com a adesão em aberto: a faixa mostra bloqueado.
-  const comA = await situacaoMensalidade(b.grupoId, [b.grupoId, a.grupoId], ACESSO)
-  assert.deepEqual(comA.outros.map(o => o.bloqueado), [true])
+test('sócio com dois grupos da mesma Conta: a faixa mostra a adesão em aberto do outro grupo como bloqueado', async () => {
+  // O isolamento entre Contas é da leitura dos grupos do usuário, provado no "Pagar" (link-pagamento.db.test.ts).
+  const matriz = await grupoComAdesao('Matriz', { versao: 2, taxa: '0' })
+  const filial = await grupoComAdesao('Filial', { versao: 2, contaId: matriz.contaId })
+  await registrarPrimeiroAcesso(matriz.grupoId, ACESSO)
+  await registrarPrimeiroAcesso(filial.grupoId, ACESSO)
+  const s = await situacaoMensalidade(matriz.grupoId, [matriz.grupoId, filial.grupoId], ACESSO)
+  assert.deepEqual({ bloqueado: s.bloqueado, aberta: s.aberta, outros: s.outros },
+    { bloqueado: false, aberta: null, outros: [{ nome: `${P} Filial`, bloqueado: true }] })
 })
