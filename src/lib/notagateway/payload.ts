@@ -25,7 +25,8 @@ import { ehCartao, type FormaPagamentoNfe } from './venda'
 import type { IndicadorIe } from '../documento'
 import { operacaoExigeEntrega, type VeiculoNovo } from './veiculo'
 import { validarDadosTransporte, type DadosTransporte, type EnderecoEntrega } from './transporte'
-import { AVISO_SEM_MODALIDADE, operacaoDaVenda, transporteDaEntrega, type EntregaVenda } from './entrega'
+import { AVISO_SEM_MODALIDADE, freteDaVenda, modalidadeComFrete, valorDaMoto, operacaoDaVenda, transporteDaEntrega, type EntregaVenda } from './entrega'
+import { centavos } from '../numero-br'
 
 export type RegraSaida = {
   naturezaOperacao: string
@@ -150,6 +151,8 @@ export type ItemNfe = {
   quantidade: number
   unidadeMedida: string
   valorUnitario: number
+  /** Frete cobrado que está no total da nota (manual NG modelo 55, `itens[].frete`). */
+  frete?: number
   impostos: ImpostosItem
   veiculoNovo?: VeiculoNovo
 }
@@ -229,6 +232,12 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
   if (freteDaEntrega === '') throw new Error(AVISO_SEM_MODALIDADE)
 
   const { interestadual } = operacaoDosDados(venda)
+  // O frete cobrado está somado no valor da venda: na nota, a moto vale o resto e o frete vai no item (W16-10: vNF soma vFrete).
+  // Só quando a modalidade que vai na nota é da loja: no faturamento direto ela vem do formulário (#728).
+  const modalidadeDaNota = transporteValidado?.ok ? transporteValidado.dados.modalidade : venda.entrega?.modalidade ?? ''
+  const frete = modalidadeComFrete(modalidadeDaNota) ? freteDaVenda(venda.entrega ?? null) : 0
+  // Pendente (Cesar/contador, #726): o valor aproximado dos tributos sai sobre o total com frete; trocar para `valorDaMoto(venda.valor, frete)` aqui.
+  const valorDoIbpt = venda.valor
 
   const icms: ImpostosItem['icms'] = {
     situacaoTributaria: interestadual ? regra.cstIcmsInterestadual : regra.cstIcmsInterno,
@@ -252,9 +261,8 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
   const federal = num(regra.ibptFederal)
   const estadual = num(regra.ibptEstadual)
   if (federal !== undefined || estadual !== undefined) {
-    const centavos = (v: number) => Math.round(v * 100) / 100
-    const valorFederal = centavos((venda.valor * (federal ?? 0)) / 100)
-    const valorEstadual = centavos((venda.valor * (estadual ?? 0)) / 100)
+    const valorFederal = centavos((valorDoIbpt * (federal ?? 0)) / 100)
+    const valorEstadual = centavos((valorDoIbpt * (estadual ?? 0)) / 100)
     impostos.percentualAproximadoTributos = {
       detalhado: {
         percentualFederal: federal ?? 0,
@@ -284,7 +292,8 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
     ncm: moto.ncm,
     quantidade: 1,
     unidadeMedida: moto.unidade || 'UN',
-    valorUnitario: venda.valor,
+    valorUnitario: valorDaMoto(venda.valor, frete),
+    ...(frete ? { frete } : {}),
     impostos,
   }
   if (moto.cest) item.cest = moto.cest

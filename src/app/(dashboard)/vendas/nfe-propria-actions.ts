@@ -99,6 +99,8 @@ export type PreviaNfe =
         observacao: string
         /** Dentro ou fora do estado, pela mesma função do payload (#725). */
         operacao: OperacaoDaVenda
+        /** Frete cobrado que vai no item da nota (`itens[].frete`); zero sem frete (#726). */
+        freteNaNota: number
       } | null
       notas: NotaResumo[]
       /** Valores atuais do cadastro, para corrigir a nota recusada (#347). */
@@ -154,7 +156,7 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
     clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
     clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
     valor, pagamentos: pagamentosMova, temFicha: !!ficha,
-  }), ...pendenciasDaEntrega(venda.entrega, venda.clienteNome)]
+  }), ...pendenciasDaEntrega(venda.entrega, venda.clienteNome, valor)]
   if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
 
   const regra: RegraSaida | null = regraRow
@@ -335,6 +337,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
         },
         observacao: e.observacao,
         operacao: operacaoDosDados(dados),
+        freteNaNota: item.frete ?? 0,
       }
     }
 

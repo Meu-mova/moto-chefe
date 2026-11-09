@@ -100,6 +100,20 @@ No MOVA (`src/lib/notagateway/entrega.ts`, `payload.ts`):
   social do destinatário da entrega."*, e também `complemento` e `cep` com obrigatório "Não". O MOVA manda os três só
   quando preenchidos, aparados; nome e complemento até 60 caracteres (Grupo G do MOC 7.0).
 - Venda com Entrega e sem modalidade não monta a nota; a prévia lista a pendência.
+- **Frete cobrado** (#726, 4b): só na entrega com "Loja leva com veículo próprio" (3) ou "Loja contrata e paga a
+  transportadora" (0), e está somado no valor da venda (e nos pagamentos). A [página de emissão](https://docs.notagateway.com.br/v2/reference/emitir-nota-fiscal-nfe)
+  (`updatedAt 2026-06-16`) mostra `"itens": [{ ..., "valorUnitario": 49.9, "frete": 0, ... }]` e **não diz** o que o campo faz.
+  O manual da NG para NF-e modelo 55 (fora do repo, l. 836-845): *"itens[].frete number Não. Custo de frete alocado ao item
+  específico. Este valor representa a parcela do frete que está incluída no valor total do item e será considerada no
+  cálculo do imposto. Se o custo do frete estiver incluído no total da nota fiscal, ele deve ser informado aqui."* Na
+  requisição, `transporte.frete` só tem `modalidade` (l. 751). O MOVA manda o item com o valor da moto (`valor − frete`) e
+  `itens[0].frete`; o total da nota (MOC 7.0 Anexo I, W16-10: vNF soma vFrete) e a base do ICMS de fora da UF ficam iguais ao
+  valor da venda, como pediu o contador de Teresina (05/11/2026; LC 87/96 art. 13 §1º II b). Venda editada para menos que o
+  frete vira pendência. O valor aproximado dos tributos (IBPT) segue sobre o total com frete, **pendente** de resposta do
+  Cesar e do contador.
+  **Faturamento direto (tpOp 2), até a #728:** a modalidade da nota vem do formulário. Fora de 0 ou 3, o frete não vai em
+  `itens[].frete` e entra no preço da moto (item = total; vNF continua igual aos pagamentos, sem a 866). Quando a #728 fizer
+  o faturamento direto ler a Entrega, esse ramo e a guarda saem.
 - Rejeição 773 (MOC 7.0, Anexo I, regra E12-40, p. 84-85 do [PDF oficial](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf)):
   *"operação é Interna no Estado (tag:idDest = 1) e operação não é com Consumidor final: UF do destinatário [...] difere
   da UF do emitente"*. A retirada interna de cliente de outra UF não cai nela porque o MOVA manda sempre
