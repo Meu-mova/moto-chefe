@@ -18,6 +18,10 @@ const P = 'ADL803'
 type Preferencia = { mensalidadeId: string; tipo: string; titulo: string; valor: number }
 let preferencias: Preferencia[] = []
 let mpFora = false
+// Corrida: segura as respostas do Mercado Pago até chegarem `segurarAte` pedidos, e cada uma devolve um link diferente.
+let segurarAte = 0
+let segurados: (() => void)[] = []
+let chamadas = 0
 let emails: { para: string; assunto: string }[] = []
 const mocks = [
   mock.module('@/lib/mercadopago/cliente', {
@@ -25,7 +29,13 @@ const mocks = [
       criarPreferencia: async (p: Preferencia) => {
         if (mpFora) throw new Error('Mercado Pago respondeu 503 em /checkout/preferences')
         preferencias = [...preferencias, p]
-        return { id: `pref-${p.mensalidadeId}`, init_point: `https://mp.teste/${p.mensalidadeId}` }
+        if (segurarAte === 0) return { id: `pref-${p.mensalidadeId}`, init_point: `https://mp.teste/${p.mensalidadeId}` }
+        const n = ++chamadas
+        await new Promise<void>(ok => {
+          segurados = [...segurados, ok]
+          if (segurados.length === segurarAte) segurados.forEach(f => f())
+        })
+        return { id: `pref-${p.mensalidadeId}-${n}`, init_point: `https://mp.teste/${p.mensalidadeId}/${n}` }
       },
       expirarPreferencia: async () => {},
     },
@@ -69,7 +79,7 @@ before(async () => {
   ;({ cobrarAdesao } = await import('@/lib/mensalidade/link'))
 })
 
-beforeEach(() => { preferencias = []; emails = []; mpFora = false })
+beforeEach(() => { preferencias = []; emails = []; mpFora = false; segurarAte = 0; segurados = []; chamadas = 0 })
 
 after(async () => {
   for (const m of mocks) m.restore()
@@ -101,9 +111,12 @@ test('adesão que já tem link devolve esse link, sem pedir outro nem reenviar o
   assert.deepEqual([preferencias, emails], [[], []])
 })
 
-test('dois pedidos ao mesmo tempo (1º acesso e "Pagar"): um e-mail só e o mesmo link para os dois', async () => {
+test('dois pedidos que leem a adesão sem link ao mesmo tempo: um grava, os dois recebem o link gravado, um e-mail só', async () => {
   const id = await adesaoAberta('Corrida')
+  segurarAte = 2
   const [r1, r2] = await Promise.all([cobrarAdesao(id), cobrarAdesao(id)])
-  assert.deepEqual([r1.url, r2.url], [`https://mp.teste/${id}`, `https://mp.teste/${id}`])
+  const gravado = (await gravada(id)).link_pagamento
+  assert.equal(preferencias.length, 2)
+  assert.deepEqual([r1.url, r2.url], [gravado, gravado])
   assert.equal(emails.length, 1)
 })
