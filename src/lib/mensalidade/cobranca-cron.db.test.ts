@@ -1,7 +1,9 @@
 // Teste de banco: Postgres descartável. Cron da cobrança com a adesão (#803): o regime antigo não
-// muda (1ª mensalidade com a taxa, 30 dias após o 1º acesso); o regime novo fica fora da geração de
-// mensalidades até o #805, mas a adesão sem link ganha o link; o e-mail do dia do vencimento é só
-// da mensalidade. Recuperação da adesão (#804): cria a que faltou depois do 1º acesso, gera o link
+// muda (1ª mensalidade com a taxa, 30 dias após o 1º acesso); no regime novo a adesão sem link ganha
+// o link e, enquanto ela não está paga, não há mensalidade; o e-mail do dia do vencimento é só da
+// mensalidade. 1ª mensalidade do regime novo (#805): 30 dias após o dia (Brasília) do pagamento da
+// adesão, sem taxa; sem cobrança de adesão (taxa zero), 30 dias após o 1º acesso.
+// Recuperação da adesão (#804): cria a que faltou depois do 1º acesso, gera o link
 // da que ficou sem (inclusive em grupo sem valor mensal) e manda o e-mail uma vez; isento, regime
 // antigo e sem 1º acesso ficam de fora; um grupo com problema não para os outros.
 // Todos os testes que rodam o cron (global) ficam neste arquivo, para dois crons não rodarem ao mesmo
@@ -210,4 +212,41 @@ test('Conta A x Conta B, as duas sem adesão: cada grupo ganha a sua, com o link
     [{ grupo_id: a.grupoId, link_pagamento: `https://mp.teste/${adesaoA.id}` }, { grupo_id: b.grupoId, link_pagamento: `https://mp.teste/${adesaoB.id}` }])
   assert.deepEqual(emails.filter(e => e.para === a.email || e.para === b.email).map(e => [e.para, e.assunto]).sort(),
     [[a.email, 'Adesão ao MOVA: R$ 399,00'], [b.email, 'Adesão ao MOVA: R$ 599,00']].sort())
+})
+
+// ─── #805: 1ª mensalidade do regime novo conta do pagamento da adesão ─────────
+const cobrancasDoGrupo = (grupoId: string) => linhas(sql`
+  select tipo, competencia, valor::text, taxa_implantacao::text as taxa, vencimento::text
+  from mensalidades where grupo_id = ${grupoId} and tipo = 'mensalidade' order by vencimento`)
+
+test('regime novo com a adesão paga: 1ª mensalidade 30 dias após o dia (Brasília) do pagamento, só o valor mensal, na janela de 10 dias', async () => {
+  const g = await grupoComAcesso('NovoPago', 2) // 1º acesso em 09/11
+  // Pago às 22h de Brasília de 12/11 (já 13/11 no UTC): a 1ª vence em 12/12, não em 09/12.
+  await db.execute(sql`update mensalidades set status = 'paga', pago_em = '2026-11-13T01:00:00Z' where grupo_id = ${g.grupoId} and tipo = 'adesao'`)
+  await gerarCobrancas(new Date('2026-12-01T15:00:00Z'))
+  assert.deepEqual(await cobrancasDoGrupo(g.grupoId), [], 'a 11 dias do vencimento, ainda nada')
+  await gerarCobrancas(new Date('2026-12-02T15:00:00Z'))
+  assert.deepEqual(await cobrancasDoGrupo(g.grupoId),
+    [{ tipo: 'mensalidade', competencia: '2026-12', valor: '499.00', taxa: '0.00', vencimento: '2026-12-12' }])
+})
+
+test('regime novo sem cobrança de adesão (taxa da ficha zero): 1ª mensalidade 30 dias após o 1º acesso, sem taxa', async () => {
+  const g = await grupoSemAdesao('NovoTaxaZero', { taxa: '0' }) // 1º acesso 09/11 22h BRT
+  await gerarCobrancas(CRON)
+  assert.deepEqual(await cobrancasDoGrupo(g.grupoId),
+    [{ tipo: 'mensalidade', competencia: '2026-12', valor: '499.00', taxa: '0.00', vencimento: '2026-12-09' }])
+})
+
+test('regime novo com taxa, adesão ainda não criada: o cron cria a adesão e não gera mensalidade do 1º acesso', async () => {
+  const g = await grupoSemAdesao('NovoAdesaoFaltando') // taxa 399, 1º acesso gravado, sem a adesão
+  await gerarCobrancas(CRON)
+  assert.deepEqual(await cobrancasDoGrupo(g.grupoId), [])
+  assert.deepEqual((await adesoesDo(g.grupoId)).map(a => a.status), ['aberta'])
+})
+
+test('adesão aberta e taxa da ficha zerada depois: continua sem mensalidade enquanto a adesão estiver aberta', async () => {
+  const g = await grupoComAcesso('NovoTaxaZeradaDepois', 2) // adesão de 399 aberta
+  await db.execute(sql`update adesoes_mova set taxa_implantacao = 0 where grupo_id = ${g.grupoId}`)
+  await gerarCobrancas(CRON)
+  assert.deepEqual(await cobrancasDoGrupo(g.grupoId), [])
 })

@@ -3,7 +3,7 @@ import { db, execRows } from '@/lib/db'
 import { mensalidades } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
 import { enviarEmail } from '@/lib/email'
-import { cobrancasDevidas, ehRegimeNovo, valorBase } from './regras'
+import { adesaoACobrar, basePrimeiraMensalidade, cobrancasDevidas, ehRegimeNovo, taxaDaPrimeiraMensalidade, valorBase } from './regras'
 import { versaoAssinadaDaAdesao } from './regime'
 import { emailVencimento } from './mensagens'
 import { enviarCobranca, gerarLink } from './link'
@@ -18,6 +18,9 @@ type GrupoCobravel = {
   email: string | null
   responsavel: string | null
   versao_assinada: number | null
+  adesao_status: 'aberta' | 'paga' | 'cancelada' | null
+  adesao_paga_em: string | null
+  taxa_ficha: string | null
 }
 
 export type ResultadoGrupo = { grupo: string; criadas: number; links: number; erro?: string }
@@ -32,10 +35,12 @@ async function gruposCobraveis(): Promise<GrupoCobravel[]> {
     select g.id as grupo_id, g.nome as grupo_nome, g.primeiro_acesso_em::text,
            coalesce(c.valor_mensal, a.valor_mensal)::text as valor_mensal,
            coalesce(c.taxa_implantacao, a.taxa_implantacao)::text as taxa_implantacao,
-           a.email, a.responsavel, ${versaoAssinadaDaAdesao} as versao_assinada
+           a.email, a.responsavel, ${versaoAssinadaDaAdesao} as versao_assinada,
+           ad.status as adesao_status, ad.pago_em::text as adesao_paga_em, a.taxa_implantacao::text as taxa_ficha
     from grupos g
     left join mensalidade_config c on c.grupo_id = g.id
     left join adesoes_mova a on a.grupo_id = g.id
+    left join mensalidades ad on ad.grupo_id = g.id and ad.tipo = 'adesao'
     where g.ativo
       and g.primeiro_acesso_em is not null
       and coalesce(c.isento, false) = false
@@ -55,12 +60,21 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
 
   for (const g of await gruposCobraveis()) {
     const r: ResultadoGrupo = { grupo: g.grupo_nome, criadas: 0, links: 0 }
-    const falhasEmail: string[] = []
+    const falhas: string[] = []
     try {
       const mensal = Number(g.valor_mensal)
-      const taxa = Number(g.taxa_implantacao ?? 0)
-      // Regime novo: a 1ª mensalidade conta do pagamento da adesão e sai no #805; até lá, nenhuma.
-      const devidas = ehRegimeNovo(g.versao_assinada) ? [] : cobrancasDevidas(new Date(g.primeiro_acesso_em), hoje)
+      const regimeNovo = ehRegimeNovo(g.versao_assinada)
+      const taxa = taxaDaPrimeiraMensalidade(regimeNovo, Number(g.taxa_implantacao ?? 0))
+      // Isento não chega aqui: a mesma regra que decide se o 1º acesso cria a adesão.
+      const cobraAdesao = adesaoACobrar({ versaoAssinada: g.versao_assinada, taxaFicha: g.taxa_ficha, isento: false }) !== null
+      const base = basePrimeiraMensalidade({
+        regimeNovo, cobraAdesao,
+        primeiroAcesso: new Date(g.primeiro_acesso_em),
+        adesao: g.adesao_status ? { status: g.adesao_status, pagoEm: g.adesao_paga_em ? new Date(g.adesao_paga_em) : null } : null,
+      })
+      // Só por SQL manual: sem a data, não há de onde contar a 1ª mensalidade.
+      if (g.adesao_status === 'paga' && !g.adesao_paga_em) falhas.push('adesão paga sem data do pagamento')
+      const devidas = base ? cobrancasDevidas(base, hoje) : []
       for (const c of devidas) {
         const criada = await db.insert(mensalidades).values({
           grupoId: g.grupo_id,
@@ -85,9 +99,9 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
         r.links++
         // O link já foi gravado e a próxima rodada não reenvia: a falha precisa aparecer.
         const falha = await enviarCobranca(m, { grupo: g.grupo_nome, email: g.email, responsavel: g.responsavel }, link)
-        if (falha) falhasEmail.push(`${m.competencia}: ${falha}`)
+        if (falha) falhas.push(`${m.competencia}: ${falha}`)
       }
-      if (falhasEmail.length) r.erro = falhasEmail.join('; ')
+      if (falhas.length) r.erro = falhas.join('; ')
     } catch (e) {
       // Um grupo com problema não para a cobrança dos outros.
       r.erro = e instanceof Error ? e.message : 'erro desconhecido'
