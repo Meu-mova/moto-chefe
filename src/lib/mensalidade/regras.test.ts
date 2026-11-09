@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { vencimento, cobrancasDevidas, valorBase, acrescimoAtraso, bloqueiaEm, competencia, estaBloqueado, podePagarMensalidade, valorAtualizado, adesaoACobrar, ehRegimeNovo } from './regras'
+import { vencimento, cobrancasDevidas, valorBase, acrescimoAtraso, bloqueiaEm, competencia, estaBloqueado, podePagarMensalidade, valorAtualizado, adesaoACobrar, ehRegimeNovo, basePrimeiraMensalidade, taxaDaPrimeiraMensalidade } from './regras'
 
 // 15/03/2027 às 10h em Brasília.
 const ACESSO = new Date('2027-03-15T13:00:00Z')
@@ -101,4 +101,43 @@ test('adesão não tem multa nem juros: o total é sempre a taxa', () => {
 
 test('regime novo só com o contrato assinado na versão 2', () => {
   assert.deepEqual([2, 1, null].map(ehRegimeNovo), [true, false, false])
+})
+
+const PRIMEIRO_ACESSO = new Date('2026-11-05T15:00:00Z')
+// Pagamento da adesão às 22h de Brasília de 09/11 (já 10/11 no UTC).
+const PAGO_EM = new Date('2026-11-10T01:00:00Z')
+
+test('regime antigo: a 1ª mensalidade conta do 1º acesso, com ou sem adesão', () => {
+  assert.equal(basePrimeiraMensalidade({ regimeNovo: false, cobraAdesao: false, primeiroAcesso: PRIMEIRO_ACESSO, adesao: null }), PRIMEIRO_ACESSO)
+})
+
+test('regime novo com a adesão paga: conta do dia (Brasília) do pagamento, não do 1º acesso', () => {
+  const base = basePrimeiraMensalidade({ regimeNovo: true, cobraAdesao: true, primeiroAcesso: PRIMEIRO_ACESSO, adesao: { status: 'paga', pagoEm: PAGO_EM } })
+  assert.equal(base, PAGO_EM)
+  assert.equal(vencimento(base!, 0), '2026-12-09')
+  assert.equal(vencimento(base!, 1), '2027-01-09')
+})
+
+test('regime novo com a adesão aberta ou cancelada: ainda não há 1ª mensalidade', () => {
+  for (const status of ['aberta', 'cancelada'] as const) {
+    assert.equal(basePrimeiraMensalidade({ regimeNovo: true, cobraAdesao: true, primeiroAcesso: PRIMEIRO_ACESSO, adesao: { status, pagoEm: null } }), null, status)
+  }
+})
+
+test('regime novo sem cobrança de adesão (taxa zero ou vazia): conta do 1º acesso', () => {
+  assert.equal(basePrimeiraMensalidade({ regimeNovo: true, cobraAdesao: false, primeiroAcesso: PRIMEIRO_ACESSO, adesao: null }), PRIMEIRO_ACESSO)
+})
+
+test('regime novo que cobra adesão, mas ela ainda não foi criada: sem mensalidade', () => {
+  assert.equal(basePrimeiraMensalidade({ regimeNovo: true, cobraAdesao: true, primeiroAcesso: PRIMEIRO_ACESSO, adesao: null }), null)
+})
+
+test('regime novo: a 1ª mensalidade vai sem a taxa; o antigo continua com ela', () => {
+  assert.equal(taxaDaPrimeiraMensalidade(true, 399), 0)
+  assert.equal(taxaDaPrimeiraMensalidade(false, 399), 399)
+})
+
+test('pagamento em 31/03: 1ª em 30/04, depois 28 nos meses seguintes', () => {
+  const base = basePrimeiraMensalidade({ regimeNovo: true, cobraAdesao: true, primeiroAcesso: PRIMEIRO_ACESSO, adesao: { status: 'paga', pagoEm: new Date('2027-03-31T13:00:00Z') } })!
+  assert.deepEqual([0, 1, 2].map(n => vencimento(base, n)), ['2027-04-30', '2027-05-28', '2027-06-28'])
 })

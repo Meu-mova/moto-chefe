@@ -20,12 +20,12 @@ function diasEntre(de: string, ate: string): number {
 }
 
 /**
- * Vencimento da n-ésima mensalidade (0 = a primeira). A 1ª vence 30 dias após o
- * 1º acesso; as seguintes, no mesmo dia dos meses seguintes, e no dia 28 quando
- * esse dia for 29, 30 ou 31 (contrato 4.1).
+ * Vencimento da n-ésima mensalidade (0 = a primeira). A 1ª vence 30 dias após o dia
+ * (Brasília) da `base` (ver `basePrimeiraMensalidade`); as seguintes, no mesmo dia dos
+ * meses seguintes, e no dia 28 quando esse dia for 29, 30 ou 31 (contrato 4.1).
  */
-export function vencimento(primeiroAcesso: Date, n: number): string {
-  const primeiro = somarDias(hojeBrt(primeiroAcesso), DIAS_PRIMEIRO_VENCIMENTO)
+export function vencimento(base: Date, n: number): string {
+  const primeiro = somarDias(hojeBrt(base), DIAS_PRIMEIRO_VENCIMENTO)
   if (n === 0) return primeiro
   const [ano, mes, dia] = primeiro.split('-').map(Number)
   const d = new Date(Date.UTC(ano, mes - 1 + n, Math.min(dia, 28)))
@@ -43,17 +43,17 @@ export type CobrancaDevida = { n: number; vencimento: string; competencia: strin
  * ou menos. Devolve também as atrasadas, para um cron que ficou parado criar o que
  * faltou; a unicidade (grupo, competência) no banco descarta as que já existem.
  */
-export function cobrancasDevidas(primeiroAcesso: Date, hoje: string): CobrancaDevida[] {
+export function cobrancasDevidas(base: Date, hoje: string): CobrancaDevida[] {
   const limite = somarDias(hoje, DIAS_ANTECEDENCIA_COBRANCA)
   const devidas: CobrancaDevida[] = []
   for (let n = 0; ; n++) {
-    const v = vencimento(primeiroAcesso, n)
+    const v = vencimento(base, n)
     if (v > limite) return devidas
     devidas.push({ n, vencimento: v, competencia: competencia(v) })
   }
 }
 
-/** A taxa de implantação vai junto da 1ª mensalidade (contrato de adesão). */
+/** A taxa vai só na 1ª mensalidade; quanto, o regime decide (`taxaDaPrimeiraMensalidade`). */
 export function valorBase(n: number, valorMensal: number, taxaImplantacao: number): number {
   return n === 0 ? valorMensal + taxaImplantacao : valorMensal
 }
@@ -125,4 +125,23 @@ export function adesaoACobrar(d: { versaoAssinada: number | null; taxaFicha: str
   const taxa = Number(d.taxaFicha ?? 0)
   if (!ehRegimeNovo(d.versaoAssinada) || d.isento || !(taxa > 0)) return null
   return taxa
+}
+
+/**
+ * Data de partida da 1ª mensalidade (`vencimento` soma 30 dias ao dia de Brasília dela). Regime
+ * antigo, ou regime novo sem cobrança de adesão (taxa da ficha zero ou vazia, `cobraAdesao` falso):
+ * o 1º acesso (decisão do Luis, #805). Regime novo com adesão: o pagamento dela (`pago_em`, a baixa
+ * pelo webhook ou pelo "Conferir agora"); aberta, cancelada ou ainda não criada: sem mensalidade (null).
+ */
+export function basePrimeiraMensalidade(d: {
+  regimeNovo: boolean; cobraAdesao: boolean; primeiroAcesso: Date
+  adesao: { status: 'aberta' | 'paga' | 'cancelada'; pagoEm: Date | null } | null
+}): Date | null {
+  if (!d.regimeNovo || !d.cobraAdesao) return d.primeiroAcesso
+  return d.adesao?.status === 'paga' ? d.adesao.pagoEm : null
+}
+
+/** No regime novo a taxa já foi paga na adesão: a 1ª mensalidade vai só com o valor mensal. */
+export function taxaDaPrimeiraMensalidade(regimeNovo: boolean, taxa: number): number {
+  return regimeNovo ? 0 : taxa
 }
