@@ -1,12 +1,12 @@
 // Teste de banco: Postgres descartável. Cobrança da adesão no 1º acesso (#803): só o grupo com
 // contrato assinado na versão 2 ganha a cobrança, uma só, no valor da taxa da ficha; ela bloqueia
 // o grupo na hora e a baixa libera. Regime antigo, taxa zero/vazia e grupo isento não cobram.
-// Sem mock: tudo aqui é banco.
-import { after, before, test } from 'node:test'
+// Fronteira mockada: só o cookie do grupo ativo (next/headers); o resto é banco.
+import { after, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
-import { semearContaBase, semearGrupo, type Base } from '@/test/semear-conta'
+import { semearContaBase, semearGrupo, semearUsuario, type Base } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -16,6 +16,8 @@ if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) {
 process.env.DATABASE_URL = url
 
 const P = 'ADE803'
+let grupoDoCookie: string | undefined
+const cookie = mock.module('next/headers', { namedExports: { cookies: async () => ({ get: (nome: string) => (nome === 'grupoAtivo' && grupoDoCookie ? { value: grupoDoCookie } : undefined) }) } })
 type Db = typeof import('@/lib/db')
 let db: Db['db']
 let registrarPrimeiroAcesso: typeof import('@/lib/primeiro-acesso')['registrarPrimeiroAcesso']
@@ -63,6 +65,7 @@ before(async () => {
 })
 
 after(async () => {
+  cookie.restore()
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
@@ -135,4 +138,30 @@ test('sócio com dois grupos da mesma Conta: a faixa mostra a adesão em aberto 
   const s = await situacaoMensalidade(matriz.grupoId, [matriz.grupoId, filial.grupoId], ACESSO)
   assert.deepEqual({ bloqueado: s.bloqueado, aberta: s.aberta, outros: s.outros },
     { bloqueado: false, aberta: null, outros: [{ nome: `${P} Filial`, bloqueado: true }] })
+})
+
+test('admin_rede na persona do grupo liberado da Conta B registra o 1º acesso e cria a adesão de B; fora da persona não mexe em B', async () => {
+  const { usuarioDaRede } = await import('@/lib/grupos-liberados')
+  const { grupoAtivoDaRequisicao } = await import('@/lib/grupo')
+  const { registrarSePrimeiroAcesso } = await import('@/lib/primeiro-acesso')
+  const a = await grupoComAdesao('RedeA', { taxa: '0' })
+  const b = await grupoComAdesao('RedeB', { versao: 2 })
+  const id = await semearUsuario(db, a, { papel: 'admin_rede', rotulo: 'rede', semLoja: true, comGrupo: true, comConta: true })
+  const base = { id, email: 'rede@teste.invalid', papel: 'admin_rede', lojaId: null, gruposAcesso: [a.grupoId], gruposAprovacao: [], contaId: a.contaId }
+  const liberados = [{ grupoId: b.grupoId, contaId: b.contaId }]
+  // Como em auth.ts: a persona é o grupo do cookie.
+  const acessar = async (grupoNoCookie: string) => {
+    grupoDoCookie = grupoNoCookie
+    const u = usuarioDaRede(base, liberados, grupoNoCookie)
+    const grupo = await grupoAtivoDaRequisicao(u)
+    return registrarSePrimeiroAcesso(u.papel, grupo, ACESSO)
+  }
+
+  await acessar(a.grupoId)
+  assert.equal(await primeiroAcessoDo(b.grupoId), null)
+  assert.deepEqual(await adesoesDo(b.grupoId), [])
+
+  await acessar(b.grupoId)
+  assert.equal((await primeiroAcessoDo(b.grupoId))?.toISOString(), ACESSO.toISOString())
+  assert.deepEqual((await adesoesDo(b.grupoId)).map(x => x.valor), ['399.00'])
 })

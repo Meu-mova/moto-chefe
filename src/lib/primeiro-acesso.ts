@@ -18,6 +18,17 @@ export function precisaRegistrar(papel: string, grupo: { primeiroAcessoEm: Date 
   return contaComoPrimeiroAcesso(papel) && grupo.primeiroAcessoEm === null
 }
 
+/**
+ * O que o layout faz em toda página: se o papel conta e o grupo ativo ainda não tem a data,
+ * registra o 1º acesso. O papel é o efetivo: o admin_rede na persona de um grupo liberado entra
+ * como admin_socio e conta (decisão do Luis, 09/11/2026, #803).
+ */
+export async function registrarSePrimeiroAcesso(
+  papel: string, grupo: { id: string; primeiroAcessoEm: Date | null }, agora: Date = new Date(),
+): Promise<{ adesaoId: string | null }> {
+  return precisaRegistrar(papel, grupo) ? registrarPrimeiroAcesso(grupo.id, agora) : { adesaoId: null }
+}
+
 type DadosDaAdesao = { versao_assinada: number | null; taxa_ficha: string | null; isento: boolean }
 
 /**

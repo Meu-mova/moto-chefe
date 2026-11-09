@@ -10,7 +10,7 @@ import { BotaoVoltar } from '@/components/layout/botao-voltar'
 import { GroupSelector } from '@/components/layout/group-selector'
 import { Providers } from '@/lib/providers'
 import { getUsuarioLogado } from '@/lib/auth'
-import { precisaRegistrar, registrarPrimeiroAcesso } from '@/lib/primeiro-acesso'
+import { registrarSePrimeiroAcesso } from '@/lib/primeiro-acesso'
 import { origemDaRequisicao, registrarSemFalhar } from '@/lib/log-acoes'
 import { grupoAtivoDaRequisicao, gruposVisiveisDaRequisicao } from '@/lib/grupo'
 import { situacaoMensalidade, SEM_MENSALIDADE } from '@/lib/mensalidade/bloqueio'
@@ -57,8 +57,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Antes do bloqueio: no regime novo o 1º acesso cria a adesão, que já bloqueia esta página.
   // A cobrança depende disto, mas a página não: se falhar, tenta de novo no próximo acesso.
-  if (grupoAtivo && precisaRegistrar(usuario.papel, grupoAtivo)) {
-    const registro = await withTimeout(registrarPrimeiroAcesso(grupoAtivo.id), 3000)
+  if (grupoAtivo) {
+    const registro = await withTimeout(registrarSePrimeiroAcesso(usuario.papel, grupoAtivo), 3000)
       .catch(e => { console.error('[primeiro-acesso] falha ao registrar:', e instanceof Error ? e.message : e); return null })
     const adesaoId = registro?.adesaoId
     // O Mercado Pago pode levar 15 s: o link sai depois da resposta (roda mesmo após o redirect).
