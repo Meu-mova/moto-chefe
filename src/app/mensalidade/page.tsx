@@ -2,13 +2,12 @@ import Link from 'next/link'
 import { getUsuarioLogado } from '@/lib/auth'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
 import { hojeBrt } from '@/lib/data-venda'
-import { formatarNumeroBR } from '@/lib/numero-br'
 import { logoutAction } from '@/app/(auth)/login/actions'
 import { GroupSelector } from '@/components/layout/group-selector'
 import { estaBloqueado, podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
 import { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
 import { gruposDaMensalidade } from '@/lib/mensalidade/grupos'
-import { ListaMensalidades } from './lista'
+import { CabecalhoMensalidade, ListaMensalidades } from './lista'
 
 // Fora do layout do painel de propósito: é a única tela aberta para o grupo bloqueado.
 // O bloqueio é do grupo ativo; quem paga vê as mensalidades de todos os grupos que enxerga
@@ -25,34 +24,17 @@ export default async function MensalidadePage() {
     })
   const { abertas } = leitura
   const hoje = hojeBrt()
-  const bloqueado = estaBloqueado(abertas.filter(a => a.m.grupoId === ativo?.id).map(a => a.m.vencimento), hoje)
-  const linhas = abertas.map(a => ({ ...a, ...valorAtualizado(Number(a.m.valor), a.m.vencimento, hoje) }))
+  const doAtivo = abertas.filter(a => a.m.grupoId === ativo?.id).map(a => a.m)
+  const bloqueado = estaBloqueado(doAtivo, hoje)
+  const adesaoEmAberto = doAtivo.some(m => m.tipo === 'adesao')
+  const linhas = abertas.map(a => ({ ...a, ...valorAtualizado(a.m, hoje) }))
   const totalAberto = linhas.reduce((s, l) => s + l.total, 0)
 
   return (
     <div className="min-h-screen bg-background">
       <GroupSelector usuario={usuario} />
 
-      <section className={`border-b ${bloqueado ? 'bg-destructive/10' : 'bg-card'}`}>
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-8">
-          <div className="max-w-2xl">
-            <h1 className={`text-2xl font-bold ${bloqueado ? 'text-destructive' : ''}`}>
-              {bloqueado ? 'Acesso suspenso' : 'Mensalidade do MOVA'}
-            </h1>
-            <p className={`mt-1 text-sm ${bloqueado ? 'text-destructive' : 'text-muted-foreground'}`}>
-              {bloqueado && ativo
-                ? `A mensalidade de ${ativo.nome} está vencida há mais de 5 dias. Os dados estão guardados e o acesso volta sozinho assim que o pagamento for confirmado.`
-                : 'Mensalidades em aberto dos grupos da sua empresa.'}
-            </p>
-          </div>
-          {paga && linhas.length > 0 && (
-            <div className="flex items-baseline justify-between gap-4 border-t pt-4 sm:block sm:border-t-0 sm:pt-0 sm:text-right">
-              <div className="text-sm text-muted-foreground">Total em aberto</div>
-              <div className="whitespace-nowrap text-2xl font-extrabold sm:text-3xl">R$ {formatarNumeroBR(totalAberto)}</div>
-            </div>
-          )}
-        </div>
-      </section>
+      <CabecalhoMensalidade grupo={ativo?.nome ?? null} adesaoEmAberto={adesaoEmAberto} bloqueado={bloqueado} totalAberto={totalAberto} paga={paga} />
 
       <main className="mx-auto max-w-6xl space-y-3 px-4 py-6 sm:px-6">
         <ListaMensalidades paga={paga} linhas={linhas} hoje={hoje} leituraFalhou={leitura.falhou} />

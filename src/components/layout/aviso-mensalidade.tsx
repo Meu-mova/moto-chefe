@@ -5,7 +5,7 @@ import { dataPuraBr } from '@/lib/data-venda'
 
 /**
  * Faixa no topo para quem paga a mensalidade: a do grupo ativo e, embaixo, os outros
- * grupos da empresa com mensalidade em aberto (variante B escolhida em 19/10/2026).
+ * grupos da empresa com mensalidade ou adesão em aberto (variante B escolhida em 19/10/2026).
  */
 export function AvisoMensalidade({ situacao, grupoAtivo, hoje }: { situacao: SituacaoMensalidade; grupoAtivo: string; hoje: string }) {
   const { aberta, outros } = situacao
@@ -25,7 +25,7 @@ export function AvisoMensalidade({ situacao, grupoAtivo, hoje }: { situacao: Sit
       {outros.length > 0 && (
         <div className="border-b px-4 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 bg-warning/10 text-warning">
           <span>
-            Outros grupos da sua empresa com mensalidade em aberto:{' '}
+            Outros grupos da sua empresa com mensalidade ou adesão em aberto:{' '}
             {outros.map(o => `${o.nome}${o.bloqueado ? ' (bloqueado)' : ''}`).join(', ')}
           </span>
           <Link href="/mensalidade" className="font-medium underline">Ver</Link>

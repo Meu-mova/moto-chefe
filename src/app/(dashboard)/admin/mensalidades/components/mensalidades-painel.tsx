@@ -77,7 +77,7 @@ export function MensalidadesPainel({ grupos, hoje }: { grupos: GrupoMensalidade[
                 {g.abertas.map(m => (
                   <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
                     <span>
-                      {m.competencia} · R$ {formatarNumeroBR(m.total)} · vence {dataPuraBr(m.vencimento)}
+                      {m.competencia ?? 'Adesão'} · R$ {formatarNumeroBR(m.total)} · vence {dataPuraBr(m.vencimento)}
                       {!m.temLink && <span className="text-warning"> · sem link (o cron tenta de novo)</span>}
                     </span>
                     <Button variant="outline" size="sm" disabled={pendente} onClick={() => conferir(m.id)}>
