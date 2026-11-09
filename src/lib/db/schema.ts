@@ -2036,7 +2036,10 @@ export const mensalidades = pgTable('mensalidades', {
   criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   // E-mail do dia do vencimento já enviado: o cron não repete.
   avisoVencimentoEm: timestamp('aviso_vencimento_em', { withTimezone: true }),
-}, t => [unique('mensalidades_grupo_competencia').on(t.grupoId, t.competencia)])
+}, t => [
+  unique('mensalidades_grupo_competencia').on(t.grupoId, t.competencia),
+  uniqueIndex('mensalidades_uma_adesao_por_grupo').on(t.grupoId).where(sql`tipo = 'adesao'`),
+])
 
 // Log cru das notificações do Mercado Pago: idempotência e diagnóstico.
 // Sem grupo_id: quem cobra é o MOVA, e o grupo só se conhece depois de ler o pagamento.
