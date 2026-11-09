@@ -141,20 +141,21 @@ test('sócio com dois grupos da mesma Conta: a faixa mostra a adesão em aberto 
 })
 
 test('admin_rede na persona do grupo liberado da Conta B registra o 1º acesso e cria a adesão de B; fora da persona não mexe em B', async () => {
-  const { usuarioDaRede } = await import('@/lib/grupos-liberados')
+  // Decisão do Luis (09/11/2026): a persona conta como 1º acesso. Consequência: com a adesão em aberto,
+  // B fica bloqueado e sai das liberações vivas do admin_rede até o cliente pagar.
+  const { gruposLiberadosVivos, usuarioDaRede } = await import('@/lib/grupos-liberados')
   const { grupoAtivoDaRequisicao } = await import('@/lib/grupo')
   const { registrarSePrimeiroAcesso } = await import('@/lib/primeiro-acesso')
   const a = await grupoComAdesao('RedeA', { taxa: '0' })
   const b = await grupoComAdesao('RedeB', { versao: 2 })
   const id = await semearUsuario(db, a, { papel: 'admin_rede', rotulo: 'rede', semLoja: true, comGrupo: true, comConta: true })
+  await db.execute(sql`insert into grupos_liberados (usuario_id, grupo_id, liberado_por) values (${id}, ${b.grupoId}, ${id})`)
   const base = { id, email: 'rede@teste.invalid', papel: 'admin_rede', lojaId: null, gruposAcesso: [a.grupoId], gruposAprovacao: [], contaId: a.contaId }
-  const liberados = [{ grupoId: b.grupoId, contaId: b.contaId }]
-  // Como em auth.ts: a persona é o grupo do cookie.
+  // Como em auth.ts: liberações vivas do banco e a persona é o grupo do cookie.
   const acessar = async (grupoNoCookie: string) => {
     grupoDoCookie = grupoNoCookie
-    const u = usuarioDaRede(base, liberados, grupoNoCookie)
-    const grupo = await grupoAtivoDaRequisicao(u)
-    return registrarSePrimeiroAcesso(u.papel, grupo, ACESSO)
+    const u = usuarioDaRede(base, await gruposLiberadosVivos(id, ACESSO), grupoNoCookie)
+    return registrarSePrimeiroAcesso(u.papel, await grupoAtivoDaRequisicao(u), ACESSO)
   }
 
   await acessar(a.grupoId)
@@ -164,4 +165,5 @@ test('admin_rede na persona do grupo liberado da Conta B registra o 1º acesso e
   await acessar(b.grupoId)
   assert.equal((await primeiroAcessoDo(b.grupoId))?.toISOString(), ACESSO.toISOString())
   assert.deepEqual((await adesoesDo(b.grupoId)).map(x => x.valor), ['399.00'])
+  assert.deepEqual((await gruposLiberadosVivos(id, ACESSO)).map(l => l.grupoId), [])
 })
