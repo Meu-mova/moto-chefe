@@ -57,8 +57,13 @@ export type DadosContratoAdesao = {
   valorMensal: string | null
 }
 
+/**
+ * Todos os campos preenchidos e os dois valores maiores que zero: a 3.4 promete cobrar a taxa no
+ * 1º acesso, e a 4.1 conta a 1ª mensalidade desse pagamento (a tela já recusa ≤ 0; isto barra o SQL).
+ */
 export function dadosContratoCompletos(d: DadosContratoAdesao): boolean {
-  return Object.values(d).every(v => typeof v === 'string' && v.trim() !== '')
+  const preenchidos = Object.values(d).every(v => typeof v === 'string' && v.trim() !== '')
+  return preenchidos && Number(d.taxaImplantacao) > 0 && Number(d.valorMensal) > 0
 }
 
 const reais = (v: string) => `R$ ${formatarNumeroBR(v)}`

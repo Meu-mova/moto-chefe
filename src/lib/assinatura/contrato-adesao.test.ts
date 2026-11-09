@@ -105,3 +105,9 @@ test('4.1: 1ª mensalidade 30 dias corridos após o pagamento da taxa de implant
 test('taxa de R$ 0,10 sai no contrato como R$ 0,10', () => {
   assert.match(montarContratoAdesao({ ...DADOS, taxaImplantacao: '0.10' }), /3\.4\. Taxa de implantação: R\$ 0,10, paga no primeiro acesso/)
 })
+
+test('taxa ou mensalidade zero (só por SQL; a tela recusa) não envia: o contrato prometeria pagar R$ 0,00 no 1º acesso', () => {
+  for (const zero of [{ taxaImplantacao: '0.00' }, { valorMensal: '0' }]) {
+    assert.match(motivoBloqueioEnvio({ ...ENVIO, dados: { ...DADOS, ...zero } })!, /dados do contrato/, JSON.stringify(zero))
+  }
+})
