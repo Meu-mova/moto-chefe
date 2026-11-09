@@ -4,8 +4,9 @@
 // da mensalidade. Recuperação da adesão (#804): cria a que faltou depois do 1º acesso, gera o link
 // da que ficou sem (inclusive em grupo sem valor mensal) e manda o e-mail uma vez; isento, regime
 // antigo e sem 1º acesso ficam de fora; um grupo com problema não para os outros.
-// Todos os testes que rodam o cron (global) ficam neste arquivo: os arquivos do test:db rodam em
-// paralelo, e dois crons ao mesmo tempo processariam os grupos um do outro com outros mocks.
+// Todos os testes que rodam o cron (global) ficam neste arquivo, para dois crons não rodarem ao mesmo
+// tempo. Isso não isola dos outros arquivos: o cron daqui pega qualquer grupo com 1º acesso e adesão
+// pendente; arquivos que não testam o cron não montam esse estado.
 // Fronteira mockada: Mercado Pago e e-mail.
 import { after, before, beforeEach, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -139,7 +140,7 @@ const adesoesDo = (grupoId: string) => linhas(sql`
   from mensalidades where grupo_id = ${grupoId} and tipo = 'adesao'`)
 const abrirAdesaoSemLink = async (grupoId: string) => (await linhas(sql`insert into mensalidades (grupo_id, tipo, competencia, valor, vencimento)
   values (${grupoId}, 'adesao', null, 399, '2026-11-09') returning id`))[0].id as string
-const resultadoDo = (r: Awaited<ReturnType<typeof gerarCobrancas>>, g: Base) => r.filter(x => x.grupo === `${P} ${g.nome}`)
+const resultadoDo = (r: Awaited<ReturnType<typeof gerarCobrancas>>, g: Base) => r.filter(x => x.grupo === `${P} ${g.nome} (adesão)`)
 
 test('1º acesso sem adesão: o cron cria uma (taxa da ficha, vence no dia de Brasília do 1º acesso), gera o link e manda um e-mail; de novo, nada muda', async () => {
   const g = await grupoSemAdesao('Faltou')
@@ -199,4 +200,15 @@ test('Mercado Pago falha só para um grupo: o erro fica nele e o outro ganha o l
   assert.match(resultadoDo(r, quebrado).map(x => x.erro ?? '').join(';'), /503/)
   assert.deepEqual((await adesoesDo(bom.grupoId)).map(a => a.tem_link), [true])
   assert.equal(emails.filter(e => e.para === bom.email).length, 1)
+})
+
+test('Conta A x Conta B: o cron cria e cobra só a adesão que falta no grupo da Conta A; a da Conta B, já paga, fica como está', async () => {
+  const a = await grupoSemAdesao('ContaA')
+  const b = await grupoSemAdesao('ContaB')
+  await db.execute(sql`insert into mensalidades (grupo_id, tipo, competencia, valor, vencimento, status, pago_em)
+    values (${b.grupoId}, 'adesao', null, 399, '2026-11-09', 'paga', now())`)
+  await gerarCobrancas(CRON_804)
+  assert.deepEqual((await adesoesDo(a.grupoId)).map(x => [x.status, x.tem_link]), [['aberta', true]])
+  assert.deepEqual((await adesoesDo(b.grupoId)).map(x => [x.status, x.tem_link]), [['paga', false]])
+  assert.deepEqual([emails.filter(e => e.para === a.email).length, emails.filter(e => e.para === b.email).length], [1, 0])
 })
