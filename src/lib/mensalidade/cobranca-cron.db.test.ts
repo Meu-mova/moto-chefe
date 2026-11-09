@@ -2,7 +2,8 @@
 // muda (1ª mensalidade com a taxa, 30 dias após o 1º acesso); no regime novo a adesão sem link ganha
 // o link e, enquanto ela não está paga, não há mensalidade; o e-mail do dia do vencimento é só da
 // mensalidade. 1ª mensalidade do regime novo (#805): 30 dias após o dia (Brasília) do pagamento da
-// adesão, sem taxa; sem cobrança de adesão (taxa zero), 30 dias após o 1º acesso. Recuperação da adesão (#804): cria a que faltou depois do 1º acesso, gera o link
+// adesão, sem taxa; sem cobrança de adesão (taxa zero), 30 dias após o 1º acesso.
+// Recuperação da adesão (#804): cria a que faltou depois do 1º acesso, gera o link
 // da que ficou sem (inclusive em grupo sem valor mensal) e manda o e-mail uma vez; isento, regime
 // antigo e sem 1º acesso ficam de fora; um grupo com problema não para os outros.
 // Todos os testes que rodam o cron (global) ficam neste arquivo, para dois crons não rodarem ao mesmo

@@ -60,7 +60,7 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
 
   for (const g of await gruposCobraveis()) {
     const r: ResultadoGrupo = { grupo: g.grupo_nome, criadas: 0, links: 0 }
-    const falhasEmail: string[] = []
+    const falhas: string[] = []
     try {
       const mensal = Number(g.valor_mensal)
       const regimeNovo = ehRegimeNovo(g.versao_assinada)
@@ -73,7 +73,7 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
         adesao: g.adesao_status ? { status: g.adesao_status, pagoEm: g.adesao_paga_em ? new Date(g.adesao_paga_em) : null } : null,
       })
       // Só por SQL manual: sem a data, não há de onde contar a 1ª mensalidade.
-      if (g.adesao_status === 'paga' && !g.adesao_paga_em) falhasEmail.push('adesão paga sem data do pagamento')
+      if (g.adesao_status === 'paga' && !g.adesao_paga_em) falhas.push('adesão paga sem data do pagamento')
       const devidas = base ? cobrancasDevidas(base, hoje) : []
       for (const c of devidas) {
         const criada = await db.insert(mensalidades).values({
@@ -99,9 +99,9 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
         r.links++
         // O link já foi gravado e a próxima rodada não reenvia: a falha precisa aparecer.
         const falha = await enviarCobranca(m, { grupo: g.grupo_nome, email: g.email, responsavel: g.responsavel }, link)
-        if (falha) falhasEmail.push(`${m.competencia}: ${falha}`)
+        if (falha) falhas.push(`${m.competencia}: ${falha}`)
       }
-      if (falhasEmail.length) r.erro = falhasEmail.join('; ')
+      if (falhas.length) r.erro = falhas.join('; ')
     } catch (e) {
       // Um grupo com problema não para a cobrança dos outros.
       r.erro = e instanceof Error ? e.message : 'erro desconhecido'
