@@ -44,8 +44,9 @@ const linhas = async (q: ReturnType<typeof sql>) => ((await db.execute(q)) as un
 let cnpjSeq = 0
 async function grupoComAdesaoAberta(nome: string): Promise<Base & { adesaoId: string }> {
   const g = await semearContaBase(db, { prefixo: P, nome, cnpj: `0000000085${String(++cnpjSeq).padStart(4, '0')}` })
+  // Sem 1º acesso de propósito: a lista e o bloqueio não dependem dele, e assim o cron global de
+  // cobranca-cron.db.test.ts, que roda em paralelo, não pega esta adesão para gerar link.
   await semearAdesao(db, g, { versao: 2 })
-  await db.execute(sql`update grupos set primeiro_acesso_em = '2026-11-09T15:00:00Z' where id = ${g.grupoId}`)
   const [a] = await linhas(sql`insert into mensalidades (grupo_id, tipo, competencia, valor, vencimento)
     values (${g.grupoId}, 'adesao', null, 399, '2026-11-09') returning id`)
   return { ...g, adesaoId: a.id }
@@ -88,8 +89,9 @@ test('"Conferir agora" com pagamento pendente ou menor que a taxa não dá baixa
   const g = await grupoComAdesaoAberta('NaoPaga')
   pagamentosNoMercadoPago = [pagamento(g.adesaoId, { status: 'pending' }), pagamento(g.adesaoId, { transaction_amount: 300 })]
   const r = await conferirPagamentoAction(g.adesaoId)
-  assert.equal(r.ok && r.paga, false)
-  assert.match(r.ok ? r.motivo : '', /valor pago 300 menor que o devido 399/)
+  assert.ok(r.ok)
+  assert.equal(r.paga, false)
+  assert.match(r.motivo, /valor pago 300 menor que o devido 399/)
   assert.equal(await statusDa(g.adesaoId), 'aberta')
 })
 
