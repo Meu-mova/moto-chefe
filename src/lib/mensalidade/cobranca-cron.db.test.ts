@@ -1,7 +1,8 @@
 // Teste de banco: Postgres descartável. Cron da cobrança com a adesão (#803): o regime antigo não
-// muda (1ª mensalidade com a taxa, 30 dias após o 1º acesso); o regime novo fica fora da geração de
-// mensalidades até o #805, mas a adesão sem link ganha o link; o e-mail do dia do vencimento é só
-// da mensalidade. Recuperação da adesão (#804): cria a que faltou depois do 1º acesso, gera o link
+// muda (1ª mensalidade com a taxa, 30 dias após o 1º acesso); no regime novo a adesão sem link ganha
+// o link e, enquanto ela não está paga, não há mensalidade; o e-mail do dia do vencimento é só da
+// mensalidade. 1ª mensalidade do regime novo (#805): 30 dias após o dia (Brasília) do pagamento da
+// adesão, sem taxa; sem cobrança de adesão (taxa zero), 30 dias após o 1º acesso. Recuperação da adesão (#804): cria a que faltou depois do 1º acesso, gera o link
 // da que ficou sem (inclusive em grupo sem valor mensal) e manda o e-mail uma vez; isento, regime
 // antigo e sem 1º acesso ficam de fora; um grupo com problema não para os outros.
 // Todos os testes que rodam o cron (global) ficam neste arquivo, para dois crons não rodarem ao mesmo
@@ -240,4 +241,11 @@ test('regime novo com taxa, adesão ainda não criada: o cron cria a adesão e n
   await gerarCobrancas(CRON)
   assert.deepEqual(await cobrancasDoGrupo(g.grupoId), [])
   assert.deepEqual((await adesoesDo(g.grupoId)).map(a => a.status), ['aberta'])
+})
+
+test('adesão aberta e taxa da ficha zerada depois: continua sem mensalidade enquanto a adesão estiver aberta', async () => {
+  const g = await grupoComAcesso('NovoTaxaZeradaDepois', 2) // adesão de 399 aberta
+  await db.execute(sql`update adesoes_mova set taxa_implantacao = 0 where grupo_id = ${g.grupoId}`)
+  await gerarCobrancas(CRON)
+  assert.deepEqual(await cobrancasDoGrupo(g.grupoId), [])
 })

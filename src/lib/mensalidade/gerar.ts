@@ -72,6 +72,8 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
         primeiroAcesso: new Date(g.primeiro_acesso_em),
         adesao: g.adesao_status ? { status: g.adesao_status, pagoEm: g.adesao_paga_em ? new Date(g.adesao_paga_em) : null } : null,
       })
+      // Só por SQL manual: sem a data, não há de onde contar a 1ª mensalidade.
+      if (g.adesao_status === 'paga' && !g.adesao_paga_em) falhasEmail.push('adesão paga sem data do pagamento')
       const devidas = base ? cobrancasDevidas(base, hoje) : []
       for (const c of devidas) {
         const criada = await db.insert(mensalidades).values({
