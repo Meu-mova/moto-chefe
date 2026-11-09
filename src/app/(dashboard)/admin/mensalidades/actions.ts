@@ -28,7 +28,7 @@ export async function listarMensalidadesAction() {
     order by g.nome
   `) as { id: string; nome: string; isento: boolean; primeiro_acesso_em: string | null; valor_mensal: string | null }[]
   const abertas = await db.select({
-    id: mensalidades.id, grupoId: mensalidades.grupoId, competencia: mensalidades.competencia,
+    id: mensalidades.id, grupoId: mensalidades.grupoId, tipo: mensalidades.tipo, competencia: mensalidades.competencia,
     valor: mensalidades.valor, acrescimo: mensalidades.acrescimo, vencimento: mensalidades.vencimento,
     temLink: sql<boolean>`${mensalidades.linkPagamento} is not null`,
   }).from(mensalidades).where(eq(mensalidades.status, 'aberta')).orderBy(mensalidades.vencimento)
@@ -36,13 +36,13 @@ export async function listarMensalidadesAction() {
   return gruposLinhas.map(g => {
     // Valor do dia, com multa e juros: o mesmo que o lojista vê em /mensalidade.
     const doGrupo = abertas.filter(m => m.grupoId === g.id)
-      .map(m => ({ ...m, total: valorAtualizado(Number(m.valor), m.vencimento, hoje).total }))
+      .map(m => ({ ...m, total: valorAtualizado(m, hoje).total }))
     return {
       ...g,
       // timestamptz::text vem em UTC; o dia mostrado é o de Brasília.
       primeiro_acesso_em: g.primeiro_acesso_em ? hojeBrt(new Date(g.primeiro_acesso_em)) : null,
       abertas: doGrupo,
-      bloqueado: !g.isento && estaBloqueado(doGrupo.map(m => m.vencimento), hoje),
+      bloqueado: !g.isento && estaBloqueado(doGrupo, hoje),
     }
   })
 }

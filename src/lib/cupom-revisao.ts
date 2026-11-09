@@ -8,6 +8,8 @@
 // As regras moram aqui, puras, para poderem ser provadas sem banco — ver
 // cupom-revisao.test.ts. O I/O fica em src/app/(dashboard)/cupons/actions.ts.
 
+import { dataPuraBr } from './data-venda'
+
 /** Tipo gravado no array `pagamentos` da OS. Não precisa conciliar: não é dinheiro. */
 export const TIPO_PAGAMENTO_CUPOM = 'cupom_revisao'
 
@@ -70,7 +72,7 @@ export function motivoCupomInvalido(c: CupomEstado | null, ctx: ContextoResgate)
   if (!c) return 'Cupom não encontrado'
   if (c.status === 'cancelado') return 'Cupom cancelado'
   if (c.status === 'usado' && c.osId !== ctx.osId) return 'Cupom já utilizado em outra OS'
-  if (c.validoAte < ctx.hoje) return `Cupom vencido em ${formatarData(c.validoAte)}`
+  if (c.validoAte < ctx.hoje) return `Cupom vencido em ${dataPuraBr(c.validoAte.slice(0, 10))}`
   if (ctx.valorServicos < 0.01) return 'Esta OS não tem mão de obra para o cupom cobrir'
   return null
 }
@@ -87,9 +89,4 @@ export function validadePadrao(hoje: string, meses = 6): string {
   // é o comportamento esperado de "daqui a N meses" num prazo de cortesia.
   const d = new Date(Date.UTC(ano, mes - 1 + meses, dia))
   return d.toISOString().slice(0, 10)
-}
-
-function formatarData(d: string) {
-  const [ano, mes, dia] = d.slice(0, 10).split('-')
-  return `${dia}/${mes}/${ano}`
 }

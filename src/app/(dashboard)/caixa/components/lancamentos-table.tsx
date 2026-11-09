@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { excluirLancamentoAction, getComprovanteUrlAction, aprovarLancamentoAction, reprovarLancamentoAction } from '../actions'
 import { useRouter } from 'next/navigation'
 import { useState, useMemo } from 'react'
+import { dataPuraBr } from '@/lib/data-venda'
 
 type Lancamento = {
   id: string
@@ -265,7 +266,7 @@ export function LancamentosTable({ lancamentos, isAdmin, podeAprovar }: Props) {
           {dados.map(l => (
             <TableRow key={l.id}>
               <TableCell className="whitespace-nowrap">
-                {new Date(l.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                {dataPuraBr(l.data)}
               </TableCell>
               <TableCell>
                 <Badge variant={l.tipo === 'entrada' ? 'default' : 'destructive'}>

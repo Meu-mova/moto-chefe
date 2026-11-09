@@ -5,6 +5,7 @@ import { hojeBrt } from '@/lib/data-venda'
 import { estaBloqueado, valorAtualizado } from './regras'
 
 type Executor = Pick<typeof db, 'select'>
+type Mensalidade = typeof mensalidades.$inferSelect
 
 // Qualificado à mão: sem join, ${mensalidades.grupoId} sairia "grupo_id" e casaria com
 // a coluna da subconsulta (AGENTS.md, armadilhas do Drizzle).
@@ -55,16 +56,16 @@ export async function situacaoMensalidade(
   const hoje = hojeBrt(agora)
   const doAtivo = linhas.filter(l => l.m.grupoId === grupoAtivoId)
   const primeira = doAtivo[0]?.m
-  const outros = new Map<string, { nome: string; vencimentos: string[] }>()
+  const outros = new Map<string, { nome: string; abertas: Mensalidade[] }>()
   for (const l of linhas) {
     if (l.m.grupoId === grupoAtivoId) continue
-    const o = outros.get(l.m.grupoId) ?? { nome: l.grupoNome, vencimentos: [] }
-    o.vencimentos.push(l.m.vencimento)
+    const o = outros.get(l.m.grupoId) ?? { nome: l.grupoNome, abertas: [] }
+    o.abertas.push(l.m)
     outros.set(l.m.grupoId, o)
   }
   return {
-    bloqueado: estaBloqueado(doAtivo.map(l => l.m.vencimento), hoje),
-    aberta: primeira ? { vencimento: primeira.vencimento, total: valorAtualizado(Number(primeira.valor), primeira.vencimento, hoje).total } : null,
-    outros: [...outros.values()].map(o => ({ nome: o.nome, bloqueado: estaBloqueado(o.vencimentos, hoje) })),
+    bloqueado: estaBloqueado(doAtivo.map(l => l.m), hoje),
+    aberta: primeira ? { vencimento: primeira.vencimento, total: valorAtualizado(primeira, hoje).total } : null,
+    outros: [...outros.values()].map(o => ({ nome: o.nome, bloqueado: estaBloqueado(o.abertas, hoje) })),
   }
 }
