@@ -65,6 +65,10 @@ aqui fica a lista curta de conferência.
 - **`npm run dev` contra a cópia da produção não pode ler o `.env.local`** (#597: o Next completou
   com o `.env.local` do staging as variáveis que a cópia não define, como Resend e Mercado Pago).
   Renomeie o `.env.local` antes de subir e confira que o log não mostra "Environments: .env.local".
+- **Teste no navegador de branch de feature: a cópia da produção não tem as migrações da feature**
+  (#726, 4b: sem a 0178, criar pedido deu 500 e 5 dos 6 cenários falharam como se fosse bug).
+  Antes de subir o app, rode `migrate.ts --status` contra a cópia (`npx dotenv-cli -e .env.localprod`)
+  e aplique ali, só na cópia, o que a branch tem e a produção não.
 - **Correção vem com teste que falhou antes dela.** Mostre a saída vermelha; refatoração sem mudança
   de comportamento diz "sem vermelho" (#607: o vermelho da correção do 4xx mostrou o `empresaId`
   ecoado). Vermelho por import ou arquivo ausente não conta.
