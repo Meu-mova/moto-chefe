@@ -129,16 +129,18 @@ export function adesaoACobrar(d: { versaoAssinada: number | null; taxaFicha: str
 
 /**
  * Data de partida da 1ª mensalidade (`vencimento` soma 30 dias ao dia de Brasília dela). Regime
- * antigo, ou regime novo sem cobrança de adesão (taxa da ficha zero ou vazia, `cobraAdesao` falso):
- * o 1º acesso (decisão do Luis, #805). Regime novo com adesão: o pagamento dela (`pago_em`, a baixa
- * pelo webhook ou pelo "Conferir agora"); aberta, cancelada ou ainda não criada: sem mensalidade (null).
+ * antigo: o 1º acesso. Regime novo com a adesão gravada, ela decide, seja qual for a taxa da ficha
+ * hoje: paga → o pagamento (`pago_em`, a baixa pelo webhook ou pelo "Conferir agora"); aberta ou
+ * cancelada → sem mensalidade (null). Sem a adesão gravada: se o grupo cobra adesão (`cobraAdesao`),
+ * ela ainda vai ser criada (null); senão (taxa zero ou vazia), o 1º acesso (decisão do Luis, #805).
  */
 export function basePrimeiraMensalidade(d: {
   regimeNovo: boolean; cobraAdesao: boolean; primeiroAcesso: Date
   adesao: { status: 'aberta' | 'paga' | 'cancelada'; pagoEm: Date | null } | null
 }): Date | null {
-  if (!d.regimeNovo || !d.cobraAdesao) return d.primeiroAcesso
-  return d.adesao?.status === 'paga' ? d.adesao.pagoEm : null
+  if (!d.regimeNovo) return d.primeiroAcesso
+  if (d.adesao) return d.adesao.status === 'paga' ? d.adesao.pagoEm : null
+  return d.cobraAdesao ? null : d.primeiroAcesso
 }
 
 /** No regime novo a taxa já foi paga na adesão: a 1ª mensalidade vai só com o valor mensal. */

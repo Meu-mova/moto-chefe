@@ -107,7 +107,7 @@ const PRIMEIRO_ACESSO = new Date('2026-11-05T15:00:00Z')
 // Pagamento da adesão às 22h de Brasília de 09/11 (já 10/11 no UTC).
 const PAGO_EM = new Date('2026-11-10T01:00:00Z')
 
-test('regime antigo: a 1ª mensalidade conta do 1º acesso, com ou sem adesão', () => {
+test('regime antigo: a 1ª mensalidade conta do 1º acesso', () => {
   assert.equal(basePrimeiraMensalidade({ regimeNovo: false, cobraAdesao: false, primeiroAcesso: PRIMEIRO_ACESSO, adesao: null }), PRIMEIRO_ACESSO)
 })
 
@@ -140,4 +140,10 @@ test('regime novo: a 1ª mensalidade vai sem a taxa; o antigo continua com ela',
 test('pagamento em 31/03: 1ª em 30/04, depois 28 nos meses seguintes', () => {
   const base = basePrimeiraMensalidade({ regimeNovo: true, cobraAdesao: true, primeiroAcesso: PRIMEIRO_ACESSO, adesao: { status: 'paga', pagoEm: new Date('2027-03-31T13:00:00Z') } })!
   assert.deepEqual([0, 1, 2].map(n => vencimento(base, n)), ['2027-04-30', '2027-05-28', '2027-06-28'])
+})
+
+test('adesão já gravada decide, mesmo que a taxa da ficha tenha sido zerada depois', () => {
+  const comum = { regimeNovo: true, cobraAdesao: false, primeiroAcesso: PRIMEIRO_ACESSO }
+  assert.equal(basePrimeiraMensalidade({ ...comum, adesao: { status: 'paga', pagoEm: PAGO_EM } }), PAGO_EM)
+  assert.equal(basePrimeiraMensalidade({ ...comum, adesao: { status: 'aberta', pagoEm: null } }), null)
 })
