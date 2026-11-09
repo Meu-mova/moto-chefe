@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { vencimento, cobrancasDevidas, valorBase, acrescimoAtraso, bloqueiaEm, competencia, estaBloqueado, podePagarMensalidade, valorAtualizado } from './regras'
+import { vencimento, cobrancasDevidas, valorBase, acrescimoAtraso, bloqueiaEm, competencia, estaBloqueado, podePagarMensalidade, valorAtualizado, adesaoACobrar, ehRegimeNovo } from './regras'
 
 // 15/03/2027 às 10h em Brasília.
 const ACESSO = new Date('2027-03-15T13:00:00Z')
@@ -61,8 +61,8 @@ test('bloqueia no 6º dia após o vencimento', () => {
 })
 
 test('bloqueio: em dia ou até o 5º dia de atraso, não; no 6º, sim', () => {
-  assert.equal(estaBloqueado(['2027-04-14'], '2027-04-19'), false)
-  assert.equal(estaBloqueado(['2027-04-14'], '2027-04-20'), true)
+  assert.equal(estaBloqueado([{ tipo: 'mensalidade', vencimento: '2027-04-14' }], '2027-04-19'), false)
+  assert.equal(estaBloqueado([{ tipo: 'mensalidade', vencimento: '2027-04-14' }], '2027-04-20'), true)
   assert.equal(estaBloqueado([], '2027-04-20'), false)
 })
 
@@ -74,6 +74,31 @@ test('só admin_socio e admin_geral pagam pelo sistema', () => {
 })
 
 test('valor atualizado soma o acréscimo do atraso', () => {
-  assert.deepEqual(valorAtualizado(499, '2027-04-14', '2027-04-14'), { acrescimo: 0, total: 499 })
-  assert.deepEqual(valorAtualizado(499, '2027-04-14', '2027-05-14'), { acrescimo: 14.97, total: 513.97 })
+  assert.deepEqual(valorAtualizado({ tipo: 'mensalidade', valor: 499, vencimento: '2027-04-14' }, '2027-04-14'), { acrescimo: 0, total: 499 })
+  assert.deepEqual(valorAtualizado({ tipo: 'mensalidade', valor: 499, vencimento: '2027-04-14' }, '2027-05-14'), { acrescimo: 14.97, total: 513.97 })
+})
+
+test('adesão: só o contrato assinado na versão 2 cobra, no valor da taxa da ficha', () => {
+  assert.equal(adesaoACobrar({ versaoAssinada: 2, taxaFicha: '399.00', isento: false }), 399)
+  assert.equal(adesaoACobrar({ versaoAssinada: 1, taxaFicha: '399.00', isento: false }), null)
+  assert.equal(adesaoACobrar({ versaoAssinada: null, taxaFicha: '399.00', isento: false }), null)
+})
+
+test('adesão: taxa zero ou vazia, ou grupo isento, não cobra', () => {
+  assert.equal(adesaoACobrar({ versaoAssinada: 2, taxaFicha: '0.00', isento: false }), null)
+  assert.equal(adesaoACobrar({ versaoAssinada: 2, taxaFicha: null, isento: false }), null)
+  assert.equal(adesaoACobrar({ versaoAssinada: 2, taxaFicha: '399.00', isento: true }), null)
+})
+
+test('adesão em aberto bloqueia no mesmo dia, sem os 5 dias da mensalidade', () => {
+  assert.equal(estaBloqueado([{ tipo: 'adesao', vencimento: '2027-04-14' }], '2027-04-14'), true)
+  assert.equal(estaBloqueado([{ tipo: 'mensalidade', vencimento: '2027-04-14' }], '2027-04-14'), false)
+})
+
+test('adesão não tem multa nem juros: o total é sempre a taxa', () => {
+  assert.deepEqual(valorAtualizado({ tipo: 'adesao', valor: '399.00', vencimento: '2027-04-14' }, '2027-05-14'), { acrescimo: 0, total: 399 })
+})
+
+test('regime novo só com o contrato assinado na versão 2', () => {
+  assert.deepEqual([2, 1, null].map(ehRegimeNovo), [true, false, false])
 })

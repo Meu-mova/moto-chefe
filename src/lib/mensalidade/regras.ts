@@ -71,9 +71,15 @@ export function bloqueiaEm(venc: string): string {
   return somarDias(venc, DIAS_ATE_BLOQUEIO + 1)
 }
 
-/** Grupo bloqueado: alguma mensalidade em aberto já passou da data de bloqueio. */
-export function estaBloqueado(vencimentosEmAberto: string[], hoje: string): boolean {
-  return vencimentosEmAberto.some(v => hoje >= bloqueiaEm(v))
+/** Mensalidade do ciclo mensal ou a cobrança única da adesão no 1º acesso (#802). */
+export type TipoCobranca = 'mensalidade' | 'adesao'
+
+/**
+ * Grupo bloqueado: a adesão em aberto bloqueia na hora, porque libera o sistema (contrato 3.4,
+ * versão 2); a mensalidade, só depois da data de bloqueio.
+ */
+export function estaBloqueado(abertas: { tipo: TipoCobranca; vencimento: string }[], hoje: string): boolean {
+  return abertas.some(c => c.tipo === 'adesao' || hoje >= bloqueiaEm(c.vencimento))
 }
 
 /** Quem vê valor e link e paga (decisão de 17/10/2026, Q5 da #166). Os demais só veem o aviso. */
@@ -90,8 +96,33 @@ export const MENSALIDADE_NAO_ENCONTRADA = 'Mensalidade não encontrada ou já pa
 /** O link não saiu: Mercado Pago ou banco falharam. Não diz nada sobre a mensalidade pedida. */
 export const LINK_INDISPONIVEL = 'Não deu para gerar o link agora. Tente de novo em alguns minutos.'
 
-/** Valor a cobrar hoje: o da mensalidade mais o acréscimo do atraso, se houver. */
-export function valorAtualizado(valor: number, venc: string, hoje: string): { acrescimo: number; total: number } {
-  const acrescimo = acrescimoAtraso(valor, venc, hoje)
+/**
+ * Valor a cobrar hoje: o da cobrança mais o acréscimo do atraso, se houver. A adesão não tem
+ * multa nem juros (contrato 4.4 só fala da mensalidade).
+ */
+export function valorAtualizado(
+  c: { tipo: TipoCobranca; valor: string | number; vencimento: string }, hoje: string,
+): { acrescimo: number; total: number } {
+  const valor = Number(c.valor)
+  const acrescimo = c.tipo === 'adesao' ? 0 : acrescimoAtraso(valor, c.vencimento, hoje)
   return { acrescimo, total: Math.round((valor + acrescimo) * 100) / 100 }
+}
+
+/** Versão da cobrança no contrato de adesão: 1 põe a taxa na 1ª mensalidade; 2 cobra a adesão no 1º acesso. */
+export const VERSAO_COBRANCA_ADESAO_NO_ACESSO = 2
+
+/** Regime novo: o contrato assinado da adesão do grupo está na versão 2. Sem contrato assinado, antigo. */
+export function ehRegimeNovo(versaoAssinada: number | null): boolean {
+  return versaoAssinada === VERSAO_COBRANCA_ADESAO_NO_ACESSO
+}
+
+/**
+ * Valor da cobrança da adesão no 1º acesso, ou null quando não há o que cobrar: contrato assinado
+ * fora da versão 2, taxa da ficha zero ou vazia, grupo isento. A taxa da configuração de
+ * mensalidade não vale aqui (decisão do Luis, #802).
+ */
+export function adesaoACobrar(d: { versaoAssinada: number | null; taxaFicha: string | null; isento: boolean }): number | null {
+  const taxa = Number(d.taxaFicha ?? 0)
+  if (!ehRegimeNovo(d.versaoAssinada) || d.isento || !(taxa > 0)) return null
+  return taxa
 }

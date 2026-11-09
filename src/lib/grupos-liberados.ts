@@ -29,7 +29,7 @@ export async function gruposLiberadosVivos(usuarioId: string, agora: Date = new 
   if (!linhas.length) return []
   const abertas = await abertasCobraveis({ grupoIds: linhas.map(l => l.grupoId) }, exec)
   const hoje = hojeBrt(agora)
-  return linhas.filter(l => !estaBloqueado(abertas.filter(a => a.m.grupoId === l.grupoId).map(a => a.m.vencimento), hoje))
+  return linhas.filter(l => !estaBloqueado(abertas.filter(a => a.m.grupoId === l.grupoId).map(a => a.m), hoje))
 }
 
 type UsuarioBase = {
