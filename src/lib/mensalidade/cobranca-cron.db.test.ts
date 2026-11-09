@@ -6,11 +6,11 @@
 // antigo e sem 1º acesso ficam de fora; um grupo com problema não para os outros.
 // Todos os testes que rodam o cron (global) ficam neste arquivo, para dois crons não rodarem ao mesmo
 // tempo. Isso não isola dos outros arquivos: o cron daqui pega qualquer grupo com 1º acesso e adesão
-// pendente; arquivos que não testam o cron não montam esse estado.
+// pendente. Os outros arquivos montam a adesão sem o 1º acesso (adesao-link, admin) ou, quando
+// precisam do 1º acesso (adesao.db), não afirmam link nem e-mail.
 // Fronteira mockada: Mercado Pago e e-mail.
 import { after, before, beforeEach, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { semearAdesao, semearContaBase, type Base } from '@/test/semear-conta'
 
@@ -65,10 +65,7 @@ let cnpjSeq = 0
 async function grupoComAcesso(nome: string, versao: 1 | 2): Promise<Base & { email: string }> {
   const g = await semearContaBase(db, { prefixo: P, nome, cnpj: `0000000082${String(++cnpjSeq).padStart(4, '0')}` })
   const email = `${nome.toLowerCase()}-${P.toLowerCase()}@teste.invalid`
-  const [a] = await linhas(sql`insert into adesoes_mova (loja, responsavel, celular, cnpj_arquivo_path, store_login, usuarios, grupo_id, taxa_implantacao, valor_mensal, email)
-    values (${g.nome}, 'Resp', '35999999999', 'x', 'login', '[]'::jsonb, ${g.grupoId}, 399, 499, ${email}) returning id`)
-  await db.execute(sql`insert into contratos_adesao (adesao_id, token, status, html_snapshot, snapshot_hash, email_destino, expira_em, versao_cobranca)
-    values (${a.id}, ${randomUUID()}, 'assinado', '<p>c</p>', 'h', ${email}, now() + interval '7 days', ${versao})`)
+  await semearAdesao(db, g, { email, versao })
   const { registrarPrimeiroAcesso } = await import('@/lib/primeiro-acesso')
   await registrarPrimeiroAcesso(g.grupoId, ACESSO)
   return { ...g, email }
@@ -202,13 +199,15 @@ test('Mercado Pago falha só para um grupo: o erro fica nele e o outro ganha o l
   assert.equal(emails.filter(e => e.para === bom.email).length, 1)
 })
 
-test('Conta A x Conta B: o cron cria e cobra só a adesão que falta no grupo da Conta A; a da Conta B, já paga, fica como está', async () => {
-  const a = await grupoSemAdesao('ContaA')
-  const b = await grupoSemAdesao('ContaB')
-  await db.execute(sql`insert into mensalidades (grupo_id, tipo, competencia, valor, vencimento, status, pago_em)
-    values (${b.grupoId}, 'adesao', null, 399, '2026-11-09', 'paga', now())`)
+test('Conta A x Conta B, as duas sem adesão: cada grupo ganha a sua, com o link dela, e cada ficha recebe um e-mail', async () => {
+  const a = await grupoSemAdesao('ContaA', { taxa: '399' })
+  const b = await grupoSemAdesao('ContaB', { taxa: '599' })
   await gerarCobrancas(CRON_804)
-  assert.deepEqual((await adesoesDo(a.grupoId)).map(x => [x.status, x.tem_link]), [['aberta', true]])
-  assert.deepEqual((await adesoesDo(b.grupoId)).map(x => [x.status, x.tem_link]), [['paga', false]])
-  assert.deepEqual([emails.filter(e => e.para === a.email).length, emails.filter(e => e.para === b.email).length], [1, 0])
+  const [adesaoA] = await adesoesDo(a.grupoId)
+  const [adesaoB] = await adesoesDo(b.grupoId)
+  assert.deepEqual([adesaoA.valor, adesaoB.valor], ['399.00', '599.00'])
+  assert.deepEqual(await linhas(sql`select grupo_id, link_pagamento from mensalidades where id in (${adesaoA.id}, ${adesaoB.id}) order by valor`),
+    [{ grupo_id: a.grupoId, link_pagamento: `https://mp.teste/${adesaoA.id}` }, { grupo_id: b.grupoId, link_pagamento: `https://mp.teste/${adesaoB.id}` }])
+  assert.deepEqual(emails.filter(e => e.para === a.email || e.para === b.email).map(e => [e.para, e.assunto]).sort(),
+    [[a.email, 'Adesão ao MOVA: R$ 399,00'], [b.email, 'Adesão ao MOVA: R$ 599,00']].sort())
 })
