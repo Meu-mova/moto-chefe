@@ -1,4 +1,4 @@
-import { percentualDesconto, type SomaDescontos } from '@/lib/desconto'
+import { BASE_DO_PERCENTUAL_DESCONTO, percentualDesconto, type SomaDescontos } from '@/lib/desconto'
 import { calcularPremiacao } from '@/lib/premiacao'
 import { plural } from '@/lib/texto'
 
@@ -59,7 +59,7 @@ function manchete(rotulo: string, atual: number, anterior: number, fmt: (v: numb
 function indicadorDesconto(d: SomaDescontos, valorDasMotos: number): Indicador {
   const pct = percentualDesconto(d.margem, valorDasMotos)
   const partes = [plural(d.qtd, 'venda', 'vendas')]
-  if (pct > 0) partes.push(`${pct}% do valor das motos`)
+  if (pct > 0) partes.push(`${pct}% ${BASE_DO_PERCENTUAL_DESCONTO}`)
   if (d.estimados > 0) partes.push(plural(d.estimados, 'estimada', 'estimadas'))
   return { rotulo: 'Descontos', valor: brl(d.margem), alerta: false, dica: partes.join(' · ') }
 }

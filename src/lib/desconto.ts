@@ -79,6 +79,9 @@ export function somarDescontos(linhas: LinhaDesconto[]): SomaDescontos {
  * valor, os dois lados da conta estão na mesma unidade e a taxa compara direto
  * entre vendedores, independente de quanto cada um vendeu.
  */
+/** Sobre o que o % de desconto é calculado: o mesmo texto em todas as telas (#796, decisão 7). */
+export const BASE_DO_PERCENTUAL_DESCONTO = 'do valor das motos'
+
 export function percentualDesconto(desconto: number, faturamento: number): number {
   if (faturamento <= 0) return 0
   return Math.round((desconto / faturamento) * 1000) / 10
