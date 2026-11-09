@@ -3,9 +3,8 @@
 // gravada, aberta e sem link, para o "Tentar de novo" e o cron. Fronteira mockada: Mercado Pago e e-mail.
 import { after, before, beforeEach, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
-import { semearContaBase } from '@/test/semear-conta'
+import { semearAdesao, semearContaBase } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -52,22 +51,20 @@ const mocks = [
 
 type Db = typeof import('@/lib/db')
 let db: Db['db']
-let registrarPrimeiroAcesso: typeof import('@/lib/primeiro-acesso')['registrarPrimeiroAcesso']
 let cobrarAdesao: typeof import('@/lib/mensalidade/link')['cobrarAdesao']
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const linhas = async (q: ReturnType<typeof sql>) => ((await db.execute(q)) as unknown as { rows: any[] }).rows
 
 let cnpjSeq = 0
+// Adesão aberta e sem link, como o 1º acesso a deixa, mas sem gravar o 1º acesso: assim o cron
+// global de cobranca-cron.db.test.ts, que roda em paralelo, não pega esta adesão (#804).
 async function adesaoAberta(nome: string): Promise<string> {
   const g = await semearContaBase(db, { prefixo: P, nome, cnpj: `0000000081${String(++cnpjSeq).padStart(4, '0')}` })
-  const [a] = await linhas(sql`insert into adesoes_mova (loja, responsavel, celular, cnpj_arquivo_path, store_login, usuarios, grupo_id, taxa_implantacao, valor_mensal, email)
-    values (${g.nome}, 'Resp', '35999999999', 'x', 'login', '[]'::jsonb, ${g.grupoId}, 399, 499, ${`resp-${nome}@teste.invalid`}) returning id`)
-  await db.execute(sql`insert into contratos_adesao (adesao_id, token, status, html_snapshot, snapshot_hash, email_destino, expira_em, versao_cobranca)
-    values (${a.id}, ${randomUUID()}, 'assinado', '<p>c</p>', 'h', 'resp@teste.invalid', now() + interval '7 days', 2)`)
-  const { adesaoId } = await registrarPrimeiroAcesso(g.grupoId, new Date('2026-11-09T15:00:00Z'))
-  assert.ok(adesaoId)
-  return adesaoId
+  await semearAdesao(db, g, { email: `resp-${nome}@teste.invalid`, versao: 2 })
+  const [a] = await linhas(sql`insert into mensalidades (grupo_id, tipo, competencia, valor, taxa_implantacao, vencimento)
+    values (${g.grupoId}, 'adesao', null, 399, 399, '2026-11-09') returning id`)
+  return a.id
 }
 
 const gravada = async (id: string) => (await linhas(sql`
@@ -75,7 +72,6 @@ const gravada = async (id: string) => (await linhas(sql`
 
 before(async () => {
   ;({ db } = await import('@/lib/db'))
-  ;({ registrarPrimeiroAcesso } = await import('@/lib/primeiro-acesso'))
   ;({ cobrarAdesao } = await import('@/lib/mensalidade/link'))
 })
 
