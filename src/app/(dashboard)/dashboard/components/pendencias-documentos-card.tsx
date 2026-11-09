@@ -2,13 +2,9 @@ import Link from 'next/link'
 import { LinhaPendencia, TituloGrupo } from './painel-secoes'
 import { LABEL_PENDENCIA, type Pendencia } from '@/lib/pendencias-venda'
 import type { PainelPendencias } from '@/lib/queries/pendencias-venda'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const ORDEM: Pendencia[] = ['contrato', 'checklist', 'nf', 'conciliacao']
-
-function dataCurta(iso: string) {
-  const [ano, mes, dia] = iso.split('-')
-  return `${dia}/${mes}/${ano}`
-}
 
 function Chip({ tipo }: { tipo: Pendencia }) {
   return (
@@ -33,7 +29,7 @@ export function PendenciasDocumentosCard({
   return (
     <div>
       <TituloGrupo acao={<Link href="/vendas" className="text-xs font-semibold text-primary-text hover:underline">Ver em Vendas</Link>}>
-        Vendas desde {dataCurta(dados.desde)} · contrato, checklist, NF e conciliação
+        Vendas desde {dataPuraBr(dados.desde)} · contrato, checklist, NF e conciliação
       </TituloGrupo>
       <LinhaPendencia rotulo="Pendentes de tarefa" valor={dados.pendentes} href="/vendas" />
       <LinhaPendencia rotulo="Efetivadas (as quatro fechadas)" valor={dados.efetivadas} href="/vendas" />

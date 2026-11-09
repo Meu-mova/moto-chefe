@@ -1,14 +1,16 @@
 import {
   pgTable, pgEnum, uuid, text, boolean,
-  timestamp, date, numeric, jsonb, pgView, integer, bigint, primaryKey, unique, uniqueIndex,
+  timestamp, date, numeric, jsonb, pgView, integer, smallint, bigint, primaryKey, unique, uniqueIndex,
   foreignKey, index,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { StatusAdesao } from '@/lib/adesao-campos'
+import type { TipoItemPedido } from '@/lib/pedido-venda-regras'
 import type { SituacaoCarta } from '@/lib/notagateway/carta-correcao'
 import type { PapelBase } from '@/lib/gestao-usuarios'
 import type { PadraoSimulador } from '@/lib/simulador-padrao'
 import type { SituacaoInutilizacao } from '@/lib/notagateway/inutilizacao'
+import type { TipoCobranca } from '@/lib/mensalidade/regras'
 
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -581,6 +583,24 @@ export const pedidosVenda = pgTable('pedidos_venda', {
   /** Entrega da venda (retira na loja ou entregar) e modalidade do frete; vai para a venda na efetivação. Nulo = pedido anterior (#725). */
   entrega: jsonb('entrega'),
 })
+
+// ─── pedidos_venda_itens (o que o cliente leva no pedido, com valor; #770) ───
+// Checks (tipo, moto só no item moto, peça só no brinde/acessório, quantidade) e o porquê de não ter
+// grupo_id ficam na migração 0178.
+export const pedidosVendaItens = pgTable('pedidos_venda_itens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  pedidoVendaId: uuid('pedido_venda_id').notNull().references(() => pedidosVenda.id, { onDelete: 'cascade' }),
+  tipo: text('tipo').$type<TipoItemPedido>().notNull(),
+  motoId: uuid('moto_id').references(() => motos.id),
+  pecaId: uuid('peca_id').references(() => pecasCatalogo.id),
+  quantidade: numeric('quantidade', { precision: 10, scale: 2 }).notNull().default('1'),
+  /** Nulo = valor ainda não informado (o Novo pedido não pede valor até o #783). */
+  valorUnitario: numeric('valor_unitario', { precision: 12, scale: 2 }),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  uniqueIndex('pedidos_venda_itens_moto_key').on(t.pedidoVendaId, t.motoId).where(sql`moto_id is not null`),
+  index('pedidos_venda_itens_pedido_idx').on(t.pedidoVendaId),
+])
 
 // ─── vendas ──────────────────────────────────────────────────────────────────
 export const vendas = pgTable('vendas', {
@@ -1962,6 +1982,8 @@ export const contratosAdesao = pgTable('contratos_adesao', {
   criadoEm:       timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   expiraEm:       timestamp('expira_em', { withTimezone: true }).notNull(),
   assinadoEm:     timestamp('assinado_em', { withTimezone: true }),
+  // 1 = taxa junto da 1ª mensalidade; 2 = adesão cobrada no 1º acesso (#802, migração 0179).
+  versaoCobranca: smallint('versao_cobranca').notNull().default(1),
 })
 
 export const contratosAdesaoEventos = pgTable('contratos_adesao_eventos', {
@@ -1999,7 +2021,9 @@ export const mensalidadeConfig = pgTable('mensalidade_config', {
 export const mensalidades = pgTable('mensalidades', {
   id:              uuid('id').primaryKey().defaultRandom(),
   grupoId:         uuid('grupo_id').notNull().references(() => grupos.id),
-  competencia:     text('competencia').notNull(),
+  // Adesão (#802) reusa a tabela: competência nula só nela, uma por grupo (migração 0179).
+  tipo:            text('tipo').$type<TipoCobranca>().notNull().default('mensalidade'),
+  competencia:     text('competencia'),
   valor:           numeric('valor', { precision: 12, scale: 2 }).notNull(),
   taxaImplantacao: numeric('taxa_implantacao', { precision: 12, scale: 2 }).notNull().default('0'),
   acrescimo:       numeric('acrescimo', { precision: 12, scale: 2 }).notNull().default('0'),
@@ -2012,7 +2036,10 @@ export const mensalidades = pgTable('mensalidades', {
   criadoEm:        timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   // E-mail do dia do vencimento já enviado: o cron não repete.
   avisoVencimentoEm: timestamp('aviso_vencimento_em', { withTimezone: true }),
-}, t => [unique('mensalidades_grupo_competencia').on(t.grupoId, t.competencia)])
+}, t => [
+  unique('mensalidades_grupo_competencia').on(t.grupoId, t.competencia),
+  uniqueIndex('mensalidades_uma_adesao_por_grupo').on(t.grupoId).where(sql`tipo = 'adesao'`),
+])
 
 // Log cru das notificações do Mercado Pago: idempotência e diagnóstico.
 // Sem grupo_id: quem cobra é o MOVA, e o grupo só se conhece depois de ler o pagamento.

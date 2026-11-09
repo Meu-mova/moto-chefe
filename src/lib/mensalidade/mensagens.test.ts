@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { emailCobranca, emailVencimento } from './mensagens'
 
-const BASE = { responsavel: 'Bruno', grupo: 'Ecomoto Lavras', valor: 1498, vencimento: '2027-04-14', link: 'https://mp.test/x' }
+const BASE = { tipo: 'mensalidade' as const, responsavel: 'Bruno', grupo: 'Ecomoto Lavras', valor: 1498, vencimento: '2027-04-14', link: 'https://mp.test/x' }
 
 test('e-mail traz valor, vencimento e link', () => {
   const e = emailCobranca(BASE)
@@ -32,4 +32,12 @@ test('sem link, o e-mail do vencimento manda pagar pelo aviso do MOVA', () => {
   const e = emailVencimento({ responsavel: null, grupo: 'G', valor: 499, vencimento: '2027-04-14', link: null })
   assert.match(e.texto, /aviso do topo/)
   assert.doesNotMatch(e.html, /href=/)
+})
+
+test('e-mail da adesão fala em adesão e que o pagamento libera o acesso, sem falar em mensalidade', () => {
+  const e = emailCobranca({ ...BASE, tipo: 'adesao', valor: 399 })
+  assert.match(e.assunto, /^Adesão ao MOVA: R\$ 399,00/)
+  assert.match(e.texto, /libera o acesso/)
+  assert.doesNotMatch(e.texto + e.assunto, /[Mm]ensalidade/)
+  assert.match(e.html, /href="https:\/\/mp\.test\/x"/)
 })

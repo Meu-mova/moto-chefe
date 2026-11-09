@@ -5,6 +5,7 @@ import { listarLojaIdsDoGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { montagensPorMecanico, montagensDetalhadas } from '@/lib/queries/montagens'
 import { MontagensFiltros } from './components/montagens-filtros'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { dataPuraBr } from '@/lib/data-venda'
 
 /** Primeiro dia do mês corrente em BRT — mesmo default das outras telas. */
 function inicioDoMes(): string {
@@ -88,7 +89,7 @@ export default async function MontagensPage({
                     {m.diasTrabalhados > 0 ? (m.total / m.diasTrabalhados).toFixed(1) : '—'}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
-                    {m.primeira?.split('-').reverse().join('/')} a {m.ultima?.split('-').reverse().join('/')}
+                    {m.primeira && dataPuraBr(m.primeira)} a {m.ultima && dataPuraBr(m.ultima)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -126,7 +127,7 @@ export default async function MontagensPage({
               {detalhe.map(d => (
                 <TableRow key={d.chassi}>
                   <TableCell className="text-muted-foreground whitespace-nowrap">
-                    {d.data?.split('-').reverse().join('/')}
+                    {d.data && dataPuraBr(d.data)}
                   </TableCell>
                   <TableCell>{d.mecanico}</TableCell>
                   <TableCell className="font-medium">{d.marca} {d.modelo}</TableCell>

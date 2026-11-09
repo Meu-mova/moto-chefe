@@ -12,6 +12,7 @@ import { aplicarCertificadoAction, aplicarPortalAction, criarLojaAtivacaoAction,
 import type { ResultadoUsuario } from '@/lib/ativacao-usuarios'
 import { PAPEIS_ADESAO } from '@/lib/adesao'
 import { rotuloDoPapelGravado } from '@/lib/rotulo-do-papel'
+import { dataPuraBr } from '@/lib/data-venda'
 
 // "Ativar cliente" (#292): loja, usuários, certificado A1 e login do portal saem da adesão
 // para o grupo e a loja pelo servidor. Passos nas abas do detalhe (#312), não em diálogo:
@@ -340,7 +341,7 @@ function PassoPortal({ adesaoId, dados, aoAplicar }: Passo) {
 function Resumo({ dados }: { dados: DadosAtivacao }) {
   const r = dados.resumo
   const itens: { feito: boolean; texto: string; href?: string }[] = [
-    { feito: !!r.certificado, texto: r.certificado ? `Certificado A1 · ${r.certificado.titular} · válido até ${r.certificado.validoAte.split('-').reverse().join('/')}` : 'Certificado A1' },
+    { feito: !!r.certificado, texto: r.certificado ? `Certificado A1 · ${r.certificado.titular} · válido até ${dataPuraBr(r.certificado.validoAte)}` : 'Certificado A1' },
     { feito: r.portal, texto: 'Login do portal da fábrica numa loja' },
     { feito: r.notaGateway, texto: 'Nota Gateway: token e empresa', href: '/admin/notas-fiscais' },
     { feito: r.regraFiscal, texto: 'Regra fiscal de saída (contador do cliente)', href: '/admin/notas-fiscais' },
