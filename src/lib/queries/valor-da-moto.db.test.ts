@@ -209,6 +209,9 @@ test('lista de vendas traz o valor da venda (o que o cliente pagou) e o valor da
   const lista = await listarVendas({ lojaId: [a.lojaId], dataInicio: SETEMBRO.dataInicio, dataFim: SETEMBRO.dataFim })
   const daFrete = lista.find(v => v.id === venda.frete)
   assert.deepEqual([Number(daFrete?.valor), Number(daFrete?.valorMoto)], [10350, 10000])
+  const semFrete = lista.find(v => v.id === venda.semFrete)
+  // O frete cobrado da lista vem do mesmo ponto único dos relatórios: sem frete é 0, não nulo.
+  assert.deepEqual([daFrete?.freteCobrado, semFrete?.freteCobrado], [350, 0])
   assert.equal(lista.reduce((s, v) => s + Number(v.valorMoto), 0), BRUTO_MOTOS_A)
 })
 
