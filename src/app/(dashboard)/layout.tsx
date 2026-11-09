@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { usuariosDados } from '@/lib/db/schema'
 import { cookies, headers } from 'next/headers'
+import { after } from 'next/server'
 import { Sidebar, MenuMobile } from '@/components/layout/sidebar'
 import { COOKIE_SIDEBAR_RECOLHIDA } from '@/components/layout/sidebar-cookie'
 import { BotaoVoltar } from '@/components/layout/botao-voltar'
@@ -13,6 +14,7 @@ import { precisaRegistrar, registrarPrimeiroAcesso } from '@/lib/primeiro-acesso
 import { origemDaRequisicao, registrarSemFalhar } from '@/lib/log-acoes'
 import { grupoAtivoDaRequisicao, gruposVisiveisDaRequisicao } from '@/lib/grupo'
 import { situacaoMensalidade, SEM_MENSALIDADE } from '@/lib/mensalidade/bloqueio'
+import { cobrarAdesao } from '@/lib/mensalidade/link'
 import { podePagarMensalidade } from '@/lib/mensalidade/regras'
 import { hojeBrt } from '@/lib/data-venda'
 import { AvisoMensalidade } from '@/components/layout/aviso-mensalidade'
@@ -53,6 +55,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // usuário sem grupo), a página abre do mesmo jeito.
   const grupoAtivo = await withTimeout(grupoAtivoDaRequisicao(usuario), 3000).catch(() => null)
 
+  // Antes do bloqueio: no regime novo o 1º acesso cria a adesão, que já bloqueia esta página.
+  // A cobrança depende disto, mas a página não: se falhar, tenta de novo no próximo acesso.
+  if (grupoAtivo && precisaRegistrar(usuario.papel, grupoAtivo)) {
+    const registro = await withTimeout(registrarPrimeiroAcesso(grupoAtivo.id), 3000)
+      .catch(e => { console.error('[primeiro-acesso] falha ao registrar:', e instanceof Error ? e.message : e); return null })
+    const adesaoId = registro?.adesaoId
+    // O Mercado Pago pode levar 15 s: o link sai depois da resposta (roda mesmo após o redirect).
+    // Se falhar, o sócio tem o "Tentar de novo" e o cron tenta no dia seguinte.
+    if (adesaoId) {
+      after(() => cobrarAdesao(adesaoId)
+        .then(r => { if (!r.ok) console.error('[adesao] link ou e-mail:', r.erro) })
+        .catch(e => console.error('[adesao] link ou e-mail:', e instanceof Error ? e.message : e)))
+    }
+  }
+
   // Mensalidade do grupo ativo vencida há mais de 5 dias (contrato 4.5). Fail-open de
   // propósito: bloquear quem paga porque o banco piscou é pior que deixar entrar quem deve.
   // Quem paga vê também os outros grupos que enxerga, na faixa do topo.
@@ -70,11 +87,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // Comunicados são acessórios: se demorar/falhar, o app abre sem o modal em vez
     // de pendurar. É a consulta que estava travando o layout inteiro.
     withTimeout(buscarComunicadosNaoLidosAction(), 8000).catch(() => []),
-    // A cobrança depende disto, mas a página não: se falhar, tenta de novo no próximo acesso.
-    grupoAtivo && precisaRegistrar(usuario.papel, grupoAtivo)
-      ? withTimeout(registrarPrimeiroAcesso(grupoAtivo.id), 3000)
-        .catch(e => console.error('[primeiro-acesso] falha ao registrar:', e instanceof Error ? e.message : e))
-      : null,
     // Toda página tenta; o índice único deixa só a 1ª do dia por grupo (#198).
     grupoAtivo
       ? withTimeout((async () => registrarSemFalhar({

@@ -153,3 +153,16 @@ test('mensalidade já paga da própria Conta recebe a mesma frase e não ganha l
   assert.deepEqual(preferenciasCriadas, [])
   assert.equal((await gravadoNa(paga.id)).link_pagamento, null)
 })
+
+test('adesão da Conta B: o sócio da Conta A recebe a mesma frase; a da própria Conta, sem link, ganha o link sem multa', async () => {
+  const { a, b } = semente
+  assert.ok(a && b)
+  const abrirAdesao = async (grupoId: string) => (await linhas(sql`insert into mensalidades (grupo_id, tipo, competencia, valor, vencimento)
+    values (${grupoId}, 'adesao', null, 399, '2020-01-10') returning id`))[0].id as string
+  const adesaoA = await abrirAdesao(a.grupoId)
+  const adesaoB = await abrirAdesao(b.grupoId)
+  assert.deepEqual(await linkPagamentoAction(adesaoB), { ok: false, erro: MENSALIDADE_NAO_ENCONTRADA })
+  assert.deepEqual(preferenciasCriadas, [])
+  assert.equal((await linkPagamentoAction(adesaoA)).ok, true)
+  assert.deepEqual(await gravadoNa(adesaoA), { link_pagamento: `https://mp.teste/${P}`, mp_preference_id: `pref-${P}`, acrescimo: '0.00' })
+})
