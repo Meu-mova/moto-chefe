@@ -55,10 +55,11 @@ function manchete(rotulo: string, atual: number, anterior: number, fmt: (v: numb
   return { rotulo, valor: fmt(atual), variacao: variacao(atual, anterior), anterior: fmt(anterior), serie }
 }
 
-function indicadorDesconto(d: SomaDescontos, faturamento: number): Indicador {
-  const pct = percentualDesconto(d.margem, faturamento)
+/** % sobre o valor das motos (sem o frete cobrado), no painel do vendedor e no do admin (#796, decisões 5 e 7). */
+function indicadorDesconto(d: SomaDescontos, valorDasMotos: number): Indicador {
+  const pct = percentualDesconto(d.margem, valorDasMotos)
   const partes = [plural(d.qtd, 'venda', 'vendas')]
-  if (pct > 0) partes.push(`${pct}% do faturamento`)
+  if (pct > 0) partes.push(`${pct}% do valor das motos`)
   if (d.estimados > 0) partes.push(plural(d.estimados, 'estimada', 'estimadas'))
   return { rotulo: 'Descontos', valor: brl(d.margem), alerta: false, dica: partes.join(' · ') }
 }
@@ -101,7 +102,7 @@ export function montarPainel(e: EntradaPainel): { manchete: Manchete[]; indicado
     const n = e.conciliacaoPendentes
     indicadores.push({ rotulo: 'Conciliação cartão', valor: n > 0 ? plural(n, 'pendente', 'pendentes') : 'Em dia', alerta: n > 0, href: '/conciliacao' })
   }
-  if (e.descontos) indicadores.push(indicadorDesconto(e.descontos, kpis.faturamento))
+  if (e.descontos) indicadores.push(indicadorDesconto(e.descontos, kpis.faturamentoMoto))
   return {
     manchete: [
       manchete('Faturamento', kpis.faturamento, kpisAnt.faturamento, brl, 'valor'),

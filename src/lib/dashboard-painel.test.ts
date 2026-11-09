@@ -69,5 +69,13 @@ test('vendedor: comissão, premiação OTE e % dos descontos saem do faturamento
   assert.equal(p.manchete[0].valor, 'R$ 20.000,00')
   assert.equal(p.manchete[2].valor, 'R$ 50,00')
   assert.equal(p.indicadores.find(i => i.rotulo === 'Premiação OTE')?.valor, 'R$ 0,00')
-  assert.equal(p.indicadores.find(i => i.rotulo === 'Descontos')?.dica, '1 venda · 10% do faturamento')
+  assert.equal(p.indicadores.find(i => i.rotulo === 'Descontos')?.dica, '1 venda · 10% do valor das motos')
+})
+
+test('admin: % dos descontos sobre o valor das motos (decisão 7, #796); faturamento e ticket médio seguem com o frete', () => {
+  const comFrete = { ...kpis, totalVendas: 2, faturamento: 20000, faturamentoMoto: 10000 }
+  const p = montarPainel({ ...base, kpis: comFrete, descontos: { qtd: 1, margem: 1000, preco: 0, estimados: 0 } })
+  assert.equal(p.indicadores.find(i => i.rotulo === 'Descontos')?.dica, '1 venda · 10% do valor das motos')
+  assert.equal(p.manchete[0].valor, 'R$ 20.000,00')
+  assert.equal(p.manchete[2].valor, 'R$ 10.000,00')
 })
