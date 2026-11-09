@@ -1,7 +1,7 @@
 import { execRows } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { metasDoMes } from './metas'
-import { valorLiquidoSql } from './valor-liquido'
+import { valorDaMotoNosRelatoriosSql, valorLiquidoDaMotoSql } from './valor-liquido'
 import { nomeDoModeloSql } from '@/lib/modelos-da-conta'
 import {
   gerarOportunidades, type PodioVendedor, type ItemColetiva, type LojaMeta, type Oportunidade,
@@ -12,8 +12,9 @@ import {
 // nada sensível chegue nem no payload da página projetada. Escopo do grupo ativo,
 // bordas de mês em UTC (iguais ao fechamento/metas), vendedor inativo fica de fora.
 //
-// Faturamento em LÍQUIDO (valorLiquidoSql): a venda entra pelo valor menos a taxa
-// de cartão da parte já conciliada — a mesma base do DRE. Mês recém-fechado com
+// Faturamento em LÍQUIDO da moto (valorLiquidoDaMotoSql): a venda entra pelo valor
+// menos a taxa de cartão da parte já conciliada e menos o frete cobrado (#796); o
+// DRE conta o frete como receita. Mês recém-fechado com
 // conciliação pendente aparece otimista e encolhe conforme as transações casam.
 
 export type DadosColetiva = {
@@ -52,34 +53,34 @@ export async function dadosColetiva(opts: {
     execRows(sql`
       select
         count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as qtd,
-        coalesce(sum(${valorLiquidoSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat,
-        coalesce(sum(v.valor::numeric) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat_bruto,
+        coalesce(sum(${valorLiquidoDaMotoSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat,
+        coalesce(sum(${valorDaMotoNosRelatoriosSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as fat_bruto,
         count(distinct nullif(v.cliente_cpf,'')) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as clientes,
         count(*) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim})::int as qtd_ant,
-        coalesce(sum(${valorLiquidoSql()}) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim}),0)::text as fat_ant
+        coalesce(sum(${valorLiquidoDaMotoSql()}) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim}),0)::text as fat_ant
       from vendas v join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${bAnt.ini} and v.data_venda < ${fim}`),
     // Vendedores ativos: unidades e faturamento do mês atual e do anterior, por loja
     execRows(sql`
       select v.vendedor_id, u.nome, l.nome as loja,
         count(*) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim})::int as qtd,
-        coalesce(sum(${valorLiquidoSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as total,
+        coalesce(sum(${valorLiquidoDaMotoSql()}) filter (where v.data_venda >= ${ini} and v.data_venda < ${fim}),0)::text as total,
         count(*) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim})::int as qtd_ant,
-        coalesce(sum(${valorLiquidoSql()}) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim}),0)::text as total_ant
+        coalesce(sum(${valorLiquidoDaMotoSql()}) filter (where v.data_venda >= ${bAnt.ini} and v.data_venda < ${bAnt.fim}),0)::text as total_ant
       from vendas v join usuarios u on u.id=v.vendedor_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and u.ativo and v.data_venda >= ${bAnt.ini} and v.data_venda < ${fim}
       group by v.vendedor_id, u.nome, l.nome`),
     // Modelos campeões do mês
     execRows(sql`
-      select ${nomeDoModeloSql('mo', 'v.loja_id')} as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoSql()}),0)::text as total
+      select ${nomeDoModeloSql('mo', 'v.loja_id')} as nome, count(*)::int as qtd, coalesce(sum(${valorLiquidoDaMotoSql()}),0)::text as total
       from vendas v join motos m on m.id=v.moto_id join modelos mo on mo.id=m.modelo_id join lojas l on l.id=v.loja_id
       where l.grupo_id = ${g} and v.data_venda >= ${ini} and v.data_venda < ${fim}
       group by ${nomeDoModeloSql('mo', 'v.loja_id')}`),
     // Faturamento por loja (pra parear com a meta)
     execRows(sql`
       select l.id as loja_id, l.nome as loja,
-             coalesce(sum(${valorLiquidoSql()}),0)::text as fat,
-             coalesce(sum(v.valor::numeric),0)::text as fat_bruto
+             coalesce(sum(${valorLiquidoDaMotoSql()}),0)::text as fat,
+             coalesce(sum(${valorDaMotoNosRelatoriosSql()}),0)::text as fat_bruto
       from lojas l left join vendas v on v.loja_id=l.id and v.data_venda >= ${ini} and v.data_venda < ${fim}
       where l.grupo_id = ${g} and l.ativa = true
       group by l.id, l.nome`),

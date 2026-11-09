@@ -1,10 +1,10 @@
 import { db, execRows } from '@/lib/db'
 import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao, vendasPecas } from '@/lib/db/schema'
-import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
+import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, desc, SQL } from 'drizzle-orm'
 import type { Column } from 'drizzle-orm'
 import { calcStatusMultiPagamento, pagamentosEfetivosOS } from '@/lib/conciliacao-status'
 import { STATUS_OS_ABERTA } from '@/lib/os-transicao'
-import { valorLiquidoExpr } from './valor-liquido'
+import { valorDaMotoNosRelatoriosExpr, valorLiquidoDaMotoExpr, valorLiquidoExpr } from './valor-liquido'
 import { motoNoShowroom } from './showroom'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
@@ -61,8 +61,12 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
 
   // Uma única query com UNION ALL — 1 round-trip ao banco em vez de 5
   const valorV = useLiquido ? valorLiquidoExpr() : sql`${vendas.valor}`
+  // Só as motos, sem o frete cobrado: comissão, premiação e % de desconto do vendedor (#796).
+  const valorMoto = useLiquido ? valorLiquidoDaMotoExpr() : valorDaMotoNosRelatoriosExpr()
   const rows = await execRows(sql`
     SELECT 'v'  AS t, count(*)::int AS n, coalesce(sum(${valorV}), 0)::numeric AS val FROM ${vendas} WHERE ${vendasCond}
+    UNION ALL
+    SELECT 'vm',       count(*)::int,     coalesce(sum(${valorMoto}), 0)::numeric                  FROM ${vendas}         WHERE ${vendasCond}
     UNION ALL
     SELECT 'e',        count(*)::int,     coalesce(sum(${motos.precoCompra}),  0)::numeric        FROM ${motos}          WHERE ${estoqueCond}
     UNION ALL
@@ -79,6 +83,7 @@ export async function getKPIs(filtros: Filtros, opts?: { useLiquidoValue?: boole
   return {
     totalVendas:             Number(m.v?.n  ?? 0),
     faturamento:             Number(m.v?.val ?? 0),
+    faturamentoMoto:         Number(m.vm?.val ?? 0),
     estoque:                 Number(m.e?.n  ?? 0),
     valorEstoque:            Number(m.e?.val ?? 0),
     transferenciasPendentes: Number(m.tr?.n ?? 0),
@@ -330,8 +335,8 @@ export async function getPrecoMedioVendas(filtros: Filtros, opts?: { useLiquidoV
   if (vendedorId) conditions.push(eq(vendas.vendedorId, vendedorId))
 
   const mediaExpr = opts?.useLiquidoValue
-    ? sql<number>`AVG(${valorLiquidoExpr()})`
-    : avg(vendas.valor)
+    ? sql<number>`AVG(${valorLiquidoDaMotoExpr()})`
+    : sql<number>`AVG(${valorDaMotoNosRelatoriosExpr()})`
 
   const [result] = await db
     .select({ media: mediaExpr })
@@ -363,14 +368,14 @@ export async function getRankingVendedores(filtros: Omit<Filtros, 'vendedorId'>)
       nome: usuarios.nome,
       loja: lojaVendedor.nome,
       totalVendas: count(),
-      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
+      faturamento: sql<string>`sum(${valorLiquidoDaMotoExpr()})`,
     })
     .from(vendas)
     .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))
     .leftJoin(lojaVendedor, eq(usuarios.lojaId, lojaVendedor.id))
     .where(and(...conditions))
     .groupBy(vendas.vendedorId, usuarios.nome, lojaVendedor.nome)
-    .orderBy(sql`sum(${valorLiquidoExpr()}) DESC`)
+    .orderBy(sql`sum(${valorLiquidoDaMotoExpr()}) DESC`)
 }
 
 export async function getModelosMaisVendidos(filtros: Filtros, { nomeOriginal = false }: OpcoesRankingModelo = {}) {
@@ -391,7 +396,7 @@ export async function getModelosMaisVendidos(filtros: Filtros, { nomeOriginal = 
       modelo: nome,
       marca: modelos.marca,
       totalVendas: count(),
-      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
+      faturamento: sql<string>`sum(${valorLiquidoDaMotoExpr()})`,
     })
     .from(vendas)
     .innerJoin(motos, eq(vendas.motoId, motos.id))
@@ -414,13 +419,13 @@ export async function getRankingLojas(filtros: Omit<Filtros, 'vendedorId'>) {
       lojaId: vendas.lojaId,
       loja: lojas.nome,
       totalVendas: count(),
-      faturamento: sql<string>`sum(${valorLiquidoExpr()})`,
+      faturamento: sql<string>`sum(${valorLiquidoDaMotoExpr()})`,
     })
     .from(vendas)
     .innerJoin(lojas, eq(vendas.lojaId, lojas.id))
     .where(and(...conditions))
     .groupBy(vendas.lojaId, lojas.nome)
-    .orderBy(sql`sum(${valorLiquidoExpr()}) DESC`)
+    .orderBy(sql`sum(${valorLiquidoDaMotoExpr()}) DESC`)
 }
 
 // Faturamento de Ordens de Serviço — só conta OS já paga/concluída (status 'concluida'),

@@ -8,7 +8,7 @@
  * Duas medidas, porque elas respondem coisas diferentes e a diferença entre as
  * duas é a taxa da maquininha:
  *   margem — quanto faltou pro piso DEPOIS das taxas
- *   preço  — quanto o vendedor cedeu na negociação, sobre o valor cheio
+ *   preço  — quanto o vendedor cedeu na negociação, sobre o valor cheio da moto (sem o frete, #796)
  *
  * Uma venda de 10.908 em 12x com piso de 10.490 tem preço 0 (vendeu acima da
  * tabela) e margem 500,99 (a taxa comeu). Sem as duas colunas não dá pra separar
@@ -21,7 +21,7 @@ export const DESCONTO_REGISTRADO_DESDE = '2026-07-10'
 export type LinhaDesconto = {
   valorMinimoSnapshot: string | null
   liquidoSnapshot: string | null
-  /** Valor bruto da venda (vendas.valor). */
+  /** Valor bruto da moto: o valor da venda sem o frete cobrado (#796). */
   valor: string
   snapshotEstimado: boolean
 }
@@ -69,6 +69,9 @@ export function somarDescontos(linhas: LinhaDesconto[]): SomaDescontos {
     return acc
   }, { qtd: 0, margem: 0, preco: 0, estimados: 0 })
 }
+
+/** Sobre o que o % de desconto é calculado: o mesmo texto em todas as telas (#796, decisão 7). */
+export const BASE_DO_PERCENTUAL_DESCONTO = 'do valor das motos'
 
 /**
  * O desconto vale quanto por cento do que foi vendido, em R$.

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import type { DadosIndividual, VendedorIndividual } from '@/lib/queries/individual'
 import { leitura, tempoResposta } from '@/lib/individual'
 import { nomeMes, mesAnterior, formatarMes } from '@/lib/fechamento'
+import { BASE_DO_PERCENTUAL_DESCONTO } from '@/lib/desconto'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 const brlk = (n: number) => 'R$ ' + Math.round(n / 1000) + ' mil'
@@ -118,7 +119,7 @@ function Detalhe({ v, total, media }: { v: VendedorIndividual; total: number; me
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
         <Metric label="Desconto concedido" value={v.desconto ? brl(v.desconto.total) : '—'}
-          sub={v.desconto ? `${v.desconto.qtd} venda(s) · ${v.desconto.pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do faturamento (time ${media.descontoPct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%)` : 'sem desconto no mês'}
+          sub={v.desconto ? `${v.desconto.qtd} venda(s) · ${v.desconto.pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% ${BASE_DO_PERCENTUAL_DESCONTO} (time ${media.descontoPct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%)` : 'sem desconto no mês'}
           tone={v.desconto ? (v.desconto.pct > media.descontoPct + 1.5 ? 'bad' : v.desconto.pct <= 1 ? 'good' : 'warn') : undefined} />
         <Metric label="Vendas — MOVA × Kommo" value={`${v.motos} × ${a ? a.ganhos : '—'}`} sub="motos registradas no MOVA × leads ganhos no Kommo" />
       </div>

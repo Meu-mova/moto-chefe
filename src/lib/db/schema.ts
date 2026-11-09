@@ -1607,8 +1607,8 @@ export const metasLoja = pgTable('metas_loja', {
   lojaId:        uuid('loja_id').notNull().references(() => lojas.id),
   ano:           integer('ano').notNull(),
   mes:           integer('mes').notNull(),
-  // Medida contra o valor cheio da venda (vendas.valor), não contra o líquido de
-  // taxas: é o preço que o vendedor fecha, e o que o vendedor controla.
+  // Medida contra o valor cheio da moto (vendas.valor sem o frete cobrado, #796), não
+  // contra o líquido de taxas: é o preço que o vendedor fecha, e o que o vendedor controla.
   valorMeta:     numeric('valor_meta', { precision: 12, scale: 2 }).notNull(),
   atualizadoEm:  timestamp('atualizado_em').notNull().defaultNow(),
   atualizadoPor: uuid('atualizado_por').references(() => usuarios.id),

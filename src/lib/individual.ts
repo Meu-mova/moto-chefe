@@ -1,3 +1,5 @@
+import { BASE_DO_PERCENTUAL_DESCONTO } from './desconto'
+
 // Helpers puros do relatório individual do vendedor (one-a-one). Sem banco.
 
 /** Rótulo de posição no ranking, tratando empate. Entrada: contagens já ordenadas
@@ -40,14 +42,14 @@ export type EntradaLeitura = {
   faturamento: number
   faturamentoAnterior: number
   atendimento: AtendVendedor | null
-  /** Desconto concedido como % do faturamento do vendedor; null se não descontou. */
+  /** Desconto concedido como % do valor das motos do vendedor (sem frete); null se não descontou. */
   descontoPct?: number | null
 }
 
 /**
  * Pontos fortes e oportunidades do vendedor — para a conversa individual.
  * Comparado à média do time (conversão em %, tempo de resposta em segundos,
- * desconto em % do faturamento).
+ * desconto em % do valor das motos).
  */
 export function leitura(
   v: EntradaLeitura,
@@ -66,7 +68,7 @@ export function leitura(
   if (dp != null && v.motos >= 8 && dp <= 1)
     fortes.push(`Segura bem o preço — cedeu só ${dp.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% em desconto.`)
   if (dp != null && dp > media.descontoPct + 1.5)
-    oportunidades.push(`Cedeu ${dp.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% do faturamento em desconto (média do time ${media.descontoPct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%). Negociar com mais firmeza protege a margem.`)
+    oportunidades.push(`Cedeu ${dp.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% ${BASE_DO_PERCENTUAL_DESCONTO} em desconto (média do time ${media.descontoPct.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%). Negociar com mais firmeza protege a margem.`)
 
   const a = v.atendimento
   if (a) {

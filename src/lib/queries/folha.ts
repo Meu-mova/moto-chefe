@@ -12,12 +12,13 @@
 import { db } from '@/lib/db'
 import {
   usuarios, lojas, funcionariosConfig, premiacaoFaixas,
-  vendas, vendasPecas, ordensServico, conciliacoesCartao, folhaAjustesBase, folhaAdiantamentos,
+  vendas, vendasPecas, ordensServico, folhaAjustesBase, folhaAdiantamentos,
   folhaRegrasComissao, folhaValoresReais,
 } from '@/lib/db/schema'
 import { eq, ne, inArray, and, gte, lte, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { calcularPremiacao } from '@/lib/premiacao'
+import { valorLiquidoDaMotoExpr } from './valor-liquido'
 import { calcularRegrasFolha, type TotaisBase, type RegraFolha, type RegraCalculada } from '@/lib/folha'
 import { temPapel } from '@/lib/auth'
 
@@ -92,23 +93,6 @@ export type FolhaDoMes = {
   }
 }
 
-// Valor líquido por venda: parte não paga em cartão fica como está; a parte paga em cartão e já
-// conciliada é trocada pelo valor líquido (descontada a taxa da operadora). Comissão e premiação
-// OTE de vendedor são calculadas sobre esse valor, não sobre o bruto da venda.
-function valorLiquidoExpr() {
-  return sql`(
-    ${vendas.valor}::numeric
-    - COALESCE((SELECT SUM(${conciliacoesCartao.valorBruto}::numeric)
-                FROM ${conciliacoesCartao}
-                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-                  AND ${conciliacoesCartao.conciliado} = true), 0)
-    + COALESCE((SELECT SUM(${conciliacoesCartao.valorLiquido}::numeric)
-                FROM ${conciliacoesCartao}
-                WHERE ${conciliacoesCartao.vendaId} = ${vendas.id}
-                  AND ${conciliacoesCartao.conciliado} = true), 0)
-  )`
-}
-
 /**
  * Busca tudo que a folha do mês precisa.
  *
@@ -163,7 +147,8 @@ export async function buscarDadosFolha({
     db
       .select({
         vendedorId: vendas.vendedorId,
-        total: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
+        // Comissão e premiação OTE saem do líquido da moto: cartão conciliado pelo líquido, sem o frete cobrado (#796).
+        total: sql<string>`COALESCE(SUM(${valorLiquidoDaMotoExpr()}), 0)`,
       })
       .from(vendas)
       .where(and(
@@ -229,7 +214,7 @@ export async function buscarDadosFolha({
     db
       .select({
         lojaId: vendas.lojaId,
-        total: sql<string>`COALESCE(SUM(${valorLiquidoExpr()}), 0)`,
+        total: sql<string>`COALESCE(SUM(${valorLiquidoDaMotoExpr()}), 0)`,
       })
       .from(vendas)
       .innerJoin(usuarios, eq(vendas.vendedorId, usuarios.id))

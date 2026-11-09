@@ -52,3 +52,8 @@ test('leitura: desconto alto vira oportunidade; desconto baixo com volume vira p
   const baixo = leitura({ motos: 20, faturamento: 200000, faturamentoAnterior: 0, atendimento: null, descontoPct: 0.4 }, MEDIA)
   assert.ok(baixo.fortes.some(t => /pre[çc]o|desconto/i.test(t)))
 })
+
+test('desconto acima da média do time: a oportunidade diz o % do valor das motos, o mesmo texto dos painéis (#796, decisão 7)', () => {
+  const { oportunidades } = leitura({ motos: 20, faturamento: 200000, faturamentoAnterior: 0, atendimento: null, descontoPct: 5 }, MEDIA)
+  assert.ok(oportunidades.some(o => o.startsWith('Cedeu 5% do valor das motos em desconto')), oportunidades.join(' | '))
+})

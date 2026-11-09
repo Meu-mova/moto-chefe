@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { TabelaGarantiasVencendo, TabelaOsAbertas, TabelaRankingVendedores, TabelaUltimasVendas } from './tabelas-resumo'
+import { TabelaGarantiasVencendo, TabelaModelosMaisVendidos, TabelaOsAbertas, TabelaRankingLojas, TabelaRankingVendedores, TabelaUltimasVendas } from './tabelas-resumo'
 
 const ocorrencias = (html: string, texto: string) => html.split(texto).length - 1
 
@@ -51,4 +51,14 @@ test('ranking: o detalhe do celular traz o que as colunas de desconto mostram', 
   // Quantidade de vendas com desconto e os dois percentuais, também no detalhe.
   assert.ok(texto.includes('desconto na margem R$ 800,00 (2 vendas · 0.8%)'), texto)
   assert.ok(texto.includes('no preço R$ 500,00 (0.5%)'))
+})
+
+test('rankings de vendedor, modelo e loja chamam a coluna de "Vendas em motos", não de "Total de vendas" (#796)', () => {
+  const vendedores = renderToStaticMarkup(createElement(TabelaRankingVendedores, { ranking: [{ vendedorId: 'a', nome: 'Ana', loja: 'L', totalVendas: 1, faturamento: '10000' }] }))
+  const modelos = renderToStaticMarkup(createElement(TabelaModelosMaisVendidos, { modelos: [{ modelo: 'JET', marca: 'MC', totalVendas: 1, faturamento: '10000' }] }))
+  const lojas = renderToStaticMarkup(createElement(TabelaRankingLojas, { ranking: [{ lojaId: 'l', loja: 'L', totalVendas: 1, faturamento: '10000' }] }))
+  for (const html of [vendedores, modelos, lojas]) {
+    assert.ok(html.includes('Vendas em motos'))
+    assert.ok(!html.includes('Total de vendas'))
+  }
 })

@@ -112,7 +112,7 @@ async function KpiSection({
           abaixoDaManchete={abaixoDaManchete}
         />
         {isVendedor && (
-          <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamento} />
+          <SimuladorComissaoOTE faixas={faixasOTE} comissaoPercentual={comissaoPercentual} valorInicial={kpis.faturamentoMoto} />
         )}
       </>
     )

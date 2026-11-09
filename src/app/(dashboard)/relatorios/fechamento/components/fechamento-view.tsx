@@ -112,7 +112,7 @@ export function FechamentoView({ dados, grupo, mes }: { dados: DadosFechamento; 
       <>
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-border border border-border rounded-xl overflow-hidden">
-        <Kpi label="Faturamento total" value={brl(faturamentoTotal)} sub="motos (líquido), serviços e peças" />
+        <Kpi label="Faturamento total" value={brl(faturamentoTotal)} sub="motos (líquido, sem frete), serviços e peças" />
         <Kpi label="Motos vendidas" value={String(c.qtd)} sub={<span className={vsAnterior != null && vsAnterior >= 0 ? 'text-success font-semibold' : 'text-destructive font-semibold'}>{sPct(vsAnterior)} vs mês anterior</span>} />
         <Kpi label="Ticket médio" value={brl(c.ticket)} sub="por moto" />
         <Kpi label="Meta consolidada" value={metaP == null ? '—' : pct(metaP)} sub={dados.metaTotal ? `${brlk(c.faturamentoBruto)} bruto de ${brlk(dados.metaTotal)}` : 'sem meta cadastrada'} />

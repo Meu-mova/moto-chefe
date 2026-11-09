@@ -22,7 +22,7 @@ import { listarMotosVendidasSemVenda } from '@/lib/motos-vendidas-sem-venda'
 import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { valorConciliadoManual } from '@/lib/conciliacao-status'
 import { descontosDasVendas } from '@/lib/queries/descontos'
-import { percentualDesconto, periodoAnteriorAoRegistro } from '@/lib/desconto'
+import { BASE_DO_PERCENTUAL_DESCONTO, percentualDesconto, periodoAnteriorAoRegistro } from '@/lib/desconto'
 import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -172,9 +172,9 @@ export default async function VendasPage({
         { qtd: 0, margem: 0, preco: 0, estimados: 0 },
       )
     : null
-  // Denominador do % de desconto: o valor das vendas listadas, não a contagem
-  // delas — desconto é dinheiro e só compara contra dinheiro.
-  const faturamentoLista = vendasList.reduce((a, v) => a + (Number(v.valor) || 0), 0)
+  // Denominador do % de desconto: o valor das motos listadas (sem o frete, #796), não a
+  // contagem delas: desconto é dinheiro e só compara contra dinheiro.
+  const faturamentoLista = vendasList.reduce((a, v) => a + (Number(v.valorMoto) || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -233,7 +233,7 @@ export default async function VendasPage({
                 titulo="Descontos"
                 valor={`${fmt(resumoDesconto.margem)}${resumoDesconto.estimados > 0 ? '*' : ''}`}
                 nota={`${resumoDesconto.qtd} de ${vendasList.length} vendas`
-                  + (faturamentoLista > 0 ? ` · ${percentualDesconto(resumoDesconto.margem, faturamentoLista)}% do faturamento` : '')
+                  + (faturamentoLista > 0 ? ` · ${percentualDesconto(resumoDesconto.margem, faturamentoLista)}% ${BASE_DO_PERCENTUAL_DESCONTO}` : '')
                   + (resumoDesconto.preco > 0 ? ` · ${fmt(resumoDesconto.preco)} de preço` : '')}
               />
             )}
