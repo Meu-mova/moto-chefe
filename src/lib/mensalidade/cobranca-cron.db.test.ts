@@ -17,10 +17,15 @@ process.env.DATABASE_URL = url
 
 const P = 'CRN803'
 let emails: { para: string; assunto: string }[] = []
+// Simula outro caminho (1º acesso ou "Pagar") gravando o link enquanto o cron espera o Mercado Pago.
+let durantePedido: ((mensalidadeId: string) => Promise<void>) | null = null
 const mocks = [
   mock.module('@/lib/mercadopago/cliente', {
     namedExports: {
-      criarPreferencia: async (p: { mensalidadeId: string }) => ({ id: `pref-${p.mensalidadeId}`, init_point: `https://mp.teste/${p.mensalidadeId}` }),
+      criarPreferencia: async (p: { mensalidadeId: string }) => {
+        await durantePedido?.(p.mensalidadeId)
+        return { id: `pref-${p.mensalidadeId}`, init_point: `https://mp.teste/${p.mensalidadeId}` }
+      },
       expirarPreferencia: async () => {},
     },
   }),
@@ -68,7 +73,7 @@ before(async () => {
   ;({ gerarCobrancas, avisarVencimentos } = await import('@/lib/mensalidade/gerar'))
 })
 
-beforeEach(() => { emails = [] })
+beforeEach(() => { emails = []; durantePedido = null })
 
 after(async () => {
   for (const m of mocks) m.restore()
@@ -94,5 +99,15 @@ test('regime novo: o cron não gera mensalidade e dá o link que faltou à ades�
 test('o e-mail do dia do vencimento não vai para a adesão', async () => {
   const g = await grupoComAcesso('Aviso', 2)
   await avisarVencimentos(ACESSO)
+  assert.deepEqual(emails.filter(e => e.para === g.email), [])
+})
+
+test('adesão cujo link outro caminho gravou enquanto o cron esperava o Mercado Pago: o cron não sobrescreve nem manda e-mail', async () => {
+  const g = await grupoComAcesso('Perdeu', 2)
+  durantePedido = async id => {
+    await db.execute(sql`update mensalidades set link_pagamento = 'https://mp.teste/outro' where id = ${id} and grupo_id = ${g.grupoId}`)
+  }
+  await gerarCobrancas(CRON)
+  assert.deepEqual((await linhas(sql`select link_pagamento from mensalidades where grupo_id = ${g.grupoId}`)).map(l => l.link_pagamento), ['https://mp.teste/outro'])
   assert.deepEqual(emails.filter(e => e.para === g.email), [])
 })
