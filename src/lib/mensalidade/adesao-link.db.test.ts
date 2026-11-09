@@ -93,10 +93,17 @@ test('Mercado Pago fora: a adesão continua gravada, aberta e sem link, e nenhum
   assert.deepEqual(emails, [])
 })
 
-test('adesão que já tem link não pede outro nem reenvia o e-mail', async () => {
+test('adesão que já tem link devolve esse link, sem pedir outro nem reenviar o e-mail', async () => {
   const id = await adesaoAberta('JaTem')
   await cobrarAdesao(id)
   preferencias = []; emails = []
-  assert.deepEqual(await cobrarAdesao(id), { url: null, falha: null })
+  assert.deepEqual(await cobrarAdesao(id), { url: `https://mp.teste/${id}`, falha: null })
   assert.deepEqual([preferencias, emails], [[], []])
+})
+
+test('dois pedidos ao mesmo tempo (1º acesso e "Pagar"): um e-mail só e o mesmo link para os dois', async () => {
+  const id = await adesaoAberta('Corrida')
+  const [r1, r2] = await Promise.all([cobrarAdesao(id), cobrarAdesao(id)])
+  assert.deepEqual([r1.url, r2.url], [`https://mp.teste/${id}`, `https://mp.teste/${id}`])
+  assert.equal(emails.length, 1)
 })
