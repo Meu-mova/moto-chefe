@@ -19,7 +19,6 @@ test('contrato traz licenciante, licenciada formatada e os valores da adesão', 
   assert.match(html, /13\.481\.112\/0001-53/)
   assert.match(html, /ECOMOTO LAVRAS COMERCIO LTDA, inscrita no CNPJ sob o nº 11\.222\.333\/0001-81/)
   assert.match(html, /representada por Bruno Lima, CPF 529\.982\.247-25/)
-  assert.match(html, /Taxa de implantação: R\$ 999,00, paga junto com a primeira mensalidade/)
   assert.match(html, /mensalidade de R\$ 499,00 por CNPJ/)
   assert.match(html, /Pouso Alegre\/MG/)
 })
@@ -87,4 +86,22 @@ test('envio recusado quando a adesão já tem contrato assinado', () => {
 test('termos não confirmados travam o envio só na produção', () => {
   assert.match(motivoBloqueioEnvio({ ...ENVIO, termosConfirmados: false })!, /travado na produção/)
   assert.equal(motivoBloqueioEnvio({ ...ENVIO, termosConfirmados: false, producao: false }), null)
+})
+
+// Texto novo (#806): a taxa é paga no 1º acesso e libera o sistema; a 1ª mensalidade conta desse
+// pagamento. Os contratos já enviados guardam o texto antigo no snapshot.
+test('3.4: taxa de implantação paga no primeiro acesso, como condição de liberação do sistema', () => {
+  const html = montarContratoAdesao(DADOS)
+  assert.ok(html.includes('<p>3.4. Taxa de implantação: R$ 999,00, paga no primeiro acesso do CLIENTE ao sistema. O acesso ao sistema é liberado depois da confirmação desse pagamento.</p>'))
+  assert.doesNotMatch(html, /paga junto com a primeira mensalidade/)
+})
+
+test('4.1: 1ª mensalidade 30 dias corridos após o pagamento da taxa de implantação; seguintes no mesmo dia, 28 quando 29/30/31', () => {
+  const html = montarContratoAdesao(DADOS)
+  assert.ok(html.includes('<p>4.1. O CLIENTE paga mensalidade de R$ 499,00 por CNPJ. A primeira mensalidade vence 30 (trinta) dias corridos após a confirmação do pagamento da taxa de implantação, e as seguintes no mesmo dia dos meses subsequentes. Quando esse dia for 29, 30 ou 31, o vencimento passa a ser o dia 28.</p>'))
+  assert.doesNotMatch(html, /após o primeiro acesso do CLIENTE/)
+})
+
+test('taxa de R$ 0,10 sai no contrato como R$ 0,10', () => {
+  assert.match(montarContratoAdesao({ ...DADOS, taxaImplantacao: '0.10' }), /3\.4\. Taxa de implantação: R\$ 0,10, paga no primeiro acesso/)
 })
