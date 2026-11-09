@@ -7,6 +7,7 @@ import { cobrancasDevidas, ehRegimeNovo, valorBase } from './regras'
 import { versaoAssinadaDaAdesao } from './regime'
 import { emailVencimento } from './mensagens'
 import { enviarCobranca, gerarLink } from './link'
+import { recuperarAdesoes } from './adesao'
 
 type GrupoCobravel = {
   grupo_id: string
@@ -43,7 +44,8 @@ async function gruposCobraveis(): Promise<GrupoCobravel[]> {
 }
 
 /**
- * Cria as cobranças que já deviam existir e o link de cada uma. Seguro para rodar
+ * Cria as cobranças que já deviam existir e o link de cada uma; no fim, recupera a adesão
+ * (`recuperarAdesoes`, #804). Seguro para rodar
  * mais de uma vez: a cobrança é única por (grupo, competência), e cobrança aberta
  * sem link (o Mercado Pago falhou antes) ganha o link na próxima rodada.
  */
@@ -70,19 +72,20 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
         r.criadas += criada.length
       }
 
+      // A adesão sai pelo recuperarAdesoes, o mesmo caminho do 1º acesso.
       const semLink = await db.select().from(mensalidades).where(and(
-        eq(mensalidades.grupoId, g.grupo_id), eq(mensalidades.status, 'aberta'), isNull(mensalidades.linkPagamento),
+        eq(mensalidades.grupoId, g.grupo_id), eq(mensalidades.tipo, 'mensalidade'), eq(mensalidades.status, 'aberta'), isNull(mensalidades.linkPagamento),
       ))
       for (const m of semLink) {
         // Cobrança que já nasce vencida (cron parado, 1ª rodada com atrasadas) leva
         // multa e juros no link; senão o webhook aceitaria o valor base como pago.
         const link = await gerarLink(m, g.grupo_nome, g.email, hoje)
-        // Outro caminho (1º acesso, "Pagar") gravou o link primeiro; na adesão, ele já mandou o e-mail.
+        // Outro caminho ("Pagar") gravou o link primeiro.
         if (!link.gravou) continue
         r.links++
         // O link já foi gravado e a próxima rodada não reenvia: a falha precisa aparecer.
         const falha = await enviarCobranca(m, { grupo: g.grupo_nome, email: g.email, responsavel: g.responsavel }, link)
-        if (falha) falhasEmail.push(`${m.competencia ?? 'adesão'}: ${falha}`)
+        if (falha) falhasEmail.push(`${m.competencia}: ${falha}`)
       }
       if (falhasEmail.length) r.erro = falhasEmail.join('; ')
     } catch (e) {
@@ -91,7 +94,7 @@ export async function gerarCobrancas(agora: Date = new Date()): Promise<Resultad
     }
     resultados.push(r)
   }
-  return resultados
+  return [...resultados, ...await recuperarAdesoes(agora)]
 }
 
 /**

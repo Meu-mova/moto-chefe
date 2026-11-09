@@ -1,9 +1,7 @@
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { grupos, mensalidades } from '@/lib/db/schema'
-import { hojeBrt } from '@/lib/data-venda'
-import { adesaoACobrar } from '@/lib/mensalidade/regras'
-import { versaoAssinadaDaAdesao } from '@/lib/mensalidade/regime'
+import { grupos } from '@/lib/db/schema'
+import { criarAdesaoDoGrupo } from '@/lib/mensalidade/adesao'
 
 // Marca o 1º acesso do grupo que o usuário está usando (#207). É o grupo ativo, e não
 // o da loja, para contar também o sócio sem loja e quem troca de grupo no seletor.
@@ -29,8 +27,6 @@ export async function registrarSePrimeiroAcesso(
   return precisaRegistrar(papel, grupo) ? registrarPrimeiroAcesso(grupo.id, agora) : { adesaoId: null }
 }
 
-type DadosDaAdesao = { versao_assinada: number | null; taxa_ficha: string | null; isento: boolean }
-
 /**
  * Grava a data do 1º acesso e, no regime novo, a cobrança da adesão (#803), na mesma transação:
  * se a cobrança falhar, a data também não fica, e o próximo acesso tenta de novo. Devolve o id
@@ -44,21 +40,6 @@ export async function registrarPrimeiroAcesso(grupoId: string, agora: Date = new
       .returning({ id: grupos.id })
     if (marcado.length === 0) return { adesaoId: null }
 
-    const [d] = (await tx.execute(sql`
-      select ${versaoAssinadaDaAdesao} as versao_assinada,
-             a.taxa_implantacao::text as taxa_ficha,
-             coalesce(cfg.isento, false) as isento
-      from adesoes_mova a
-      left join mensalidade_config cfg on cfg.grupo_id = a.grupo_id
-      where a.grupo_id = ${grupoId}
-    `) as unknown as { rows: DadosDaAdesao[] }).rows
-    const valor = d ? adesaoACobrar({ versaoAssinada: d.versao_assinada, taxaFicha: d.taxa_ficha, isento: d.isento }) : null
-    if (valor === null) return { adesaoId: null }
-
-    const [criada] = await tx.insert(mensalidades).values({
-      grupoId, tipo: 'adesao', competencia: null,
-      valor: valor.toFixed(2), taxaImplantacao: valor.toFixed(2), vencimento: hojeBrt(agora),
-    }).onConflictDoNothing().returning({ id: mensalidades.id })
-    return { adesaoId: criada?.id ?? null }
+    return { adesaoId: await criarAdesaoDoGrupo(tx, grupoId, agora) }
   })
 }
