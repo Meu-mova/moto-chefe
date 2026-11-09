@@ -79,7 +79,7 @@ export async function recuperarAdesoes(agora: Date = new Date()): Promise<Result
   // Falha da consulta não pode derrubar o cron: as mensalidades já foram gravadas e o aviso do
   // dia do vencimento roda depois, na mesma rota.
   const pendentes = await adesoesPendentes().catch((e: unknown) => e instanceof Error ? e : new Error('erro desconhecido'))
-  if (pendentes instanceof Error) return [{ grupo: 'adesões', criadas: 0, links: 0, erro: `adesão: ${pendentes.message}` }]
+  if (pendentes instanceof Error) return [{ grupo: 'adesões', criadas: 0, links: 0, erro: pendentes.message }]
   const resultados: (ResultadoGrupo | null)[] = []
   for (const p of pendentes) resultados.push(await recuperarUma(p, agora))
   return resultados.filter(r => r !== null)
