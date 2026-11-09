@@ -39,7 +39,8 @@ type Pendente = { grupo_id: string; grupo_nome: string; primeiro_acesso_em: stri
 
 /**
  * Grupos ativos e não isentos, com 1º acesso, cuja adesão falta (contrato assinado na versão 2) ou
- * está aberta sem link. Sem filtro de valor mensal: a adesão não depende dele.
+ * está aberta sem link. Sem filtro de valor mensal: a adesão não depende dele. O filtro de isento
+ * mora só aqui: o `cobrarAdesao` não o confere.
  */
 function adesoesPendentes(): Promise<Pendente[]> {
   return execRows(sql`
@@ -55,16 +56,18 @@ function adesoesPendentes(): Promise<Pendente[]> {
 }
 
 async function recuperarUma(p: Pendente, agora: Date): Promise<ResultadoGrupo | null> {
+  // O grupo aparece também no laço das mensalidades: a linha da adesão leva o rótulo.
+  const grupo = `${p.grupo_nome} (adesão)`
   try {
     const criada = p.adesao_id ? null : await criarAdesaoDoGrupo(db, p.grupo_id, new Date(p.primeiro_acesso_em))
     const id = p.adesao_id ?? criada
     // Taxa zero ou vazia, ou grupo isento: não há o que cobrar nem o que mostrar no resultado.
     if (!id) return null
     const { url, falha } = await cobrarAdesao(id, agora)
-    return { grupo: p.grupo_nome, criadas: criada ? 1 : 0, links: url ? 1 : 0, ...(falha ? { erro: `adesão: ${falha}` } : {}) }
+    return { grupo, criadas: criada ? 1 : 0, links: url ? 1 : 0, ...(falha ? { erro: falha } : {}) }
   } catch (e) {
     // Um grupo com problema não para a recuperação dos outros.
-    return { grupo: p.grupo_nome, criadas: 0, links: 0, erro: `adesão: ${e instanceof Error ? e.message : 'erro desconhecido'}` }
+    return { grupo, criadas: 0, links: 0, erro: e instanceof Error ? e.message : 'erro desconhecido' }
   }
 }
 
@@ -73,7 +76,11 @@ async function recuperarUma(p: Pendente, agora: Date): Promise<ResultadoGrupo | 
  * uma vez) da que ficou sem, pelo mesmo `cobrarAdesao` do 1º acesso e do "Pagar".
  */
 export async function recuperarAdesoes(agora: Date = new Date()): Promise<ResultadoGrupo[]> {
+  // Falha da consulta não pode derrubar o cron: as mensalidades já foram gravadas e o aviso do
+  // dia do vencimento roda depois, na mesma rota.
+  const pendentes = await adesoesPendentes().catch((e: unknown) => e instanceof Error ? e : new Error('erro desconhecido'))
+  if (pendentes instanceof Error) return [{ grupo: 'adesões', criadas: 0, links: 0, erro: `adesão: ${pendentes.message}` }]
   const resultados: (ResultadoGrupo | null)[] = []
-  for (const p of await adesoesPendentes()) resultados.push(await recuperarUma(p, agora))
+  for (const p of pendentes) resultados.push(await recuperarUma(p, agora))
   return resultados.filter(r => r !== null)
 }
