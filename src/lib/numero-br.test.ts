@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseNumeroBR, formatarNumeroBR } from './numero-br'
+import { centavos, parseNumeroBR, formatarNumeroBR } from './numero-br'
 
 // ─── O bug que motivou este módulo ───────────────────────────────────────────
 // O parser antigo apagava todos os pontos: "1880.50" virava 188050 e "0.5"
@@ -92,4 +92,10 @@ test('ida e volta preserva o valor', () => {
   for (const v of [0, 0.5, 1880, 1880.5, 20000000, -1285]) {
     assert.equal(parseNumeroBR(formatarNumeroBR(v)), v)
   }
+})
+
+test('centavos arredonda para 2 casas sem o erro de ponto flutuante da soma', () => {
+  assert.equal(centavos(0.1 + 0.2), 0.3)
+  assert.equal(centavos(10350.3 - 350.1), 10000.2)
+  assert.equal(centavos(1.005 * 1000), 1005)
 })

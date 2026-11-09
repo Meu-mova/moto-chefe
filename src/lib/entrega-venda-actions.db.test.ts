@@ -24,13 +24,14 @@ let db: Db['db']
 let execRows: Db['execRows']
 let criarPedidoVendaAction: Actions['criarPedidoVendaAction']
 let efetivarVendaAction: Actions['efetivarVendaAction']
+let editarVendaAction: Actions['editarVendaAction']
 let vendaDoUsuarioParaNf: typeof import('@/lib/venda-do-usuario')['vendaDoUsuarioParaNf']
 let vendas: typeof import('@/lib/db/schema')['vendas']
 let eq: typeof import('drizzle-orm')['eq']
 
 before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
-  ;({ criarPedidoVendaAction, efetivarVendaAction } = await import('@/app/(dashboard)/vendas/actions'))
+  ;({ criarPedidoVendaAction, efetivarVendaAction, editarVendaAction } = await import('@/app/(dashboard)/vendas/actions'))
   ;({ vendaDoUsuarioParaNf } = await import('@/lib/venda-do-usuario'))
   ;({ vendas } = await import('@/lib/db/schema'))
   ;({ eq } = await import('drizzle-orm'))
@@ -50,13 +51,14 @@ async function semearConta() {
   const base = await semearContaBase(db, { prefixo: 'EV725', nome: sufixo, cnpj: sufixo })
   const auxId = await semearUsuario(db, base, { papel: 'aux_adm', rotulo: 'aux', comConta: true })
   const vendedorId = await semearUsuario(db, base, { papel: 'vendedor', rotulo: 'vend', comConta: true })
+  const socioId = await semearUsuario(db, base, { papel: 'admin_socio', rotulo: 'socio', comConta: true })
   const modeloId = await idDe(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
     values ('M', ${'EV725 ' + sufixo}, 'autopropelido', '1000', 'hub', '32') returning id`)
   const motoId = await idDe(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
     values (${randomUUID()}, ${modeloId}, ${base.lojaId}, 'CINZA', '1', 'montada', 'disponivel') returning id`)
   const origemId = await idDe(sql`insert into origens_venda (grupo_id, nome) values (${base.grupoId}, 'Passou na porta') returning id`)
   const comum = { lojaId: base.lojaId, contaId: base.contaId, gruposAcesso: [] }
-  return { motoId, origemId, aux: { id: auxId, papel: 'aux_adm', ...comum }, vendedor: { id: vendedorId, papel: 'vendedor', ...comum } }
+  return { motoId, origemId, aux: { id: auxId, papel: 'aux_adm', ...comum }, vendedor: { id: vendedorId, papel: 'vendedor', ...comum }, socio: { id: socioId, papel: 'admin_socio', ...comum } }
 }
 
 const pedidosDaMoto = (motoId: string) => execRows(sql`select id, status, entrega from pedidos_venda where moto_id = ${motoId}`)
@@ -177,4 +179,86 @@ test('Conta B não cria pedido "Entregar" na moto da Conta A nem lê o endereço
   usuario = a.aux
   assert.deepEqual(await efetivar(pedido.id as string, a.origemId), { ok: true, dados: undefined })
   assert.equal(await vendaDoUsuarioParaNf(b.aux, eq(vendas.motoId, a.motoId)), null)
+})
+
+// Frete cobrado (#726, 4b): soma no valor da venda, nas formas de pagamento e no caixa; vem do pedido, não do navegador.
+const COM_FRETE = { ...ENTREGAR, frete: 350 }
+const vendaDaMoto = (motoId: string) => execRows(sql`select valor, pagamentos, entrega->'frete' as frete, id from vendas where moto_id = ${motoId}`)
+
+test('pedido com frete: a efetivação grava moto + frete no valor e no pagamento', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  assert.deepEqual(pedido.entrega, COM_FRETE)
+  usuario = a.aux
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', 'pix', undefined, a.origemId), { ok: true, dados: undefined })
+  const [venda] = await vendaDaMoto(a.motoId)
+  assert.equal(Number(venda.valor), 10350)
+  assert.deepEqual(venda.pagamentos, [{ tipo: 'pix', valor: 10350 }])
+  assert.equal(venda.frete, 350)
+})
+
+test('pedido com frete pago em dinheiro: o caixa recebe o total', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  usuario = a.aux
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', 'dinheiro', undefined, a.origemId), { ok: true, dados: undefined })
+  const [venda] = await vendaDaMoto(a.motoId)
+  assert.deepEqual(await execRows(sql`select valor from lancamentos_caixa where venda_id = ${venda.id}`), [{ valor: '10350.00' }])
+})
+
+test('frete com modalidade em que a loja não faz o frete é recusado e nada é gravado', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', { ...COM_FRETE, modalidade: 'ContratacaoPorContaDoDestinatario' }),
+    { ok: false, erro: 'O frete cobrado só vale com "Loja leva com veículo próprio" ou "Loja contrata e paga a transportadora".' })
+  assert.deepEqual(await pedidosDaMoto(a.motoId), [])
+})
+
+test('Conta B não efetiva o pedido com frete da Conta A: mesma frase, frete da A intacto e nenhuma venda', async () => {
+  const a = await semearConta()
+  const b = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  usuario = b.aux
+  assert.deepEqual(await efetivar(pedido.id as string, b.origemId), { ok: false, erro: 'Pedido não encontrado' })
+  assert.deepEqual((await pedidosDaMoto(a.motoId))[0].entrega, COM_FRETE)
+  assert.deepEqual(await vendasDaMoto(a.motoId), [])
+})
+
+// O item moto do pedido (#774) guarda só a moto: o frete fica na Entrega e no total da venda (#726, 4b; #779 decide item "frete").
+const itemDaMoto = (motoId: string) => execRows(sql`select i.valor_unitario from pedidos_venda_itens i join pedidos_venda p on p.id = i.pedido_venda_id
+  where p.moto_id = ${motoId} and i.tipo = 'moto'`)
+
+test('efetivar com frete: o item moto vale a moto e a venda vale moto + frete; editar a venda mantém o frete fora do item', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  usuario = a.aux
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', 'pix', undefined, a.origemId), { ok: true, dados: undefined })
+  assert.deepEqual(await itemDaMoto(a.motoId), [{ valor_unitario: '10000.00' }])
+  const [venda] = await vendaDaMoto(a.motoId)
+  assert.equal(Number(venda.valor), 10350)
+
+  usuario = a.socio
+  assert.deepEqual(await editarVendaAction(venda.id as string, {
+    valor: '11350', dataVenda: '2026-11-07', pagamentos: [{ tipo: 'pix', valor: 11350 }],
+    clienteNome: 'Cliente sintético', clienteCpf: '52998224725',
+  }), { ok: true, dados: undefined })
+  assert.deepEqual(await itemDaMoto(a.motoId), [{ valor_unitario: '11000.00' }])
+  assert.equal(Number((await vendaDaMoto(a.motoId))[0].valor), 11350)
+  assert.deepEqual(await execRows(sql`select count(*)::int as n from pedidos_venda_itens i join pedidos_venda p on p.id = i.pedido_venda_id
+    where p.moto_id = ${a.motoId} and i.tipo = 'frete'`), [{ n: 0 }])
+
+  // Valor que não cobre o frete: o item moto fica sem valor (nunca negativo ou zero); a prévia da NF trava com a pendência.
+  assert.deepEqual(await editarVendaAction(venda.id as string, {
+    valor: '300', dataVenda: '2026-11-07', pagamentos: [{ tipo: 'pix', valor: 300 }],
+    clienteNome: 'Cliente sintético', clienteCpf: '52998224725',
+  }), { ok: true, dados: undefined })
+  assert.deepEqual(await itemDaMoto(a.motoId), [{ valor_unitario: null }])
 })
