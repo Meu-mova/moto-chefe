@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Ticket } from 'lucide-react'
-import { hojeBrt } from '@/lib/data-venda'
+import { hojeBrt, dataPuraBr } from '@/lib/data-venda'
 import { validadePadrao } from '@/lib/cupom-revisao'
 import { emitirCupomAction } from '../actions'
 
@@ -75,7 +75,7 @@ export function EmitirCupomDialog({ lojas, lojaUsuarioId, isAdmin }: Props) {
                 {emitido}
               </p>
               <p className="text-xs text-muted-foreground">
-                Vale em qualquer loja do grupo, até {validoAte.slice(8, 10)}/{validoAte.slice(5, 7)}/{validoAte.slice(0, 4)}.
+                Vale em qualquer loja do grupo, até {dataPuraBr(validoAte)}.
                 Cobre a mão de obra da OS; peças e óleo continuam sendo cobrados.
               </p>
             </div>

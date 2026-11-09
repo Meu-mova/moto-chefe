@@ -1,5 +1,6 @@
 import { percentualDesconto } from '@/lib/desconto'
 import { Secao, TabelaPainel, type Coluna } from './painel-secoes'
+import { dataPuraBr } from '@/lib/data-venda'
 
 type Venda = {
   id: string
@@ -43,10 +44,7 @@ type OS = {
 // `dataFim` da garantia é `date` ("YYYY-MM-DD"): quebrar a string, sem new Date, que
 // viraria 21h do dia anterior em Brasília. Os demais são instantes: formatar no fuso de Brasília.
 const formatDate = (d: Date | string) => {
-  if (typeof d === 'string') {
-    const [ano, mes, dia] = d.split('-')
-    return `${dia}/${mes}/${ano}`
-  }
+  if (typeof d === 'string') return dataPuraBr(d)
   return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 }
 

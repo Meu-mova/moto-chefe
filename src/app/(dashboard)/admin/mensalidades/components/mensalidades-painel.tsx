@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatarNumeroBR } from '@/lib/numero-br'
 import { marcarIsentoAction, conferirPagamentoAction, type GrupoMensalidade } from '../actions'
-
-const dataBR = (d: string) => d.slice(0, 10).split('-').reverse().join('/')
+import { dataPuraBr } from '@/lib/data-venda'
 
 function Situacao({ g, hoje }: { g: GrupoMensalidade; hoje: string }) {
   if (g.isento) return <Badge variant="outline" className="border-border text-muted-foreground">Isento</Badge>
@@ -71,14 +70,14 @@ export function MensalidadesPainel({ grupos, hoje }: { grupos: GrupoMensalidade[
             <p className="text-xs text-muted-foreground">
               {g.valor_mensal ? `R$ ${formatarNumeroBR(Number(g.valor_mensal))} por mês` : 'Sem valor (ligue a adesão ao grupo)'}
               {' · '}
-              {g.primeiro_acesso_em ? `1º acesso em ${dataBR(g.primeiro_acesso_em)}` : 'ainda sem 1º acesso'}
+              {g.primeiro_acesso_em ? `1º acesso em ${dataPuraBr(g.primeiro_acesso_em)}` : 'ainda sem 1º acesso'}
             </p>
             {g.abertas.length > 0 && (
               <ul className="space-y-2">
                 {g.abertas.map(m => (
                   <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm">
                     <span>
-                      {m.competencia} · R$ {formatarNumeroBR(m.total)} · vence {dataBR(m.vencimento)}
+                      {m.competencia} · R$ {formatarNumeroBR(m.total)} · vence {dataPuraBr(m.vencimento)}
                       {!m.temLink && <span className="text-warning"> · sem link (o cron tenta de novo)</span>}
                     </span>
                     <Button variant="outline" size="sm" disabled={pendente} onClick={() => conferir(m.id)}>

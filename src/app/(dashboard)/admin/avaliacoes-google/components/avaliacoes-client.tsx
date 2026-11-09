@@ -11,6 +11,7 @@ import type { LojaPainel, PainelAvaliacoes, PlacaPainel } from '@/lib/avaliacoes
 import {
   atualizarAgoraAction, criarPlacaAction, editarPlacaAction, salvarChaveGoogleAction, salvarPlaceIdAction,
 } from '../actions'
+import { dataPuraBr } from '@/lib/data-venda'
 
 export type LinkPlaca = { link: string; qrSvg: string }
 
@@ -93,7 +94,7 @@ function CardLoja({ loja }: { loja: LojaPainel }) {
 
         {loja.variacao && (
           <p className="text-xs text-muted-foreground">
-            Desde {fmtData(`${loja.variacao.desde}T12:00:00Z`)}: nota <Variacao valor={loja.variacao.nota} />,{' '}
+            Desde {dataPuraBr(loja.variacao.desde)}: nota <Variacao valor={loja.variacao.nota} />,{' '}
             avaliações <Variacao valor={loja.variacao.total} />.
           </p>
         )}

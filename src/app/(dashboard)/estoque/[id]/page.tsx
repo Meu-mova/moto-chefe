@@ -29,6 +29,7 @@ import { OSTab } from './components/os-tab'
 import { GarantiasTab } from './components/garantias-tab'
 import { potenciaNaTela } from '@/lib/gestao-modelos'
 import { statusLabel, disponibilidadeLabel, type Status, type Disponibilidade } from '@/lib/estado-moto'
+import { dataPuraBr } from '@/lib/data-venda'
 
 export default async function MotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -144,7 +145,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
               </div>
             )}
             {moto.dataMontagem && (
-              <div className="flex justify-between"><span className="text-muted-foreground">Data Montagem</span><span>{new Date(moto.dataMontagem + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Data Montagem</span><span>{dataPuraBr(moto.dataMontagem)}</span></div>
             )}
             {moto.mecanicoNome && (
               <div className="flex justify-between"><span className="text-muted-foreground">Mecânico</span><span>{moto.mecanicoNome}</span></div>
