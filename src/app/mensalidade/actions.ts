@@ -6,7 +6,7 @@ import { hojeBrt } from '@/lib/data-venda'
 import { LINK_INDISPONIVEL, MENSALIDADE_NAO_ENCONTRADA, podePagarMensalidade, valorAtualizado } from '@/lib/mensalidade/regras'
 import { abertasCobraveis } from '@/lib/mensalidade/bloqueio'
 import { gruposDaMensalidade } from '@/lib/mensalidade/grupos'
-import { gerarLink } from '@/lib/mensalidade/link'
+import { cobrarAdesao, gerarLink } from '@/lib/mensalidade/link'
 
 /**
  * Devolve o link para pagar a mensalidade ou a adesão; sem link (o Mercado Pago falhou antes), é o
@@ -35,6 +35,12 @@ export async function linkPagamentoAction(mensalidadeId: string): Promise<{ ok: 
   const { acrescimo } = valorAtualizado(m.m, hoje)
   if (m.m.linkPagamento && acrescimo === Number(m.m.acrescimo)) return { ok: true, url: m.m.linkPagamento }
 
+  // Adesão que ficou sem link no 1º acesso: o link sai com o e-mail de adesão, como lá.
+  if (m.m.tipo === 'adesao' && !m.m.linkPagamento) {
+    const r = await cobrarAdesao(m.m.id).catch(() => ({ url: null, falha: 'leitura da adesão' }))
+    if (r.falha) console.error('[adesao] link ou e-mail pelo Pagar:', r.falha)
+    return r.url ? { ok: true, url: r.url } : { ok: false, erro: LINK_INDISPONIVEL }
+  }
   try {
     return { ok: true, url: (await gerarLink(m.m, m.grupoNome, u.email, hoje)).url }
   } catch {

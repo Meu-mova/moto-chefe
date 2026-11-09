@@ -65,7 +65,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // Se falhar, o sócio tem o "Tentar de novo" e o cron tenta no dia seguinte.
     if (adesaoId) {
       after(() => cobrarAdesao(adesaoId)
-        .then(r => { if (!r.ok) console.error('[adesao] link ou e-mail:', r.erro) })
+        .then(r => { if (r.falha) console.error('[adesao] link ou e-mail:', r.falha) })
         .catch(e => console.error('[adesao] link ou e-mail:', e instanceof Error ? e.message : e)))
     }
   }

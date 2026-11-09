@@ -44,22 +44,22 @@ export async function enviarCobranca(
 }
 
 /**
- * Link e e-mail da adesão recém-criada no 1º acesso (#803). Roda depois da resposta: o Mercado
- * Pago pode levar até 15 s e não pode segurar nem desfazer a gravação da cobrança. Adesão que já
- * tem link (ou já foi paga) fica como está.
+ * Link e e-mail da adesão que ainda não tem link (#803): depois da resposta do 1º acesso (o Mercado
+ * Pago pode levar até 15 s e não pode segurar nem desfazer a gravação da cobrança) e no "Pagar"
+ * depois de uma falha. Adesão que já tem link (ou já foi paga) fica como está: `url` nulo.
+ * `falha` diz por que o link ou o e-mail não saiu; com link e falha, o link já está gravado.
  */
-export async function cobrarAdesao(adesaoId: string, agora: Date = new Date()): Promise<{ ok: true } | { ok: false; erro: string }> {
+export async function cobrarAdesao(adesaoId: string, agora: Date = new Date()): Promise<{ url: string | null; falha: string | null }> {
   const [l] = await db.select({ m: mensalidades, grupo: grupos.nome, email: adesoesMova.email, responsavel: adesoesMova.responsavel })
     .from(mensalidades)
     .innerJoin(grupos, eq(grupos.id, mensalidades.grupoId))
     .leftJoin(adesoesMova, eq(adesoesMova.grupoId, mensalidades.grupoId))
     .where(and(eq(mensalidades.id, adesaoId), eq(mensalidades.tipo, 'adesao'), eq(mensalidades.status, 'aberta'), isNull(mensalidades.linkPagamento)))
-  if (!l) return { ok: true }
+  if (!l) return { url: null, falha: null }
   try {
     const link = await gerarLink(l.m, l.grupo, l.email, hojeBrt(agora))
-    const falha = await enviarCobranca(l.m, l, link)
-    return falha ? { ok: false, erro: falha } : { ok: true }
+    return { url: link.url, falha: await enviarCobranca(l.m, l, link) }
   } catch (e) {
-    return { ok: false, erro: e instanceof Error ? e.message : 'erro desconhecido' }
+    return { url: null, falha: e instanceof Error ? e.message : 'erro desconhecido' }
   }
 }

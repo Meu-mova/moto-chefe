@@ -18,6 +18,7 @@ const P = 'MEN773'
 let usuarioDaSessao: Record<string, unknown> = {}
 let preferenciasCriadas: string[] = []
 let grupoDoCookie: string | undefined
+let emailsEnviados: { para: string; assunto: string }[] = []
 const mocks = [
   mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => usuarioDaSessao } }),
   mock.module('next/headers', { namedExports: { cookies: async () => ({ get: (nome: string) => (nome === 'grupoAtivo' && grupoDoCookie ? { value: grupoDoCookie } : undefined) }) } }),
@@ -28,6 +29,14 @@ const mocks = [
         return { id: `pref-${P}`, init_point: `https://mp.teste/${P}` }
       },
       expirarPreferencia: async () => {},
+    },
+  }),
+  mock.module('@/lib/email', {
+    namedExports: {
+      enviarEmail: async (e: { para: string; assunto: string }) => {
+        emailsEnviados = [...emailsEnviados, { para: e.para, assunto: e.assunto }]
+        return { status: 'enviado', id: 'x' }
+      },
     },
   }),
 ]
@@ -65,13 +74,14 @@ before(async () => {
   }
 })
 
-beforeEach(() => { preferenciasCriadas = []; usuarioDaSessao = socioA; grupoDoCookie = undefined })
+beforeEach(() => { preferenciasCriadas = []; emailsEnviados = []; usuarioDaSessao = socioA; grupoDoCookie = undefined })
 
 after(async () => {
   const grupoIds = [semente.a?.grupoId, semente.b?.grupoId].filter((id): id is string => !!id)
   const contaIds = [semente.a?.contaId, semente.b?.contaId].filter((id): id is string => !!id)
   for (const g of grupoIds) {
     await db.execute(sql`delete from mensalidades where grupo_id = ${g}`)
+    await db.execute(sql`delete from adesoes_mova where grupo_id = ${g}`)
     await db.execute(sql`delete from lojas where grupo_id = ${g}`)
   }
   await db.execute(sql`delete from usuarios where email like ${'%-' + P.toLowerCase() + '-%'}`)
@@ -165,4 +175,23 @@ test('adesão da Conta B: o sócio da Conta A recebe a mesma frase; a da própri
   assert.deepEqual(preferenciasCriadas, [])
   assert.equal((await linkPagamentoAction(adesaoA)).ok, true)
   assert.deepEqual(await gravadoNa(adesaoA), { link_pagamento: `https://mp.teste/${P}`, mp_preference_id: `pref-${P}`, acrescimo: '0.00' })
+})
+
+test('"Pagar" da adesão que ainda não tinha link manda o e-mail de adesão uma vez; a mensalidade, não', async () => {
+  const { a } = semente
+  assert.ok(a)
+  await db.execute(sql`insert into adesoes_mova (loja, responsavel, celular, cnpj_arquivo_path, store_login, usuarios, grupo_id, taxa_implantacao, valor_mensal, email)
+    values ('Loja', 'Resp', '35999999999', 'x', 'login', '[]'::jsonb, ${a.grupoId}, 399, 499, ${`adesao-${P.toLowerCase()}@teste.invalid`})
+    on conflict do nothing`)
+  await db.execute(sql`delete from mensalidades where grupo_id = ${a.grupoId} and tipo = 'adesao'`)
+  const [adesao] = await linhas(sql`insert into mensalidades (grupo_id, tipo, competencia, valor, vencimento)
+    values (${a.grupoId}, 'adesao', null, 399, '2026-11-09') returning id`)
+  assert.equal((await linkPagamentoAction(adesao.id)).ok, true)
+  assert.equal((await linkPagamentoAction(adesao.id)).ok, true)
+  assert.deepEqual(emailsEnviados, [{ para: `adesao-${P.toLowerCase()}@teste.invalid`, assunto: 'Adesão ao MOVA: R$ 399,00' }])
+  emailsEnviados = []
+  const [mensalidade] = await linhas(sql`insert into mensalidades (grupo_id, competencia, valor, vencimento)
+    values (${a.grupoId}, '2097-05', 499, '2097-05-10') returning id`)
+  assert.equal((await linkPagamentoAction(mensalidade.id)).ok, true)
+  assert.deepEqual(emailsEnviados, [])
 })

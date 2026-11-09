@@ -78,7 +78,7 @@ after(async () => {
 
 test('gera o link da adesão no valor da taxa e manda o e-mail de adesão para o e-mail da ficha', async () => {
   const id = await adesaoAberta('Ok')
-  assert.deepEqual(await cobrarAdesao(id), { ok: true })
+  assert.deepEqual(await cobrarAdesao(id), { url: `https://mp.teste/${id}`, falha: null })
   assert.deepEqual(preferencias.map(p => ({ id: p.mensalidadeId, tipo: p.tipo, valor: p.valor })), [{ id, tipo: 'adesao', valor: 399 }])
   assert.deepEqual(await gravada(id), { status: 'aberta', link_pagamento: `https://mp.teste/${id}`, mp_preference_id: `pref-${id}` })
   assert.deepEqual(emails, [{ para: 'resp-Ok@teste.invalid', assunto: 'Adesão ao MOVA: R$ 399,00' }])
@@ -88,7 +88,7 @@ test('Mercado Pago fora: a adesão continua gravada, aberta e sem link, e nenhum
   const id = await adesaoAberta('MpFora')
   mpFora = true
   const r = await cobrarAdesao(id)
-  assert.equal(r.ok, false)
+  assert.deepEqual(r, { url: null, falha: 'Mercado Pago respondeu 503 em /checkout/preferences' })
   assert.deepEqual(await gravada(id), { status: 'aberta', link_pagamento: null, mp_preference_id: null })
   assert.deepEqual(emails, [])
 })
@@ -97,6 +97,6 @@ test('adesão que já tem link não pede outro nem reenvia o e-mail', async () =
   const id = await adesaoAberta('JaTem')
   await cobrarAdesao(id)
   preferencias = []; emails = []
-  assert.deepEqual(await cobrarAdesao(id), { ok: true })
+  assert.deepEqual(await cobrarAdesao(id), { url: null, falha: null })
   assert.deepEqual([preferencias, emails], [[], []])
 })
