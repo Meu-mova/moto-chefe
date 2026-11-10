@@ -298,18 +298,25 @@ test('chassi partido: a potência solta não se junta ao chassi', () => {
   assert.equal(parseMotosInfCpl('B3 750W TST9000 0101 CINZA')[0].motor, '')
 })
 
-test('chassi partido: com o apelido B3 → STYLE, cada chassi acha a ficha do item MT-B3', () => {
-  // Um item de veículo para as quatro motos da nota sintética.
+test('apelido liga cada chassi à ficha correta entre dois itens de moto', () => {
   const xml = '<nfeProc><NFe><infNFe><ide><nNF>99005</nNF></ide>' +
-    '<det nItem="1"><prod><cProd>MT-B3</cProd><cEAN>SEM GTIN</cEAN><xProd>BIKE B3 ELETRICA</xProd>' +
-    '<NCM>87116000</NCM><CEST>2600101</CEST><CFOP>6403</CFOP><uCom>UNID</uCom><qCom>4.0000</qCom>' +
-    '<vUnCom>1000.0000000000</vUnCom><vProd>4000.00</vProd></prod>' +
-    '<imposto><ICMS><ICMS10><orig>1</orig><CST>10</CST></ICMS10></ICMS></imposto></det>' +
-    `<infAdic><infCpl>${NF_B3_PARTIDO}</infCpl></infAdic></infNFe></NFe></nfeProc>`
+    '<det nItem="1"><prod><cProd>MT-STYLE</cProd><xProd>STYLE ELETRICA</xProd>' +
+    '<NCM>87116000</NCM><qCom>4.0000</qCom><vUnCom>1000.00</vUnCom></prod></det>' +
+    '<det nItem="2"><prod><cProd>MT-GIGA</cProd><xProd>GIGA ELETRICA</xProd>' +
+    '<NCM>87116000</NCM><qCom>1.0000</qCom><vUnCom>2000.00</vUnCom></prod></det>' +
+    `<infAdic><infCpl>${NF_B3_PARTIDO};GIGA TESTEGIGA0000005 AZUL</infCpl></infAdic></infNFe></NFe></nfeProc>`
   const r = extrairDaNfe(xml)
   const motos = parseMotosInfCpl(r.infCpl)
   assert.equal(motos.length, r.qtdProdutos)
-  // O apelido manda o B3 do infCpl e o MT-B3 do item para o STYLE do catálogo.
-  const mapa = ligarFichasAosChassis(motos, extrairFiscalDaNfe(xml), ['STYLE', { nome: 'B3', canonico: 'STYLE' }])
-  for (const m of motos) assert.equal(mapa.get(m.chassi)?.codigo, 'MT-B3')
+  const fichas = extrairFiscalDaNfe(xml)
+  const semApelido = ligarFichasAosChassis(motos, fichas, ['STYLE', 'GIGA'])
+  assert.equal(semApelido.has('TST90000101'), false)
+  const mapa = ligarFichasAosChassis(motos, fichas, ['STYLE', 'GIGA', { nome: 'B3', canonico: 'STYLE' }])
+  assert.deepEqual(motos.map(m => [m.chassi, mapa.get(m.chassi)?.codigo, mapa.get(m.chassi)?.descricao]), [
+    ['TST90000101', 'MT-STYLE', 'STYLE ELETRICA'],
+    ['TST90000102', 'MT-STYLE', 'STYLE ELETRICA'],
+    ['TST90000103', 'MT-STYLE', 'STYLE ELETRICA'],
+    ['TST90000104', 'MT-STYLE', 'STYLE ELETRICA'],
+    ['TESTEGIGA0000005', 'MT-GIGA', 'GIGA ELETRICA'],
+  ])
 })

@@ -129,3 +129,22 @@ test('aspas do motor escritas como &quot; no XML: o motor não vira cor', () => 
   const p = planejarEntradaDeXmls([xml], [{ chassi: 'TESTEFAM00000006', precoCompra: '2410.41' }], MODELOS)
   assert.deepEqual(p.motos.map(m => [m.motor, m.cor]), [['TSTM0348V350W24"99990002', 'AMARELO']])
 })
+
+test('planejador escolhe o modelo pelo apelido sem modelo explícito na lista', () => {
+  const xml = nota('99006',
+    det(1, 'MT-STYLE', 'STYLE ELETRICA', 1, '2600101', '1') +
+    det(2, 'MT-GIGA', 'GIGA ELETRICA', 1, '2600100', '4'),
+    'B3 TESTESTYLE000001 CINZA;GIGA TESTEGIGA0000006 AZUL')
+  const modelos = [{ id: 'm-style', modelo: 'STYLE' }, { id: 'm-giga', modelo: 'GIGA' }]
+  const escolhidas = [{ chassi: 'TESTESTYLE000001', precoCompra: '1000' }]
+  assert.equal(planejarEntradaDeXmls([xml], escolhidas, modelos).motos.length, 0)
+  const plano = planejarEntradaDeXmls([xml], escolhidas, modelos, [{ nome: 'B3', canonico: 'STYLE' }])
+  assert.deepEqual(plano.problemas, [])
+  assert.deepEqual(plano.motos, [
+    { chassi: 'TESTESTYLE000001', modeloId: 'm-style', motor: '', cor: 'CINZA', precoCompra: '1000', notaFiscal: '99006' },
+  ])
+  assert.deepEqual(plano.semFicha, [])
+  assert.deepEqual(plano.fiscais.map(f => [f.chassi, f.ficha.codigo, f.ficha.descricao]), [
+    ['TESTESTYLE000001', 'MT-STYLE', 'STYLE ELETRICA'],
+  ])
+})
