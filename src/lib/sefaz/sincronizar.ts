@@ -1,8 +1,9 @@
 // src/lib/sefaz/sincronizar.ts
 import { db, execRows } from '@/lib/db'
-import { nfeRecebidas, nfeDfeSync } from '@/lib/db/schema'
-import { sql } from 'drizzle-orm'
+import { nfeRecebidas, nfeDfeSync, grupos } from '@/lib/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import { carregarCertificado } from './certificado'
+import { certificateIsAllowedForGroup } from '@/lib/certificado-conta'
 import { consultarDistribuicao } from './distribuicao'
 import { proximoEstado, deveContinuarDrenando, proximaConsultaEmDrenagem, estadoInicialDaLeitura, TETO_ITERACOES_DRENAGEM } from './nsu'
 
@@ -114,6 +115,11 @@ export async function sincronizarGrupo(
     // Estar dentro do try é o que faz a falha aparecer pro Cesar.
     const cert = await carregarCertificado(grupoId)
     if (!cert) return { status: 'sem_certificado', documentos: 0, descartados: 0 }
+    const [grupoEmissor] = await db.select({ id: grupos.id, cnpj: grupos.cnpj, contaId: grupos.contaId })
+      .from(grupos).where(eq(grupos.id, grupoId)).limit(1)
+    if (!grupoEmissor || !(await certificateIsAllowedForGroup(cert.cnpj, grupoEmissor))) {
+      return { status: 'erro', documentos: totalDocumentos, descartados: totalDescartados, erro: 'Certificado incompatível com o grupo. Envie o certificado em /admin/certificados.' }
+    }
 
     // C1(b): drena a fila numa execução só, em vez de processar um lote e
     // sair. É o padrão sancionado pela SEFAZ (puxar até esvaziar). A decisão
@@ -127,7 +133,7 @@ export async function sincronizarGrupo(
       const retorno = await consultarDistribuicao({
         pfx: cert.pfx,
         senha: cert.senha,
-        cnpj: cert.cnpj,
+        cnpj: grupoEmissor.cnpj,
         uf: cert.uf,
         ultNSU: ultNsuAtual,
       })
