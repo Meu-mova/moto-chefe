@@ -13,7 +13,7 @@
 // moto sem número de motor ("SOMA 1000W <chassi> BRANCO"), variante da fábrica
 // entre parênteses ("X12 1000W (RC) ..." e "X12 1000W(RC) ..."), cor com mais
 // de uma palavra ou com parênteses ("CINZA(BRANCO)") ("AZUL TURQUESA"), lixo no fim (linha de ICMS, ";;;")
-// e chassi/motor quebrados por espaços (B3 da LAIOUNS, NF 44474: ver lerChassiPartido).
+// e chassi/motor quebrados por espaços (ver lerChassiPartido).
 
 export type MotoNfe = { modelo: string; chassi: string; motor: string; cor: string }
 
@@ -77,14 +77,12 @@ export function parseMotosInfCpl(infCpl: string): MotoNfe[] {
 }
 
 /**
- * Chassi e motor quebrados por espaços, como a LAIOUNS escreveu a B3 (STYLE) na
- * NF 44474: "B3 750W MMS2608 0276 TOS7 48V20 750W FF 0047 S1 CINZA". O chassi
- * gravado na bike é MMS26080276 e o motor TOS748V20750WFF0047S1 (Cesar,
- * 10/11/2026). Só roda quando nenhum token sozinho tem cara de chassi.
+ * Chassi e motor quebrados por espaços. Só roda quando nenhum token sozinho
+ * tem cara de chassi.
  *
  * O chassi são dois tokens seguidos: o primeiro com letra e dígito, o segundo
  * só dígitos (o sequencial), e juntos casam com RE_CHASSI. A potência solta não
- * entra: "750W" + "MMS2608" também daria 11 caracteres. A cor são as palavras
+ * entra: "750W" + "TST9000" também daria 11 caracteres. A cor são as palavras
  * do fim sem dígito; o que fica entre o chassi e a cor, junto, é o motor.
  */
 function lerChassiPartido(t: string[]): MotoNfe | null {

@@ -272,7 +272,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     if (!files.length) return
 
     const nomesMova = modelos.map(m => m.modelo)
-    // De-para NF → MOVA com os apelidos da Conta: o "B3" da LAIOUNS vira STYLE.
+    // O fornecedor pode escrever no infCpl um apelido cadastrado pela Conta.
     const modeloDoCatalogo = resolvedorDeModelo([...nomesMova, ...apelidos])
     const novas: MotoImportada[] = []
     const avisos: string[] = []

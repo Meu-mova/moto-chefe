@@ -72,7 +72,7 @@ test('modelo da nota pelo mesmo de-para da tela', () => {
   assert.equal(modeloDaNota('NADA', modelos), '')
 })
 
-// NF 44474: a LAIOUNS escreve "B3" no infCpl para a bike que o catálogo chama de STYLE.
+// O fornecedor escreve no infCpl um apelido do modelo cadastrado.
 // Sem o apelido da Conta, a linha entrava sem modelo mesmo com o "B3 → STYLE" cadastrado.
 test('modelo da nota pelo apelido da Conta: B3 vira STYLE', () => {
   const modelos = [{ id: 'm-style', modelo: 'STYLE' }, { id: 'm-giga', modelo: 'GIGA' }]

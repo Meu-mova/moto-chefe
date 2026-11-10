@@ -277,36 +277,33 @@ test('motor com aspas da medida da roda não vira cor', () => {
   ])
 })
 
-// NF 44474 (LAIOUNS, out/2026): a bike B3 (STYLE no catálogo) veio com o chassi e o
-// motor quebrados por espaços. O chassi gravado na bike é MMS26080276 e o motor
-// TOS748V20750WFF0047S1 (confirmado pelo Cesar em 10/11/2026). Sem juntar os
-// pedaços, nenhum token chega aos 10 caracteres e a nota inteira virava zero moto.
-const NF_B3_PARTIDO = 'B3 750W MMS2608 0276 TOS7 48V20 750W FF 0047 S1 CINZA;' +
-  'B3 750W MMS2608 0221 TOS7 48V20 750W FF 0085 S1 CINZA;' +
-  'B3 750W MMS2608 0278 TOS7 48V20 750W FF 0065 S1 PRETO;' +
-  'B3 750W MMS2608 0376 TOS7 48V20 750W FF 0084 S1 PRETO;' +
-  'Valor de ICMS credito presumido: R$ 191,62'
+// Dados sintéticos: os espaços impedem que cada pedaço seja reconhecido como chassi.
+const NF_B3_PARTIDO = 'B3 750W TST9000 0101 SYN9 48V20 750W FF 0901 S1 CINZA;' +
+  'B3 750W TST9000 0102 SYN9 48V20 750W FF 0902 S1 CINZA;' +
+  'B3 750W TST9000 0103 SYN9 48V20 750W FF 0903 S1 PRETO;' +
+  'B3 750W TST9000 0104 SYN9 48V20 750W FF 0904 S1 PRETO;' +
+  'Valor de ICMS credito presumido: R$ 100,00'
 
-test('chassi e motor quebrados por espaço (B3 da LAIOUNS, NF 44474)', () => {
+test('chassi e motor quebrados por espaço (dados sintéticos)', () => {
   const m = parseMotosInfCpl(NF_B3_PARTIDO)
   assert.equal(m.length, 4)
-  assert.deepEqual(m[0], { modelo: 'B3', chassi: 'MMS26080276', motor: 'TOS748V20750WFF0047S1', cor: 'CINZA' })
-  assert.deepEqual(m.map(x => x.chassi), ['MMS26080276', 'MMS26080221', 'MMS26080278', 'MMS26080376'])
+  assert.deepEqual(m[0], { modelo: 'B3', chassi: 'TST90000101', motor: 'SYN948V20750WFF0901S1', cor: 'CINZA' })
+  assert.deepEqual(m.map(x => x.chassi), ['TST90000101', 'TST90000102', 'TST90000103', 'TST90000104'])
   assert.deepEqual(m.map(x => x.cor), ['CINZA', 'CINZA', 'PRETO', 'PRETO'])
 })
 
 test('chassi partido: a potência solta não se junta ao chassi', () => {
-  // "750W" + "MMS2608" também daria 11 caracteres com dígito; não pode virar chassi.
-  assert.equal(parseMotosInfCpl('B3 750W MMS2608 0276 CINZA')[0].chassi, 'MMS26080276')
-  assert.equal(parseMotosInfCpl('B3 750W MMS2608 0276 CINZA')[0].motor, '')
+  // "750W" + "TST9000" também daria 11 caracteres com dígito; não pode virar chassi.
+  assert.equal(parseMotosInfCpl('B3 750W TST9000 0101 CINZA')[0].chassi, 'TST90000101')
+  assert.equal(parseMotosInfCpl('B3 750W TST9000 0101 CINZA')[0].motor, '')
 })
 
 test('chassi partido: com o apelido B3 → STYLE, cada chassi acha a ficha do item MT-B3', () => {
-  // Trecho real do <det> da NF 44474 (o item é um só; as 4 bikes saem dele).
-  const xml = '<nfeProc><NFe><infNFe><ide><nNF>44474</nNF></ide>' +
+  // Um item de veículo para as quatro motos da nota sintética.
+  const xml = '<nfeProc><NFe><infNFe><ide><nNF>99005</nNF></ide>' +
     '<det nItem="1"><prod><cProd>MT-B3</cProd><cEAN>SEM GTIN</cEAN><xProd>BIKE B3 ELETRICA</xProd>' +
     '<NCM>87116000</NCM><CEST>2600101</CEST><CFOP>6403</CFOP><uCom>UNID</uCom><qCom>4.0000</qCom>' +
-    '<vUnCom>1651.9000000000</vUnCom><vProd>6607.60</vProd></prod>' +
+    '<vUnCom>1000.0000000000</vUnCom><vProd>4000.00</vProd></prod>' +
     '<imposto><ICMS><ICMS10><orig>1</orig><CST>10</CST></ICMS10></ICMS></imposto></det>' +
     `<infAdic><infCpl>${NF_B3_PARTIDO}</infCpl></infAdic></infNFe></NFe></nfeProc>`
   const r = extrairDaNfe(xml)

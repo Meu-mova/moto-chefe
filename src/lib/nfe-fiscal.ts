@@ -60,8 +60,7 @@ export type NomeDeModelo = { nome: string; canonico: string }
 
 /**
  * Resolve um nome da nota (infCpl, cProd ou xProd) para o modelo do catálogo, já
- * traduzindo o apelido: "DRIFT" e "DRIFT CAR" dão os dois DRIFT CAR, e o "B3" da
- * LAIOUNS dá STYLE quando a Conta cadastrou esse apelido. Tira o "MT-" que os
+ * traduzindo os apelidos cadastrados pela Conta. Tira o "MT-" que os
  * fornecedores prefixam no código do item, senão o mapearModelo nunca acha o modelo
  * (nem o apelido) dentro de "MT-PYC". Uma string em `nomesCatalogo` é um nome do
  * próprio catálogo; `{ nome, canonico }` é um apelido de `modelo_apelidos`.

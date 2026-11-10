@@ -21,7 +21,7 @@ import { soDigitosDoc } from './documento'
 
 /**
  * Id do modelo cadastrado para o nome que veio na nota, ou '' (o mesmo de-para da tela,
- * com os apelidos da Conta: o "B3" da LAIOUNS vira STYLE).
+ * com os apelidos da Conta).
  */
 export function modeloDaNota(nomeNaNota: string, modelos: ModeloSugestao[], apelidos: NomeDeModelo[] = []): string {
   const nome = resolvedorDeModelo([...modelos.map(m => m.modelo), ...apelidos])(nomeNaNota) ?? nomeNaNota
