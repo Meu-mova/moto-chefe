@@ -54,11 +54,15 @@ before(async () => {
   lojas.desativada = await lojaNova('Loja 819 Desativada', gC, 'c819@teste.invalid')
   lojas.inativa = await lojaNova('Loja 819 Inativa', gA, 'i819@teste.invalid', false)
 
+  // Moto arquivada exige quem arquivou e o motivo (check motos_arquivo_completo, 0174).
+  const arquivador = (await linha(sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), 'Arq 819', 'vend819-arq@teste.invalid', 'aux_adm', ${lojas.a}) returning id`)).id
   let seq = 0
   const moto = async (loja: string, modelo: string, cor: string, extra: { vendida?: boolean; arquivada?: boolean; garantia?: boolean } = {}) =>
-    (await linha(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade, arquivada_em, somente_garantia)
+    (await linha(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade, arquivada_em, arquivada_por, motivo_arquivo, somente_garantia)
       values (${'PAINEL819' + seq++}, ${modelo}, ${loja}, ${cor}, '1', ${extra.vendida ? 'vendida' : 'disponivel'},
-              ${extra.vendida ? 'vendida' : 'disponivel'}, ${extra.arquivada ? sql`now()` : null}, ${extra.garantia ?? false}) returning id`)).id
+              ${extra.vendida ? 'vendida' : 'disponivel'},
+              ${extra.arquivada ? sql`now()` : null}, ${extra.arquivada ? arquivador : null}, ${extra.arquivada ? 'teste 819' : null},
+              ${extra.garantia ?? false}) returning id`)).id
 
   // Estoque: A tem 2 PRETO + 1 branco (grafia solta) da MotoChefe e 3 Voi; B tem 1 PRETO.
   await moto(lojas.a, modelos.mc, 'PRETO')
