@@ -10,18 +10,21 @@
  *
  * Puro (sem banco). A gravação é a do gravarLoteDeEntrada (src/lib/entrada-motos.ts).
  */
-import { decodificarEntidadesXml, extrairDaNfe, mapearModelo, parseMotosInfCpl, type MotoNfe } from './nfe-entrada'
+import { decodificarEntidadesXml, extrairDaNfe, parseMotosInfCpl, type MotoNfe } from './nfe-entrada'
 import {
-  extrairCnpjDoDestinatario, extrairEmitenteDaNfe, extrairFiscalDaNfe, ligarFichasAosChassis,
+  extrairCnpjDoDestinatario, extrairEmitenteDaNfe, extrairFiscalDaNfe, ligarFichasAosChassis, resolvedorDeModelo,
   type EmitenteNfe, type FichaDaMoto, type FichaFiscal, type NomeDeModelo,
 } from './nfe-fiscal'
 import { casarModelo, precoDaPlanilha, type ModeloSugestao } from './entrada-preco'
 import type { MotoEntradaLote } from './entrada-motos'
 import { soDigitosDoc } from './documento'
 
-/** Id do modelo cadastrado para o nome que veio na nota, ou '' (o mesmo de-para da tela). */
-export function modeloDaNota(nomeNaNota: string, modelos: ModeloSugestao[]): string {
-  const nome = mapearModelo(nomeNaNota, modelos.map(m => m.modelo)) ?? nomeNaNota
+/**
+ * Id do modelo cadastrado para o nome que veio na nota, ou '' (o mesmo de-para da tela,
+ * com os apelidos da Conta: o "B3" da LAIOUNS vira STYLE).
+ */
+export function modeloDaNota(nomeNaNota: string, modelos: ModeloSugestao[], apelidos: NomeDeModelo[] = []): string {
+  const nome = resolvedorDeModelo([...modelos.map(m => m.modelo), ...apelidos])(nomeNaNota) ?? nomeNaNota
   return casarModelo(nome, modelos)
 }
 
@@ -93,7 +96,7 @@ export function planejarEntradaDeXmls(
     if (jaUsadaPor) { plano.problemas.push(`${chassi}: a moto ${naNota} do XML já entra como ${jaUsadaPor}`); continue }
     const [{ moto, nNF, emitente, comprador, ficha }] = achados
 
-    const modeloId = e.modelo ? casarModelo(e.modelo, modelos) : modeloDaNota(moto.modelo, modelos)
+    const modeloId = e.modelo ? casarModelo(e.modelo, modelos) : modeloDaNota(moto.modelo, modelos, apelidos)
     if (!modeloId) {
       plano.problemas.push(`${chassi}: modelo "${e.modelo || moto.modelo}" da NF ${nNF} não está no catálogo da Conta`)
       continue

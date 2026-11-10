@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import * as XLSX from 'xlsx'
-import { parseMotosInfCpl, extrairDaNfe, mapearModelo, extrairItensDePeca, lerItensDaNfe, ehNcmDeMoto, tagNfe, type ItemPecaNfe } from '@/lib/nfe-entrada'
+import { parseMotosInfCpl, extrairDaNfe, extrairItensDePeca, lerItensDaNfe, ehNcmDeMoto, tagNfe, type ItemPecaNfe } from '@/lib/nfe-entrada'
 import { linhaInicial, paraGravacao, problemaDaLinha, type LinhaConferencia } from '@/lib/conferencia-pecas'
 import type { Conferencia } from '@/lib/entrada-pecas'
 import { ConferenciaPecas } from './conferencia-pecas'
@@ -16,7 +16,7 @@ import { acrescentarDoXml, chaveDoChassi, devolverTiradas, fichasDoEnvio, tirarM
 import { marcarVarias } from '@/lib/selecao'
 import { plural } from '@/lib/texto'
 import { casarModelo, precoDaPlanilha } from '@/lib/entrada-preco'
-import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, type NomeDeModelo } from '@/lib/nfe-fiscal'
+import { extrairFiscalDaNfe, extrairEmitenteDaNfe, ligarFichasAosChassis, resolvedorDeModelo, type NomeDeModelo } from '@/lib/nfe-fiscal'
 
 type Modelo = {
   id: string
@@ -272,6 +272,8 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
     if (!files.length) return
 
     const nomesMova = modelos.map(m => m.modelo)
+    // De-para NF → MOVA com os apelidos da Conta: o "B3" da LAIOUNS vira STYLE.
+    const modeloDoCatalogo = resolvedorDeModelo([...nomesMova, ...apelidos])
     const novas: MotoImportada[] = []
     const avisos: string[] = []
     let pecasNovas: typeof notaPecas = null
@@ -307,7 +309,7 @@ export function EntradaForm({ modelos, lojas, apelidos = [] }: { modelos: Modelo
           avisos.push(`NF ${nNF || file.name}: li ${motos.length} moto(s), mas a nota tem ${qtdMotosNaNota} moto(s). Confira.`)
         }
         for (const m of motos) {
-          const modelo = mapearModelo(m.modelo, nomesMova) ?? m.modelo // de-para NF → MOVA
+          const modelo = modeloDoCatalogo(m.modelo) ?? m.modelo
           // Ficha fiscal (NCM, CEST, origem…) dos <det>: não aparece na tela; vai no envio e é
           // gravada por moto (gravarFichaFiscalDasMotos, em src/lib/entrada-motos.ts).
           const ficha = fichaPorChassi.get(chaveDoChassi(m.chassi))

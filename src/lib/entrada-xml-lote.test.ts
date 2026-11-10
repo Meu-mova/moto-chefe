@@ -72,6 +72,15 @@ test('modelo da nota pelo mesmo de-para da tela', () => {
   assert.equal(modeloDaNota('NADA', modelos), '')
 })
 
+// NF 44474: a LAIOUNS escreve "B3" no infCpl para a bike que o catálogo chama de STYLE.
+// Sem o apelido da Conta, a linha entrava sem modelo mesmo com o "B3 → STYLE" cadastrado.
+test('modelo da nota pelo apelido da Conta: B3 vira STYLE', () => {
+  const modelos = [{ id: 'm-style', modelo: 'STYLE' }, { id: 'm-giga', modelo: 'GIGA' }]
+  assert.equal(modeloDaNota('B3', modelos), '')
+  assert.equal(modeloDaNota('B3', modelos, [{ nome: 'B3', canonico: 'STYLE' }]), 'm-style')
+  assert.equal(modeloDaNota('GIGA C/ BAU', modelos, [{ nome: 'B3', canonico: 'STYLE' }]), 'm-giga')
+})
+
 test('lista do onboarding: colunas em qualquer ordem, preço nos dois formatos, opcionais vazios', () => {
   assert.deepEqual(lerListaDeChassis('\uFEFFpreco;chassi;modelo;chassi_na_nota\r\n6.400,00;TESTEGIGA0000009;;TESTEGIGA0000001\r\n2410.41;TESTEFAM00000004;FAMILY;\r\n'), [
     { chassi: 'TESTEGIGA0000009', chassiNaNota: 'TESTEGIGA0000001', modelo: undefined, precoCompra: '6400.00' },

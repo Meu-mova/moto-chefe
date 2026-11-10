@@ -58,6 +58,28 @@ export type FichaFiscal = {
 /** Um apelido de nota (`modelo_apelidos`) e o modelo do catálogo a que ele se refere. */
 export type NomeDeModelo = { nome: string; canonico: string }
 
+/**
+ * Resolve um nome da nota (infCpl, cProd ou xProd) para o modelo do catálogo, já
+ * traduzindo o apelido: "DRIFT" e "DRIFT CAR" dão os dois DRIFT CAR, e o "B3" da
+ * LAIOUNS dá STYLE quando a Conta cadastrou esse apelido. Tira o "MT-" que os
+ * fornecedores prefixam no código do item, senão o mapearModelo nunca acha o modelo
+ * (nem o apelido) dentro de "MT-PYC". Uma string em `nomesCatalogo` é um nome do
+ * próprio catálogo; `{ nome, canonico }` é um apelido de `modelo_apelidos`.
+ */
+export function resolvedorDeModelo(nomesCatalogo: (string | NomeDeModelo)[]): (s: string) => string | null {
+  const canonicoPorNome = new Map<string, string>()
+  for (const n of nomesCatalogo) {
+    if (typeof n === 'string') canonicoPorNome.set(n, n)
+    else canonicoPorNome.set(n.nome, n.canonico)
+  }
+  const nomesPlanos = [...canonicoPorNome.keys()]
+  return (s: string) => {
+    if (!nomesPlanos.length) return null
+    const achado = mapearModelo((s ?? '').replace(/^MT[\s-]*/i, ''), nomesPlanos)
+    return achado ? canonicoPorNome.get(achado) ?? achado : null
+  }
+}
+
 // No XML o ponto é sempre decimal ("1.500" é 1,50), ao contrário da planilha.
 const valorDaNota = (v: string) => {
   const n = Number(v)
@@ -143,15 +165,6 @@ export function ligarFichasAosChassis(
   const mapa = new Map<string, FichaFiscal>()
   if (!motosDaNota.length || !fichas.length) return mapa
 
-  // Achata catálogo e apelidos numa lista só para o mapearModelo, guardando de
-  // volta para qual modelo cada nome aponta.
-  const canonicoPorNome = new Map<string, string>()
-  for (const n of nomesCatalogo) {
-    if (typeof n === 'string') canonicoPorNome.set(n, n)
-    else canonicoPorNome.set(n.nome, n.canonico)
-  }
-  const nomesPlanos = [...canonicoPorNome.keys()]
-
   // Compacta para comparar e tira a potência do fim: "X12-1000W" e "X12 MOTO
   // CHEFE" viram "X12" e "X12MOTOCHEFE"; "MT-X12-10" vira "X1210".
   const compactar = (s: string) =>
@@ -161,14 +174,7 @@ export function ligarFichasAosChassis(
       .replace(/[^A-Z0-9]/g, '')
       .replace(/\d+W$/, '')
 
-  const doCatalogo = (s: string) => {
-    if (!nomesPlanos.length) return null
-    // Tira o "MT-" que os fornecedores prefixam no codigo do item, senao o
-    // mapearModelo nunca acha o modelo (nem o apelido) dentro de "MT-PYC".
-    const achado = mapearModelo((s ?? '').replace(/^MT[\s-]*/i, ''), nomesPlanos)
-    // Traduz o apelido para o modelo: "DRIFT" e "DRIFT CAR" têm de dar igual.
-    return achado ? canonicoPorNome.get(achado) ?? achado : null
-  }
+  const doCatalogo = resolvedorDeModelo(nomesCatalogo)
 
   // Só veículo (ehNcmDeMoto). Serve para não eleger o guarda-sol da nota como
   // "item único" quando a moto não casa pelo nome.
@@ -254,19 +260,7 @@ export function acharFichaDoModelo(
   fichas: FichaFiscal[],
   nomesCatalogo: (string | NomeDeModelo)[] = [],
 ): FichaFiscal | null {
-  const canonicoPorNome = new Map<string, string>()
-  for (const n of nomesCatalogo) {
-    if (typeof n === 'string') canonicoPorNome.set(n, n)
-    else canonicoPorNome.set(n.nome, n.canonico)
-  }
-  const nomesPlanos = [...canonicoPorNome.keys()]
-  if (!nomesPlanos.length) return null
-
-  const resolver = (s: string) => {
-    const achado = mapearModelo((s ?? '').replace(/^MT[\s-]*/i, ''), nomesPlanos)
-    return achado ? canonicoPorNome.get(achado) ?? achado : null
-  }
-
+  const resolver = resolvedorDeModelo(nomesCatalogo)
   const alvo = resolver(modelo)
   if (!alvo) return null
 
