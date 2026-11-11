@@ -16,8 +16,10 @@ process.env.DATABASE_URL = url
 
 type Usuario = typeof import('@/lib/db/schema')['usuarios']['$inferSelect']
 let sessao: Usuario
+// A aba do extrato só categoriza quem passa por podeCategorizarDespesaBanco (lista do auth).
+let podeCategorizar = false
 const mocks = [
-  mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => sessao, podeCategorizarDespesaBanco: () => false } }),
+  mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => sessao, podeCategorizarDespesaBanco: () => podeCategorizar } }),
   mock.module('next/headers', { namedExports: { cookies: async () => ({ get: () => undefined }) } }),
   mock.module('next/cache', { namedExports: { revalidatePath: () => {} } }),
 ]
@@ -55,6 +57,7 @@ before(async () => {
 
 after(async () => {
   const ids = sql.join(grupos.map(g => sql`${g.grupoId}`), sql`, `)
+  await db.execute(sql`delete from despesas_open_finance where grupo_id in (${ids})`)
   await db.execute(sql`delete from despesas where grupo_id in (${ids})`)
   await db.execute(sql`delete from lancamentos_caixa where loja_id in (select id from lojas where grupo_id in (${ids}))`)
   await db.execute(sql`delete from usuarios where email like '%-cat834g-%@teste.invalid'`)
@@ -120,4 +123,41 @@ test('categoria que exige beneficiário, escrita com outra grafia e sem benefici
     { ok: false, erro: 'A categoria "cat834g retirada" exige informar a quem se destinou' })
   assert.deepEqual(await despesasActions.criarDespesaAction({ ...despesaCom('CAT834G Retirada'), beneficiario: 'Ninguém' }),
     { ok: false, erro: 'Beneficiário não encontrado no grupo ativo' })
+})
+
+async function saidaDoExtrato(grupoId: string, transacao: string, lancada?: { categoria: string; usuarioId: string }) {
+  const despesaId = lancada
+    ? (await execRows(sql`insert into despesas (grupo_id, usuario_id, categoria, valor, data, forma_pagamento, banco)
+        values (${grupoId}, ${lancada.usuarioId}, ${lancada.categoria}, '30.00', '2026-09-13', 'Pix', 'Banco') returning id`))[0].id
+    : null
+  const [linha] = await execRows(sql`insert into despesas_open_finance (grupo_id, conta_id, banco, transacao_id, data, valor, categoria, despesa_id)
+    values (${grupoId}, 'c', 'Banco', ${transacao}, '2026-09-13T12:00:00Z'::timestamptz, '30.00', ${lancada?.categoria ?? null}, ${despesaId})
+    returning id`)
+  return { id: linha.id as string, despesaId: despesaId as string | null }
+}
+
+test('extrato: o sócio do B não lança a saída com a categoria do A; a saída segue pendente (#834)', async () => {
+  const [a, b] = grupos
+  await admin.criarCategoriaDespesa(db, a.grupoId, { nome: 'CAT834G ExtratoDoA', contaComoDespesa: true })
+  sessao = socioDoB
+  podeCategorizar = true
+  const saida = await saidaDoExtrato(b.grupoId, 'cat834g-lancar')
+
+  assert.deepEqual(await despesasActions.lancarDespesaOpenFinanceAction(saida.id, 'CAT834G ExtratoDoA', null), NAO_ENCONTRADA)
+  const [depois] = await execRows(sql`select despesa_id from despesas_open_finance where id = ${saida.id}`)
+  assert.equal(depois.despesa_id, null)
+})
+
+test('extrato: editar a categorização mantendo a categoria antiga fora do catálogo grava; trocar para a do A recusa (#834)', async () => {
+  const [a, b] = grupos
+  await admin.criarCategoriaDespesa(db, a.grupoId, { nome: 'CAT834G OutraExtratoDoA', contaComoDespesa: true })
+  sessao = socioDoB
+  podeCategorizar = true
+  const saida = await saidaDoExtrato(b.grupoId, 'cat834g-editar', { categoria: 'CAT834G LegadaExtrato', usuarioId: socioDoB.id })
+
+  assert.deepEqual(await despesasActions.editarCategorizacaoOpenFinanceAction(saida.id, 'CAT834G LegadaExtrato', b.lojaId),
+    { ok: true, dados: undefined })
+  assert.deepEqual(await despesasActions.editarCategorizacaoOpenFinanceAction(saida.id, 'CAT834G OutraExtratoDoA', null), NAO_ENCONTRADA)
+  const [depois] = await execRows(sql`select categoria, loja_id from despesas where id = ${saida.despesaId}`)
+  assert.deepEqual([depois.categoria, depois.loja_id], ['CAT834G LegadaExtrato', b.lojaId])
 })
