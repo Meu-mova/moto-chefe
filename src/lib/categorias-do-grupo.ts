@@ -6,6 +6,7 @@ import { and, asc, eq, sql, type AnyColumn } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { categoriasCaixa, categoriasDespesa } from '@/lib/db/schema'
 import { RecusaUsuario } from '@/lib/resultado-action'
+import { chaveCategoria } from '@/lib/despesas-operacionais'
 
 type Leitor = Pick<typeof db, 'select'>
 
@@ -69,17 +70,21 @@ export async function categoriasCaixaDoGrupo(exec: Leitor, grupoId: string): Pro
 
 /**
  * Recusa a despesa cuja categoria não é do grupo. Inativa vale: a despesa antiga continua editável.
+ * Na edição (`categoriaAtual`), a categoria que não mudou não é reconferida: o registro antigo com
+ * nome fora do catálogo continua gravando (avise, não bloqueie; mesmo critério do #399).
  * Devolve se a categoria pede beneficiário, para quem grava não ler a categoria de novo.
  */
 export async function conferirCategoriaDespesa(
-  exec: Leitor, grupoId: string, nome: string,
+  exec: Leitor, grupoId: string, nome: string, categoriaAtual?: string | null,
 ): Promise<{ exigeBeneficiario: boolean }> {
   const [cat] = await exec.select({ exigeBeneficiario: categoriasDespesa.exigeBeneficiario })
     .from(categoriasDespesa)
     .where(and(eq(categoriasDespesa.grupoId, grupoId), mesmoNome(categoriasDespesa.nome, nome)))
     .limit(1)
-  if (!cat) throw new RecusaUsuario(CATEGORIA_NAO_ENCONTRADA)
-  return cat
+  if (cat) return cat
+  const naoMudou = categoriaAtual != null && chaveCategoria(categoriaAtual) === chaveCategoria(nome)
+  if (naoMudou) return { exigeBeneficiario: false }
+  throw new RecusaUsuario(CATEGORIA_NAO_ENCONTRADA)
 }
 
 /** O lançamento de caixa usa as categorias do grupo da LOJA do lançamento, não do grupo ativo. */

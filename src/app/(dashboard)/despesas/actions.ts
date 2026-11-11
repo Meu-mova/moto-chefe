@@ -49,8 +49,9 @@ async function categoriaEBeneficiario(
   grupoId: string,
   categoria: string,
   beneficiario: string | null | undefined,
+  categoriaAtual?: string | null,
 ): Promise<string | null> {
-  const { exigeBeneficiario } = await conferirCategoriaDespesa(db, grupoId, categoria)
+  const { exigeBeneficiario } = await conferirCategoriaDespesa(db, grupoId, categoria, categoriaAtual)
   if (!exigeBeneficiario) return null
 
   const nome = beneficiario?.trim()
@@ -115,7 +116,10 @@ export async function editarDespesaAction(id: string, dados: DespesaInput) {
   const grupo = await getGrupoAtivo(usuario)
   const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
-  const beneficiario = await categoriaEBeneficiario(grupo.id, dados.categoria, dados.beneficiario)
+  const [atual] = await db.select({ categoria: despesas.categoria }).from(despesas)
+    .where(and(eq(despesas.id, id), eq(despesas.grupoId, grupo.id))).limit(1)
+  if (!atual) throw new Error('Despesa não encontrada')
+  const beneficiario = await categoriaEBeneficiario(grupo.id, dados.categoria, dados.beneficiario, atual.categoria)
 
   const res = await db.update(despesas).set({
     lojaId,
@@ -216,13 +220,13 @@ export async function editarCategorizacaoOpenFinanceAction(
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
-  const beneficiarioValidado = await categoriaEBeneficiario(grupo.id, categoria, beneficiario)
 
   const [linha] = await db.select().from(despesasOpenFinance)
     .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
     .limit(1)
   if (!linha) throw new Error('Saída não encontrada')
   if (!linha.despesaId) throw new Error('Essa saída ainda não foi lançada')
+  const beneficiarioValidado = await categoriaEBeneficiario(grupo.id, categoria, beneficiario, linha.categoria)
 
   await db.transaction(async (tx) => {
     await tx.update(despesas).set({
