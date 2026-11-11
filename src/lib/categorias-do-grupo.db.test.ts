@@ -259,3 +259,17 @@ test('editar registro que mantém a categoria antiga fora do catálogo grava; tr
     assert.deepEqual(await leitura.conferirCategoriaDespesa(tx, a.grupoId, 'CAT834 Atual', 'CAT834 Legada'), { exigeBeneficiario: false })
   })
 })
+
+test('excluir categoria usada só no extrato do banco (Open Finance) do grupo também recusa (#834)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearGrupo(tx, 'Extrato A', '83400000010001')
+    await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Extrato', ...OPERACIONAL })
+    const [cat] = (await leitura.categoriasDespesaDoGrupo(tx, a.grupoId)).filter(c => c.nome === 'CAT834 Extrato')
+    await tx.execute(sql`insert into despesas_open_finance (grupo_id, conta_id, banco, transacao_id, data, valor, categoria)
+      values (${a.grupoId}, 'c', 'Banco', ${'cat834-' + a.grupoId}, '2026-09-10T12:00:00Z'::timestamptz, '50.00', 'CAT834 Extrato')`)
+
+    await assert.rejects(admin.excluirCategoriaDespesa(tx, a.grupoId, cat.id),
+      { message: 'Esta categoria já tem lançamentos. Desative em vez de excluir.' })
+    assert.ok((await nomesDespesa(tx, a.grupoId)).includes('CAT834 Extrato'))
+  })
+})
