@@ -40,7 +40,7 @@ async function criarLancamento(dados: LancamentoInput) {
     throw new Error('Sem permissão para esta loja')
   }
   if (!(await podeAgirNaLoja(usuario, lojaIdFinal))) throw new Error('Sem permissão para esta loja')
-  await conferirCategoriaCaixaDaLoja(db, lojaIdFinal, dados.categoria)
+  await conferirCategoriaCaixaDaLoja(db, lojaIdFinal, dados.categoria, dados.tipo)
 
   const valorNum = parseFloat(dados.valor)
   if (isNaN(valorNum) || valorNum <= 0) {

@@ -198,9 +198,9 @@ test('gravar lançamento confere a categoria no grupo: a do A é "não encontrad
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 CaixaDoA', tipo: 'saida' })
 
     await assert.rejects(leitura.conferirCategoriaDespesa(tx, b.grupoId, 'CAT834 SoDoA'), NAO_ENCONTRADA)
-    await assert.rejects(leitura.conferirCategoriaCaixaDaLoja(tx, b.lojaId, 'CAT834 CaixaDoA'), NAO_ENCONTRADA)
+    await assert.rejects(leitura.conferirCategoriaCaixaDaLoja(tx, b.lojaId, 'CAT834 CaixaDoA', 'saida'), NAO_ENCONTRADA)
     assert.deepEqual(await leitura.conferirCategoriaDespesa(tx, a.grupoId, 'CAT834 SoDoA'), { exigeBeneficiario: false })
-    await leitura.conferirCategoriaCaixaDaLoja(tx, a.lojaId, 'CAT834 CaixaDoA')
+    await leitura.conferirCategoriaCaixaDaLoja(tx, a.lojaId, 'CAT834 CaixaDoA', 'saida')
 
     // Inativa continua valendo: a despesa antiga segue editável.
     const [soDoA] = (await leitura.categoriasDespesaDoGrupo(tx, a.grupoId)).filter(c => c.nome === 'CAT834 SoDoA')
@@ -243,7 +243,7 @@ test('mesma categoria com outra grafia (caixa e espaços): confere, conta e casa
     await despesa(tx, a, ' cat834 estorno ')
 
     assert.deepEqual(await leitura.conferirCategoriaDespesa(tx, a.grupoId, 'cat834 ESTORNO '), { exigeBeneficiario: false })
-    await leitura.conferirCategoriaCaixaDaLoja(tx, a.lojaId, ' CAT834 sangria')
+    await leitura.conferirCategoriaCaixaDaLoja(tx, a.lojaId, ' CAT834 sangria', 'saida')
     assert.equal(await admin.contarLancamentosDaCategoriaDespesa(tx, a.grupoId, 'CAT834 Estorno'), 2)
   })
 })
@@ -271,5 +271,19 @@ test('excluir categoria usada só no extrato do banco (Open Finance) do grupo ta
     await assert.rejects(admin.excluirCategoriaDespesa(tx, a.grupoId, cat.id),
       { message: 'Esta categoria já tem lançamentos. Desative em vez de excluir.' })
     assert.ok((await nomesDespesa(tx, a.grupoId)).includes('CAT834 Extrato'))
+  })
+})
+
+test('caixa: "ambos" repete entrada e saída do mesmo nome, e o lançamento confere o tipo (#834)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearGrupo(tx, 'Ambos A', '83400000011001')
+    await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Troca', tipo: 'ambos' })
+    await assert.rejects(admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Troca', tipo: 'entrada' }), REPETIDA)
+    await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Aporte', tipo: 'entrada' })
+    await assert.rejects(admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Aporte', tipo: 'ambos' }), REPETIDA)
+
+    await leitura.conferirCategoriaCaixaDaLoja(tx, a.lojaId, 'CAT834 Troca', 'saida')
+    await leitura.conferirCategoriaCaixaDaLoja(tx, a.lojaId, 'CAT834 Aporte', 'entrada')
+    await assert.rejects(leitura.conferirCategoriaCaixaDaLoja(tx, a.lojaId, 'CAT834 Aporte', 'saida'), NAO_ENCONTRADA)
   })
 })

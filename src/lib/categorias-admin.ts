@@ -3,7 +3,7 @@
  * (grupo ativo do sócio) e vai no where de toda gravação: a categoria de outra Conta e a inexistente
  * recebem a mesma frase. Molde: src/lib/maquininhas-admin.ts.
  */
-import { and, count, eq, ne, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, ne, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { categoriasCaixa, categoriasDespesa, despesas, despesasOpenFinance, lancamentosCaixa, lojas } from '@/lib/db/schema'
 import { RecusaUsuario } from '@/lib/resultado-action'
@@ -107,10 +107,12 @@ function dadosCaixa(dados: DadosCategoriaCaixa) {
   return { nome, tipo: dados.tipo }
 }
 
-// O mesmo nome vale como entrada e como saída: a repetição é por tipo.
+// O mesmo nome vale como entrada e como saída: a repetição é por tipo. "Ambos" já é entrada e saída,
+// então repete qualquer um deles (senão a opção aparece duas vezes no lançamento).
 async function recusarNomeRepetidoCaixa(exec: Executor, grupoId: string, nome: string, tipo: string, idAtual?: string) {
+  const conflitantes = tipo === 'ambos' ? TIPOS_CAIXA : [tipo, 'ambos']
   recusarSeHouver(await exec.select({ id: categoriasCaixa.id }).from(categoriasCaixa).where(and(
-    eq(categoriasCaixa.grupoId, grupoId), eq(categoriasCaixa.tipo, tipo), mesmoNome(categoriasCaixa.nome, nome),
+    eq(categoriasCaixa.grupoId, grupoId), inArray(categoriasCaixa.tipo, conflitantes), mesmoNome(categoriasCaixa.nome, nome),
     ...(idAtual ? [ne(categoriasCaixa.id, idAtual)] : []),
   )).limit(1), 'Já existe uma categoria com esse nome')
 }

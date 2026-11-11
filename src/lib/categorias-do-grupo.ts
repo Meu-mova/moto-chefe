@@ -2,7 +2,7 @@
  * Categorias de despesa e de caixa do grupo (#834): opção do cliente, lida só por aqui e
  * sempre com o grupo no where. Antes eram uma lista só para todas as Contas.
  */
-import { and, asc, eq, sql, type AnyColumn } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql, type AnyColumn } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { categoriasCaixa, categoriasDespesa } from '@/lib/db/schema'
 import { RecusaUsuario } from '@/lib/resultado-action'
@@ -87,14 +87,20 @@ export async function conferirCategoriaDespesa(
   throw new RecusaUsuario(CATEGORIA_NAO_ENCONTRADA)
 }
 
-/** O lançamento de caixa usa as categorias do grupo da LOJA do lançamento, não do grupo ativo. */
-export async function conferirCategoriaCaixaDaLoja(exec: Leitor, lojaId: string, nome: string): Promise<void> {
+/**
+ * O lançamento de caixa usa as categorias do grupo da LOJA do lançamento, não do grupo ativo, e do
+ * tipo dele ("ambos" serve aos dois).
+ */
+export async function conferirCategoriaCaixaDaLoja(
+  exec: Leitor, lojaId: string, nome: string, tipo: 'entrada' | 'saida',
+): Promise<void> {
   const [cat] = await exec.select({ id: categoriasCaixa.id })
     .from(categoriasCaixa)
     .where(and(
       // A coluna fica fora da subconsulta, então casa com categorias_caixa e não com lojas.grupo_id.
       sql`${categoriasCaixa.grupoId} = (select l.grupo_id from lojas l where l.id = ${lojaId})`,
       mesmoNome(categoriasCaixa.nome, nome),
+      inArray(categoriasCaixa.tipo, [tipo, 'ambos']),
     ))
     .limit(1)
   if (!cat) throw new RecusaUsuario(CATEGORIA_NAO_ENCONTRADA)
