@@ -298,6 +298,30 @@ test('chassi partido: a potência solta não se junta ao chassi', () => {
   assert.equal(parseMotosInfCpl('B3 750W TST9000 0101 CINZA')[0].motor, '')
 })
 
+test('chassi partido: lê o infCpl real da NF 44474', () => {
+  assert.deepEqual(parseMotosInfCpl('B3 750W MMS2608 0276 TOS7 48V20 750W FF 0047 S1 CINZA'), [
+    { modelo: 'B3', chassi: 'MMS26080276', motor: 'TOS748V20750WFF0047S1', cor: 'CINZA' },
+  ])
+})
+
+test('chassi partido: recusa um ano no lugar do número sequencial', () => {
+  for (const ano of ['1900', '2026', '2099']) {
+    assert.deepEqual(parseMotosInfCpl(`B3 750W MMS2608 ${ano} TOS7 48V20 750W FF 0047 S1 CINZA`), [])
+  }
+  for (const sequencial of ['1899', '2100']) {
+    assert.equal(
+      parseMotosInfCpl(`B3 750W MMS2608 ${sequencial} TOS7 48V20 750W FF 0047 S1 CINZA`)[0]?.chassi,
+      `MMS2608${sequencial}`,
+    )
+  }
+})
+
+test('chassi partido: exige três letras, quatro dígitos e quatro sequenciais', () => {
+  for (const partes of ['MM2608 0276', 'MMS260 0276', 'MMS2608 276', 'MMS2608 00276']) {
+    assert.deepEqual(parseMotosInfCpl(`B3 750W ${partes} TOS7 48V20 750W FF 0047 S1 CINZA`), [], partes)
+  }
+})
+
 test('apelido liga cada chassi à ficha correta entre dois itens de moto', () => {
   const xml = '<nfeProc><NFe><infNFe><ide><nNF>99005</nNF></ide>' +
     '<det nItem="1"><prod><cProd>MT-STYLE</cProd><xProd>STYLE ELETRICA</xProd>' +

@@ -22,6 +22,9 @@ export type MotoNfe = { modelo: string; chassi: string; motor: string; cor: stri
 // usa só dígitos: 172922506150880). Nome de modelo não chega a 10 caracteres
 // grudados com dígito ("X12", "MC20"; "X12-1000W" tem hífen e 9).
 const RE_CHASSI = /^(?=.*\d)[A-Z0-9]{10,}$/i
+const RE_SPLIT_CHASSIS_PREFIX = /^[A-Z]{3}\d{4}$/i
+const RE_SPLIT_CHASSIS_SEQUENCE = /^\d{4}$/
+const RE_YEAR_TOKEN = /^(?:19|20)\d{2}$/
 
 // Número de motor: mesmo formato do chassi, mas aceita barra
 // (HRD48/60V1000W202604120315, do BIG TRI) e aspas da medida da roda (o 24" de
@@ -80,30 +83,31 @@ export function parseMotosInfCpl(infCpl: string): MotoNfe[] {
  * Chassi e motor quebrados por espaços. Só roda quando nenhum token sozinho
  * tem cara de chassi.
  *
- * O chassi são dois tokens seguidos: o primeiro com letra e dígito, o segundo
- * só dígitos (o sequencial), e juntos casam com RE_CHASSI. A potência solta não
- * entra: "750W" + "TST9000" também daria 11 caracteres. A cor são as palavras
- * do fim sem dígito; o que fica entre o chassi e a cor, junto, é o motor.
+ * A fábrica separa o chassi em 3 letras + 4 dígitos e um sequencial de 4 dígitos.
+ * Anos entre 1900 e 2099 no segundo token são descartados para evitar falso chassi.
  */
-function lerChassiPartido(t: string[]): MotoNfe | null {
-  const temLetraEDigito = (x: string) => /[A-Z]/i.test(x) && /\d/.test(x)
-  const i = t.findIndex((x, k) =>
-    k >= 1 && !RE_POTENCIA.test(x) && temLetraEDigito(x) &&
-    /^\d+$/.test(t[k + 1] ?? '') && RE_CHASSI.test(x + t[k + 1]))
-  if (i < 0) return null
+function lerChassiPartido(tokens: string[]): MotoNfe | null {
+  const chassisIndex = tokens.findIndex((token, index) => {
+    const sequence = tokens[index + 1] ?? ''
+    return index >= 1 &&
+      RE_SPLIT_CHASSIS_PREFIX.test(token) &&
+      RE_SPLIT_CHASSIS_SEQUENCE.test(sequence) &&
+      !RE_YEAR_TOKEN.test(sequence)
+  })
+  if (chassisIndex < 0) return null
 
-  const modelo = t.slice(0, i).filter(x => !RE_POTENCIA.test(x)).join(' ')
-  if (!modelo) return null
+  const model = tokens.slice(0, chassisIndex).filter(token => !RE_POTENCIA.test(token)).join(' ')
+  if (!model) return null
 
-  const resto = t.slice(i + 2)
-  let iCor = resto.length
-  while (iCor > 0 && !/\d/.test(resto[iCor - 1])) iCor--
-  const cor = resto.slice(iCor).join(' ')
-  if (!cor) return null
+  const tailTokens = tokens.slice(chassisIndex + 2)
+  let colorStartIndex = tailTokens.length
+  while (colorStartIndex > 0 && !/\d/.test(tailTokens[colorStartIndex - 1])) colorStartIndex--
+  const color = tailTokens.slice(colorStartIndex).join(' ')
+  if (!color) return null
 
-  const motorJunto = resto.slice(0, iCor).join('')
-  const motor = RE_MOTOR.test(motorJunto) ? motorJunto : ''
-  return { modelo, chassi: t[i] + t[i + 1], motor, cor }
+  const joinedMotor = tailTokens.slice(0, colorStartIndex).join('')
+  const motor = RE_MOTOR.test(joinedMotor) ? joinedMotor : ''
+  return { modelo: model, chassi: tokens[chassisIndex] + tokens[chassisIndex + 1], motor, cor: color }
 }
 
 /** Nº da nota e o infCpl cru a partir do XML. Regex simples — os campos são planos. */
