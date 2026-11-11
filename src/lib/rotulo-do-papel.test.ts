@@ -28,7 +28,7 @@ test('texto de cada papel nas telas internas', () => {
   assert.deepEqual(OPCOES_DE_PAPEL.map(o => [o.value, o.label]), [
     ['admin_geral', 'Admin Geral'], ['admin_rede', 'Admin de Rede'], ['admin_socio', 'Admin Sócio'],
     ['aux_adm', 'Aux. Administrativo'], ['vendedor', 'Vendedor'], ['mecanico', 'Mecânico'],
-    ['motorista', 'Motorista'], ['cargo', 'Cargo da Conta'],
+    ['motorista', 'Motorista'], ['cargo', 'Cargo da Conta'], ['fabrica', 'Fábrica'],
   ])
 })
 

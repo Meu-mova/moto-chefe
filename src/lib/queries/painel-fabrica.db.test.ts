@@ -118,11 +118,21 @@ test('estoque: só MotoChefe no showroom, somado por loja × modelo × cor; a Vo
   assert.ok(!e.some(l => l[1] === 'VOI819'), 'Voi nunca entra')
 })
 
-test('vendas: dias de Brasília, só MotoChefe e só lojas do painel', async () => {
+test('vendas: uma linha por venda, dias de Brasília, só MotoChefe e só lojas do painel', async () => {
   const v = nossas(await painel.vendasDoPainel('2026-10-01', '2026-10-31'))
-    .map(l => [l.lojaId === lojas.a ? 'a' : 'b', l.modelo, l.quantidade])
-    .sort((x, y) => String(x).localeCompare(String(y)))
-  assert.deepEqual(v, [['a', 'X819', 2], ['b', 'X819', 1]])
+  assert.deepEqual(
+    v.map(l => [l.lojaId === lojas.a ? 'a' : 'b', l.modelo, l.cor, l.data]).sort((x, y) => String(x).localeCompare(String(y))),
+    [
+      ['a', 'X819', 'PRETO', '2026-10-15T15:00:00.000Z'],
+      ['a', 'X819', 'PRETO', '2026-10-31T23:00:00.000Z'],
+      ['b', 'X819', 'PRETO', '2026-10-20T15:00:00.000Z'],
+    ],
+  )
+  // Cada venda leva o número e o chassi da moto (o detalhe que a fábrica pede).
+  for (const l of v) {
+    assert.ok(l.numero > 981900, 'número da venda')
+    assert.match(l.chassi, /^PAINEL819\d+$/)
+  }
   const nov = nossas(await painel.vendasDoPainel('2026-11-01', '2026-11-01'))
-  assert.deepEqual(nov.map(l => l.quantidade), [1])
+  assert.equal(nov.length, 1)
 })

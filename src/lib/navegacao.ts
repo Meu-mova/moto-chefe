@@ -185,7 +185,10 @@ export const ITENS: ItemNav[] = [
   { id: 'precos-padrao',  href: '/admin/precos-padrao', label: 'Preços MotoChefe', icon: BadgeDollarSign, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
   // Estoque e vendas MotoChefe de todas as Contas para a fábrica: lê fora da Conta, por isso
   // só o admin_geral, sem liberação individual (@/lib/painel-fabrica).
-  { id: 'painel-fabrica', href: '/admin/painel-fabrica', label: 'Painel Fábrica MotoChefe', icon: FileBarChart, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
+  // /fabrica é a área da fábrica, sem menu: o admin_geral abre para ver o que ela vê.
+  { id: 'painel-fabrica', href: '/fabrica', label: 'Painel Fábrica MotoChefe', icon: FileBarChart, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
+  // Login e senha da fábrica (papel `fabrica`), fora do /admin/usuarios de propósito.
+  { id: 'acessos-fabrica', href: '/admin/acessos-fabrica', label: 'Acessos da Fábrica', icon: IdCard, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
   // Certificado digital é a credencial fiscal da empresa perante a SEFAZ, não é
   // item de configuração comum — só admin_geral (SUPER) mexe nisso.
   { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },

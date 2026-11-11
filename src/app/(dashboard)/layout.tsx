@@ -36,6 +36,8 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const usuario = await getUsuarioLogado()
+  // Login da fábrica não usa o sistema: só o painel dele, sem menu (o middleware já leva).
+  if (usuario.papel === 'fabrica') redirect('/fabrica')
 
   // Ninguém usa o sistema sem CPF, chave PIX e nascimento preenchidos.
   // admin_geral fica de fora de propósito: esta trava roda em toda página para

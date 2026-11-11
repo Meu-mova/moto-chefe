@@ -5,13 +5,35 @@
 //
 // Quem é "loja MotoChefe": a loja ativa que tem o login do portal da fábrica
 // cadastrado (`lojas.fabrica_email`, motochefebrasil.store). É o cadastro que liga a
-// loja à fábrica; sem ele a loja não compra da MotoChefe. A regra de SQL mora em
-// @/lib/queries/painel-fabrica, e as duas pontas (marca e loja) num lugar só.
+// loja à fábrica. A regra de SQL mora em @/lib/queries/painel-fabrica.
 //
-// Este arquivo é puro (sem banco): filtro, totais e CSV, usados pela tela e testados.
+// Quem vê: o login da fábrica (papel `fabrica`, criado em /admin/acessos-fabrica) e o
+// admin_geral. O login da fábrica fica preso em /fabrica, sem menu e sem Server Action
+// nenhuma (middleware, `rotaDoLoginFabrica`): todo o painel funciona com GET.
+//
+// Este arquivo é puro (sem banco): regra de acesso, filtro, totais e CSV.
 
 /** Marca da fábrica. Comparada sem caixa, espaço nem acento: "MotoChefe", "MOTO CHEFE". */
 export const MARCA_PAINEL_FABRICA = 'MotoChefe'
+
+export const PAPEL_FABRICA = 'fabrica'
+export const ROTA_PAINEL_FABRICA = '/fabrica'
+
+/** Quem abre o painel: o login da fábrica e o admin_geral (papel principal). */
+export function podeVerPainelFabrica(u: { papel: string }): boolean {
+  return u.papel === PAPEL_FABRICA || u.papel === 'admin_geral'
+}
+
+/**
+ * Para onde o middleware manda o login da fábrica: `null` = pode seguir; senão a rota de
+ * destino. Server Action (cabeçalho `Next-Action`) é sempre recusada: uma action pode ser
+ * chamada de qualquer página pelo id, então prender só a rota não bastaria.
+ */
+export function rotaDoLoginFabrica(caminho: string, ehServerAction: boolean): 'recusar' | string | null {
+  if (ehServerAction) return 'recusar'
+  const livre = caminho === ROTA_PAINEL_FABRICA || caminho.startsWith(`${ROTA_PAINEL_FABRICA}/`) || caminho === '/conta-desativada'
+  return livre ? null : ROTA_PAINEL_FABRICA
+}
 
 const chaveMarca = (m: string) => m.normalize('NFD').replace(/[^a-zA-Z]/g, '').toLowerCase()
 
@@ -29,11 +51,22 @@ export type LinhaEstoquePainel = {
   quantidade: number
 }
 
-export type LinhaVendaPainel = {
+/** Uma moto vendida. Sem cliente, vendedor, preço ou valor: só o que a fábrica precisa. */
+export type VendaPainel = {
+  vendaId: string
+  numero: number
+  /** ISO, em UTC; exibir com o dia de Brasília. */
+  data: string
   lojaId: string
   modelo: string
-  quantidade: number
+  cor: string
+  chassi: string
 }
+
+export type LinhaVendaPainel = { lojaId: string; modelo: string; quantidade: number }
+
+export type Aba = 'estoque' | 'vendas'
+export const abaDaUrl = (v: unknown): Aba => (v === 'vendas' ? 'vendas' : 'estoque')
 
 /** Lista vazia = sem filtro (tudo). */
 export type FiltroPainel = { lojas: string[]; modelos: string[]; cores: string[] }
@@ -48,36 +81,50 @@ export function filtroDaUrl(p: { loja?: ParamUrl; modelo?: ParamUrl; cor?: Param
   return { lojas: lista(p.loja), modelos: lista(p.modelo), cores: lista(p.cor) }
 }
 
-/** Query string do filtro + período, para o link de impressão. */
-export function urlDoFiltro(f: FiltroPainel, de: string, ate: string): string {
-  const q = new URLSearchParams({ de, ate })
+/** Query string da aba, do filtro e do período (links das abas, da loja e do impresso). */
+export function urlDoFiltro(f: FiltroPainel, de: string, ate: string, aba: Aba = 'estoque'): string {
+  const q = new URLSearchParams({ aba, de, ate })
   f.lojas.forEach(v => q.append('loja', v))
   f.modelos.forEach(v => q.append('modelo', v))
   f.cores.forEach(v => q.append('cor', v))
   return q.toString()
 }
 
+const ordemPt = (a: string, b: string) => a.localeCompare(b, 'pt-BR')
+
 /** Opções dos filtros: tudo o que existe no painel, sem o filtro aplicado. */
-export function opcoesDoPainel(estoque: LinhaEstoquePainel[], vendas: LinhaVendaPainel[]) {
+export function opcoesDoPainel(estoque: LinhaEstoquePainel[], vendas: VendaPainel[]) {
   const ordena = (s: Set<string>) => [...s].sort(ordemPt)
   return {
     modelos: ordena(new Set([...estoque.map(l => l.modelo), ...vendas.map(l => l.modelo)])),
-    cores: ordena(new Set(estoque.map(l => l.cor))),
+    cores: ordena(new Set([...estoque.map(l => l.cor), ...vendas.map(l => l.cor)])),
   }
 }
 
 const passa = (lista: string[], valor: string) => lista.length === 0 || lista.includes(valor)
+const passaNoFiltro = (f: FiltroPainel, l: { lojaId: string; modelo: string; cor: string }) =>
+  passa(f.lojas, l.lojaId) && passa(f.modelos, l.modelo) && passa(f.cores, l.cor)
 
 export function filtrarEstoque(linhas: LinhaEstoquePainel[], f: FiltroPainel): LinhaEstoquePainel[] {
-  return linhas.filter(l => passa(f.lojas, l.lojaId) && passa(f.modelos, l.modelo) && passa(f.cores, l.cor))
+  return linhas.filter(l => passaNoFiltro(f, l))
 }
 
-/** Venda não tem filtro de cor na tela: a cor filtra só o estoque. */
-export function filtrarVendas(linhas: LinhaVendaPainel[], f: FiltroPainel): LinhaVendaPainel[] {
-  return linhas.filter(l => passa(f.lojas, l.lojaId) && passa(f.modelos, l.modelo))
+/** Vendas filtradas, da mais recente para a mais antiga. */
+export function filtrarVendas(vendas: VendaPainel[], f: FiltroPainel): VendaPainel[] {
+  return vendas.filter(v => passaNoFiltro(f, v)).sort((a, b) => b.data.localeCompare(a.data) || b.numero - a.numero)
 }
 
-const ordemPt = (a: string, b: string) => a.localeCompare(b, 'pt-BR')
+/** Uma linha por loja × modelo, a partir das vendas uma a uma: a soma sempre bate com a lista. */
+export function agruparVendas(vendas: VendaPainel[]): LinhaVendaPainel[] {
+  const m = new Map<string, LinhaVendaPainel>()
+  for (const v of vendas) {
+    const k = `${v.lojaId}\u0000${v.modelo}`
+    const atual = m.get(k)
+    if (atual) atual.quantidade++
+    else m.set(k, { lojaId: v.lojaId, modelo: v.modelo, quantidade: 1 })
+  }
+  return [...m.values()]
+}
 
 export type ModeloCor = { modelo: string; cor: string; quantidade: number }
 export type Subtotal = { chave: string; quantidade: number }

@@ -2,6 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { fetchResiliente } from '@/lib/supabase/fetch-resiliente'
+import { PAPEL_FABRICA, rotaDoLoginFabrica } from '@/lib/painel-fabrica'
 
 // O middleware roda ANTES de toda página e valida a sessão. Usa getClaims(), que
 // confere a assinatura ES256 do JWT localmente (WebCrypto, JWKS cacheado) — sem
@@ -59,6 +60,16 @@ export async function middleware(request: NextRequest) {
     console.warn(
       `[middleware] fail-open após ${Date.now() - inicioAuth}ms: ${(e as Error).message}`
     )
+    return supabaseResponse
+  }
+
+  // Login da fábrica: preso em /fabrica e sem Server Action nenhuma (@/lib/painel-fabrica).
+  // O papel vem do app_metadata, que só o service role grava (/admin/acessos-fabrica).
+  // Se este bloco não rodar (fail-open acima), getUsuarioLogado e o layout seguram.
+  if (user?.app_metadata?.papel === PAPEL_FABRICA) {
+    const destino = rotaDoLoginFabrica(request.nextUrl.pathname, request.headers.has('next-action'))
+    if (destino === 'recusar') return new NextResponse('Sem permissão', { status: 403 })
+    if (destino) return NextResponse.redirect(new URL(destino, request.url))
     return supabaseResponse
   }
 

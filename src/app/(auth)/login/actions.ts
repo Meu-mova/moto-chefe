@@ -46,7 +46,8 @@ export async function loginAction(formData: FormData) {
 
   // Grupo em que a pessoa cai (cookie ou padrão); a Conta é a do grupo, como nas outras linhas.
   if (usuario) {
-    const grupo = await getGrupoAtivo(usuario).catch(() => null)
+    // Login da fábrica não tem grupo nem Conta: o log fica só com o usuário.
+    const grupo = usuario.papel === 'fabrica' ? null : await getGrupoAtivo(usuario).catch(() => null)
     await registrarSemFalhar({
       tipo: 'login', usuarioId: usuario.id, contaId: grupo?.contaId ?? usuario.contaId, grupoId: grupo?.id ?? null,
       ...origemDaRequisicao(await headers()),
@@ -55,6 +56,7 @@ export async function loginAction(formData: FormData) {
 
   // Senha provisória: vai direto para a troca. O middleware também leva, mas só na navegação
   // seguinte; sem isto a pessoa via o dashboard uma vez antes.
+  if (usuario?.papel === 'fabrica') redirect('/fabrica')
   redirect(deveTrocarSenha ? '/trocar-senha' : '/dashboard')
 }
 
