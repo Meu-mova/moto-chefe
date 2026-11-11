@@ -1,4 +1,5 @@
 'use client'
+import { temCategoria } from '@/lib/despesas-operacionais'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -36,7 +37,8 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
   const [lojaEscolhida, setLojaEscolhida] = useState(!!jaLancado)
   const [beneficiario, setBeneficiario] = useState(jaLancado?.beneficiario ?? '')
 
-  const exigeBeneficiario = categoriasComBeneficiario.includes(categoria)
+  // Mesma comparação do servidor: sem caixa e sem espaço nas pontas (#834).
+  const exigeBeneficiario = temCategoria(new Set(categoriasComBeneficiario), categoria)
 
   function lancar() {
     if (!categoria || !lojaEscolhida) {

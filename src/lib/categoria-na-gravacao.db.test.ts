@@ -109,3 +109,15 @@ test('caixa: o lançamento na loja do B não usa a categoria do A (#834)', async
   const gravados = await execRows(sql`select categoria from lancamentos_caixa where loja_id = ${b.lojaId}`)
   assert.deepEqual(gravados.map(r => r.categoria), ['CAT834G CaixaDoB'])
 })
+
+test('categoria que exige beneficiário, escrita com outra grafia e sem beneficiário: recusa legível (#834)', async () => {
+  const [, b] = grupos
+  await admin.criarCategoriaDespesa(db, b.grupoId, { nome: 'CAT834G Retirada', contaComoDespesa: true })
+  await db.execute(sql`update categorias_despesa set exige_beneficiario = true where grupo_id = ${b.grupoId} and nome = 'CAT834G Retirada'`)
+  sessao = socioDoB
+
+  assert.deepEqual(await despesasActions.criarDespesaAction(despesaCom('cat834g retirada')),
+    { ok: false, erro: 'A categoria "cat834g retirada" exige informar a quem se destinou' })
+  assert.deepEqual(await despesasActions.criarDespesaAction({ ...despesaCom('CAT834G Retirada'), beneficiario: 'Ninguém' }),
+    { ok: false, erro: 'Beneficiário não encontrado no grupo ativo' })
+})

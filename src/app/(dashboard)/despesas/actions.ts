@@ -6,7 +6,7 @@ import { despesas, despesasOpenFinance, beneficiariosDespesa } from '@/lib/db/sc
 import { conferirCategoriaDespesa } from '@/lib/categorias-do-grupo'
 import { eq, and, asc, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { acao } from '@/lib/resultado-action'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
 
 const ADMINS = ['admin_geral', 'admin_socio'] as const
 
@@ -56,7 +56,7 @@ async function categoriaEBeneficiario(
   if (!exigeBeneficiario) return null
 
   const nome = beneficiario?.trim()
-  if (!nome) throw new Error(`A categoria "${categoria}" exige informar a quem se destinou`)
+  if (!nome) throw new RecusaUsuario(`A categoria "${categoria}" exige informar a quem se destinou`)
 
   const [encontrado] = await db
     .select({ nome: beneficiariosDespesa.nome })
@@ -67,7 +67,7 @@ async function categoriaEBeneficiario(
       eq(beneficiariosDespesa.ativo, true),
     ))
     .limit(1)
-  if (!encontrado) throw new Error('Beneficiário não encontrado no grupo ativo')
+  if (!encontrado) throw new RecusaUsuario('Beneficiário não encontrado no grupo ativo')
 
   return encontrado.nome
 }
