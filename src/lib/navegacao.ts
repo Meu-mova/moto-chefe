@@ -183,6 +183,9 @@ export const ITENS: ItemNav[] = [
   { id: 'mensalidades',   href: '/admin/mensalidades', label: 'Mensalidades',  icon: BadgeDollarSign, categoria: 'plataforma', papeis: SUPER },
   // Tabela de preço sugerido da MotoChefe (#522): da plataforma, só admin_geral carrega.
   { id: 'precos-padrao',  href: '/admin/precos-padrao', label: 'Preços MotoChefe', icon: BadgeDollarSign, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
+  // Estoque e vendas MotoChefe de todas as Contas para a fábrica: lê fora da Conta, por isso
+  // só o admin_geral, sem liberação individual (@/lib/painel-fabrica).
+  { id: 'painel-fabrica', href: '/admin/painel-fabrica', label: 'Painel Fábrica MotoChefe', icon: FileBarChart, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
   // Certificado digital é a credencial fiscal da empresa perante a SEFAZ, não é
   // item de configuração comum — só admin_geral (SUPER) mexe nisso.
   { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
