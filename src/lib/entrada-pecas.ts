@@ -10,7 +10,7 @@ import { daContaDaLoja, inserirPeca, pecaUsavelNaLoja } from '@/lib/pecas-da-con
 import { moverSaldo } from '@/lib/estoque-pecas-loja'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
 import { cnpjValido } from '@/lib/documento'
-import { somenteDigitos } from '@/lib/grupo-cnpj'
+import { chaveDoCnpj } from '@/lib/grupo-cnpj'
 import { createHash } from 'node:crypto'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update'>
@@ -134,7 +134,7 @@ export function impressaoDaPlanilha(itens: ItemDaPlanilha[]): string {
 function cnpjDoFornecedor(cnpj: string | null): string | null {
   if (!cnpj?.trim()) return null
   if (!cnpjValido(cnpj)) throw new EntradaPecasRecusada('CNPJ do fornecedor inválido')
-  return somenteDigitos(cnpj)
+  return chaveDoCnpj(cnpj)
 }
 
 /** Planilha de peças (#519): tudo ou nada, registrada como "planilha", sem chave nem número. */
@@ -246,7 +246,7 @@ export async function carregarConferenciaPlanilha(
     .innerJoin(grupos, eq(grupos.id, lojas.grupoId)).where(eq(lojas.id, lojaId))
   const pecas = await catalogoAtivoDaLoja(exec, lojaId)
 
-  const cnpj = planilha.fornecedorCnpj && cnpjValido(planilha.fornecedorCnpj) ? somenteDigitos(planilha.fornecedorCnpj) : null
+  const cnpj = planilha.fornecedorCnpj && cnpjValido(planilha.fornecedorCnpj) ? chaveDoCnpj(planilha.fornecedorCnpj) : null
   const vinculos = cnpj && planilha.itens.length
     ? await exec.select({ codigo: pecasVinculoFornecedor.codigo, nomeXml: pecasVinculoFornecedor.nomeXml, pecaId: pecasVinculoFornecedor.pecaId })
       .from(pecasVinculoFornecedor)

@@ -5,13 +5,20 @@ export function soDigitosDoc(v: string | null | undefined): string {
   return (v ?? '').replace(/\D/g, '')
 }
 
+/** CPF/CNPJ sem pontuação e em maiúsculas. Mantém as letras porque o CNPJ
+ *  alfanumérico (IN RFB 2.229/2024, #534) tem letra nas 12 primeiras posições;
+ *  `soDigitosDoc` apagaria a letra e o CNPJ viraria outro. */
+export function limparDocumento(v: string | null | undefined): string {
+  return (v ?? '').replace(/[^0-9a-z]/gi, '').toUpperCase()
+}
+
 /** Formata pelo comprimento: 11 dígitos vira CPF, 14 vira CNPJ. Qualquer outra
  *  coisa sai como veio — documento estrangeiro ou meio digitado não é erro aqui,
  *  quem barra é `validarDocumento` ou `lerDocumentoCliente` no momento de gravar. */
 export function formatarCpfCnpj(v: string | null | undefined): string {
-  const d = soDigitosDoc(v)
+  const d = limparDocumento(v)
   if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')
-  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+  if (d.length === 14) return d.replace(/^([0-9A-Z]{2})([0-9A-Z]{3})([0-9A-Z]{3})([0-9A-Z]{4})(\d{2})$/, '$1.$2.$3/$4-$5')
   return v ?? ''
 }
 
@@ -23,14 +30,14 @@ export function isTipoPessoa(v: string): v is TipoPessoa {
 
 /** Tipo de pessoa pelo tamanho do documento: 14 dígitos é CNPJ, o resto conta como pessoa física. */
 export function tipoPessoaDoDocumento(documento: string | null | undefined): TipoPessoa {
-  return soDigitosDoc(documento).length === 14 ? 'juridica' : 'fisica'
+  return limparDocumento(documento).length === 14 ? 'juridica' : 'fisica'
 }
 
 /** Como `tipoPessoaDoDocumento`, mas null enquanto o documento não tem 11 nem 14
  *  dígitos: a tela não troca rótulo nem etiqueta no meio da digitação. Não confere
  *  o dígito verificador; quem barra é `lerDocumentoCliente`. */
 export function tipoPessoaSeCompleto(documento: string | null | undefined): TipoPessoa | null {
-  const tamanho = soDigitosDoc(documento).length
+  const tamanho = limparDocumento(documento).length
   if (tamanho === 14) return 'juridica'
   if (tamanho === 11) return 'fisica'
   return null
@@ -53,7 +60,7 @@ export function validarDocumento(
   tipoPessoa: string,
   documento: string | null | undefined,
 ): { ok: true; documento: string | null } | { ok: false; erro: string } {
-  const d = soDigitosDoc(documento)
+  const d = limparDocumento(documento)
 
   if (tipoPessoa === 'juridica') {
     if (d.length !== 14) return { ok: false, erro: 'CNPJ deve ter 14 dígitos' }
@@ -69,8 +76,8 @@ export function validarDocumento(
 }
 
 export function cpfValido(valor: string): boolean {
-  const cpf = soDigitosDoc(valor)
-  if (cpf.length !== 11) return false
+  const cpf = limparDocumento(valor)
+  if (!/^\d{11}$/.test(cpf)) return false
   // 111.111.111-11 e afins passam na conta do dígito verificador mas não existem.
   if (/^(\d)\1{10}$/.test(cpf)) return false
 
@@ -84,15 +91,19 @@ export function cpfValido(valor: string): boolean {
   return digito(9) === Number(cpf[9]) && digito(10) === Number(cpf[10])
 }
 
+/** Aceita o CNPJ numérico e o alfanumérico: letra só nas 12 primeiras posições,
+ *  DV sempre número. Cada caractere vale o código ASCII menos 48 (0-9 continuam
+ *  0-9, A vale 17); pesos e módulo 11 são os de sempre, por isso o CNPJ antigo
+ *  dá o mesmo resultado. */
 export function cnpjValido(valor: string): boolean {
-  const cnpj = soDigitosDoc(valor)
-  if (cnpj.length !== 14) return false
+  const cnpj = limparDocumento(valor)
+  if (!/^[0-9A-Z]{12}\d{2}$/.test(cnpj)) return false
   // 00.000.000/0000-00 e afins passam na conta do dígito verificador mas não existem.
   if (/^(\d)\1{13}$/.test(cnpj)) return false
   const digito = (ate: number): number => {
     // Pesos de 2 a 9, da direita para a esquerda, recomeçando depois do 9.
     let soma = 0
-    for (let i = 0; i < ate; i++) soma += Number(cnpj[i]) * (((ate - 1 - i) % 8) + 2)
+    for (let i = 0; i < ate; i++) soma += (cnpj.charCodeAt(i) - 48) * (((ate - 1 - i) % 8) + 2)
     const resto = soma % 11
     return resto < 2 ? 0 : 11 - resto
   }
@@ -106,7 +117,7 @@ export function cnpjValido(valor: string): boolean {
 export function lerDocumentoCliente(
   texto: string | null | undefined,
 ): { ok: true; tipoPessoa: TipoPessoa; documento: string } | { ok: false; erro: string } {
-  const d = soDigitosDoc(texto)
+  const d = limparDocumento(texto)
   if (d.length === 14) {
     if (!cnpjValido(d)) return { ok: false, erro: 'CNPJ inválido. Confira os números.' }
     return { ok: true, tipoPessoa: 'juridica', documento: d }
@@ -118,11 +129,11 @@ export function lerDocumentoCliente(
 
 /** Máscara do campo CPF/CNPJ enquanto se digita. */
 export function mascararCpfCnpj(texto: string): string {
-  const d = soDigitosDoc(texto).slice(0, 14)
-  if (d.length > 11) {
-    return d
-      .replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})?$/, (_, a, b, c, e, f) =>
-        `${a}.${b}.${c}/${e}${f ? `-${f}` : ''}`)
+  const d = limparDocumento(texto).slice(0, 14)
+  // Letra só existe em CNPJ: com ela a máscara já é de CNPJ desde o começo.
+  if (d.length > 11 || /[A-Z]/.test(d)) {
+    const [a, b, c, e, f] = [d.slice(0, 2), d.slice(2, 5), d.slice(5, 8), d.slice(8, 12), d.slice(12)]
+    return a + (b && `.${b}`) + (c && `.${c}`) + (e && `/${e}`) + (f && `-${f}`)
   }
   return d
     .replace(/(\d{3})(\d)/, '$1.$2')
