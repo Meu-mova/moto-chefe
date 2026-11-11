@@ -7,6 +7,7 @@ import type { db } from '@/lib/db'
 import { categoriasCaixa, categoriasDespesa } from '@/lib/db/schema'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { chaveCategoria } from '@/lib/despesas-operacionais'
+import { tiposDeCategoriaPara, type TipoLancamentoCaixa } from '@/lib/categoria-caixa-tipo'
 
 type Leitor = Pick<typeof db, 'select'>
 
@@ -92,7 +93,7 @@ export async function conferirCategoriaDespesa(
  * tipo dele ("ambos" serve aos dois).
  */
 export async function conferirCategoriaCaixaDaLoja(
-  exec: Leitor, lojaId: string, nome: string, tipo: 'entrada' | 'saida',
+  exec: Leitor, lojaId: string, nome: string, tipo: TipoLancamentoCaixa,
 ): Promise<void> {
   const [cat] = await exec.select({ id: categoriasCaixa.id })
     .from(categoriasCaixa)
@@ -100,7 +101,7 @@ export async function conferirCategoriaCaixaDaLoja(
       // A coluna fica fora da subconsulta, então casa com categorias_caixa e não com lojas.grupo_id.
       sql`${categoriasCaixa.grupoId} = (select l.grupo_id from lojas l where l.id = ${lojaId})`,
       mesmoNome(categoriasCaixa.nome, nome),
-      inArray(categoriasCaixa.tipo, [tipo, 'ambos']),
+      inArray(categoriasCaixa.tipo, tiposDeCategoriaPara(tipo)),
     ))
     .limit(1)
   if (!cat) throw new RecusaUsuario(CATEGORIA_NAO_ENCONTRADA)

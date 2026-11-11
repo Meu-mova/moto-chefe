@@ -2,6 +2,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { categoriasCaixaDoGrupo } from '@/lib/categorias-do-grupo'
+import { serveAoLancamento } from '@/lib/categoria-caixa-tipo'
 import { redirect } from 'next/navigation'
 import { NovoLancamentoForm } from './components/novo-lancamento-form'
 
@@ -16,8 +17,8 @@ export default async function NovoLancamentoPage() {
   ])
   const cats = doGrupo.filter(c => c.ativo)
 
-  const categoriasEntrada = cats.filter(c => c.tipo === 'entrada' || c.tipo === 'ambos').map(c => c.nome)
-  const categoriasSaida   = cats.filter(c => c.tipo === 'saida'   || c.tipo === 'ambos').map(c => c.nome)
+  const categoriasEntrada = cats.filter(c => serveAoLancamento(c.tipo, 'entrada')).map(c => c.nome)
+  const categoriasSaida   = cats.filter(c => serveAoLancamento(c.tipo, 'saida')).map(c => c.nome)
 
   return (
     <div className="space-y-6 max-w-lg">

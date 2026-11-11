@@ -3,12 +3,13 @@
  * (grupo ativo do sócio) e vai no where de toda gravação: a categoria de outra Conta e a inexistente
  * recebem a mesma frase. Molde: src/lib/maquininhas-admin.ts.
  */
-import { and, count, eq, inArray, ne, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, ne } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { categoriasCaixa, categoriasDespesa, despesas, despesasOpenFinance, lancamentosCaixa, lojas } from '@/lib/db/schema'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { normalizarClassificacao } from '@/lib/categoria-despesa'
 import { CATEGORIA_NAO_ENCONTRADA, mesmoNome } from '@/lib/categorias-do-grupo'
+import { TIPOS_CATEGORIA_CAIXA, tiposDeLancamentoDa, tiposQueRepetem } from '@/lib/categoria-caixa-tipo'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
 
@@ -20,7 +21,6 @@ export type DadosCategoriaDespesa = {
   grupoDre?: string | null
 }
 
-const TIPOS_CAIXA = ['entrada', 'saida', 'ambos']
 const COM_LANCAMENTOS = 'Esta categoria já tem lançamentos. Desative em vez de excluir.'
 
 function nomeLimpo(nome: string): string {
@@ -103,16 +103,14 @@ const daCaixaNoGrupo = (grupoId: string, id: string) =>
 
 function dadosCaixa(dados: DadosCategoriaCaixa) {
   const nome = nomeLimpo(dados.nome)
-  if (!TIPOS_CAIXA.includes(dados.tipo)) throw new RecusaUsuario('Tipo inválido')
+  if (!(TIPOS_CATEGORIA_CAIXA as readonly string[]).includes(dados.tipo)) throw new RecusaUsuario('Tipo inválido')
   return { nome, tipo: dados.tipo }
 }
 
-// O mesmo nome vale como entrada e como saída: a repetição é por tipo. "Ambos" já é entrada e saída,
-// então repete qualquer um deles (senão a opção aparece duas vezes no lançamento).
+// O mesmo nome vale como entrada e como saída; repete com o tipo que atende o mesmo lançamento.
 async function recusarNomeRepetidoCaixa(exec: Executor, grupoId: string, nome: string, tipo: string, idAtual?: string) {
-  const conflitantes = tipo === 'ambos' ? TIPOS_CAIXA : [tipo, 'ambos']
   recusarSeHouver(await exec.select({ id: categoriasCaixa.id }).from(categoriasCaixa).where(and(
-    eq(categoriasCaixa.grupoId, grupoId), inArray(categoriasCaixa.tipo, conflitantes), mesmoNome(categoriasCaixa.nome, nome),
+    eq(categoriasCaixa.grupoId, grupoId), inArray(categoriasCaixa.tipo, tiposQueRepetem(tipo)), mesmoNome(categoriasCaixa.nome, nome),
     ...(idAtual ? [ne(categoriasCaixa.id, idAtual)] : []),
   )).limit(1), 'Já existe uma categoria com esse nome')
 }
@@ -154,7 +152,7 @@ export async function excluirCategoriaCaixa(exec: Executor, grupoId: string, id:
     .where(and(
       eq(lojas.grupoId, grupoId),
       mesmoNome(lancamentosCaixa.categoria, cat.nome),
-      ...(cat.tipo === 'ambos' ? [] : [sql`${lancamentosCaixa.tipo}::text = ${cat.tipo}`]),
+      inArray(lancamentosCaixa.tipo, tiposDeLancamentoDa(cat.tipo)),
     ))
     .limit(1), COM_LANCAMENTOS)
   await exec.delete(categoriasCaixa).where(daCaixaNoGrupo(grupoId, id))
