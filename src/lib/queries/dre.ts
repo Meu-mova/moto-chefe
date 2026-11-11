@@ -8,7 +8,7 @@ import { and, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm'
 import { rotuloMesCurtoAA } from '@/lib/data-venda'
 import { valorLiquidoExpr } from './valor-liquido'
 import { somaCustoMotoExpr } from './custo-moto'
-import { somarDespesas, type TotalDespesas } from '@/lib/despesas-operacionais'
+import { chaveCategoria, somarDespesas, type TotalDespesas } from '@/lib/despesas-operacionais'
 import { configDespesas } from './config-despesas'
 import { categoriasDespesaDoGrupo } from '@/lib/categorias-do-grupo'
 import { grupoOuOutras, somarEntradas, type EntradaDre, type GrupoDre, ENTRADA_VAZIA } from '@/lib/dre'
@@ -38,7 +38,7 @@ const bordas = (ano: number, mes: number) => ({
  */
 async function mapaGrupoPorCategoria(grupoId: string) {
   const linhas = await categoriasDespesaDoGrupo(db, grupoId)
-  return new Map(linhas.map(l => [l.nome.trim().toLowerCase(), grupoOuOutras(l.grupoDre)]))
+  return new Map(linhas.map(l => [chaveCategoria(l.nome), grupoOuOutras(l.grupoDre)]))
 }
 
 function agruparDespesas(
@@ -48,7 +48,7 @@ function agruparDespesas(
   const porGrupo: Partial<Record<GrupoDre, number>> = {}
   const semGrupo: string[] = []
   for (const c of porCategoria) {
-    const chave = c.categoria.trim().toLowerCase()
+    const chave = chaveCategoria(c.categoria)
     const grupo = mapa.get(chave)
     if (grupo === undefined) semGrupo.push(c.categoria)
     const destino = grupo ?? 'outras'
