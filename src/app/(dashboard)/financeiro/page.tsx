@@ -1,6 +1,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
-import { mesBrt } from '@/lib/data-venda'
+import { hojeBrt } from '@/lib/data-venda'
+import { periodoFinanceiro, limitesDoPeriodo } from '@/lib/periodo-financeiro'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db, execRows } from '@/lib/db'
 import { vendas, lojas, usuarios, motos, modelos, conciliacoesCartao, despesas, despesasOpenFinance, ordensServico, vendasPecas, lancamentosCaixa } from '@/lib/db/schema'
@@ -38,7 +39,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const grupo = await getGrupoAtivo(usuario)
 
   const params = await searchParams
-  const mesParam = params.mes ?? mesBrt()
+  const periodo = periodoFinanceiro(params, hojeBrt())
   const lojaParam = params.loja ?? ''
   // "Geral" é o balde da empresa: as despesas que o Importar do Banco deixou sem
   // loja atribuída — contabilidade, pró-labore, sistema. Não é uma loja, então não
@@ -50,11 +51,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   /** Nada casa: o Geral não tem receita nenhuma atribuída. */
   const nenhumaLinha = sql`false`
 
-  const [ano, mes] = mesParam.split('-').map(Number)
-  const inicioMes = `${mesParam}-01`
-  const ultimoDia = new Date(ano, mes, 0).toISOString().split('T')[0]
-  const inicioTs = new Date(`${inicioMes}T00:00:00Z`)
-  const fimTs = new Date(`${ano}-${String(mes + 1).padStart(2, '0')}-01T00:00:00Z`)
+  // Colunas `date` (despesas, caixa) filtram por periodo.de/ate; `timestamptz`, por estes limites.
+  const { inicioTs, fimTs } = limitesDoPeriodo(periodo)
 
   const lojaFiltroVendas = escopoGeral ? nenhumaLinha
     : lojaParamValido ? eq(vendas.lojaId, lojaParamValido) : inArray(vendas.lojaId, lojaIdsGrupo)
@@ -231,8 +229,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .from(despesas)
       .where(and(
         eq(despesas.grupoId, grupo.id),
-        gte(despesas.data, inicioMes),
-        lte(despesas.data, ultimoDia),
+        gte(despesas.data, periodo.de),
+        lte(despesas.data, periodo.ate),
         sql`NOT EXISTS (SELECT 1 FROM ${despesasOpenFinance} o WHERE o.despesa_id = ${despesas.id})`,
         escopoGeral
           ? sql`${despesas.lojaId} IS NULL`
@@ -310,8 +308,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .from(lancamentosCaixa)
       .where(and(
         eq(lancamentosCaixa.tipo, 'saida'),
-        gte(lancamentosCaixa.data, inicioMes),
-        lte(lancamentosCaixa.data, ultimoDia),
+        gte(lancamentosCaixa.data, periodo.de),
+        lte(lancamentosCaixa.data, periodo.ate),
         ne(lancamentosCaixa.statusAprovacao, 'reprovado'),
         // Caixa é sempre de uma loja — no recorte Geral não entra nenhum.
         escopoGeral
@@ -445,7 +443,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Financeiro</h1>
 
-      <FinanceiroFiltros lojas={lojasOpts} mesAtual={mesParam} lojaAtual={lojaParam} />
+      <FinanceiroFiltros lojas={lojasOpts} de={periodo.de} ate={periodo.ate} lojaAtual={lojaParam} />
 
       {escopoGeral && (
         <p className="text-sm text-muted-foreground bg-muted border rounded-lg px-4 py-2">
