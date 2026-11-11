@@ -1,16 +1,16 @@
 // Consultas do Painel da Fábrica MotoChefe (regra em @/lib/painel-fabrica).
 //
-// Lê TODAS as Contas de propósito: é tela da plataforma, só do admin_geral (item
-// `painel-fabrica`, soAdminGeral, em @/lib/navegacao). Quem chama confere o acesso
-// antes. Nada aqui devolve cliente, CPF, vendedor, chassi, preço ou valor de venda:
-// só nome da loja e quantidades de moto MotoChefe.
+// Lê TODAS as Contas de propósito: é a visão da rede, só do login da fábrica e do admin_geral
+// (podeVerPainelFabrica, @/lib/painel-fabrica). Quem chama confere o acesso
+// antes. Nada aqui devolve cliente, CPF, vendedor, preço ou valor de venda: só loja,
+// modelo, cor, chassi, número e data da venda de moto MotoChefe.
 import { and, eq, gte, isNull, lte, ne, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { contas, grupos, lojas, modelos, motos, vendas } from '@/lib/db/schema'
 import { motoNoShowroom } from '@/lib/queries/showroom'
 import { normalizarPeriodo } from '@/lib/queries/relatorio-fabrica'
 import { fimDoDiaBrt, inicioDoDiaBrt } from '@/lib/data-venda'
-import type { LinhaEstoquePainel, LinhaVendaPainel, LojaPainel } from '@/lib/painel-fabrica'
+import type { LinhaEstoquePainel, LojaPainel, VendaPainel } from '@/lib/painel-fabrica'
 
 // Mesma chave de ehMarcaDoPainel (@/lib/painel-fabrica): só letras, minúsculas. O
 // translate cobre o acento que o regexp sozinho apagaria ("Motochéfe" → "motochfe").
@@ -50,10 +50,13 @@ export async function estoqueDoPainel(): Promise<LinhaEstoquePainel[]> {
     .groupBy(lojas.id, modeloExibido, corExibida)
 }
 
-/** Motos MotoChefe vendidas no período (dias de Brasília), por loja que vendeu × modelo. */
-export async function vendasDoPainel(de: string, ate: string): Promise<LinhaVendaPainel[]> {
-  return db
-    .select({ lojaId: lojas.id, modelo: modeloExibido, quantidade: sql<number>`count(*)::int` })
+/** Motos MotoChefe vendidas no período (dias de Brasília), uma linha por venda. */
+export async function vendasDoPainel(de: string, ate: string): Promise<VendaPainel[]> {
+  const linhas = await db
+    .select({
+      vendaId: vendas.id, numero: vendas.numero, data: vendas.dataVenda,
+      lojaId: lojas.id, modelo: modeloExibido, cor: corExibida, chassi: motos.chassi,
+    })
     .from(vendas)
     .innerJoin(motos, eq(vendas.motoId, motos.id))
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
@@ -66,7 +69,7 @@ export async function vendasDoPainel(de: string, ate: string): Promise<LinhaVend
       gte(vendas.dataVenda, inicioDoDiaBrt(de)),
       lte(vendas.dataVenda, fimDoDiaBrt(ate)),
     ))
-    .groupBy(lojas.id, modeloExibido)
+  return linhas.map(l => ({ ...l, data: l.data.toISOString() }))
 }
 
 export async function carregarPainelFabrica(deRaw?: string, ateRaw?: string) {

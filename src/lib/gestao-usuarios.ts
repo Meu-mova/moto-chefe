@@ -78,6 +78,8 @@ export function papelAcimaDoSocio(papel: string): boolean {
 }
 
 export function podeGerenciar(gestor: Pick<Gestor, 'papel' | 'gruposVisiveis'>, alvo: AlvoGestao): boolean {
+  // Login da fábrica só se cuida em /admin/acessos-fabrica: some desta lista e do formulário.
+  if (alvo.papel === 'fabrica') return false
   if (gestor.papel === 'admin_geral') return true
   if (gestor.papel !== 'admin_socio') return false
   if (papelAcimaDoSocio(alvo.papel)) return false
@@ -94,6 +96,8 @@ export function recusaDaGravacao(
   // Tela liberável só para certos papéis (Entrada: só aux_adm, #488): vale até para o admin_geral.
   const naoLiberavel = depois.modulosExtras.map(id => ITENS.find(i => i.id === id)).find(i => i && !liberavelPara(i, depois.papel))
   if (naoLiberavel) return `${naoLiberavel.label} não pode ser liberada para esta função`
+  // Login da fábrica não passa por aqui, nem para virar outro papel (/admin/acessos-fabrica).
+  if (antes?.papel === 'fabrica' || depois.papel === 'fabrica') return 'Usuário não encontrado'
   if (gestor.papel === 'admin_geral') return null
   if (gestor.papel !== 'admin_socio') return 'Sem permissão para gerenciar usuários'
   // Mesma frase de id inexistente: a recusa não revela que o usuário existe fora do alcance.

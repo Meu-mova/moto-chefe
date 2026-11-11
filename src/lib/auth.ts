@@ -4,7 +4,7 @@ import { usuarios } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { cargoDoUsuario } from '@/lib/cargos'
 import { usuarioComCargo } from '@/lib/usuario-com-cargo'
 import { gruposLiberadosVivos, usuarioDaRede } from '@/lib/grupos-liberados'
@@ -68,6 +68,10 @@ export const getUsuarioLogado = cache(async () => {
   // for desativado por engano, a saída é pelo banco (UPDATE usuarios SET
   // ativo = true), não por uma exceção de papel no código.
   if (!usuario.ativo) redirect('/conta-desativada')
+
+  // Login da fábrica não chama Server Action nenhuma (@/lib/painel-fabrica). O middleware já
+  // recusa; isto vale quando ele seguiu em frente sem validar (fail-open por timeout).
+  if (usuario.papel === 'fabrica' && (await headers()).has('next-action')) redirect('/fabrica')
 
   // Lido a cada requisição: editar o cargo vale na hora para todos os usuários dele.
   const cargo = await withTimeout(cargoDoUsuario(db, usuario), 8000, 'cargo do usuário no banco')
