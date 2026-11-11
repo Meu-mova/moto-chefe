@@ -6,6 +6,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -38,7 +39,7 @@ after(async () => {
   await db.execute(sql`delete from despesas where categoria like 'CAT834 %'`)
   await db.execute(sql`delete from categorias_despesa where nome like 'CAT834 %'`)
   await db.execute(sql`delete from categorias_caixa where nome like 'CAT834 %'`)
-  await db.execute(sql`delete from usuarios where email like 'cat834-%@teste.invalid'`)
+  await db.execute(sql`delete from usuarios where email like '%-cat834-%@teste.invalid'`)
   await db.execute(sql`delete from lojas where grupo_id in (select id from grupos where cnpj in (${sql.join(CNPJS_GLOBAIS.map(c => sql`${c}`), sql`, `)}))`)
   await db.execute(sql`delete from grupos where cnpj in (${sql.join(CNPJS_GLOBAIS.map(c => sql`${c}`), sql`, `)})`)
   await db.execute(sql`delete from contas where nome like 'CAT834 %'`)
@@ -52,17 +53,11 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 }
 
 type Exec = Pick<Db['db'], 'execute'>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const linhas = async (exec: Exec, q: ReturnType<typeof sql>) => ((await exec.execute(q)) as unknown as { rows: any[] }).rows
 
-/** Conta + grupo + loja + usuário: o mínimo para gravar despesa e lançamento de caixa. */
+/** Conta + grupo + loja + sócio: o mínimo para gravar despesa e lançamento de caixa. */
 async function semearGrupo(exec: Exec, nome: string, cnpj: string) {
-  const [conta] = await linhas(exec, sql`insert into contas (nome) values (${'CAT834 ' + nome}) returning id`)
-  const [grupo] = await linhas(exec, sql`insert into grupos (nome, cnpj, conta_id) values (${'CAT834 ' + nome}, ${cnpj}, ${conta.id}) returning id`)
-  const [loja] = await linhas(exec, sql`insert into lojas (nome, cidade, endereco, grupo_id) values (${'CAT834 Loja ' + nome}, 'C', 'R', ${grupo.id}) returning id`)
-  const [usuario] = await linhas(exec, sql`insert into usuarios (id, nome, email, papel, loja_id)
-    values (gen_random_uuid(), 'Socio', ${'cat834-' + cnpj + '@teste.invalid'}, 'admin_socio', ${loja.id}) returning id`)
-  return { grupoId: grupo.id as string, lojaId: loja.id as string, usuarioId: usuario.id as string }
+  const base = await semearContaBase(exec, { prefixo: 'CAT834', nome, cnpj })
+  return { ...base, usuarioId: await semearUsuario(exec, base, { papel: 'admin_socio' }) }
 }
 
 async function despesa(exec: Exec, g: { grupoId: string; lojaId: string; usuarioId: string }, categoria: string, data = '2026-09-10') {
