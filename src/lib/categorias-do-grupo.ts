@@ -72,7 +72,7 @@ export async function categoriasCaixaDoGrupo(exec: Leitor, grupoId: string): Pro
 /**
  * Recusa a despesa cuja categoria não é do grupo. Inativa vale: a despesa antiga continua editável.
  * Na edição (`categoriaAtual`), a categoria que não mudou não é reconferida: o registro antigo com
- * nome fora do catálogo continua gravando (avise, não bloqueie; mesmo critério do #399).
+ * nome fora do catálogo é aceito sem reconferir (mesmo critério do documento que não mudou, #399).
  * Devolve se a categoria pede beneficiário, para quem grava não ler a categoria de novo.
  */
 export async function conferirCategoriaDespesa(

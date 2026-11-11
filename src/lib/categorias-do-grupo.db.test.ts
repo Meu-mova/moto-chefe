@@ -253,7 +253,7 @@ test('editar registro que mantém a categoria antiga fora do catálogo grava; tr
     const a = await semearGrupo(tx, 'Legado A', '83400000009001')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Atual', ...OPERACIONAL })
 
-    // "Pedágio" do Open Finance num grupo sem catálogo, ou nome renomeado: avisa, não bloqueia (#399).
+    // "Pedágio" do Open Finance num grupo sem catálogo, ou nome renomeado: aceito sem reconferir (#399).
     assert.deepEqual(await leitura.conferirCategoriaDespesa(tx, a.grupoId, 'CAT834 Legada', ' cat834 legada'), { exigeBeneficiario: false })
     await assert.rejects(leitura.conferirCategoriaDespesa(tx, a.grupoId, 'CAT834 Outra', 'CAT834 Legada'), NAO_ENCONTRADA)
     assert.deepEqual(await leitura.conferirCategoriaDespesa(tx, a.grupoId, 'CAT834 Atual', 'CAT834 Legada'), { exigeBeneficiario: false })
