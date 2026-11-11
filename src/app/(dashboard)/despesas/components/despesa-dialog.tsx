@@ -88,11 +88,13 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
         banco,
       }
       if (modo === 'criar') {
-        await criarDespesaAction(dados)
+        const r = await criarDespesaAction(dados)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Despesa registrada!')
         resetar()
       } else {
-        await editarDespesaAction(inicial!.id, dados)
+        const r = await editarDespesaAction(inicial!.id, dados)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Despesa atualizada!')
       }
       onOpenChange?.(false)

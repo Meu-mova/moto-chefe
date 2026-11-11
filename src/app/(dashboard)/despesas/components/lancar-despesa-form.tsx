@@ -49,7 +49,8 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
     }
     startTransition(async () => {
       try {
-        await lancarDespesaOpenFinanceAction(id, categoria, lojaId || null, exigeBeneficiario ? beneficiario : null)
+        const r = await lancarDespesaOpenFinanceAction(id, categoria, lojaId || null, exigeBeneficiario ? beneficiario : null)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Despesa lançada!')
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao lançar')
@@ -68,7 +69,8 @@ export function LancarDespesaForm({ id, lojas, categorias, categoriasComBenefici
     }
     startTransition(async () => {
       try {
-        await editarCategorizacaoOpenFinanceAction(id, categoria, lojaId || null, exigeBeneficiario ? beneficiario : null)
+        const r = await editarCategorizacaoOpenFinanceAction(id, categoria, lojaId || null, exigeBeneficiario ? beneficiario : null)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Categorização atualizada')
         setEditando(false)
       } catch (e: unknown) {

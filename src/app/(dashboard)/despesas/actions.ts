@@ -6,6 +6,7 @@ import { despesas, despesasOpenFinance, beneficiariosDespesa } from '@/lib/db/sc
 import { conferirCategoriaDespesa } from '@/lib/categorias-do-grupo'
 import { eq, and, asc, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { acao } from '@/lib/resultado-action'
 
 const ADMINS = ['admin_geral', 'admin_socio'] as const
 
@@ -83,7 +84,7 @@ async function lojaIdValidaNoGrupo(usuario: { papel: string; lojaId: string | nu
   return lojaIdsGrupo.includes(lojaId) ? lojaId : null
 }
 
-export async function criarDespesaAction(dados: DespesaInput) {
+async function criarDespesa(dados: DespesaInput) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
   parseValor(dados.valor)
@@ -109,7 +110,7 @@ export async function criarDespesaAction(dados: DespesaInput) {
   revalidatePath('/financeiro')
 }
 
-export async function editarDespesaAction(id: string, dados: DespesaInput) {
+async function editarDespesa(id: string, dados: DespesaInput) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
   parseValor(dados.valor)
@@ -139,6 +140,16 @@ export async function editarDespesaAction(id: string, dados: DespesaInput) {
   revalidatePath('/financeiro')
 }
 
+// Recusa de categoria (#834) volta como { ok: false, erro }: lançada, a mensagem some no build de
+// produção (#404). Os outros erros destas gravações seguem lançados, como antes.
+export async function criarDespesaAction(dados: DespesaInput) {
+  return acao(() => criarDespesa(dados))
+}
+
+export async function editarDespesaAction(id: string, dados: DespesaInput) {
+  return acao(() => editarDespesa(id, dados))
+}
+
 export async function excluirDespesaAction(id: string) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
@@ -154,7 +165,7 @@ export async function excluirDespesaAction(id: string) {
   revalidatePath('/financeiro')
 }
 
-export async function lancarDespesaOpenFinanceAction(
+async function lancarDespesaOpenFinance(
   id: string,
   categoria: string,
   lojaId: string | null,
@@ -208,7 +219,7 @@ export async function lancarDespesaOpenFinanceAction(
   revalidatePath('/financeiro')
 }
 
-export async function editarCategorizacaoOpenFinanceAction(
+async function editarCategorizacaoOpenFinance(
   id: string,
   categoria: string,
   lojaId: string | null,
@@ -243,6 +254,14 @@ export async function editarCategorizacaoOpenFinanceAction(
 
   revalidatePath('/despesas')
   revalidatePath('/financeiro')
+}
+
+export async function lancarDespesaOpenFinanceAction(id: string, categoria: string, lojaId: string | null, beneficiario?: string | null) {
+  return acao(() => lancarDespesaOpenFinance(id, categoria, lojaId, beneficiario))
+}
+
+export async function editarCategorizacaoOpenFinanceAction(id: string, categoria: string, lojaId: string | null, beneficiario?: string | null) {
+  return acao(() => editarCategorizacaoOpenFinance(id, categoria, lojaId, beneficiario))
 }
 
 export async function cancelarCategorizacaoOpenFinanceAction(id: string) {

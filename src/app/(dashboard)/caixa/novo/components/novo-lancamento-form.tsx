@@ -78,7 +78,7 @@ export function NovoLancamentoForm({
         comprovanteUrl = await uploadComprovanteAction(fd)
       }
 
-      await criarLancamentoAction({
+      const r = await criarLancamentoAction({
         lojaId,
         tipo,
         categoria,
@@ -87,6 +87,7 @@ export function NovoLancamentoForm({
         data,
         comprovanteUrl,
       })
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Lançamento registrado!')
       router.push('/caixa')
     } catch (e: unknown) {

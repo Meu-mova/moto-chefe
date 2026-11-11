@@ -4,12 +4,13 @@ import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { lancamentosCaixa } from '@/lib/db/schema'
 import { conferirCategoriaCaixaDaLoja } from '@/lib/categorias-do-grupo'
+import { acao } from '@/lib/resultado-action'
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-export async function criarLancamentoAction(dados: {
+type LancamentoInput = {
   lojaId: string
   tipo: 'entrada' | 'saida'
   categoria: string
@@ -18,7 +19,15 @@ export async function criarLancamentoAction(dados: {
   data: string
   vendaId?: string
   comprovanteUrl?: string
-}) {
+}
+
+// Recusa de categoria (#834) volta como { ok: false, erro }: lançada, a mensagem some no build de
+// produção (#404). Os outros erros seguem lançados, como antes.
+export async function criarLancamentoAction(dados: LancamentoInput) {
+  return acao(() => criarLancamento(dados))
+}
+
+async function criarLancamento(dados: LancamentoInput) {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new Error('Sem permissão')
