@@ -233,3 +233,17 @@ test('configDespesas e DRE do B não usam a classificação que o A deu à categ
   assert.deepEqual(dreB.semGrupo, ['CAT834 Folha'])
   assert.deepEqual(dreB.colunas.map(c => c.entrada.despesasPorGrupo), [{ outras: 100 }])
 })
+
+test('mesma categoria com outra grafia (caixa e espaços): confere, conta e casa com o catálogo (#834)', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearGrupo(tx, 'Grafia A', '83400000008001')
+    await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Estorno', ...OPERACIONAL })
+    await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Sangria', tipo: 'saida' })
+    await despesa(tx, a, 'CAT834 ESTORNO')
+    await despesa(tx, a, ' cat834 estorno ')
+
+    assert.deepEqual(await leitura.conferirCategoriaDespesa(tx, a.grupoId, 'cat834 ESTORNO '), { exigeBeneficiario: false })
+    await leitura.conferirCategoriaCaixaDaLoja(tx, a.lojaId, ' CAT834 sangria')
+    assert.equal(await admin.contarLancamentosDaCategoriaDespesa(tx, a.grupoId, 'CAT834 Estorno'), 2)
+  })
+})

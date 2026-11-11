@@ -2,7 +2,7 @@
  * Categorias de despesa e de caixa do grupo (#834): opção do cliente, lida só por aqui e
  * sempre com o grupo no where. Antes eram uma lista só para todas as Contas.
  */
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, sql, type AnyColumn } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { categoriasCaixa, categoriasDespesa } from '@/lib/db/schema'
 import { RecusaUsuario } from '@/lib/resultado-action'
@@ -30,6 +30,12 @@ export type CategoriaCaixaDoGrupo = {
 }
 
 export const CATEGORIA_NAO_ENCONTRADA = 'Categoria não encontrada'
+
+/**
+ * Categoria se compara sem caixa e sem espaço nas pontas, como o índice único da 0180 e o DRE
+ * (chaveCategoria): o lançamento guarda o nome como texto e nem sempre com a grafia do catálogo.
+ */
+export const mesmoNome = (coluna: AnyColumn, nome: string) => sql`lower(trim(${coluna})) = lower(trim(${nome}))`
 
 export async function categoriasDespesaDoGrupo(exec: Leitor, grupoId: string): Promise<CategoriaDespesaDoGrupo[]> {
   return exec.select({
@@ -70,7 +76,7 @@ export async function conferirCategoriaDespesa(
 ): Promise<{ exigeBeneficiario: boolean }> {
   const [cat] = await exec.select({ exigeBeneficiario: categoriasDespesa.exigeBeneficiario })
     .from(categoriasDespesa)
-    .where(and(eq(categoriasDespesa.grupoId, grupoId), eq(categoriasDespesa.nome, nome)))
+    .where(and(eq(categoriasDespesa.grupoId, grupoId), mesmoNome(categoriasDespesa.nome, nome)))
     .limit(1)
   if (!cat) throw new RecusaUsuario(CATEGORIA_NAO_ENCONTRADA)
   return cat
@@ -83,7 +89,7 @@ export async function conferirCategoriaCaixaDaLoja(exec: Leitor, lojaId: string,
     .where(and(
       // A coluna fica fora da subconsulta, então casa com categorias_caixa e não com lojas.grupo_id.
       sql`${categoriasCaixa.grupoId} = (select l.grupo_id from lojas l where l.id = ${lojaId})`,
-      eq(categoriasCaixa.nome, nome),
+      mesmoNome(categoriasCaixa.nome, nome),
     ))
     .limit(1)
   if (!cat) throw new RecusaUsuario(CATEGORIA_NAO_ENCONTRADA)

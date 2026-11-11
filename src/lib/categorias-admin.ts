@@ -3,12 +3,12 @@
  * (grupo ativo do sócio) e vai no where de toda gravação: a categoria de outra Conta e a inexistente
  * recebem a mesma frase. Molde: src/lib/maquininhas-admin.ts.
  */
-import { and, count, eq, ne, sql, type AnyColumn } from 'drizzle-orm'
+import { and, count, eq, ne, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { categoriasCaixa, categoriasDespesa, despesas, despesasOpenFinance, lancamentosCaixa, lojas } from '@/lib/db/schema'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { normalizarClassificacao } from '@/lib/categoria-despesa'
-import { CATEGORIA_NAO_ENCONTRADA } from '@/lib/categorias-do-grupo'
+import { CATEGORIA_NAO_ENCONTRADA, mesmoNome } from '@/lib/categorias-do-grupo'
 
 type Executor = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
 
@@ -28,9 +28,6 @@ function nomeLimpo(nome: string): string {
   if (!limpo) throw new RecusaUsuario('Nome obrigatório')
   return limpo
 }
-
-// Mesma comparação do índice único (e do DRE): "Aluguel" e " aluguel" são o mesmo nome.
-const mesmoNome = (coluna: AnyColumn, nome: string) => sql`lower(trim(${coluna})) = lower(trim(${nome}))`
 
 function recusarSeHouver(linhas: unknown[], frase: string) {
   if (linhas.length > 0) throw new RecusaUsuario(frase)
@@ -95,7 +92,7 @@ export async function excluirCategoriaDespesa(exec: Executor, grupoId: string, i
  */
 export async function contarLancamentosDaCategoriaDespesa(exec: Executor, grupoId: string, nome: string): Promise<number> {
   const [linha] = await exec.select({ qtd: count() }).from(despesas)
-    .where(and(eq(despesas.grupoId, grupoId), eq(despesas.categoria, nome)))
+    .where(and(eq(despesas.grupoId, grupoId), mesmoNome(despesas.categoria, nome)))
   return Number(linha?.qtd ?? 0)
 }
 
