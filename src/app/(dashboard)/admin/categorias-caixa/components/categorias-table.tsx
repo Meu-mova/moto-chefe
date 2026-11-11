@@ -133,7 +133,7 @@ function ConfirmarExclusaoDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           A categoria <strong>{categoria?.nome}</strong> será removida permanentemente.
-          Lançamentos existentes não serão afetados.
+          Se ela já tiver lançamentos, a exclusão é recusada: desative em vez de excluir.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>

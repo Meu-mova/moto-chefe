@@ -212,7 +212,7 @@ function ConfirmarExclusaoDespesaDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           A categoria <strong>{categoria?.nome}</strong> será removida permanentemente.
-          Despesas já lançadas não serão afetadas.
+          Se ela já tiver lançamentos, a exclusão é recusada: desative em vez de excluir.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
