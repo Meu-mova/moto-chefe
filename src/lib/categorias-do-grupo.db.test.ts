@@ -55,7 +55,7 @@ async function emTransacaoDesfeita(fn: (tx: Tx) => Promise<void>) {
 type Exec = Pick<Db['db'], 'execute'>
 
 /** Conta + grupo + loja + sócio: o mínimo para gravar despesa e lançamento de caixa. */
-async function semearGrupo(exec: Exec, nome: string, cnpj: string) {
+async function semearGrupoComSocio(exec: Exec, nome: string, cnpj: string) {
   const base = await semearContaBase(exec, { prefixo: 'CAT834', nome, cnpj })
   return { ...base, usuarioId: await semearUsuario(exec, base, { papel: 'admin_socio' }) }
 }
@@ -71,8 +71,8 @@ const nomesCaixa = async (exec: Tx, grupoId: string) => (await leitura.categoria
 
 test('categoria criada no grupo A aparece só no A (despesa e caixa) (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Cria A', '83400000001001')
-    const b = await semearGrupo(tx, 'Cria B', '83400000001002')
+    const a = await semearGrupoComSocio(tx, 'Cria A', '83400000001001')
+    const b = await semearGrupoComSocio(tx, 'Cria B', '83400000001002')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Aluguel', ...OPERACIONAL })
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Troco', tipo: 'saida' })
 
@@ -85,8 +85,8 @@ test('categoria criada no grupo A aparece só no A (despesa e caixa) (#834)', as
 
 test('grupo B não edita, não exclui nem liga/desliga categoria do A; mesma frase do id inexistente (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Edita A', '83400000002001')
-    const b = await semearGrupo(tx, 'Edita B', '83400000002002')
+    const a = await semearGrupoComSocio(tx, 'Edita A', '83400000002001')
+    const b = await semearGrupoComSocio(tx, 'Edita B', '83400000002002')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Frete', ...OPERACIONAL })
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Deposito', tipo: 'saida' })
     const [despA] = (await leitura.categoriasDespesaDoGrupo(tx, a.grupoId)).filter(c => c.nome === 'CAT834 Frete')
@@ -115,8 +115,8 @@ test('grupo B não edita, não exclui nem liga/desliga categoria do A; mesma fra
 
 test('mesmo nome em A e B pode; repetido no mesmo grupo não, nem com caixa e espaço diferentes (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Nome A', '83400000003001')
-    const b = await semearGrupo(tx, 'Nome B', '83400000003002')
+    const a = await semearGrupoComSocio(tx, 'Nome A', '83400000003001')
+    const b = await semearGrupoComSocio(tx, 'Nome B', '83400000003002')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Energia', ...OPERACIONAL })
     await admin.criarCategoriaDespesa(tx, b.grupoId, { nome: 'CAT834 Energia', ...OPERACIONAL })
     await assert.rejects(admin.criarCategoriaDespesa(tx, a.grupoId, { nome: ' cat834 energia ', ...OPERACIONAL }), REPETIDA)
@@ -133,7 +133,7 @@ test('mesmo nome em A e B pode; repetido no mesmo grupo não, nem com caixa e es
 
 test('caixa: o mesmo nome vale uma vez por tipo no grupo (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Tipo A', '83400000004001')
+    const a = await semearGrupoComSocio(tx, 'Tipo A', '83400000004001')
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Ajuste', tipo: 'entrada' })
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Ajuste', tipo: 'saida' })
     await assert.rejects(admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'cat834 ajuste', tipo: 'saida' }), REPETIDA)
@@ -146,8 +146,8 @@ test('caixa: o mesmo nome vale uma vez por tipo no grupo (#834)', async () => {
 
 test('excluir categoria com lançamento no grupo recusa e orienta desativar; sem lançamento no grupo exclui (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Exclui A', '83400000005001')
-    const b = await semearGrupo(tx, 'Exclui B', '83400000005002')
+    const a = await semearGrupoComSocio(tx, 'Exclui A', '83400000005001')
+    const b = await semearGrupoComSocio(tx, 'Exclui B', '83400000005002')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Usada', ...OPERACIONAL })
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 SoNoB', ...OPERACIONAL })
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Gaveta', tipo: 'saida' })
@@ -180,8 +180,8 @@ test('excluir categoria com lançamento no grupo recusa e orienta desativar; sem
 
 test('contagem de lançamentos da categoria só vê o próprio grupo (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Conta A', '83400000006001')
-    const b = await semearGrupo(tx, 'Conta B', '83400000006002')
+    const a = await semearGrupoComSocio(tx, 'Conta A', '83400000006001')
+    const b = await semearGrupoComSocio(tx, 'Conta B', '83400000006002')
     await despesa(tx, a, 'CAT834 Contada')
     await despesa(tx, b, 'CAT834 Contada')
     await despesa(tx, b, 'CAT834 Contada')
@@ -192,8 +192,8 @@ test('contagem de lançamentos da categoria só vê o próprio grupo (#834)', as
 
 test('gravar lançamento confere a categoria no grupo: a do A é "não encontrada" no B (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Grava A', '83400000007001')
-    const b = await semearGrupo(tx, 'Grava B', '83400000007002')
+    const a = await semearGrupoComSocio(tx, 'Grava A', '83400000007001')
+    const b = await semearGrupoComSocio(tx, 'Grava B', '83400000007002')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 SoDoA', ...OPERACIONAL })
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 CaixaDoA', tipo: 'saida' })
 
@@ -210,8 +210,8 @@ test('gravar lançamento confere a categoria no grupo: a do A é "não encontrad
 })
 
 test('configDespesas e DRE do B não usam a classificação que o A deu à categoria (#834)', async () => {
-  const a = await semearGrupo(db, 'Global A', CNPJS_GLOBAIS[0])
-  const b = await semearGrupo(db, 'Global B', CNPJS_GLOBAIS[1])
+  const a = await semearGrupoComSocio(db, 'Global A', CNPJS_GLOBAIS[0])
+  const b = await semearGrupoComSocio(db, 'Global B', CNPJS_GLOBAIS[1])
   await admin.criarCategoriaDespesa(db, a.grupoId, { nome: 'CAT834 Retirada', contaComoDespesa: false, motivoNaoOperacional: 'retirada_socio', grupoDre: null })
   await admin.criarCategoriaCaixa(db, a.grupoId, { nome: 'CAT834 Sangria', tipo: 'saida' })
   const [sangria] = (await leitura.categoriasCaixaDoGrupo(db, a.grupoId)).filter(c => c.nome === 'CAT834 Sangria')
@@ -236,7 +236,7 @@ test('configDespesas e DRE do B não usam a classificação que o A deu à categ
 
 test('mesma categoria com outra grafia (caixa e espaços): confere, conta e casa com o catálogo (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Grafia A', '83400000008001')
+    const a = await semearGrupoComSocio(tx, 'Grafia A', '83400000008001')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Estorno', ...OPERACIONAL })
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Sangria', tipo: 'saida' })
     await despesa(tx, a, 'CAT834 ESTORNO')
@@ -250,7 +250,7 @@ test('mesma categoria com outra grafia (caixa e espaços): confere, conta e casa
 
 test('editar registro que mantém a categoria antiga fora do catálogo grava; trocar para uma fora do catálogo recusa (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Legado A', '83400000009001')
+    const a = await semearGrupoComSocio(tx, 'Legado A', '83400000009001')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Atual', ...OPERACIONAL })
 
     // "Pedágio" do Open Finance num grupo sem catálogo, ou nome renomeado: aceito sem reconferir (#399).
@@ -262,7 +262,7 @@ test('editar registro que mantém a categoria antiga fora do catálogo grava; tr
 
 test('excluir categoria usada só no extrato do banco (Open Finance) do grupo também recusa (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Extrato A', '83400000010001')
+    const a = await semearGrupoComSocio(tx, 'Extrato A', '83400000010001')
     await admin.criarCategoriaDespesa(tx, a.grupoId, { nome: 'CAT834 Extrato', ...OPERACIONAL })
     const [cat] = (await leitura.categoriasDespesaDoGrupo(tx, a.grupoId)).filter(c => c.nome === 'CAT834 Extrato')
     await tx.execute(sql`insert into despesas_open_finance (grupo_id, conta_id, banco, transacao_id, data, valor, categoria)
@@ -276,7 +276,7 @@ test('excluir categoria usada só no extrato do banco (Open Finance) do grupo ta
 
 test('caixa: "ambos" repete entrada e saída do mesmo nome, e o lançamento confere o tipo (#834)', async () => {
   await emTransacaoDesfeita(async tx => {
-    const a = await semearGrupo(tx, 'Ambos A', '83400000011001')
+    const a = await semearGrupoComSocio(tx, 'Ambos A', '83400000011001')
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Troca', tipo: 'ambos' })
     await assert.rejects(admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Troca', tipo: 'entrada' }), REPETIDA)
     await admin.criarCategoriaCaixa(tx, a.grupoId, { nome: 'CAT834 Aporte', tipo: 'entrada' })
