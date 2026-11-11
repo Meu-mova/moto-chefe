@@ -2,6 +2,7 @@
 import { db } from '@/lib/db'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
+import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { revalidatePath } from 'next/cache'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import {
@@ -11,10 +12,11 @@ import {
   type DadosCategoriaCaixa, type DadosCategoriaDespesa,
 } from '@/lib/categorias-admin'
 
-// O grupo é sempre o ativo do sócio, nunca um id vindo da tela (#834).
+// O grupo é sempre o ativo do sócio, nunca um id vindo da tela (#834). Quem pode é quem acessa a
+// página: a mesma regra da navegação, para tela e servidor não divergirem.
 async function grupoDoAdmin() {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new RecusaUsuario('Sem permissão')
+  if (!usuarioPodeAcessar(usuario, '/admin/categorias-caixa')) throw new RecusaUsuario('Sem permissão')
   return (await getGrupoAtivo(usuario)).id
 }
 
