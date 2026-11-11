@@ -1,7 +1,7 @@
 import { db, execRows } from '@/lib/db'
 import {
   vendas, lojas, motos, ordensServico, vendasPecas, conciliacoesCartao,
-  despesas, despesasOpenFinance, categoriasDespesa,
+  despesas, despesasOpenFinance,
   lancamentosCaixa,
 } from '@/lib/db/schema'
 import { and, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm'
@@ -10,6 +10,7 @@ import { valorLiquidoExpr } from './valor-liquido'
 import { somaCustoMotoExpr } from './custo-moto'
 import { somarDespesas, type TotalDespesas } from '@/lib/despesas-operacionais'
 import { configDespesas } from './config-despesas'
+import { categoriasDespesaDoGrupo } from '@/lib/categorias-do-grupo'
 import { grupoOuOutras, somarEntradas, type EntradaDre, type GrupoDre, ENTRADA_VAZIA } from '@/lib/dre'
 
 /**
@@ -35,11 +36,9 @@ const bordas = (ano: number, mes: number) => ({
  * no catálogo de despesa (hoje "Luz" e "Material escritório") não tem grupo e cai
  * em Outras — a tela lista quem caiu lá, para não virar buraco silencioso.
  */
-async function mapaGrupoPorCategoria() {
-  const linhas = await db
-    .select({ nome: categoriasDespesa.nome, grupo: categoriasDespesa.grupoDre })
-    .from(categoriasDespesa)
-  return new Map(linhas.map(l => [l.nome.trim().toLowerCase(), grupoOuOutras(l.grupo)]))
+async function mapaGrupoPorCategoria(grupoId: string) {
+  const linhas = await categoriasDespesaDoGrupo(db, grupoId)
+  return new Map(linhas.map(l => [l.nome.trim().toLowerCase(), grupoOuOutras(l.grupoDre)]))
 }
 
 function agruparDespesas(
@@ -150,7 +149,7 @@ export async function dreDoMes(opts: {
     `),
 
     resumoDespesasDoPeriodo(grupoId, lojaIds, inicio, fim),
-    mapaGrupoPorCategoria(),
+    mapaGrupoPorCategoria(grupoId),
   ])
 
   const num = (v: unknown) => Number(v ?? 0)
@@ -293,7 +292,7 @@ export async function dreEvolucao(opts: {
     `),
 
     despesasPorMes(grupoId, lojaIds, inicio, fim),
-    mapaGrupoPorCategoria(),
+    mapaGrupoPorCategoria(grupoId),
   ])
 
   const num = (v: unknown) => Number(v ?? 0)

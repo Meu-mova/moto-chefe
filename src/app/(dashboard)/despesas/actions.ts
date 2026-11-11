@@ -2,7 +2,8 @@
 import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { despesas, despesasOpenFinance, categoriasDespesa, beneficiariosDespesa } from '@/lib/db/schema'
+import { despesas, despesasOpenFinance, beneficiariosDespesa } from '@/lib/db/schema'
+import { conferirCategoriaDespesa } from '@/lib/categorias-do-grupo'
 import { eq, and, asc, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
@@ -36,24 +37,21 @@ function assertPodeCategorizar(usuario: { papel: string; email: string }) {
 }
 
 /**
- * Devolve o beneficiário a gravar, ou null quando a categoria não pede.
+ * Confere que a categoria é do grupo (#834) e devolve o beneficiário a gravar, ou null quando
+ * a categoria não pede.
  *
  * A exigência sai da CATEGORIA (categorias_despesa.exige_beneficiario), não de uma
  * lista de nomes aqui: assim uma categoria nova passa a pedir sem deploy. O nome
  * precisa estar no catálogo do grupo — texto livre viraria "Cesar", "cesar" e
  * "César" na mesma coluna, e o relatório por sócio não fecharia.
  */
-async function beneficiarioValido(
+async function categoriaEBeneficiario(
   grupoId: string,
   categoria: string,
   beneficiario: string | null | undefined,
 ): Promise<string | null> {
-  const [cat] = await db
-    .select({ exige: categoriasDespesa.exigeBeneficiario })
-    .from(categoriasDespesa)
-    .where(eq(categoriasDespesa.nome, categoria))
-    .limit(1)
-  if (!cat?.exige) return null
+  const { exigeBeneficiario } = await conferirCategoriaDespesa(db, grupoId, categoria)
+  if (!exigeBeneficiario) return null
 
   const nome = beneficiario?.trim()
   if (!nome) throw new Error(`A categoria "${categoria}" exige informar a quem se destinou`)
@@ -91,7 +89,7 @@ export async function criarDespesaAction(dados: DespesaInput) {
   const grupo = await getGrupoAtivo(usuario)
   const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
-  const beneficiario = await beneficiarioValido(grupo.id, dados.categoria, dados.beneficiario)
+  const beneficiario = await categoriaEBeneficiario(grupo.id, dados.categoria, dados.beneficiario)
 
   await db.insert(despesas).values({
     grupoId:        grupo.id,
@@ -117,7 +115,7 @@ export async function editarDespesaAction(id: string, dados: DespesaInput) {
   const grupo = await getGrupoAtivo(usuario)
   const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
-  const beneficiario = await beneficiarioValido(grupo.id, dados.categoria, dados.beneficiario)
+  const beneficiario = await categoriaEBeneficiario(grupo.id, dados.categoria, dados.beneficiario)
 
   const res = await db.update(despesas).set({
     lojaId,
@@ -164,7 +162,7 @@ export async function lancarDespesaOpenFinanceAction(
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
-  const beneficiarioValidado = await beneficiarioValido(grupo.id, categoria, beneficiario)
+  const beneficiarioValidado = await categoriaEBeneficiario(grupo.id, categoria, beneficiario)
 
   const [linha] = await db.select().from(despesasOpenFinance)
     .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
@@ -218,7 +216,7 @@ export async function editarCategorizacaoOpenFinanceAction(
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
-  const beneficiarioValidado = await beneficiarioValido(grupo.id, categoria, beneficiario)
+  const beneficiarioValidado = await categoriaEBeneficiario(grupo.id, categoria, beneficiario)
 
   const [linha] = await db.select().from(despesasOpenFinance)
     .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))

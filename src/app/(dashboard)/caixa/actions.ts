@@ -3,6 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
 import { lancamentosCaixa } from '@/lib/db/schema'
+import { conferirCategoriaCaixaDaLoja } from '@/lib/categorias-do-grupo'
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -30,6 +31,7 @@ export async function criarLancamentoAction(dados: {
     throw new Error('Sem permissão para esta loja')
   }
   if (!(await podeAgirNaLoja(usuario, lojaIdFinal))) throw new Error('Sem permissão para esta loja')
+  await conferirCategoriaCaixaDaLoja(db, lojaIdFinal, dados.categoria)
 
   const valorNum = parseFloat(dados.valor)
   if (isNaN(valorNum) || valorNum <= 0) {

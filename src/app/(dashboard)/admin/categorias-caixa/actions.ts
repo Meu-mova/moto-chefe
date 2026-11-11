@@ -1,64 +1,27 @@
 'use server'
 import { db } from '@/lib/db'
-import { categoriasCaixa, categoriasDespesa, despesas } from '@/lib/db/schema'
-import { eq, asc, count } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
-import { normalizarClassificacao } from '@/lib/categoria-despesa'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import {
+  criarCategoriaCaixa, editarCategoriaCaixa, excluirCategoriaCaixa, definirCategoriaCaixaAtiva,
+  definirContaComoDespesaCaixa, criarCategoriaDespesa, editarCategoriaDespesa, excluirCategoriaDespesa,
+  definirCategoriaDespesaAtiva, contarLancamentosDaCategoriaDespesa,
+  type DadosCategoriaCaixa, type DadosCategoriaDespesa,
+} from '@/lib/categorias-admin'
 
-async function requireAdmin() {
-  const u = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio'].includes(u.papel)) throw new Error('Sem permissão')
+// O grupo é sempre o ativo do sócio, nunca um id vindo da tela (#834).
+async function grupoDoAdmin() {
+  const usuario = await getUsuarioLogado()
+  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) throw new RecusaUsuario('Sem permissão')
+  return (await getGrupoAtivo(usuario)).id
 }
 
-export async function listarCategoriasCaixaAction() {
-  return db
-    .select()
-    .from(categoriasCaixa)
-    .orderBy(categoriasCaixa.tipo, asc(categoriasCaixa.ordem), asc(categoriasCaixa.nome))
-}
-
-export async function criarCategoriaAction(dados: { nome: string; tipo: string }) {
-  await requireAdmin()
-  if (!dados.nome.trim()) throw new Error('Nome obrigatório')
-  if (!['entrada', 'saida', 'ambos'].includes(dados.tipo)) throw new Error('Tipo inválido')
-
-  await db.insert(categoriasCaixa).values({
-    nome: dados.nome.trim(),
-    tipo: dados.tipo,
-  })
+function revalidarCaixa() {
   revalidatePath('/admin/categorias-caixa')
   revalidatePath('/caixa')
-}
-
-export async function editarCategoriaAction(id: string, dados: { nome: string; tipo: string }) {
-  await requireAdmin()
-  if (!dados.nome.trim()) throw new Error('Nome obrigatório')
-  if (!['entrada', 'saida', 'ambos'].includes(dados.tipo)) throw new Error('Tipo inválido')
-
-  await db
-    .update(categoriasCaixa)
-    .set({ nome: dados.nome.trim(), tipo: dados.tipo })
-    .where(eq(categoriasCaixa.id, id))
-  revalidatePath('/admin/categorias-caixa')
-  revalidatePath('/caixa')
-}
-
-export async function excluirCategoriaAction(id: string) {
-  await requireAdmin()
-  await db.delete(categoriasCaixa).where(eq(categoriasCaixa.id, id))
-  revalidatePath('/admin/categorias-caixa')
-  revalidatePath('/caixa')
-}
-
-export async function toggleAtivoAction(id: string, ativo: boolean) {
-  await requireAdmin()
-  await db
-    .update(categoriasCaixa)
-    .set({ ativo })
-    .where(eq(categoriasCaixa.id, id))
-  revalidatePath('/admin/categorias-caixa')
-  revalidatePath('/caixa')
+  revalidatePath('/financeiro')
 }
 
 /**
@@ -73,57 +36,32 @@ function revalidarDespesa() {
   revalidatePath('/admin/dre')
 }
 
-export async function listarCategoriasDespesaAction() {
-  return db
-    .select()
-    .from(categoriasDespesa)
-    .orderBy(asc(categoriasDespesa.ordem), asc(categoriasDespesa.nome))
-}
-
-export type DadosCategoriaDespesa = {
-  nome: string
-  contaComoDespesa: boolean
-  motivoNaoOperacional?: string | null
-  grupoDre?: string | null
-}
-
-export async function criarCategoriaDespesaAction(dados: DadosCategoriaDespesa) {
-  await requireAdmin()
-  if (!dados.nome.trim()) throw new Error('Nome obrigatório')
-  const classificacao = normalizarClassificacao(dados)
-
-  await db.insert(categoriasDespesa).values({
-    nome: dados.nome.trim(),
-    ...classificacao,
+export async function criarCategoriaAction(dados: DadosCategoriaCaixa) {
+  return acao(async () => {
+    await criarCategoriaCaixa(db, await grupoDoAdmin(), dados)
+    revalidarCaixa()
   })
-  revalidarDespesa()
 }
 
-export async function editarCategoriaDespesaAction(id: string, dados: DadosCategoriaDespesa) {
-  await requireAdmin()
-  if (!dados.nome.trim()) throw new Error('Nome obrigatório')
-  const classificacao = normalizarClassificacao(dados)
-
-  await db
-    .update(categoriasDespesa)
-    .set({ nome: dados.nome.trim(), ...classificacao })
-    .where(eq(categoriasDespesa.id, id))
-  revalidarDespesa()
+export async function editarCategoriaAction(id: string, dados: DadosCategoriaCaixa) {
+  return acao(async () => {
+    await editarCategoriaCaixa(db, await grupoDoAdmin(), id, dados)
+    revalidarCaixa()
+  })
 }
 
-export async function excluirCategoriaDespesaAction(id: string) {
-  await requireAdmin()
-  await db.delete(categoriasDespesa).where(eq(categoriasDespesa.id, id))
-  revalidarDespesa()
+export async function excluirCategoriaAction(id: string) {
+  return acao(async () => {
+    await excluirCategoriaCaixa(db, await grupoDoAdmin(), id)
+    revalidarCaixa()
+  })
 }
 
-export async function toggleAtivoDespesaAction(id: string, ativo: boolean) {
-  await requireAdmin()
-  await db
-    .update(categoriasDespesa)
-    .set({ ativo })
-    .where(eq(categoriasDespesa.id, id))
-  revalidarDespesa()
+export async function toggleAtivoAction(id: string, ativo: boolean) {
+  return acao(async () => {
+    await definirCategoriaCaixaAtiva(db, await grupoDoAdmin(), id, ativo)
+    revalidarCaixa()
+  })
 }
 
 /**
@@ -132,29 +70,45 @@ export async function toggleAtivoDespesaAction(id: string, ativo: boolean) {
  * só ('caixa_nao_despesa'), então é liga-desliga.
  */
 export async function toggleContaComoDespesaCaixaAction(id: string, contaComoDespesa: boolean) {
-  await requireAdmin()
-  await db
-    .update(categoriasCaixa)
-    .set({ contaComoDespesa })
-    .where(eq(categoriasCaixa.id, id))
-  revalidatePath('/admin/categorias-caixa')
-  revalidatePath('/caixa')
-  revalidatePath('/financeiro')
+  return acao(async () => {
+    await definirContaComoDespesaCaixa(db, await grupoDoAdmin(), id, contaComoDespesa)
+    revalidarCaixa()
+  })
+}
+
+export async function criarCategoriaDespesaAction(dados: DadosCategoriaDespesa) {
+  return acao(async () => {
+    await criarCategoriaDespesa(db, await grupoDoAdmin(), dados)
+    revalidarDespesa()
+  })
+}
+
+export async function editarCategoriaDespesaAction(id: string, dados: DadosCategoriaDespesa) {
+  return acao(async () => {
+    await editarCategoriaDespesa(db, await grupoDoAdmin(), id, dados)
+    revalidarDespesa()
+  })
+}
+
+export async function excluirCategoriaDespesaAction(id: string) {
+  return acao(async () => {
+    await excluirCategoriaDespesa(db, await grupoDoAdmin(), id)
+    revalidarDespesa()
+  })
+}
+
+export async function toggleAtivoDespesaAction(id: string, ativo: boolean) {
+  return acao(async () => {
+    await definirCategoriaDespesaAtiva(db, await grupoDoAdmin(), id, ativo)
+    revalidarDespesa()
+  })
 }
 
 /**
- * Quantos lançamentos manuais já usam a categoria. A tela mostra isso antes de
+ * Quantos lançamentos manuais do grupo já usam a categoria. A tela mostra isso antes de
  * trocar a classificação: a regra vale para o histórico inteiro, então mexer aqui
  * reescreve meses fechados — esse número é o tamanho do estrago (ou do conserto).
- *
- * Conta só `despesas`; o extrato do Open Finance guarda a categoria como texto e
- * não tem vínculo por id, então o total real é maior. Serve de ordem de grandeza.
  */
 export async function contarLancamentosDaCategoriaAction(nome: string) {
-  await requireAdmin()
-  const [linha] = await db
-    .select({ qtd: count() })
-    .from(despesas)
-    .where(eq(despesas.categoria, nome))
-  return Number(linha?.qtd ?? 0)
+  return contarLancamentosDaCategoriaDespesa(db, await grupoDoAdmin(), nome)
 }
