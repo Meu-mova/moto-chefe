@@ -132,3 +132,7 @@ jobs:
           # (conta pessoal não precisa). Secret GITLEAKS_LICENSE cadastrado no
           # repo Meu-mova/moto-chefe em 2026-10-05; sem ele este step falha.
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          # A v3 tenta subir o relatório como artefato mesmo sem achado; com a cota
+          # de artefatos cheia, o check falhava com "no leaks found" (12/11/2026).
+          # O achado continua no log e no resumo do job.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
