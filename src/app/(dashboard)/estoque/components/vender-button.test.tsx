@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
-import { clicar, escolher } from '@/test/eventos-dom'
+import { clicar, digitar, escolher } from '@/test/eventos-dom'
 
 const { desmontar: desmontarDom } = montarDom()
 after(desmontarDom)
@@ -132,4 +132,26 @@ test('a reserva não mostra o bloco de Entrega', async () => {
   await t.clique(botao('Reserva'))
   assert.doesNotMatch(textoDaTela(), /Retira na loja/)
   assert.doesNotMatch(textoDaTela(), /Modalidade do frete na nota/)
+})
+
+const porPlaceholder = (texto: RegExp, n = 0) => {
+  const el = [...document.querySelectorAll<HTMLInputElement>('input')].filter(i => texto.test(i.placeholder))[n]
+  assert.ok(el, `campo com o placeholder ${texto} não está na tela`)
+  return el
+}
+
+test('a recusa some ao trocar para Reserva', async () => {
+  registrar.mock.mockImplementation(async () => ({ ok: false, erro: 'Recusa sintética.' }))
+  const t = await montar({ reservaAtiva: undefined })
+  await digitar(porPlaceholder(/^CPF ou CNPJ$/), '52998224725')
+  await digitar(porPlaceholder(/^Nome/), 'Cliente sintético')
+  await digitar(porPlaceholder(/^\(00\)/), '35999990774')
+  await digitar(porPlaceholder(/^email@/), 'c@example.com')
+  await digitar(porPlaceholder(/^0,00$/, 0), '1200000')
+  await digitar(porPlaceholder(/^0,00$/, 1), '1200000')
+  await preencherVenda(t)
+  await t.clique(botao('Confirmar Venda'))
+  assert.equal(document.querySelector('[role="alert"]')?.textContent, 'Recusa sintética.')
+  await t.clique(botao('Reserva'))
+  assert.equal(document.querySelector('[role="alert"]'), null)
 })

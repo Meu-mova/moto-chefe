@@ -240,6 +240,12 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
     setErro(null)
   }
 
+  // A recusa é da venda: não fica na tela da reserva.
+  function mudarTipo(novo: 'venda' | 'reserva') {
+    setTipo(novo)
+    setErro(null)
+  }
+
   async function abrir(tipoInicial: 'venda' | 'reserva') {
     resetForm(tipoInicial)
     setOpen(true)
@@ -558,10 +564,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                 )}
                 {!soReserva && !reservaAtiva && (
                   <div className="flex gap-1.5">
-                    <Button type="button" variant={tipo === 'venda' ? 'default' : 'outline'} size="sm" onClick={() => setTipo('venda')}>
+                    <Button type="button" variant={tipo === 'venda' ? 'default' : 'outline'} size="sm" onClick={() => mudarTipo('venda')}>
                       Venda
                     </Button>
-                    <Button type="button" variant={tipo === 'reserva' ? 'default' : 'outline'} size="sm" onClick={() => setTipo('reserva')}>
+                    <Button type="button" variant={tipo === 'reserva' ? 'default' : 'outline'} size="sm" onClick={() => mudarTipo('reserva')}>
                       Reserva
                     </Button>
                   </div>
