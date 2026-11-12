@@ -352,3 +352,22 @@ test('EntregaCampos com endereço já preenchido abre os campos completos', asyn
   assert.equal(campo<HTMLInputElement>(/^Rua/).value, 'Rua de exemplo')
   assert.equal(botao('Editar endereço'), undefined)
 })
+
+// Recusa do servidor (#848): aparece dentro do diálogo, que continua aberto com tudo o que foi digitado.
+test('recusa do servidor aparece dentro do diálogo, sem fechar nem apagar o que foi digitado; some ao tentar de novo', async () => {
+  const frase = 'Entrega para outro estado ainda não disponível. Use Retira na loja ou entrega no mesmo estado.'
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  criar.mock.mockImplementationOnce(async () => ({ ok: false, erro: frase }))
+  await t.clique(botao('Criar pedido'))
+  const dialogo = () => document.querySelector('[role="dialog"]')
+  assert.ok(dialogo(), 'o diálogo fechou')
+  assert.match(dialogo()?.textContent ?? '', new RegExp(frase.replace(/\./g, '\\.')))
+  assert.equal(campo<HTMLSelectElement>(/^Moto disponível/).value, MOTO.id)
+  assert.equal(campo<HTMLInputElement>(/^Número/).value, '100')
+  assert.match(resumo(), /Entregar em São Luís\/MA/)
+
+  await t.clique(botao('Criar pedido'))
+  assert.doesNotMatch(textoDaTela(), new RegExp(frase.replace(/\./g, '\\.')))
+})
