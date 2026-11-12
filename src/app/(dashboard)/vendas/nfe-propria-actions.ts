@@ -517,8 +517,10 @@ async function resumoDaNota(id: string): Promise<NotaResumo> {
   return nota
 }
 
-/** `renave`: o formulário do veículo como está na tela (só ciclomotor). */
-/** `observacao`: o texto editado na prévia; vazio ou ausente, sai o padrão. */
+/**
+ * `renave`: o formulário do veículo como está na tela (só ciclomotor).
+ * `observacao`: o texto editado na prévia; vazio ou ausente, sai o padrão.
+ */
 export async function transmitirNfePropriaAction(
   motoId: string, renave?: DadosRenave | null, transporte?: DadosTransporte, observacao?: string | null,
 ): Promise<ResultadoTransmissao> {
@@ -536,7 +538,7 @@ export async function transmitirNfePropriaAction(
     const renaveValidado = r.dados
     const o = observacaoDaNota(observacao, e.observacao)
     if (!o.ok) return o
-    const eComRenave = { ...e, renave: renaveValidado, observacao: o.texto }
+    const eDaNota = { ...e, renave: renaveValidado, observacao: o.texto }
     let transporteValidado: DadosTransporte | undefined
     if (operacaoExigeEntrega(renaveValidado?.tipoOperacao)) {
       const t = validarDadosTransporte(transporte)
@@ -601,7 +603,7 @@ export async function transmitirNfePropriaAction(
     }
 
     const uf = await ufDaEmpresa(e.cfg)
-    const payload = montarNfeVendaMoto(dadosDaVenda(eComRenave, uf, idExterno, transporteValidado), e.regra)
+    const payload = montarNfeVendaMoto(dadosDaVenda(eDaNota, uf, idExterno, transporteValidado), e.regra)
 
     notaId = await gravarEnvio(db, escolha, {
       vendaId: e.venda.id, vendaNumero: e.venda.numero, grupoId: e.grupoId, ambiente: e.cfg.ambiente, payload, emitidaPor: usuario.id,
