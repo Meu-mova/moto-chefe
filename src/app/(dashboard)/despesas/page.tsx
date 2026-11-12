@@ -5,7 +5,8 @@ import { hojeBrt, mesBrt } from '@/lib/data-venda'
 import { getGrupoAtivo, listarLojasDoGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
 import { criarMedidor } from '@/lib/db-diag'
-import { despesas, lojas, usuarios, categoriasDespesa, despesasOpenFinance, lancamentosCaixa, categoriasCaixa, beneficiariosDespesa } from '@/lib/db/schema'
+import { despesas, lojas, usuarios, despesasOpenFinance, lancamentosCaixa, beneficiariosDespesa } from '@/lib/db/schema'
+import { categoriasCaixaDoGrupo, categoriasDespesaDoGrupo } from '@/lib/categorias-do-grupo'
 import { eq, ne, desc, and, gte, lte, asc, sql, inArray } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { ResumoFaixa } from '@/components/resumo-faixa'
@@ -61,8 +62,7 @@ export default async function DespesasPage({
   medir('saidas_do_banco')
   const tConsultas = performance.now()
   const [
-    rowsManuais, lojasOpts, categoriasAtivas, categoriasComBeneficiario, beneficiarios,
-    categoriasNaoOperacionais, saidasCaixa, categoriasCaixaNaoOperacionais,
+    rowsManuais, lojasOpts, categoriasDespesaGrupo, beneficiarios, saidasCaixa, categoriasCaixaGrupo,
   ] = await Promise.all([
     db
       .select({
@@ -93,20 +93,7 @@ export default async function DespesasPage({
 
     listarLojasDoGrupoAtivo(usuario, { somenteAtivas: false }),
 
-    db
-      .select({ nome: categoriasDespesa.nome })
-      .from(categoriasDespesa)
-      .where(eq(categoriasDespesa.ativo, true))
-      .orderBy(asc(categoriasDespesa.ordem), asc(categoriasDespesa.nome))
-      .then(rows => rows.map(r => r.nome)),
-
-    // Categorias que pedem "a quem se destinou" (retirada, pró-labore). A marca
-    // fica na categoria — ver migração 0081.
-    db
-      .select({ nome: categoriasDespesa.nome })
-      .from(categoriasDespesa)
-      .where(eq(categoriasDespesa.exigeBeneficiario, true))
-      .then(rows => rows.map(r => r.nome)),
+    categoriasDespesaDoGrupo(db, grupo.id),
 
     // Sócios do grupo ativo. Inativo sai da lista de escolha, mas continua
     // aparecendo nos lançamentos antigos, que guardam o nome.
@@ -116,16 +103,6 @@ export default async function DespesasPage({
       .where(and(eq(beneficiariosDespesa.grupoId, grupo.id), eq(beneficiariosDespesa.ativo, true)))
       .orderBy(asc(beneficiariosDespesa.ordem), asc(beneficiariosDespesa.nome))
       .then(rows => rows.map(r => r.nome)),
-
-    // Saída real, mas não é custo de operar a loja: transferência entre lojas do
-    // grupo, compra de moto (mercadoria) e retirada de sócio. Até agora só o
-    // /financeiro respeitava essa marcação — aqui o total somava tudo, numa tela
-    // chamada "Despesas Operacionais".
-    db
-      .select({ nome: categoriasDespesa.nome })
-      .from(categoriasDespesa)
-      .where(eq(categoriasDespesa.contaComoDespesa, false))
-      .then(rows => new Set(rows.map(r => r.nome))),
 
     // Dinheiro pago da gaveta pelo administrativo da loja. Reprovado fica de fora,
     // igual faz o /caixa.
@@ -152,13 +129,20 @@ export default async function DespesasPage({
       ))
       .orderBy(desc(lancamentosCaixa.data)),
 
-    db
-      .select({ nome: categoriasCaixa.nome })
-      .from(categoriasCaixa)
-      .where(eq(categoriasCaixa.contaComoDespesa, false))
-      .then(rows => new Set(rows.map(r => r.nome))),
+    categoriasCaixaDoGrupo(db, grupo.id),
   ])
   medir('consultas_em_paralelo', tConsultas)
+
+  const categoriasAtivas = categoriasDespesaGrupo.filter(c => c.ativo).map(c => c.nome)
+  // Categorias que pedem "a quem se destinou" (retirada, pró-labore). A marca
+  // fica na categoria — ver migração 0081.
+  const categoriasComBeneficiario = categoriasDespesaGrupo.filter(c => c.exigeBeneficiario).map(c => c.nome)
+  // Saída real, mas não é custo de operar a loja: transferência entre lojas do
+  // grupo, compra de moto (mercadoria) e retirada de sócio. Até agora só o
+  // /financeiro respeitava essa marcação — aqui o total somava tudo, numa tela
+  // chamada "Despesas Operacionais".
+  const categoriasNaoOperacionais = new Set(categoriasDespesaGrupo.filter(c => !c.contaComoDespesa).map(c => c.nome))
+  const categoriasCaixaNaoOperacionais = new Set(categoriasCaixaGrupo.filter(c => !c.contaComoDespesa).map(c => c.nome))
 
   // A aba Lançamentos passou a ser a soma de duas origens: o que foi lançado à mão
   // aqui e o dinheiro que saiu do caixa das lojas. O que veio do banco fica na aba
