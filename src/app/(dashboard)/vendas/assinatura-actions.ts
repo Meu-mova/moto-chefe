@@ -5,8 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { documentosAssinatura, assinaturaEventos, assinaturaCodigos, vendas, lojas, grupos, usuarios } from '@/lib/db/schema'
+import { vendaEmQueAge } from '@/lib/venda-do-usuario'
 import { getUsuarioLogado } from '@/lib/auth'
-import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { buscarVenda } from '@/lib/queries/vendas'
 import {
   montarHtmlDocumento, dadosVendedoraCompletos, LABEL_TIPO,
@@ -33,16 +33,8 @@ export async function baseUrl(): Promise<string> {
 // Escopo de loja — mesmo padrão das páginas de impressão: admin só no grupo que
 // vê; os demais só a própria loja. Sem isso, alguém de outra loja listaria o TOKEN
 // dos documentos alheios, e o token é a credencial que assina o documento.
-async function vendaNoEscopo(vendaId: string): Promise<{ id: string; lojaId: string | null } | null> {
-  const usuario = await getUsuarioLogado()
-  const [venda] = await db
-    .select({ id: vendas.id, lojaId: vendas.lojaId })
-    .from(vendas)
-    .where(eq(vendas.id, vendaId))
-    .limit(1)
-  if (!venda) return null
-  if (!venda.lojaId) return usuario.papel === 'admin_geral' ? venda : null
-  return (await podeAgirNaLoja(usuario, venda.lojaId)) ? venda : null
+async function vendaNoEscopo(vendaId: string) {
+  return vendaEmQueAge(await getUsuarioLogado(), vendaId)
 }
 
 async function registrarEvento(documentoId: string, tipo: string, detalhe?: unknown) {
