@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { motos, vendas, modelos } from '@/lib/db/schema'
 import { eq, and, gte, sql, inArray } from 'drizzle-orm'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 export type ItemCompra = {
   modeloId: string
@@ -66,6 +67,7 @@ export async function listarDadosCompras(lojaId: string | undefined, grupoLojaId
         // Moto em caixa (status 'caixa', ainda não montada) CONTA como estoque:
         // está comprada e no galpão, e pedir de novo seria comprar duas vezes.
         sql`(${motos.status}::text != 'vendida' AND ${motos.disponibilidade} IS DISTINCT FROM 'vendida'::disponibilidade_moto)`,
+        motoNaoArquivada(),
         lojaCond,
       ))
       .groupBy(motos.modeloId, nome, modelos.marca, motos.cor),

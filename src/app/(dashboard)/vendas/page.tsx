@@ -23,6 +23,7 @@ import type { VendaComDetalhes } from '@/lib/queries/vendas'
 import { valorConciliadoManual } from '@/lib/conciliacao-status'
 import { descontosDasVendas } from '@/lib/queries/descontos'
 import { percentualDesconto, periodoAnteriorAoRegistro } from '@/lib/desconto'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 const ADMINS = ['admin_geral', 'admin_socio']
 const TIPOS_CARTAO_CONC = new Set(['cartao_credito', 'cartao_debito', 'link_pagamento'])
@@ -137,7 +138,7 @@ export default async function VendasPage({
       .from(motos)
       .innerJoin(modelos, eq(motos.modeloId, modelos.id))
       .innerJoin(lojas,   eq(motos.lojaId,   lojas.id))
-      .where(and(eq(motos.disponibilidade, 'disponivel'), inArray(motos.lojaId, lojaIdsGrupo.length ? lojaIdsGrupo : lojaValues.length ? lojaValues : [usuario.lojaId ?? '']))),
+      .where(and(eq(motos.disponibilidade, 'disponivel'), motoNaoArquivada(), inArray(motos.lojaId, lojaIdsGrupo.length ? lojaIdsGrupo : lojaValues.length ? lojaValues : [usuario.lojaId ?? '']))),
     listarLojasDoGrupoAtivo(usuario),
     contaDoGrupoAtivo(usuario).then(c => listarModelosDaConta(c)),
     listarUsuariosDoGrupo(grupoAtivo.id, { papeis: PAPEIS_VENDE }),

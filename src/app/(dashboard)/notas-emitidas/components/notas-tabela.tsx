@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { diaBrt } from '@/lib/data-venda'
+import { marcarVarias } from '@/lib/selecao'
 import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
-import { colunaMotivoVisivel, linkDaVenda, marcarNota, selecaoDaPagina, temDocumento, type Situacao, type TipoArquivo } from '@/lib/notas-emitidas'
+import { colunaMotivoVisivel, linkDaVenda, marcarNota, selecaoDaPagina, temDocumento, vendaQueNaoExisteMais, type Situacao, type TipoArquivo } from '@/lib/notas-emitidas'
 import { AcoesDaNota } from './acoes-da-nota'
 import { InutilizarDialogo, type NotaDoDialogo } from './inutilizar-dialogo'
 import { MotivoDialogo } from './motivo-dialogo'
@@ -75,11 +76,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
 
   function marcarPagina(marcar: boolean) {
     setTodasDoFiltro(false)
-    setMarcadas(prev => {
-      const novo = new Set(prev)
-      for (const id of idsDaPagina) if (marcar) novo.add(id); else novo.delete(id)
-      return novo
-    })
+    setMarcadas(prev => marcarVarias(prev, idsDaPagina, marcar))
   }
 
   function marcar(id: string, marcar: boolean) {
@@ -198,6 +195,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
               {linhas.map(n => {
                 const doc = temDocumento(n)
                 const venda = linkDaVenda(n)
+                const semVenda = vendaQueNaoExisteMais(n)
                 return (
                   <tr key={n.id} className="hover:bg-muted">
                     {/* Coluna reservada: a nota sem documento ocupa o mesmo espaço, e o número alinha. */}
@@ -211,7 +209,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
                     <td className={`${celula} font-semibold tabular-nums text-foreground`}>{n.numero ?? '-'}</td>
                     <td className={`${celula} text-muted-foreground`}>{n.serie ?? '-'}</td>
                     <td className={`${celula} tabular-nums`}>
-                      {n.vendaNumero == null ? vazio : venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : <>#{n.vendaNumero}</>}
+                      {semVenda ? <span className="text-muted-foreground">{semVenda}</span> : venda ? <Link href={venda} className={link}>#{n.vendaNumero}</Link> : <>#{n.vendaNumero}</>}
                     </td>
                     <td className={`${celula} max-w-48 truncate`}>{n.clienteNome ?? vazio}</td>
                     <td className={celula}>

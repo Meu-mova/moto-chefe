@@ -2,11 +2,11 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { carregarRelatorioFabrica } from '@/lib/queries/relatorio-fabrica'
 import { PrintButtons } from './print-buttons'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const PAPEIS = ['admin_geral', 'admin_socio', 'aux_adm']
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const fmtData = (yyyyMmDd: string) => new Date(`${yyyyMmDd}T12:00:00Z`).toLocaleDateString('pt-BR')
 
 export default async function RelatorioFabricaImprimirPage({
   searchParams,
@@ -157,7 +157,7 @@ export default async function RelatorioFabricaImprimirPage({
 
         <div className="period-row">
           <span className="period-label">Período:</span>
-          <span>{fmtData(de)} a {fmtData(ate)}</span>
+          <span>{dataPuraBr(de)} a {dataPuraBr(ate)}</span>
         </div>
 
         <div className="summary-grid">

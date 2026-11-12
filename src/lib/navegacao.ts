@@ -161,7 +161,8 @@ export const ITENS: ItemNav[] = [
   // Gerenciar cargos (#617): o admin_geral liga por pessoa. O formulário grava o papel real, por isso
   // o admin_rede também; a sessão o traduz para admin_socio antes de chegar aqui.
   { id: 'cargos',         href: '/admin/usuarios#cargos', label: 'Gerenciar cargos', icon: BadgeCheck, categoria: 'configuracao', secao: 'Acesso', papeis: SUPER, liberavelPara: ['admin_socio', 'admin_rede'], oculto: true, semTela: true, soAdminGeralLibera: true },
-  { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS },
+  // Só pelo papel: a tela troca o PIX dos colegas, para onde vai o pagamento (#680).
+  { id: 'dados-funcionarios', href: '/admin/dados-funcionarios', label: 'Dados de Funcionários', icon: IdCard, categoria: 'configuracao', secao: 'Acesso', papeis: ADMINS, soPeloPapel: true },
   { id: 'notas-fiscais',  href: '/admin/notas-fiscais', label: 'Notas Fiscais', icon: ReceiptText,   categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: ADMINS },
   { id: 'bling',          href: '/admin/bling',    label: 'Bling',             icon: Settings2,     categoria: 'configuracao', secao: 'Fiscal e documentos', papeis: SUPER, soAdminGeral: true, oculto: true },
   // aux_adm vê o contrato do grupo para orientar a loja; só sócio e admin_geral editam.
@@ -182,6 +183,9 @@ export const ITENS: ItemNav[] = [
   { id: 'mensalidades',   href: '/admin/mensalidades', label: 'Mensalidades',  icon: BadgeDollarSign, categoria: 'plataforma', papeis: SUPER },
   // Tabela de preço sugerido da MotoChefe (#522): da plataforma, só admin_geral carrega.
   { id: 'precos-padrao',  href: '/admin/precos-padrao', label: 'Preços MotoChefe', icon: BadgeDollarSign, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
+  // Estoque e vendas MotoChefe de todas as Contas para a fábrica: lê fora da Conta, por isso
+  // só o admin_geral, sem liberação individual (@/lib/painel-fabrica).
+  { id: 'painel-fabrica', href: '/admin/painel-fabrica', label: 'Painel Fábrica MotoChefe', icon: FileBarChart, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },
   // Certificado digital é a credencial fiscal da empresa perante a SEFAZ, não é
   // item de configuração comum — só admin_geral (SUPER) mexe nisso.
   { id: 'certificados',   href: '/admin/certificados', label: 'Certificados', icon: Shield, categoria: 'plataforma', papeis: SUPER, soAdminGeral: true },

@@ -15,6 +15,7 @@ import {
   type DadosContratoAdesao,
 } from '@/lib/assinatura/contrato-adesao'
 import { sha256 } from '@/lib/assinatura/hash'
+import { VERSAO_COBRANCA_ADESAO_NO_ACESSO } from '@/lib/mensalidade/regras'
 import { emailConvite } from '@/lib/assinatura/mensagens'
 import { urlBase } from '@/lib/assinatura/url'
 import { enviarEmail } from '@/lib/email'
@@ -185,6 +186,8 @@ export async function enviarContratoAction(id: string): Promise<{ ok: true } | {
       token,
       htmlSnapshot: html,
       snapshotHash: sha256(html),
+      // O texto de hoje é o da taxa no 1º acesso (#806): o contrato liga o regime novo.
+      versaoCobranca: VERSAO_COBRANCA_ADESAO_NO_ACESSO,
       emailDestino: email,
       criadoPor: u.id,
       expiraEm: new Date(Date.now() + DIAS_VALIDADE_CONTRATO * 86400_000),

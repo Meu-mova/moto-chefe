@@ -127,6 +127,15 @@ export async function listarApelidosDaConta(contaId: string, exec: Executor = db
     .orderBy(asc(modeloApelidos.apelido))
 }
 
+// Apelidos dos modelos que a Conta enxerga: apelido de modelo oculto não liga a ficha da nota.
+export function apelidosDosModelos(
+  apelidos: { nome: string; canonico: string; modeloId: string }[],
+  modelosVisiveis: { id: string }[],
+): { nome: string; canonico: string }[] {
+  const visiveis = new Set(modelosVisiveis.map(m => m.id))
+  return apelidos.filter(a => visiveis.has(a.modeloId)).map(({ nome, canonico }) => ({ nome, canonico }))
+}
+
 // Para conferir um modeloId vindo do navegador: um id forjado não pode ligar a moto
 // ao modelo de outra Conta.
 export async function modelosUsaveisPelaConta(contaId: string, ids: string[], exec: Executor = db): Promise<Set<string>> {

@@ -1,7 +1,9 @@
-// Validação dos dados que o próprio funcionário preenche em /completar-cadastro.
+// Validação dos dados que o próprio funcionário preenche em /completar-cadastro, e a regra
+// de quem corrige o PIX dele em /admin/dados-funcionarios (#680).
 // Tudo puro: sem banco, sem fetch — é o que permite testar as bordas sem subir nada.
 
 import { cpfValido } from './documento'
+import { papelAcimaDoSocio } from './gestao-usuarios'
 
 export type TipoChavePix = 'cpf' | 'celular' | 'email' | 'aleatoria'
 
@@ -52,6 +54,14 @@ export function chavePixValida(tipo: TipoChavePix, chave: string): boolean {
   return /^[0-9a-f]{32}$/.test(bruto.replace(/-/g, '').toLowerCase())
 }
 
+export const ERRO_CHAVE_PIX = 'Chave PIX não confere com o tipo escolhido.'
+
+/** Erro para mostrar, ou null se tipo e chave conferem. Mesma regra no "Meus dados" e no admin. */
+export function validarPix(tipo: string, chave: string): string | null {
+  const tipoConhecido = TIPOS_CHAVE_PIX.some(t => t.valor === tipo)
+  return tipoConhecido && chavePixValida(tipo as TipoChavePix, chave) ? null : ERRO_CHAVE_PIX
+}
+
 /**
  * `iso` no formato "YYYY-MM-DD", como vem do <input type="date">.
  * Comparação feita em número (ano/mês/dia), nunca com `new Date(iso)`, que
@@ -76,4 +86,28 @@ export function nascimentoValido(iso: string, hoje: Date): boolean {
   let idade = hojeAno - ano
   if (mes > hojeMes || (mes === hojeMes && dia > hojeDia)) idade--
   return idade >= IDADE_MINIMA
+}
+
+export const ERRO_FUNCIONARIO_NAO_ENCONTRADO = 'Funcionário não encontrado.'
+export const ERRO_SEM_DADOS = 'Esse funcionário ainda não preencheu os dados.'
+
+/**
+ * Por que o PIX desse funcionário não pode ser corrigido por quem edita, ou null se pode.
+ * O grupo já foi filtrado na consulta; aqui fica o resto da regra, para o lápis da tela e o
+ * servidor decidirem igual (#576/#600).
+ */
+export function recusaCorrecaoPix(
+  editor: { papel: string },
+  alvo: { papel: string; temDados: boolean },
+): string | null {
+  if (editor.papel !== 'admin_geral') {
+    // Falha fechada: só admin_geral e sócio corrigem PIX de outra pessoa.
+    if (editor.papel !== 'admin_socio') return ERRO_FUNCIONARIO_NAO_ENCONTRADO
+    // Trocar o PIX de um superior é trocar para onde vai o pagamento dele. Mesma frase do id inexistente.
+    if (papelAcimaDoSocio(alvo.papel)) return ERRO_FUNCIONARIO_NAO_ENCONTRADO
+  }
+  // CPF e nascimento são obrigatórios na linha; sem eles o funcionário ainda
+  // não passou pelo primeiro acesso, e é lá que ele preenche tudo.
+  if (!alvo.temDados) return ERRO_SEM_DADOS
+  return null
 }

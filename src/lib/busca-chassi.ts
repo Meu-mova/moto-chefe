@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { clientes, lojas, modelos, motos, vendas, veiculosHistorico } from '@/lib/db/schema'
 import { lojasDoEscopo } from '@/lib/conta'
+import { motoNaoArquivada } from '@/lib/queries/showroom'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -37,6 +38,8 @@ export async function buscarMotosPorChassi(
     .leftJoin(clientes, and(eq(vendas.clienteId, clientes.id), eq(clientes.contaId, opcoes.contaDoComprador)))
     .where(and(
       ilike(motos.chassi, `%${termo}%`),
+      // Arquivada (0174) não abre garantia nem OS; só o RADAR a acha.
+      motoNaoArquivada(),
       opcoes.contaDasMotos ? inArray(motos.lojaId, lojasDoEscopo({ contaId: opcoes.contaDasMotos, grupoLiberado: opcoes.grupoLiberado })) : undefined,
     ))
     .limit(opcoes.limite)
@@ -93,7 +96,7 @@ export async function chassisNasMotos(chassis: string[], contaId: string | null,
 // não podem se ligar a moto de outro cliente do MOVA.
 export async function motoDaContaPorChassi(chassi: string, contaId: string, grupoLiberado: string | null, exec: Executor = db) {
   const [moto] = await exec.select({ id: motos.id, lojaId: motos.lojaId, chassi: motos.chassi }).from(motos)
-    .where(and(eq(motos.chassi, chassi), inArray(motos.lojaId, lojasDoEscopo({ contaId, grupoLiberado }))))
+    .where(and(eq(motos.chassi, chassi), inArray(motos.lojaId, lojasDoEscopo({ contaId, grupoLiberado })), motoNaoArquivada()))
     .limit(1)
   return moto ?? null
 }

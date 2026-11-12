@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { agruparPorPessoa, contaDoFiltro, dispositivoLegivel, resumoDoEvento, type EventoLog } from './log-acoes-tela'
+import { agruparPorPessoa, contaDoFiltro, dispositivoLegivel, ehSensivel, resumoDoEvento, ROTULO_TIPO, type EventoLog } from './log-acoes-tela'
 
 const ev = (p: Partial<EventoLog>): EventoLog => ({
   id: 'x', tipo: 'login', usuarioId: 'u1', usuarioNome: 'Ana', contaDoUsuario: 'c1', contaId: 'c1', grupoNome: 'Sul',
@@ -97,4 +97,28 @@ test('resumo do pedido de inutilização: número, série, venda, resultado e mo
   assert.equal(resumoDoEvento(evento({ resultado: 'sem_resposta', ambiente: 'Producao' })), 'Inutilização do nº 974 série 1 da venda #31601 · pedida sem resposta da Nota Gateway')
   // Linha da v1.15.0: só era gravada depois do envio aceito, sem `resultado`.
   assert.equal(resumoDoEvento(evento({ ambiente: 'Producao' })), 'Inutilização do nº 974 série 1 da venda #31601 · pedida')
+})
+
+test('moto arquivada mostra chassi, modelo e o motivo (#688)', () => {
+  const resumo = resumoDoEvento(ev({ tipo: 'moto_arquivada', detalhe: { motoId: 'm1', chassi: 'ABC123', modelo: 'JET', loja: 'Lavras', nfEntrada: '123', motivo: 'golpe' } }))
+  assert.equal(resumo, 'ABC123 · JET · “golpe”')
+})
+
+test('moto arquivada aparece como ação sensível, com rótulo próprio', () => {
+  assert.equal(ehSensivel('moto_arquivada'), true)
+  assert.equal(ROTULO_TIPO.moto_arquivada, 'Arquivou moto')
+})
+
+test('moto desarquivada (#691): rótulo próprio, sensível, com chassi, modelo e o motivo', () => {
+  const resumo = resumoDoEvento(ev({ tipo: 'moto_desarquivada', detalhe: { motoId: 'm1', chassi: 'ABC123', modelo: 'JET', loja: 'Lavras', nfEntrada: '123', motivo: 'achamos o dono' } }))
+  assert.equal(resumo, 'ABC123 · JET · “achamos o dono”')
+  assert.equal(ehSensivel('moto_desarquivada'), true)
+  assert.equal(ROTULO_TIPO.moto_desarquivada, 'Desarquivou moto')
+})
+
+test('moto removida (#692): rótulo próprio, sensível, com chassi, modelo e o motivo', () => {
+  const resumo = resumoDoEvento(ev({ tipo: 'moto_removida', detalhe: { motoId: 'm1', chassi: 'ABC123', modelo: 'JET', loja: 'Lavras', nfEntrada: '123', motivo: 'NF do grupo errado', saiu: { historico: 1 } } }))
+  assert.equal(resumo, 'ABC123 · JET · “NF do grupo errado”')
+  assert.equal(ehSensivel('moto_removida'), true)
+  assert.equal(ROTULO_TIPO.moto_removida, 'Removeu moto')
 })

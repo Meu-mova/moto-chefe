@@ -31,6 +31,7 @@ jobs:
       rodar: ${{ steps.f.outputs.rodar }}
       url: ${{ steps.f.outputs.url }}
       ref: ${{ steps.f.outputs.ref }}
+      playwright: ${{ steps.v.outputs.playwright }}
     steps:
       - id: f
         env:
@@ -59,6 +60,28 @@ jobs:
             echo "rodar=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Versão do Playwright no lock da ref testada: a imagem do container acompanha o bump do
+      # Dependabot sozinha (#704). Não há tag para trocar à mão.
+      # Se a imagem dessa versão ainda não saiu no MCR quando o PR do Dependabot roda, o container
+      # falha com "manifest unknown": espere a imagem sair e rode de novo (`gh run rerun <id>`).
+      - if: steps.f.outputs.rodar == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.f.outputs.ref }}
+          persist-credentials: false
+          sparse-checkout: package-lock.json
+          sparse-checkout-cone-mode: false
+      - id: v
+        if: steps.f.outputs.rodar == 'true'
+        run: |
+          v=$(node -p "require('./package-lock.json').packages['node_modules/playwright']?.version ?? ''")
+          # Sem versão válida a tag sairia "v-noble" e o container falharia sem dizer por quê.
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Versão do Playwright não encontrada no package-lock.json (node_modules/playwright): '$v'"
+            exit 1
+          fi
+          echo "playwright=$v" >> "$GITHUB_OUTPUT"
+
   navegacao:
     name: navegação ${{ matrix.larguras }}px
     needs: filtro
@@ -78,6 +101,16 @@ jobs:
     concurrency:
       group: navegacao-staging-${{ matrix.vaga }}
       cancel-in-progress: false
+    # Imagem oficial com Chromium e as libs do sistema já instaladas (#704): o
+    # `playwright install --with-deps` baixava fontes pelo apt e chegava a 11 min.
+    # --user 1001 como na doc do Playwright (playwright.dev/docs/ci, "Via Containers").
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.filtro.outputs.playwright }}-noble
+      options: --user 1001
+    # No container o `run:` usaria `sh`; bash como no runner.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v6
         with:
@@ -90,9 +123,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-
-      # Sem cache do Chromium: o actions/cache recusa o evento deployment_status.
-      - run: npx playwright install --with-deps chromium
 
       - name: navegação
         env:
@@ -111,10 +141,12 @@ jobs:
           done
           exit $falhou
 
-      - if: always()
+      # Prints só quando falha: guardados sempre, chegaram a 4,6 GB e encheram a
+      # cota de artefatos do repo (12/11/2026), derrubando outros checks.
+      - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: navegacao-${{ matrix.vaga }}
           path: prints/
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: ignore

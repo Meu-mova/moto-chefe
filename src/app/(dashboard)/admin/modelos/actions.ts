@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { modelos, modeloBlingCodigos } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
-import { contaDoGrupoAtivo, getGrupoAtivo } from '@/lib/grupo'
+import { contaDoEditor, getGrupoAtivo } from '@/lib/grupo'
 import { contaDoGrupoUsaBling } from '@/lib/conta'
 import { revalidatePath } from 'next/cache'
 import { normalizarModelo } from '@/lib/nfe-entrada'
@@ -25,7 +25,7 @@ async function exigirContaComBling(grupoId?: string) {
 
 async function quemEdita() {
   const u = await getUsuarioLogado()
-  return { papel: u.papel, contaId: u.papel === 'admin_geral' ? null : await contaDoGrupoAtivo(u) }
+  return { papel: u.papel, contaId: await contaDoEditor(u) }
 }
 
 // Carrega o modelo e recusa se ele não é de quem edita (sócio só os da própria Conta).

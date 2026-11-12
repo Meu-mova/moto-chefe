@@ -23,7 +23,7 @@ Base da API: `https://api.notagateway.com.br`. Os caminhos abaixo vêm das pági
 
 | Operação | Página | Arquivo local | Método e caminho |
 |---|---|---|---|
-| Emitir | https://docs.notagateway.com.br/v2/reference/emitir-nota-fiscal-nfe | sem resumo ainda | `POST /v2/empresas/{empresaId}/nf-e` |
+| Emitir | https://docs.notagateway.com.br/v2/reference/emitir-nota-fiscal-nfe | `docs/fiscal/ng-informacoes-adicionais.md` (só `informacoesAdicionais`) | `POST /v2/empresas/{empresaId}/nf-e` |
 | Consultar | https://docs.notagateway.com.br/v2/reference/consultar-nota-fiscal-1 | sem resumo ainda | `GET /v2/empresas/{empresaId}/nf-e/{id}` |
 | Cancelar | https://docs.notagateway.com.br/v2/reference/cancelar-nota-fiscal | sem resumo ainda | `DELETE /v2/empresas/{empresaId}/nf-e/{id}`; a página não documenta prazo nem regra de cancelamento |
 | XML do cancelamento | https://docs.notagateway.com.br/v2/reference/consultar-xml-de-cancelamento-1 | sem resumo ainda | `GET /v2/empresas/{empresaId}/nf-e/{id}/xmlCancelamento` |
@@ -48,7 +48,7 @@ Não achei página de XML da NF-e autorizada nem de DANFE na referência v2 (a �
 | Listar empresas | https://docs.notagateway.com.br/v2/reference/listar-empresas | sem resumo ainda | `GET /v2/empresas` |
 | Consultar empresa | https://docs.notagateway.com.br/v2/reference/consultar-empresa | sem resumo ainda | `GET /v2/empresas/{Id}`: CNPJ, razão social, endereço, certificado, configurações de NF-e |
 | Incluir ou alterar empresa | https://docs.notagateway.com.br/v2/reference/incluiralterar-empresa | sem resumo ainda | `POST /v2/empresas` |
-| Vincular certificado | https://docs.notagateway.com.br/v2/reference/vincular-certificado | sem resumo ainda | Certificado A1 da empresa |
+| Vincular certificado | https://docs.notagateway.com.br/v2/reference/vincular-certificado | `docs/fiscal/ng-certificado-digital.md` | Certificado A1 da empresa | Certificado A1 da empresa |
 | Vincular logotipo | https://docs.notagateway.com.br/v2/reference/vincular-logotipo | sem resumo ainda | Logo que sai na nota |
 
 ## Rejeições da SEFAZ (base de conhecimento)
@@ -61,3 +61,9 @@ As páginas da base de conhecimento abrem, mas o WebFetch não extrai o texto: l
 | 302: uso denegado, irregularidade fiscal do destinatário | https://atendimento.notagateway.com.br/kb/pt-br/article/251476/rejeicao-sefaz-302-uso-denegado-irregularidade-fiscal-do-destina | sem resumo ainda | Mesma família da 301, do lado do destinatário |
 
 Outras rejeições: a barra lateral desses artigos lista as demais (232, 733, 926 etc.).
+
+## Distribuição DF-e
+
+| Operação | Página | Arquivo local | Cobre |
+|---|---|---|---|
+| Consultar documentos fiscais de interesse | https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=uWO2d%2FgTuWg%3D | `docs/fiscal/ng-certificado-digital.md` | NT 2014.002 v1.40: autenticação pelo CNPJ-base e CNPJ interessado de qualquer estabelecimento da mesma raiz (p. 4, 8 e regra H04 p. 11) |

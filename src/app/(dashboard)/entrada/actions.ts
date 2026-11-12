@@ -1,17 +1,15 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { motos, lojas, historicoEstoque } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { contaDaLoja } from '@/lib/conta'
 import { modeloUsavelNaLoja, modelosUsaveisPelaConta } from '@/lib/modelos-da-conta'
 import { revalidatePath } from 'next/cache'
-import { normalizarCor } from '@/lib/cores-moto'
-import { type FichaFiscal, type EmitenteNfe } from '@/lib/nfe-fiscal'
-import { gravarFichaFiscalDasMotos, inserirMotoDaEntrada, lojaDestinoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { type FichaDaMoto } from '@/lib/nfe-fiscal'
+import { gravarFichaFiscalDasMotos, inserirMotosUmaAUma, lojaDestinoDaEntrada, type MotoEntradaLote } from '@/lib/entrada-motos'
+import { separarMotosDaEntrada } from '@/lib/entrada-motos-regras'
 import { registrarNotaComPecas, NotaRecusada, type NotaComPecas } from '@/lib/entrada-nota'
 import { preencherGruposComPrecoPadrao } from '@/lib/tabela-preco-padrao'
 import {
@@ -77,43 +75,14 @@ export async function registrarEntrada(formData: {
     return { error: `Chassis duplicados na lista: ${duplicados.join(', ')}` }
   }
 
-  let inseridos = 0
-  const erros: string[] = []
-
-  for (const moto of formData.motos) {
-    const chassi = moto.chassi.trim().toUpperCase()
-    try {
-      const [novaMoto] = await db.insert(motos).values({
-        chassi,
-        modeloId: formData.modeloId,
-        lojaId: loja.id,
-        status: 'caixa',
-        cor: normalizarCor(moto.cor),
-        notaFiscalEntrada: formData.notaFiscal.trim(),
-        motor: moto.motor?.trim() || null,
-        precoCompra,
-      }).returning({ id: motos.id })
-
-      await db.insert(historicoEstoque).values({
-        motoId: novaMoto.id,
-        lojaDestinoId: loja.id,
-        usuarioId: usuario.id,
-        tipo: 'entrada',
-        statusNovo: 'caixa',
-        observacao: `Entrada NF ${formData.notaFiscal.trim()}`,
-      })
-
-      inseridos++
-    } catch (e: any) {
-      const isDup = e.code === '23505' || e.cause?.code === '23505' ||
-        e.message?.includes('unique') || e.message?.includes('duplicate key')
-      if (isDup) {
-        erros.push(`${chassi}: chassi já existe no sistema`)
-      } else {
-        erros.push(`${chassi}: ${e.message}`)
-      }
-    }
-  }
+  const { idPorChassi, erros } = await inserirMotosUmaAUma(db, {
+    lojaId: loja.id, usuario,
+    motos: formData.motos.map(m => {
+      const chassi = m.chassi.trim().toUpperCase()
+      return { chassi, precoCompra, moto: { ...m, chassi, modeloId: formData.modeloId, precoCompra, notaFiscal: formData.notaFiscal } }
+    }),
+  })
+  const inseridos = idPorChassi.size
 
   if (inseridos > 0) await precoPadraoDepoisDaEntrada({ lojaId: loja.id })
   revalidatePath('/estoque')
@@ -137,7 +106,7 @@ export async function registrarEntradaLote(formData: {
   motos: MotoEntradaLote[]
   // Fichas fiscais lidas dos XMLs, uma por CHASSI. Opcional: entrada por
   // planilha e entrada manual não têm XML.
-  fiscais?: { chassi: string; emitente: EmitenteNfe; ficha: FichaFiscal }[]
+  fiscais?: FichaDaMoto[]
 }) {
   const usuario = await getUsuarioLogado()
   if (!acessaModulo(usuario, 'entrada')) {
@@ -181,40 +150,11 @@ export async function registrarEntradaLote(formData: {
     return { error: `Chassis duplicados na planilha: ${duplicados.join(', ')}` }
   }
 
-  let inseridos = 0
-  const erros: string[] = []
-  // chassi -> id da moto recém-inserida, para casar com a ficha fiscal do XML
-  const idPorChassi = new Map<string, string>()
-
-  for (const moto of formData.motos) {
-    const chassi = moto.chassi.trim().toUpperCase()
-    if (!chassi) continue
-
-    if (!moto.modeloId || !idsValidos.has(moto.modeloId)) {
-      erros.push(`${chassi}: selecione o modelo antes de registrar`)
-      continue
-    }
-
-    const precoCompra = (moto.precoCompra || '').replace(',', '.').trim()
-    if (!precoCompra) {
-      erros.push(`${chassi}: informe o preço de compra`)
-      continue
-    }
-
-    try {
-      const motoId = await inserirMotoDaEntrada(db, { lojaId: loja.id, usuarioId: usuario.id, chassi, moto, precoCompra })
-      idPorChassi.set(chassi, motoId)
-      inseridos++
-    } catch (e: any) {
-      const isDup = e.code === '23505' || e.cause?.code === '23505' ||
-        e.message?.includes('unique') || e.message?.includes('duplicate key')
-      if (isDup) {
-        erros.push(`${chassi}: chassi já existe no sistema`)
-      } else {
-        erros.push(`${chassi}: ${e.message}`)
-      }
-    }
-  }
+  const { prontas, erros: naConferencia } = separarMotosDaEntrada(formData.motos, idsValidos)
+  // idPorChassi: id da moto recém-inserida, para casar com a ficha fiscal do XML
+  const { idPorChassi, erros: noInsert } = await inserirMotosUmaAUma(db, { lojaId: loja.id, usuario, motos: prontas })
+  const erros = [...naConferencia, ...noInsert]
+  const inseridos = idPorChassi.size
 
   // Só as motos que de fato entraram: chassi recusado (duplicado, sem modelo)
   // não deixa ficha órfã para trás.

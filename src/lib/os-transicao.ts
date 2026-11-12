@@ -21,3 +21,6 @@ export const RESPONSAVEL_TRANSICAO: Record<string, readonly string[]> = {
 export function podeAvancarOS(passo: string, papel: string): boolean {
   return RESPONSAVEL_TRANSICAO[passo]?.includes(papel) ?? false
 }
+
+/** OS em aberto: tudo antes de concluída, fora a cancelada (dashboard e Arquivar moto). */
+export const STATUS_OS_ABERTA = ['aberta', 'oficina', 'em_andamento', 'finalizada', 'pendente_pagamento'] as const

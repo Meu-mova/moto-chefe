@@ -9,12 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { JUSTIFICATIVA_MAX, JUSTIFICATIVA_MIN, normalizarJustificativa, validarJustificativa } from '@/lib/notagateway/inutilizacao'
-import { motivoDaSefaz } from '@/lib/notas-emitidas'
+import { motivoDaSefaz, vendaNaDescricao } from '@/lib/notas-emitidas'
 import type { NotaEmitida } from '@/lib/queries/notas-emitidas'
 import { pedirInutilizacaoAction } from '../actions'
 
 /** O que o diálogo mostra da nota escolhida na lista. */
-export type NotaDoDialogo = Pick<NotaEmitida, 'id' | 'numero' | 'serie' | 'ambiente' | 'vendaNumero' | 'motivoStatus'>
+export type NotaDoDialogo = Pick<NotaEmitida, 'id' | 'numero' | 'serie' | 'ambiente' | 'vendaId' | 'vendaNumero' | 'motivoStatus'>
 
 type Resultado = { tipo: 'enviado' | 'sem_resposta'; texto: string }
 
@@ -70,7 +70,7 @@ export function InutilizarDialogo({ nota, onFechar }: { nota: NotaDoDialogo | nu
             <DialogHeader className="-mx-4 -mt-4 flex-row items-center gap-3 border-b border-border px-4 py-3 pr-12">
               <div className="min-w-0 flex-1">
                 <DialogTitle>Inutilizar número</DialogTitle>
-                <DialogDescription className="text-xs">Nota {nota.numero}, série {nota.serie}{nota.vendaNumero != null && `, venda #${nota.vendaNumero}`}</DialogDescription>
+                <DialogDescription className="text-xs">Nota {nota.numero}, série {nota.serie}{vendaNaDescricao(nota)}</DialogDescription>
               </div>
               {!producao && <Badge className="bg-warning/10 text-warning">Teste (homologação)</Badge>}
             </DialogHeader>

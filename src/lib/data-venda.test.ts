@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { diaBrt, diaCurtoBrt, diaEHoraBrt, fimDoDiaBrt, hojeBrt, inicioDoDiaBrt, mesBrt, parseDataInput, dataBrParaIso, rotuloMesCurto, rotuloMesCurtoAA } from './data-venda'
+import { dataBrParaIso, dataPuraBr, diaBrt, diaCurtoBrt, diaEHoraBrt, fimDoDiaBrt, hojeBrt, inicioDoDiaBrt, mesBrt, parseDataInput, rotuloMesCurto, rotuloMesCurtoAA } from './data-venda'
 
 test('mesBrt: virada de mês à noite NÃO pula pro mês seguinte', () => {
   // 01/08 02:00Z = 31/07 23:00 em Brasília — ainda é julho.
@@ -106,4 +106,21 @@ test('dataBrParaIso: dd/mm/aaaa vira aaaa-mm-dd; data que não existe ou fora do
   for (const ruim of ['31/02/2026', '29/02/2027', '3/11/2026', '2026-11-03', 'xx/yy/zzzz', '']) {
     assert.equal(dataBrParaIso(ruim), null, ruim)
   }
+})
+
+test('dataPuraBr: data pura sai no mesmo dia, onde o diaBrt daria o dia anterior', () => {
+  assert.equal(dataPuraBr('2026-10-09'), '09/10/2026')
+  assert.equal(diaBrt('2026-10-09'), '08/10/2026')
+})
+
+test('dataPuraBr: 1º de janeiro sai com o ano do próprio texto', () => {
+  assert.equal(dataPuraBr('2026-01-01'), '01/01/2026')
+})
+
+test('dataPuraBr: competência AAAA-MM vira MM/AAAA', () => {
+  assert.equal(dataPuraBr('2026-10'), '10/2026')
+})
+
+test('dataPuraBr: texto sem hífen (o "—" das telas) sai igual', () => {
+  assert.equal(dataPuraBr('—'), '—')
 })

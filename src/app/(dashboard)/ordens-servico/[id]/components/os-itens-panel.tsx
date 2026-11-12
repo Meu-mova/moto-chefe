@@ -51,7 +51,8 @@ export function OSItensPanel({ osId, itens, podeEditar, servicos, pecas }: Props
     if (!form.descricao.trim()) { toast.error('Informe a descrição'); return }
     const qty = parseFloat(form.quantidade)
     const val = parseFloat(form.valorUnitario)
-    if (!qty || !val) { toast.error('Quantidade e valor devem ser maiores que zero'); return }
+    if (!Number.isFinite(qty) || qty <= 0) { toast.error('Informe uma quantidade maior que zero'); return }
+    if (!Number.isFinite(val) || val < 0) { toast.error('Informe um valor igual ou maior que zero'); return }
     start(async () => {
       try {
         const r = await adicionarItemOSAction(osId, {

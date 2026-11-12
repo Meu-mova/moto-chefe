@@ -12,7 +12,8 @@
 // Variações reais tratadas: modelo com espaço ("GIGA C/ BAU", "JET C/ NFC"),
 // moto sem número de motor ("SOMA 1000W <chassi> BRANCO"), variante da fábrica
 // entre parênteses ("X12 1000W (RC) ..." e "X12 1000W(RC) ..."), cor com mais
-// de uma palavra ou com parênteses ("CINZA(BRANCO)") ("AZUL TURQUESA") e lixo no fim (linha de ICMS, ";;;").
+// de uma palavra ou com parênteses ("CINZA(BRANCO)") ("AZUL TURQUESA"), lixo no fim (linha de ICMS, ";;;")
+// e chassi/motor quebrados por espaços (ver lerChassiPartido).
 
 export type MotoNfe = { modelo: string; chassi: string; motor: string; cor: string }
 
@@ -21,11 +22,15 @@ export type MotoNfe = { modelo: string; chassi: string; motor: string; cor: stri
 // usa só dígitos: 172922506150880). Nome de modelo não chega a 10 caracteres
 // grudados com dígito ("X12", "MC20"; "X12-1000W" tem hífen e 9).
 const RE_CHASSI = /^(?=.*\d)[A-Z0-9]{10,}$/i
+const RE_SPLIT_CHASSIS_PREFIX = /^[A-Z]{3}\d{4}$/i
+const RE_SPLIT_CHASSIS_SEQUENCE = /^\d{4}$/
+const RE_YEAR_TOKEN = /^(?:19|20)\d{2}$/
 
 // Número de motor: mesmo formato do chassi, mas aceita barra
-// (HRD48/60V1000W202604120315, do BIG TRI). O que não casa é cor: nome de cor
-// não tem dígito nem chega a 10 letras.
-const RE_MOTOR = /^(?=.*\d)(?=.*[A-Z])[A-Z0-9/-]{10,}$/i
+// (HRD48/60V1000W202604120315, do BIG TRI) e aspas da medida da roda (o 24" de
+// um motor de FAMILY). O que não casa é cor: nome de cor não tem dígito nem chega
+// a 10 letras.
+const RE_MOTOR = /^(?=.*\d)(?=.*[A-Z])[A-Z0-9/"-]{10,}$/i
 
 // Marcador de variante da fábrica: "(RC)", "(RP)" — e "(RP" sem fechar, que
 // aparece nas notas 40743 e 40957. Não é modelo, nem chassi, nem cor.
@@ -54,7 +59,8 @@ export function parseMotosInfCpl(infCpl: string): MotoNfe[] {
       const t = entrada.split(/\s+/).filter(x => !RE_VARIANTE.test(x))
 
       const iChassi = t.findIndex(x => RE_CHASSI.test(x))
-      if (iChassi < 1) return null // sem chassi, ou sem modelo antes dele
+      if (iChassi < 0) return lerChassiPartido(t)
+      if (iChassi < 1) return null // sem modelo antes do chassi
       const chassi = t[iChassi]
 
       // Potência solta não faz parte do nome do modelo — vem do cadastro.
@@ -71,6 +77,37 @@ export function parseMotosInfCpl(infCpl: string): MotoNfe[] {
       return { modelo, chassi, motor, cor }
     })
     .filter((m): m is MotoNfe => m !== null)
+}
+
+/**
+ * Chassi e motor quebrados por espaços. Só roda quando nenhum token sozinho
+ * tem cara de chassi.
+ *
+ * A fábrica separa o chassi em 3 letras + 4 dígitos e um sequencial de 4 dígitos.
+ * Anos entre 1900 e 2099 no segundo token são descartados para evitar falso chassi.
+ */
+function lerChassiPartido(tokens: string[]): MotoNfe | null {
+  const chassisIndex = tokens.findIndex((token, index) => {
+    const sequence = tokens[index + 1] ?? ''
+    return index >= 1 &&
+      RE_SPLIT_CHASSIS_PREFIX.test(token) &&
+      RE_SPLIT_CHASSIS_SEQUENCE.test(sequence) &&
+      !RE_YEAR_TOKEN.test(sequence)
+  })
+  if (chassisIndex < 0) return null
+
+  const model = tokens.slice(0, chassisIndex).filter(token => !RE_POTENCIA.test(token)).join(' ')
+  if (!model) return null
+
+  const tailTokens = tokens.slice(chassisIndex + 2)
+  let colorStartIndex = tailTokens.length
+  while (colorStartIndex > 0 && !/\d/.test(tailTokens[colorStartIndex - 1])) colorStartIndex--
+  const color = tailTokens.slice(colorStartIndex).join(' ')
+  if (!color) return null
+
+  const joinedMotor = tailTokens.slice(0, colorStartIndex).join('')
+  const motor = RE_MOTOR.test(joinedMotor) ? joinedMotor : ''
+  return { modelo: model, chassi: tokens[chassisIndex] + tokens[chassisIndex + 1], motor, cor: color }
 }
 
 /** Nº da nota e o infCpl cru a partir do XML. Regex simples — os campos são planos. */
@@ -138,7 +175,10 @@ export const ehNcmDeMoto = (ncm: string): boolean => ncm.startsWith('8711')
 
 const ENTIDADES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
 
-/** `&amp;` → `&` etc. Só para exibir; o que casa e o que vai para a NF fica como veio. */
+/**
+ * `&amp;` → `&` etc. Para exibir, e no infCpl do lote do onboarding (entrada-xml-lote.ts), onde o
+ * `;` da entidade cortaria a moto. O nome fiscal (xProd) que vai para a NF fica como veio.
+ */
 export function decodificarEntidadesXml(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (inteira, e: string) => {
     if (e[0] === '#') {

@@ -5,16 +5,9 @@
  *                                                         falha se linha adicionada tiver cor fixa
  *                                                         ou hover igual à cor de base
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { listarArquivos } from '../src/test/listar-arquivos'
 import { acharCoresFixas, acharHoverRepetido, area, LIBERA_HOVER, linhasAdicionadas, verificaArquivo } from './lib/cores-fixas'
-
-function listar(dir: string): string[] {
-  return readdirSync(dir).flatMap((nome) => {
-    const caminho = join(dir, nome)
-    return statSync(caminho).isDirectory() ? listar(caminho) : [caminho]
-  })
-}
 
 if (process.argv.includes('--diff')) {
   const adicionadas = linhasAdicionadas(readFileSync(0, 'utf8')).filter((l) => verificaArquivo(l.arquivo))
@@ -39,7 +32,7 @@ if (process.argv.includes('--diff')) {
   }
   console.log('Nenhuma cor fixa nem hover repetido nas linhas adicionadas.')
 } else {
-  const porArquivo = listar('src')
+  const porArquivo = listarArquivos('src')
     .filter(verificaArquivo)
     .map((arquivo) => ({ arquivo, total: readFileSync(arquivo, 'utf8').split('\n').reduce((s, l) => s + acharCoresFixas(l, arquivo).length, 0) }))
     .filter((a) => a.total > 0)

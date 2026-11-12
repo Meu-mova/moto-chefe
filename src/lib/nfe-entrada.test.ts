@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { parseMotosInfCpl, mapearModelo, extrairDaNfe, extrairItensDePeca } from './nfe-entrada'
-import { extrairFiscalDaNfe } from './nfe-fiscal'
+import { extrairFiscalDaNfe, ligarFichasAosChassis } from './nfe-fiscal'
 
 // infCpl reais das notas de amostra (FSist).
 const NF_1 = 'JETMAX 1000W LYDAE3936T1205576 JYX1000W260580054 VERMELHO;Valor de ICMS credito presumido: R$ 85,03'
@@ -269,4 +269,78 @@ test('itens de peça: linha sem qCom sai com quantidade 0 marcada como não inte
   const [item] = extrairItensDePeca(xml)
   assert.equal(item.quantidade, 0)
   assert.equal(item.quantidadeInteira, false)
+})
+
+test('motor com aspas da medida da roda não vira cor', () => {
+  assert.deepEqual(parseMotosInfCpl('FAMILY 350W TESTEFAM00000004 TSTM0348V350W24"99990001 AMARELO'), [
+    { modelo: 'FAMILY', chassi: 'TESTEFAM00000004', motor: 'TSTM0348V350W24"99990001', cor: 'AMARELO' },
+  ])
+})
+
+// Dados sintéticos: os espaços impedem que cada pedaço seja reconhecido como chassi.
+const NF_B3_PARTIDO = 'B3 750W TST9000 0101 SYN9 48V20 750W FF 0901 S1 CINZA;' +
+  'B3 750W TST9000 0102 SYN9 48V20 750W FF 0902 S1 CINZA;' +
+  'B3 750W TST9000 0103 SYN9 48V20 750W FF 0903 S1 PRETO;' +
+  'B3 750W TST9000 0104 SYN9 48V20 750W FF 0904 S1 PRETO;' +
+  'Valor de ICMS credito presumido: R$ 100,00'
+
+test('chassi e motor quebrados por espaço (dados sintéticos)', () => {
+  const m = parseMotosInfCpl(NF_B3_PARTIDO)
+  assert.equal(m.length, 4)
+  assert.deepEqual(m[0], { modelo: 'B3', chassi: 'TST90000101', motor: 'SYN948V20750WFF0901S1', cor: 'CINZA' })
+  assert.deepEqual(m.map(x => x.chassi), ['TST90000101', 'TST90000102', 'TST90000103', 'TST90000104'])
+  assert.deepEqual(m.map(x => x.cor), ['CINZA', 'CINZA', 'PRETO', 'PRETO'])
+})
+
+test('chassi partido: a potência solta não se junta ao chassi', () => {
+  // "750W" + "TST9000" também daria 11 caracteres com dígito; não pode virar chassi.
+  assert.equal(parseMotosInfCpl('B3 750W TST9000 0101 CINZA')[0].chassi, 'TST90000101')
+  assert.equal(parseMotosInfCpl('B3 750W TST9000 0101 CINZA')[0].motor, '')
+})
+
+test('chassi partido: lê o infCpl real da NF 44474', () => {
+  assert.deepEqual(parseMotosInfCpl('B3 750W MMS2608 0276 TOS7 48V20 750W FF 0047 S1 CINZA'), [
+    { modelo: 'B3', chassi: 'MMS26080276', motor: 'TOS748V20750WFF0047S1', cor: 'CINZA' },
+  ])
+})
+
+test('chassi partido: recusa um ano no lugar do número sequencial', () => {
+  for (const ano of ['1900', '2026', '2099']) {
+    assert.deepEqual(parseMotosInfCpl(`B3 750W MMS2608 ${ano} TOS7 48V20 750W FF 0047 S1 CINZA`), [])
+  }
+  for (const sequencial of ['1899', '2100']) {
+    assert.equal(
+      parseMotosInfCpl(`B3 750W MMS2608 ${sequencial} TOS7 48V20 750W FF 0047 S1 CINZA`)[0]?.chassi,
+      `MMS2608${sequencial}`,
+    )
+  }
+})
+
+test('chassi partido: exige três letras, quatro dígitos e quatro sequenciais', () => {
+  for (const partes of ['MM2608 0276', 'MMS260 0276', 'MMS2608 276', 'MMS2608 00276']) {
+    assert.deepEqual(parseMotosInfCpl(`B3 750W ${partes} TOS7 48V20 750W FF 0047 S1 CINZA`), [], partes)
+  }
+})
+
+test('apelido liga cada chassi à ficha correta entre dois itens de moto', () => {
+  const xml = '<nfeProc><NFe><infNFe><ide><nNF>99005</nNF></ide>' +
+    '<det nItem="1"><prod><cProd>MT-STYLE</cProd><xProd>STYLE ELETRICA</xProd>' +
+    '<NCM>87116000</NCM><qCom>4.0000</qCom><vUnCom>1000.00</vUnCom></prod></det>' +
+    '<det nItem="2"><prod><cProd>MT-GIGA</cProd><xProd>GIGA ELETRICA</xProd>' +
+    '<NCM>87116000</NCM><qCom>1.0000</qCom><vUnCom>2000.00</vUnCom></prod></det>' +
+    `<infAdic><infCpl>${NF_B3_PARTIDO};GIGA TESTEGIGA0000005 AZUL</infCpl></infAdic></infNFe></NFe></nfeProc>`
+  const r = extrairDaNfe(xml)
+  const motos = parseMotosInfCpl(r.infCpl)
+  assert.equal(motos.length, r.qtdProdutos)
+  const fichas = extrairFiscalDaNfe(xml)
+  const semApelido = ligarFichasAosChassis(motos, fichas, ['STYLE', 'GIGA'])
+  assert.equal(semApelido.has('TST90000101'), false)
+  const mapa = ligarFichasAosChassis(motos, fichas, ['STYLE', 'GIGA', { nome: 'B3', canonico: 'STYLE' }])
+  assert.deepEqual(motos.map(m => [m.chassi, mapa.get(m.chassi)?.codigo, mapa.get(m.chassi)?.descricao]), [
+    ['TST90000101', 'MT-STYLE', 'STYLE ELETRICA'],
+    ['TST90000102', 'MT-STYLE', 'STYLE ELETRICA'],
+    ['TST90000103', 'MT-STYLE', 'STYLE ELETRICA'],
+    ['TST90000104', 'MT-STYLE', 'STYLE ELETRICA'],
+    ['TESTEGIGA0000005', 'MT-GIGA', 'GIGA ELETRICA'],
+  ])
 })

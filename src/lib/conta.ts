@@ -35,6 +35,11 @@ export async function nomesDasContas(ids: string[], exec: Executor = db): Promis
   return new Map(linhas.map(l => [l.id, l.nome]))
 }
 
+// Lojas do grupo como subconsulta: o grupo entra dentro da consulta de quem usa.
+export function lojasDoGrupo(grupoId: string) {
+  return db.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, grupoId))
+}
+
 // Lojas da Conta como subconsulta, para filtrar registros com inArray(x.lojaId, ...).
 export function lojasDaConta(contaId: string) {
   return db.select({ id: lojas.id }).from(lojas)
@@ -51,7 +56,7 @@ export function usuarioDaConta(contaId: string): SQL {
 export type EscopoDoUsuario = { contaId: string | null; grupoLiberado?: string | null }
 
 export function lojasDoEscopo(usuario: EscopoDoUsuario) {
-  if (usuario.grupoLiberado) return db.select({ id: lojas.id }).from(lojas).where(eq(lojas.grupoId, usuario.grupoLiberado))
+  if (usuario.grupoLiberado) return lojasDoGrupo(usuario.grupoLiberado)
   if (!usuario.contaId) return db.select({ id: lojas.id }).from(lojas).where(sql`false`)
   return lojasDaConta(usuario.contaId)
 }

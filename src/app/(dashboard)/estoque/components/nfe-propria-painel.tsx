@@ -1,10 +1,13 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
-import { ChevronDown, ExternalLink, FileDown, Loader2, RefreshCw, Send } from 'lucide-react'
+import { ChevronDown, ExternalLink, FileDown, Loader2, Pencil, RefreshCw, Send } from 'lucide-react'
+import { MarcadorDePassos } from '@/components/marcador-de-passos'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { LIMITE_OBSERVACAO_NF, observacaoDaNota } from '@/lib/nfe-observacoes'
 import { ehFinal, recusaParaAbrir, ehRecusada, emCancelamento, podeDescartarTentativa } from '@/lib/notagateway/status'
 import { NfSaidaCard } from './nf-saida-card'
 import { RenaveForm } from './renave-form'
@@ -66,6 +69,8 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
   const [conferido, setConferido] = useState(false)
   const [ficha, setFicha] = useState<FichaMoto | null>(null)
   const [cestEdicao, setCestEdicao] = useState<string | null>(null)
+  // Observação editada só para esta nota; nula = sai o texto padrão.
+  const [observacao, setObservacao] = useState<string | null>(null)
   // Ciclomotor: os dados do veículo se preenchem aqui e vão junto com a transmissão.
   const [renave, setRenave] = useState<DadosRenave | null>(null)
   const [renaveOrigem, setRenaveOrigem] = useState<OrigemRenave>({})
@@ -91,6 +96,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       setRenave(r.exigeRenave ? r.renave : null)
       setRenaveOrigem(r.renaveOrigem)
       setTransporte(r.transporteAnterior ?? transporteDoComprador(r.correcao.comprador))
+      setObservacao(r.observacaoAnterior)
       setPasso(0)
       // "Reenviar" volta à conferência: ali não reabre a recusa.
       const recusa = abrirRecusa ? recusaParaAbrir(r.notas, r.ambiente) : null
@@ -130,7 +136,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     setErro('')
     setTransmitindo(true)
     startTransition(async () => {
-      const r = await transmitirNfePropriaAction(motoId, renave, transporte)
+      const r = await transmitirNfePropriaAction(motoId, renave, transporte, observacao)
       setTransmitindo(false)
       if (r.nota) {
         if (r.nota.status === 'Autorizada' && r.nota.ambiente === 'Producao') {
@@ -164,7 +170,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     setErroCorrecao(null)
     setTransmitindo(true)
     startTransition(async () => {
-      const r = await corrigirEReenviarNfAction(motoId, c, renave, transporte)
+      const r = await corrigirEReenviarNfAction(motoId, c, renave, transporte, observacao)
       setTransmitindo(false)
       if (r.nota) setResultado({ nota: r.nota, erro: r.ok ? undefined : r.error })
       else if (!r.ok) setErroCorrecao(r.error)
@@ -402,11 +408,10 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
               </p>
             ))}
           </Bloco>
-          <Bloco titulo="Tributos" resumo="e observação da nota">
+          <ObservacaoEditavel padrao={r.observacao} editada={observacao} onMudar={setObservacao}>
             <p className="text-muted-foreground">PIS {r.tributos.pis} · COFINS {r.tributos.cofins}</p>
             {r.tributos.aproximado != null && <p className="text-muted-foreground">Aprox. (IBPT): {brl(r.tributos.aproximado)}</p>}
-            <p className="whitespace-pre-line pt-1 text-xs text-muted-foreground">{r.observacao}</p>
-          </Bloco>
+          </ObservacaoEditavel>
         </div>
       )}
 
@@ -478,46 +483,98 @@ function transporteDoComprador(c: Previa['correcao']['comprador']): DadosTranspo
 
 /** As etapas do ciclomotor, com quantos campos faltam em cada uma. Clicar leva à etapa. */
 function Passos({ nomes, faltam, atual, onIr }: { nomes: string[]; faltam: number[]; atual: number; onIr: (i: number) => void }) {
+  const ultimo = nomes.length - 1
   return (
-    <ol className={cn('grid gap-1.5', nomes.length === 5 ? 'grid-cols-5' : 'grid-cols-4')}>
-      {nomes.map((nome, i) => {
-        const ultimo = i === nomes.length - 1
-        const f = faltam[i]
-        return (
-          <li key={nome}>
-            <button
-              type="button"
-              onClick={() => onIr(i)}
-              aria-current={i === atual ? 'step' : undefined}
-              className={cn(
-                'w-full rounded-md px-1 py-1.5 text-center text-xs',
-                i === atual ? 'bg-primary font-semibold text-primary-foreground' : 'bg-muted text-muted-foreground',
-              )}
-            >
-              {i + 1}. {nome}
-              <span className={cn('block text-[11px]', f && i !== atual && 'text-destructive')}>
-                {f ? (ultimo ? `faltam ${f} no total` : `faltam ${f}`) : (ultimo ? 'pronto' : 'completo')}
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ol>
+    <MarcadorDePassos nomes={nomes} atual={atual} onIr={onIr} legenda={i => (
+      <span className={cn('block text-[11px]', faltam[i] && i !== atual && 'text-destructive')}>
+        {faltam[i] ? (i === ultimo ? `faltam ${faltam[i]} no total` : `faltam ${faltam[i]}`) : (i === ultimo ? 'pronto' : 'completo')}
+      </span>
+    )} />
   )
 }
 
 /** Bloco da conferência: fechado mostra só o resumo, para a nota caber na tela. */
-function Bloco({ titulo, resumo, children }: { titulo: string; resumo?: string; children: React.ReactNode }) {
-  const [aberto, setAberto] = useState(false)
+function Bloco({ titulo, resumo, acao, abertoFixo, children }: {
+  titulo: string; resumo?: string
+  /** Botão ao lado do título (fora do botão que abre e fecha). */
+  acao?: React.ReactNode
+  /** Enquanto verdadeiro, o bloco fica aberto (edição em andamento). */
+  abertoFixo?: boolean
+  children: React.ReactNode
+}) {
+  const [abertoPeloUsuario, setAberto] = useState(false)
+  const aberto = abertoPeloUsuario || !!abertoFixo
   return (
     <div className="border-b border-border">
-      <button type="button" onClick={() => setAberto(!aberto)} aria-expanded={aberto} className="flex w-full items-center gap-3 py-3 text-left">
-        <span className="w-20 shrink-0 font-medium">{titulo}</span>
-        <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{aberto ? '' : resumo}</span>
-        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !aberto && '-rotate-90')} />
-      </button>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => setAberto(!aberto)} aria-expanded={aberto} className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left">
+          <span className="w-20 shrink-0 font-medium">{titulo}</span>
+          <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{aberto ? '' : resumo}</span>
+          {!acao && <Seta aberto={aberto} />}
+        </button>
+        {acao && (
+          <>
+            {acao}
+            {/* A seta fica depois do lápis; o clique nela abre e fecha como o título. */}
+            <span aria-hidden onClick={() => setAberto(!aberto)} className="cursor-pointer py-3"><Seta aberto={aberto} /></span>
+          </>
+        )}
+      </div>
       {aberto && <div className="space-y-0.5 pb-3 text-sm">{children}</div>}
     </div>
+  )
+}
+
+const Seta = ({ aberto }: { aberto: boolean }) => (
+  <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !aberto && '-rotate-90')} />
+)
+
+/**
+ * Bloco Tributos com a observação da nota (#849): o lápis abre o texto para
+ * editar. O texto vale só para esta nota; o padrão não muda.
+ */
+function ObservacaoEditavel({ padrao, editada, onMudar, children }: {
+  padrao: string
+  editada: string | null
+  onMudar: (texto: string | null) => void
+  children: React.ReactNode
+}) {
+  const [edicao, setEdicao] = useState<string | null>(null)
+  const tamanho = edicao?.trim().length ?? 0
+  const passou = tamanho > LIMITE_OBSERVACAO_NF
+  const fechar = (texto: string | null) => { onMudar(texto); setEdicao(null) }
+  function salvar() {
+    const r = observacaoDaNota(edicao, padrao)
+    if (r.ok) fechar(r.texto === padrao ? null : r.texto)
+  }
+  const lapis = edicao == null && (
+    <Button type="button" variant="ghost" size="icon" aria-label="Editar observação da nota" onClick={() => setEdicao(editada ?? padrao)}>
+      <Pencil size={14} />
+    </Button>
+  )
+  return (
+    <Bloco titulo="Tributos" resumo={editada == null ? 'e observação da nota' : 'e observação editada'} acao={lapis} abertoFixo={edicao != null || editada != null}>
+      {children}
+      {edicao == null ? (
+        <>
+          {editada != null && <p className="pt-1 text-xs font-medium text-foreground">Texto editado para esta nota</p>}
+          <p className="whitespace-pre-line pt-1 text-xs text-muted-foreground">{editada ?? padrao}</p>
+        </>
+      ) : (
+        <div className="space-y-2 pt-2">
+          <Label htmlFor="observacao-edicao" className="text-xs">Observação da nota (vale só para esta nota)</Label>
+          <Textarea id="observacao-edicao" rows={8} value={edicao} onChange={e => setEdicao(e.target.value)} aria-invalid={passou || undefined} />
+          <p className={cn('text-xs', passou ? 'text-destructive' : 'text-muted-foreground')}>
+            {tamanho.toLocaleString('pt-BR')} de {LIMITE_OBSERVACAO_NF.toLocaleString('pt-BR')} caracteres
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" className="h-11" onClick={salvar} disabled={passou}>Salvar</Button>
+            <Button type="button" size="sm" variant="outline" className="h-11" onClick={() => setEdicao(null)}>Cancelar</Button>
+            <Button type="button" size="sm" variant="ghost" className="h-11" onClick={() => fechar(null)}>Voltar ao texto padrão</Button>
+          </div>
+        </div>
+      )}
+    </Bloco>
   )
 }
 

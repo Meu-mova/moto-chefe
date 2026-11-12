@@ -5,8 +5,10 @@ import { motos, modelos, lojas, usuarios, historicoEstoque, transferencias, rese
 import { eq, and, or, isNull, ilike, sql, inArray, desc } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { PagamentoEntrada } from '@/lib/pagamentos-entrada'
-import { motoNaoVendida } from './showroom'
+import { motoNaoArquivada, motoNaoVendida } from './showroom'
 import { lojasDoEscopo } from '@/lib/conta'
+import { daContaDo } from '@/lib/moto-do-usuario'
+import { ehUuid } from '@/lib/uuid'
 
 export type MotoComDetalhes = Awaited<ReturnType<typeof listarMotos>>[0]
 
@@ -16,6 +18,7 @@ export async function listarMotos(filtros?: {
   status?: string[]
   disponibilidade?: string[]
   excluirVendidas?: boolean   // true = modo padrão: mostra null + disponivel + reservada, oculta vendida
+  incluirArquivadas?: boolean // só o RADAR: moto arquivada (0174) não aparece em mais nada
   chassiBusca?: string
   lojaId?: string[]
   contaId?: string   // só motos de lojas da Conta (#320); omitido = todas
@@ -42,6 +45,7 @@ export async function listarMotos(filtros?: {
     .select({
       id: motos.id,
       chassi: motos.chassi,
+      arquivadaEm: motos.arquivadaEm,
       cor: motos.cor,
       status: motos.status,
       disponibilidade: motos.disponibilidade,
@@ -176,6 +180,7 @@ export async function listarMotos(filtros?: {
       and(
         // Motos cadastradas só para garantia de veículo externo nunca são estoque.
         eq(motos.somenteGarantia, false),
+        filtros?.incluirArquivadas ? undefined : motoNaoArquivada(),
         filtros?.status?.length          ? inArray(motos.status, filtros.status as any[])                   : undefined,
         filtros?.excluirVendidas ? motoNaoVendida() : undefined,
         filtros?.disponibilidade?.length
@@ -206,8 +211,15 @@ export async function contarPorStatus() {
     .groupBy(motos.status)
 }
 
-export async function buscarMoto(id: string) {
+/**
+ * Moto do detalhe (/estoque/[id]) com a Conta no where (#688): de outra Conta, inexistente ou
+ * texto que não é id voltam null, e a página responde o mesmo 404.
+ */
+export async function buscarMoto(usuario: Parameters<typeof daContaDo>[0], id: string) {
+  const daConta = daContaDo(usuario)
+  if (daConta === null || !ehUuid(id)) return null
   const mecanico = alias(usuarios, 'mecanico')
+  const arquivador = alias(usuarios, 'arquivador')
 
   const [moto] = await db
     .select({
@@ -228,6 +240,9 @@ export async function buscarMoto(id: string) {
       motor: sql<string>`COALESCE(${motos.motor}, ${modelos.motor})`.as('motor'),
       precoCompra: motos.precoCompra,
       mecanicoNome: mecanico.nome,
+      arquivadaEm: motos.arquivadaEm,
+      motivoArquivo: motos.motivoArquivo,
+      arquivadaPorNome: arquivador.nome,
       transferenciaPendente: sql<boolean>`EXISTS (
         SELECT 1 FROM transferencias
         WHERE transferencias.moto_id = ${motos.id}
@@ -372,7 +387,8 @@ export async function buscarMoto(id: string) {
     .innerJoin(modelos, eq(motos.modeloId, modelos.id))
     .innerJoin(lojas, eq(motos.lojaId, lojas.id))
     .leftJoin(mecanico, eq(motos.responsavelMontagemId, mecanico.id))
-    .where(eq(motos.id, id))
+    .leftJoin(arquivador, eq(motos.arquivadaPor, arquivador.id))
+    .where(and(eq(motos.id, id), daConta))
     .limit(1)
 
   return moto ?? null

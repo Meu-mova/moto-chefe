@@ -21,7 +21,8 @@ export function ResolverGarantiaButton({ motoId, descricao }: Props) {
   async function handleConfirm() {
     setLoading(true)
     try {
-      await resolverGarantiaSemRegistroAction(motoId, observacao || undefined)
+      const r = await resolverGarantiaSemRegistroAction(motoId, observacao || undefined)
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Garantia resolvida! Moto disponível.')
       setOpen(false)
     } catch (e: any) {

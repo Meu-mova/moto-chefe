@@ -21,8 +21,10 @@ export type NotaEmitida = {
   criadoEm: string
   linkDanfe: string | null
   linkXml: string | null
+  /** Nulo quando a venda não existe mais (cancelada ou removida; a FK vira nulo, 0144). */
   vendaId: string | null
-  vendaNumero: number | null
+  /** Da nota, não da venda: sobrevive a ela. */
+  vendaNumero: number
   clienteNome: string | null
   chassi: string | null
   dataVenda: string | null
@@ -67,7 +69,7 @@ export async function listarNotasEmitidas(
       linkDanfe: notasFiscaisSaida.linkDanfe,
       linkXml: notasFiscaisSaida.linkXml,
       vendaId: vendas.id,
-      vendaNumero: vendas.numero,
+      vendaNumero: notasFiscaisSaida.vendaNumero,
       clienteNome: vendas.clienteNome,
       chassi: motos.chassi,
       dataVenda: vendas.dataVenda,

@@ -3,6 +3,7 @@ import type { db } from '@/lib/db'
 import { historicoEstoque, motos, pedidosVenda, reservas, transferencias } from '@/lib/db/schema'
 import { motivoBloqueioCriarPedido, podeCancelarPedido, type QuemCancela } from '@/lib/pedido-venda-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
+import { travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -10,17 +11,16 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
  * Cria um pedido de venda pendente e reserva a moto. Substitui a rpc
  * criar_pedido_venda, que exigia o status antigo 'disponivel' e recusava as motos
  * montadas que a tela oferece (#181).
+ *
+ * Contrato: lê a moto só pelo id, sem Conta. Quem chama confere antes que a moto é da
+ * pessoa (motoDoUsuario); só assim a recusa de moto arquivada (#688) não revela moto de
+ * outra Conta. Aqui ela é conferida de novo sob a trava (travarMotoNaoArquivada).
  */
 export async function criarPedidoTx(
   tx: Tx,
   d: { motoId: string; vendedorId: string; observacao: string | null },
 ): Promise<{ pedidoId: string; lojaId: string }> {
-  const [moto] = await tx
-    .select({ lojaId: motos.lojaId, status: motos.status, disponibilidade: motos.disponibilidade })
-    .from(motos)
-    .where(eq(motos.id, d.motoId))
-    .for('update')
-  if (!moto) throw new RecusaUsuario('Moto não encontrada')
+  const moto = await travarMotoNaoArquivada(tx, d.motoId)
 
   const [transferencia] = await tx
     .select({ id: transferencias.id })

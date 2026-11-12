@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CurrencyInput } from '@/components/ui/currency-input'
 import { Calculator, CreditCard, Link2, Banknote, Building2 } from 'lucide-react'
+import { fmtBRL } from '@/lib/preco-minimo'
 
 // Fatores de financiamento (principal × fator / parcelas = valor_parcela)
 const FINANCIAMENTO_FATORES: Record<number, number> = {
@@ -16,9 +17,6 @@ const FINANCIAMENTO_FATORES: Record<number, number> = {
   60: 2.00,
 }
 
-function fmt(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
 type Modelo = {
   id: string
@@ -97,13 +95,13 @@ export function SimularDialog({ modelo, onClose }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg border bg-muted p-3 text-center">
             <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">À Vista</p>
-            <p className="text-lg font-bold text-foreground">{fmt(parseFloat(modelo.precoAvista))}</p>
+            <p className="text-lg font-bold text-foreground">{fmtBRL(parseFloat(modelo.precoAvista))}</p>
           </div>
           <div className="rounded-lg border bg-success/10 border-success/30 p-3 text-center">
             <p className="text-xs text-success uppercase tracking-wide mb-1">PIX / Dinheiro</p>
-            <p className="text-lg font-bold text-success">{fmt(parseFloat(modelo.precoPix))}</p>
+            <p className="text-lg font-bold text-success">{fmtBRL(parseFloat(modelo.precoPix))}</p>
             <p className="text-xs text-success mt-0.5">
-              desconto de {fmt(parseFloat(modelo.precoAvista) - parseFloat(modelo.precoPix))}
+              desconto de {fmtBRL(parseFloat(modelo.precoAvista) - parseFloat(modelo.precoPix))}
             </p>
           </div>
         </div>
@@ -146,20 +144,20 @@ export function SimularDialog({ modelo, onClose }: Props) {
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <p className="text-xs text-muted-foreground">Parcela</p>
-                  <p className="font-bold text-info">{fmt(calc.parcelaFisico)}</p>
+                  <p className="font-bold text-info">{fmtBRL(calc.parcelaFisico)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Financiado</p>
-                  <p className="font-semibold text-foreground">{fmt(calc.financiadoFisico)}</p>
+                  <p className="font-semibold text-foreground">{fmtBRL(calc.financiadoFisico)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total</p>
-                  <p className="font-semibold text-foreground">{fmt(calc.totalFisico)}</p>
+                  <p className="font-semibold text-foreground">{fmtBRL(calc.totalFisico)}</p>
                 </div>
               </div>
               {entradaNum > 0 && (
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Entrada {fmt(entradaNum)} + {parcelasCartao}x {fmt(calc.parcelaFisico)}
+                  Entrada {fmtBRL(entradaNum)} + {parcelasCartao}x {fmtBRL(calc.parcelaFisico)}
                 </p>
               )}
             </div>
@@ -176,20 +174,20 @@ export function SimularDialog({ modelo, onClose }: Props) {
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div>
                   <p className="text-xs text-muted-foreground">Parcela</p>
-                  <p className="font-bold text-info">{fmt(calc.parcelaLink)}</p>
+                  <p className="font-bold text-info">{fmtBRL(calc.parcelaLink)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Financiado</p>
-                  <p className="font-semibold text-foreground">{fmt(calc.financiadoLink)}</p>
+                  <p className="font-semibold text-foreground">{fmtBRL(calc.financiadoLink)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total</p>
-                  <p className="font-semibold text-foreground">{fmt(calc.totalLink)}</p>
+                  <p className="font-semibold text-foreground">{fmtBRL(calc.totalLink)}</p>
                 </div>
               </div>
               {entradaNum > 0 && (
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Entrada {fmt(entradaNum)} + {parcelasCartao}x {fmt(calc.parcelaLink)}
+                  Entrada {fmtBRL(entradaNum)} + {parcelasCartao}x {fmtBRL(calc.parcelaLink)}
                 </p>
               )}
             </div>
@@ -210,18 +208,18 @@ export function SimularDialog({ modelo, onClose }: Props) {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Parcela</p>
-                      <p className="font-bold text-foreground">{fmt(parcela)}</p>
+                      <p className="font-bold text-foreground">{fmtBRL(parcela)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Total</p>
-                      <p className="font-semibold text-foreground">{fmt(total)}</p>
+                      <p className="font-semibold text-foreground">{fmtBRL(total)}</p>
                     </div>
                   </div>
                 ))}
               </div>
               {entradaNum > 0 && (
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Base calculada sobre {fmt(parseFloat(modelo.precoAvista) - entradaNum)} (à vista − entrada)
+                  Base calculada sobre {fmtBRL(parseFloat(modelo.precoAvista) - entradaNum)} (à vista − entrada)
                 </p>
               )}
             </div>
@@ -230,7 +228,7 @@ export function SimularDialog({ modelo, onClose }: Props) {
 
         {entradaInvalida && (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-center text-sm text-destructive">
-            A entrada não pode ser maior que o valor à vista ({fmt(avista)})
+            A entrada não pode ser maior que o valor à vista ({fmtBRL(avista)})
           </div>
         )}
 

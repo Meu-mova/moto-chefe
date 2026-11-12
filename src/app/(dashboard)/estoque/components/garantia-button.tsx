@@ -35,13 +35,14 @@ export function GarantiaButton({ motoId, descricao, showLabel, disabled, gatilho
     if (!descricaoGarantia || !dataPedido) return
     setLoading(true)
     try {
-      await abrirGarantiaAction({
+      const r = await abrirGarantiaAction({
         motoId,
         descricao: descricaoGarantia,
         dataInicio: dataPedido,
         dataPedidoPeca: dataPedido,
         numeroPedidoFabrica: numeroPedidoFabrica || undefined,
       })
+      if (!r.ok) { toast.error(r.erro); return }
       toast.success('Garantia aberta! Prazo: 30 dias.')
       setOpen(false)
       resetForm()
