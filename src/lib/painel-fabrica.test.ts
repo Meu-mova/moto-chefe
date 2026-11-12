@@ -26,6 +26,12 @@ test('login da fábrica: só /fabrica e /conta-desativada; o resto volta ao pain
   }
 })
 
+test('login da fábrica desativado consegue sair: /sair é liberada (POST de rota, sem action)', () => {
+  // /conta-desativada só tem o "Sair"; sem /sair a pessoa ficava em laço com /fabrica (#869).
+  assert.equal(rotaDoLoginFabrica('/sair', false), null)
+  assert.equal(rotaDoLoginFabrica('/sair', true), 'recusar')
+})
+
 test('login da fábrica: Server Action é recusada em qualquer rota, até no /fabrica', () => {
   for (const c of ['/fabrica', '/fabrica/imprimir', '/dashboard', '/admin/usuarios']) assert.equal(rotaDoLoginFabrica(c, true), 'recusar', c)
 })

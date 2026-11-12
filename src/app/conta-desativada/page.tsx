@@ -5,8 +5,11 @@
 // getUsuarioLogado — ela É o redirecionamento que essa função faz, então
 // chamá-la de novo aqui recairia no mesmo redirect (não é loop infinito, mas
 // não serve pra nada: mostraria a mesma página de novo).
-import { logoutAction } from '@/app/(auth)/login/actions'
+//
+// "Sair" é POST na rota /sair, não Server Action: o login da fábrica desativado também
+// cai aqui, e o middleware recusa action dele; com a action ele ficava preso (#869).
 import { Button } from '@/components/ui/button'
+import { ROTA_SAIR } from '@/lib/painel-fabrica'
 
 export default function ContaDesativadaPage() {
   return (
@@ -17,7 +20,7 @@ export default function ContaDesativadaPage() {
           Esta conta foi desativada e não tem mais acesso ao sistema. Se isso for um engano,
           fale com o administrador.
         </p>
-        <form action={logoutAction}>
+        <form action={ROTA_SAIR} method="post">
           <Button type="submit" className="w-full">Sair</Button>
         </form>
       </div>

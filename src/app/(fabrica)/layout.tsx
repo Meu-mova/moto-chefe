@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { getUsuarioLogado } from '@/lib/auth'
-import { MARCA_PAINEL_FABRICA, PAPEL_FABRICA, podeVerPainelFabrica } from '@/lib/painel-fabrica'
+import { MARCA_PAINEL_FABRICA, PAPEL_FABRICA, ROTA_SAIR, podeVerPainelFabrica } from '@/lib/painel-fabrica'
 
 export default async function FabricaLayout({ children }: { children: React.ReactNode }) {
   const usuario = await getUsuarioLogado()
@@ -24,7 +24,7 @@ export default async function FabricaLayout({ children }: { children: React.Reac
               <Link href="/dashboard" className="h-8 px-3 inline-flex items-center rounded-md hover:bg-muted">Voltar ao MOVA</Link>
             )}
             {/* POST para uma rota, não Server Action: o login da fábrica não chama action nenhuma. */}
-            <form action="/fabrica/sair" method="post">
+            <form action={ROTA_SAIR} method="post">
               <button type="submit" className="h-8 px-3 inline-flex items-center gap-1.5 rounded-md hover:bg-muted">
                 <LogOut size={14} /> Sair
               </button>

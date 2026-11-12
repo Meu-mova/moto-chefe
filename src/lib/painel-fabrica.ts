@@ -18,6 +18,8 @@ export const MARCA_PAINEL_FABRICA = 'MotoChefe'
 
 export const PAPEL_FABRICA = 'fabrica'
 export const ROTA_PAINEL_FABRICA = '/fabrica'
+/** Sair por POST numa rota, sem Server Action (o login da fábrica não chama action). */
+export const ROTA_SAIR = '/sair'
 
 /** Quem abre o painel: o login da fábrica e o admin_geral (papel principal). */
 export function podeVerPainelFabrica(u: { papel: string }): boolean {
@@ -31,7 +33,9 @@ export function podeVerPainelFabrica(u: { papel: string }): boolean {
  */
 export function rotaDoLoginFabrica(caminho: string, ehServerAction: boolean): 'recusar' | string | null {
   if (ehServerAction) return 'recusar'
-  const livre = caminho === ROTA_PAINEL_FABRICA || caminho.startsWith(`${ROTA_PAINEL_FABRICA}/`) || caminho === '/conta-desativada'
+  // /sair: o login desativado cai em /conta-desativada e só sai por ela (POST de rota, #869).
+  const livre = caminho === ROTA_PAINEL_FABRICA || caminho.startsWith(`${ROTA_PAINEL_FABRICA}/`)
+    || caminho === '/conta-desativada' || caminho === ROTA_SAIR
   return livre ? null : ROTA_PAINEL_FABRICA
 }
 

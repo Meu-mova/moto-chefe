@@ -1,5 +1,6 @@
-// Sair da área da fábrica. Rota e não Server Action: o login da fábrica não chama action
-// nenhuma (@/lib/painel-fabrica). POST para um link externo não derrubar a sessão.
+// Sair por POST numa rota, não Server Action: o login da fábrica não chama action nenhuma
+// (@/lib/painel-fabrica). Usada pela área /fabrica e por /conta-desativada (#869). POST para
+// um link externo não derrubar a sessão.
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
