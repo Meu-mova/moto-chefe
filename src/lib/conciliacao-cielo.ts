@@ -2,11 +2,11 @@
 // decodificado e devolve as transações ou a recusa. Sem banco, sem rede, sem data atual.
 //
 // O arquivo começa com uma capa (Ouvidoria, filtros, totalizador) e só depois traz o cabeçalho
-// das vendas. As colunas são lidas pelo NOME do cabeçalho, não pela posição: a Cielo já mudou o
-// layout, e coluna trocada grava valor errado sem aviso.
+// das vendas; as colunas são lidas pelo nome (`relatorio-colunas.ts`).
 import type { TransacaoCartao } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
+import { chaveDaColuna, indicesDasColunas } from '@/lib/relatorio-colunas'
 
 // O leitor só devolve venda com Código da venda e com os dois valores lidos.
 export type TransacaoCielo = TransacaoCartao & {
@@ -32,25 +32,14 @@ const COLUNAS = {
   maquina: 'Número da máquina',
 } as const
 
-// Só letras ASCII e números, em minúscula: "Código" e "C�digo" (acento mal decodificado) viram
-// o mesmo "cdigo", e o arquivo em latin-1 lido como UTF-8 não derruba a busca da coluna.
-const chave = (nome: string) => nome.toLowerCase().replace(/[^a-z0-9]/g, '')
-
 const celulasDaLinha = (linha: string) => linha.split(';')
 
 const ehCabecalho = (linha: string) => {
-  const nomes = celulasDaLinha(linha).map(chave)
-  return nomes.includes(chave(COLUNAS.data)) && nomes.includes(chave(COLUNAS.status))
+  const nomes = celulasDaLinha(linha).map(chaveDaColuna)
+  return nomes.includes(chaveDaColuna(COLUNAS.data)) && nomes.includes(chaveDaColuna(COLUNAS.status))
 }
 
 type Indices = Record<keyof typeof COLUNAS, number>
-
-function indicesDasColunas(cabecalho: string): Indices | { faltam: string[] } {
-  const nomes = celulasDaLinha(cabecalho).map(chave)
-  const achados = Object.entries(COLUNAS).map(([campo, nome]) => [campo, nomes.indexOf(chave(nome)), nome] as const)
-  const faltam = achados.filter(([, i]) => i < 0).map(([, , nome]) => nome)
-  return faltam.length ? { faltam } : (Object.fromEntries(achados.map(([campo, i]) => [campo, i])) as Indices)
-}
 
 // "R$ 1.234,56" e "-R$ 23,45": tira o prefixo da moeda e deixa o número para o parseNumeroBR.
 const valorEmReais = (texto: string) => parseNumeroBR(texto.replace(/R\$/g, ''))
@@ -114,7 +103,7 @@ export function lerRelatorioCielo(texto: string): ResultadoCielo {
   const posCabecalho = linhas.findIndex(ehCabecalho)
   if (posCabecalho < 0) return { ok: false, erro: 'Cabeçalho do relatório da Cielo não encontrado. Confira se o arquivo é o "Detalhado de vendas".' }
 
-  const indices = indicesDasColunas(linhas[posCabecalho])
+  const indices = indicesDasColunas(celulasDaLinha(linhas[posCabecalho]), COLUNAS)
   if ('faltam' in indices) return { ok: false, erro: `O relatório da Cielo não tem a coluna: ${indices.faltam.join(', ')}.` }
 
   const lidas = linhas
