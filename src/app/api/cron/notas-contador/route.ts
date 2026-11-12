@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cronAutorizado } from '@/lib/cron-autorizado'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { BUCKET_CONTADOR, apagarZipsVencidos, bucketInexistente, type ArmazemZips } from '@/lib/notas-contador-limpeza'
 
 export const dynamic = 'force-dynamic'
 
-function autorizado(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return false
-  const bearer = req.headers.get('authorization')
-  return bearer === `Bearer ${secret}` || req.headers.get('x-cron-secret') === secret
-}
-
 // Zips do envio ao contador com mais de 7 dias (#402) saem uma vez por dia, de todos os grupos.
 export async function GET(req: NextRequest) {
-  if (!autorizado(req)) {
+  if (!cronAutorizado(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const storage = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).storage

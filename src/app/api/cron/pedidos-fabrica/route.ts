@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cronAutorizado } from '@/lib/cron-autorizado'
 import { alertarPedidosFabrica } from '@/lib/whatsapp/pedidos-fabrica'
 
 // Login + scraping do portal da fábrica, agora uma conta por loja, leva bem mais
@@ -6,17 +7,8 @@ import { alertarPedidosFabrica } from '@/lib/whatsapp/pedidos-fabrica'
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-function autorizado(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return false
-  // O cron da Vercel manda "Authorization: Bearer <CRON_SECRET>"; o header
-  // x-cron-secret é o padrão já usado pela rota de conciliação (chamada manual).
-  const bearer = req.headers.get('authorization')
-  return bearer === `Bearer ${secret}` || req.headers.get('x-cron-secret') === secret
-}
-
 export async function GET(req: NextRequest) {
-  if (!autorizado(req)) {
+  if (!cronAutorizado(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
