@@ -497,9 +497,10 @@ export function tipoDoCreditoConciliavel(t: {
 }
 
 // Nem todo banco preenche "bank" no Open Finance (Londrina, #861, só tem marketingName/name).
-// Quem tem "bank" segue com ele: as listas por CNPJ acima comparam esse nome.
+// Quem tem "bank" segue com ele: as listas por CNPJ acima comparam esse nome. O name vem antes do
+// marketingName porque em Londrina o marketingName é "Agência: … | Conta: …", que iria para a tela e o log.
 export function nomeDaConta(c: { bank?: string | null; marketingName?: string | null; name?: string | null }): string {
-  return c.bank || c.marketingName || c.name || 'Banco não informado'
+  return c.bank || c.name || c.marketingName || 'Banco não informado'
 }
 
 export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoPix> {
