@@ -109,6 +109,6 @@ test('soma do bruto e do líquido das transações bate com o total das linhas d
   const soma = (f: (t: (typeof transacoes)[number]) => number) => Math.round(transacoes.reduce((s, t) => s + f(t), 0) * 100) / 100
   // 12 × 166,67 + 2 × 1.250,50 + 89,90 e 12 × 161,67 + 2 × 1.225,49 + 88,99
   assert.equal(soma(t => t.valorBruto), 4590.94)
-  assert.equal(soma(t => t.valorLiquido), 4479.01)
+  assert.equal(soma(t => t.valorLiquido), 4480.01)
   assert.deepEqual(transacoes.map(t => t.parcelas), [12, 2, 1])
 })
