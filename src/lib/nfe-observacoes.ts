@@ -37,3 +37,32 @@ export function observacoesVendaMoto(d: DadosObservacaoMoto): string {
   ].join('\n')
   return `${TEXTO_GARANTIA}\n\n${dadosVeiculo}`
 }
+
+/**
+ * O campo infCpl da NF-e aceita 5.000 caracteres, e a Nota Gateway acrescenta
+ * nele o "Valor aprox. dos Tributos" (docs/fiscal/ng-informacoes-adicionais.md):
+ * a folga é para o texto dela.
+ */
+export const LIMITE_OBSERVACAO_NF = 4500
+
+/** O texto que sai na nota: o editado na prévia ou, sem ele, o padrão. */
+export function observacaoDaNota(
+  editada: string | null | undefined,
+  padrao: string,
+): { ok: true; texto: string } | { ok: false; error: string } {
+  const texto = editada?.trim()
+  if (!texto) return { ok: true, texto: padrao }
+  if (texto.length > LIMITE_OBSERVACAO_NF) {
+    return {
+      ok: false,
+      error: `A observação da nota aceita no máximo ${LIMITE_OBSERVACAO_NF.toLocaleString('pt-BR')} caracteres (tem ${texto.length.toLocaleString('pt-BR')}).`,
+    }
+  }
+  return { ok: true, texto }
+}
+
+/** O texto que foi numa tentativa gravada, para o reenvio não perder a edição. */
+export function observacaoDoPayload(payload: unknown): string | null {
+  const texto = (payload as { informacoesAdicionais?: unknown } | null)?.informacoesAdicionais
+  return typeof texto === 'string' ? texto : null
+}
