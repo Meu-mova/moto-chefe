@@ -4,6 +4,7 @@
 import { and, asc, eq, isNotNull, ne, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, grupos, pixRecebimentosMcp } from '@/lib/db/schema'
+import { PIX_ESTORNADO } from '@/lib/pix-status'
 import { decifrar } from '@/lib/cripto'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import type { Operadora } from '@/lib/conciliacao-cartao'
@@ -150,8 +151,8 @@ async function marcarEstorno(tx: Tx, grupoId: string, meio: 'cartao' | 'pix', ch
     return linhas.length > 0
   }
   const linhas = await tx.update(pixRecebimentosMcp)
-    .set({ status: 'estornado' })
-    .where(and(eq(pixRecebimentosMcp.grupoId, grupoId), eq(pixRecebimentosMcp.transacaoId, chave), ne(pixRecebimentosMcp.status, 'estornado')))
+    .set({ status: PIX_ESTORNADO })
+    .where(and(eq(pixRecebimentosMcp.grupoId, grupoId), eq(pixRecebimentosMcp.transacaoId, chave), ne(pixRecebimentosMcp.status, PIX_ESTORNADO)))
     .returning({ id: pixRecebimentosMcp.id })
   return linhas.length > 0
 }
