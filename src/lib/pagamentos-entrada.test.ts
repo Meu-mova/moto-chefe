@@ -91,3 +91,12 @@ test('sem meio de pagamento e sem jsonb não inventa linha (demanda sem sinal)',
   })
   assert.deepEqual(pgs, [])
 })
+
+test('pagamentosFecham compara em centavos: 1 centavo a mais ou a menos sempre recusa, e o total exato sempre fecha', () => {
+  for (const total of [100, 1000, 5000, 2.04, 12345.67, 0.3]) {
+    assert.equal(pagamentosFecham([{ tipo: 'pix', valor: total + 0.01 }], total), false, `${total} + 0,01`)
+    assert.equal(pagamentosFecham([{ tipo: 'pix', valor: total - 0.01 }], total), false, `${total} - 0,01`)
+  }
+  assert.equal(pagamentosFecham([{ tipo: 'pix', valor: 0.1 }, { tipo: 'dinheiro', valor: 0.2 }], 0.3), true)
+  assert.equal(pagamentosFecham([{ tipo: 'pix', valor: 5000.01 }], 5000), false)
+})

@@ -69,10 +69,15 @@ export function somaPagamentos(pgs: PagamentoEntrada[]): number {
   return pgs.reduce((a, p) => a + num(p.valor), 0)
 }
 
-/** A soma das formas tem que bater com a entrada, com folga de um centavo. */
-export function pagamentosFecham(pgs: PagamentoEntrada[], valorEntrada: number): boolean {
-  if (!(valorEntrada > 0) || pgs.length === 0) return false
-  return Math.abs(somaPagamentos(pgs) - valorEntrada) < 0.01
+const centavos = (v: number) => Math.round(v * 100)
+
+/**
+ * A soma das formas tem que bater com o total, centavo por centavo. Em centavos inteiros
+ * porque, em float, 1 centavo de diferença passava ou não conforme o valor (1000,01 − 1000 < 0,01).
+ */
+export function pagamentosFecham(pgs: readonly PagamentoEntrada[], valorTotal: number): boolean {
+  if (!(valorTotal > 0) || pgs.length === 0) return false
+  return pgs.reduce((a, p) => a + centavos(num(p.valor)), 0) === centavos(valorTotal)
 }
 
 /** Frase única da soma que não fecha: Vender e efetivação do pedido recusam igual. */
