@@ -443,7 +443,7 @@ async function criarVendaTx(
 
   const caixa = lancamentosDinheiroDaVenda(data.pagamentos, {
     lojaId: moto.lojaId, usuarioId: efetivadoPor, vendaId: venda.id,
-    descricao: `Venda dinheiro — ${data.clienteNome}`, data: dataVendaFinal.toISOString().split('T')[0],
+    descricao: `Venda dinheiro — ${data.clienteNome}`, data: hojeBrt(dataVendaFinal),
   })
   if (caixa.length > 0) await tx.insert(lancamentosCaixa).values(caixa)
 
