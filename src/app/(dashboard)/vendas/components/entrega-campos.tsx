@@ -102,7 +102,8 @@ export function EntregaCampos({ valor, onChange }: Props) {
   const campoTexto = (c: Campo) => (
     <div key={c.campo} className={`space-y-1 ${c.classe}`}>
       <Label htmlFor={`entrega-${c.campo}`}>
-        {c.rotulo}{c.opcional && <span className="ml-1 text-xs font-normal text-muted-foreground">(opcional)</span>}
+        {/* Um só filho: o gap do Label afastaria o "(opcional)" do rótulo. */}
+        <span>{c.rotulo}{c.opcional && <> <span className="text-xs font-normal text-muted-foreground">(opcional)</span></>}</span>
       </Label>
       <Input id={`entrega-${c.campo}`} value={e[c.campo]} onChange={ev => mudarEndereco({ [c.campo]: ev.target.value })} />
     </div>
