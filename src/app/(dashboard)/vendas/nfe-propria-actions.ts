@@ -32,7 +32,7 @@ import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { recusaSemVenda } from '@/lib/notas-emitidas'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
-import { conflitoDaUfDoFormulario, pendenciasDaEntrega, type EntregaVenda, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { conflitoDaUfDoFormulario, pendenciasDaEntrega, travaDaEntregaEmOutroEstado, type EntregaVenda, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -149,15 +149,25 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
   const pagamentosMova = ((venda.pagamentos as PagamentoMova[] | null) ?? []).map(p => ({ ...p, valor: Number(p.valor) }))
   const valor = Number(venda.valor)
 
-  const pendencias = [...pendenciasDaVenda({
-    clienteNome: venda.clienteNome, clienteCpf: venda.clienteCpf,
-    clienteLogradouro: venda.clienteLogradouro, clienteNumero: venda.clienteNumero,
-    clienteBairro: venda.clienteBairro, clienteCidade: venda.clienteCidade,
-    clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
-    clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
-    valor, pagamentos: pagamentosMova, temFicha: !!ficha,
-  }), ...pendenciasDaEntrega(venda.entrega, venda.clienteNome, valor)]
-  if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
+  // Só "Entregar" lê a UF do emitente já aqui, para a trava (#848). Invariante: "Entregar" => não nula,
+  // porque ufDaEmpresa joga em vez de devolver nula; tornar essa leitura tolerante pularia a trava na emissão.
+  const ufEmitente = venda.entrega?.modo === 'entregar' ? await ufDaEmpresa(cfg) : null
+  const travaEntrega = travaDaEntregaEmOutroEstado(venda.entrega, ufEmitente)
+
+  // A trava vem primeiro: é o que a loja tem de mudar antes de corrigir o resto.
+  const pendencias = [
+    ...(travaEntrega ? [travaEntrega] : []),
+    ...pendenciasDaVenda({
+      clienteNome: venda.clienteNome, clienteCpf: venda.clienteCpf,
+      clienteLogradouro: venda.clienteLogradouro, clienteNumero: venda.clienteNumero,
+      clienteBairro: venda.clienteBairro, clienteCidade: venda.clienteCidade,
+      clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
+      clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
+      valor, pagamentos: pagamentosMova, temFicha: !!ficha,
+    }),
+    ...pendenciasDaEntrega(venda.entrega, venda.clienteNome, valor),
+    ...(regraRow ? [] : ['Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais']),
+  ]
 
   const regra: RegraSaida | null = regraRow
     ? {
@@ -214,7 +224,7 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
 
   return {
     venda, grupoId, emissor, cfg, regra, ficha: ficha ?? null, sugestao, observacao, pagamentosMova, valor, pendencias,
-    renaveExigido, renave, renaveOrigem,
+    renaveExigido, renave, renaveOrigem, travaEntrega, ufEmitente,
   }
 }
 
@@ -300,7 +310,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
 
     let resumo: Extract<PreviaNfe, { ok: true }>['resumo'] = null
     if (e.ficha && e.regra && !e.pendencias.length) {
-      const uf = await ufDaEmpresa(e.cfg)
+      const uf = e.ufEmitente ?? await ufDaEmpresa(e.cfg)
       // O veículo ainda vai ser preenchido na tela: a prévia é o resto da nota.
       const dados = dadosDaVenda({ ...e, renave: null }, uf, 'previa')
       const p = montarNfeVendaMoto(dados, e.regra)
@@ -432,6 +442,8 @@ export async function corrigirEReenviarNfAction(motoId: string, correcao: Correc
   try {
     const usuario = await exigirPapel('corrigir')
     const e = await montarEmissao(motoId, usuario)
+    // Correção não destrava a entrega em outro estado: recusa antes de gravar, como a UF do formulário.
+    if (e.travaEntrega) return { ok: false, error: e.travaEntrega }
     const r = conferirRenave(e.renaveExigido, renave)
     if (!r.ok) return r
     const t = operacaoExigeEntrega(r.dados?.tipoOperacao) ? validarDadosTransporte(transporte) : null
@@ -600,7 +612,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
       if (!g.ok) return { ok: false, error: g.erro }
     }
 
-    const uf = await ufDaEmpresa(e.cfg)
+    const uf = e.ufEmitente ?? await ufDaEmpresa(e.cfg)
     const payload = montarNfeVendaMoto(dadosDaVenda(eComRenave, uf, idExterno, transporteValidado), e.regra)
 
     notaId = await gravarEnvio(db, escolha, {

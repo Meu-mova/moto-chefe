@@ -2,6 +2,7 @@ import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db'
 import { contas, grupos, lojas, motos } from '@/lib/db/schema'
+import { configNotaGateway, ufDaEmpresa } from './client'
 
 type Executor = Pick<typeof db, 'execute'>
 
@@ -51,4 +52,25 @@ export async function faltasParaEmitir(grupoId: string, exec: Executor = db): Pr
   if (!r?.a1) faltas.push('sem certificado A1 válido')
   if (!r?.empresa) faltas.push('sem empresa na Nota Gateway')
   return faltas
+}
+
+/** NG lenta não pode segurar o pedido: Server Actions do usuário andam em fila (hotfix v1.2.2). */
+const LIMITE_UF_NO_PEDIDO_MS = 4000
+
+/**
+ * UF do CNPJ que emite a NF da moto, pela mesma consulta da emissão (Consultar Empresa na NG). Nula quando
+ * não dá para saber (grupo sem NG, NG fora do ar): quem chama decide; o pedido segue (#848).
+ */
+export async function ufDoEmissorDaMoto(motoId: string, lojaId: string): Promise<string | null> {
+  // Banco e chave fora do try: erro deles é falha de verdade, não "NG indisponível".
+  const emissor = await grupoEmissorDaVenda(motoId, lojaId)
+  const cfg = emissor && await configNotaGateway(emissor.grupoId)
+  if (!cfg) return null
+  try {
+    return await ufDaEmpresa(cfg, { limiteMs: LIMITE_UF_NO_PEDIDO_MS })
+  } catch (e) {
+    // Mensagens do client só trazem o status HTTP, sem token nem empresaId.
+    console.warn('[pedido] UF do emissor indisponível, pedido segue sem a trava:', e instanceof Error ? e.message : e)
+    return null
+  }
 }

@@ -87,3 +87,11 @@ test('UF da empresa (venda): lê o endereço da mesma consulta e o erro HTTP nã
   responder(404, 'Rota /empresas/EMPRESA-SECRETA-456 nao encontrada')
   await assert.rejects(ufDaEmpresa(cfg), (e: Error) => e.message === 'Consultar Empresa respondeu HTTP 404')
 })
+
+test('UF da empresa (#848): sem limite a consulta vai sem signal, como na emissão; com limite vai com signal', async () => {
+  const pedidos = responder(200, JSON.stringify({ endereco: { uf: 'MG' } }))
+  await ufDaEmpresa(cfg)
+  await ufDaEmpresa(cfg, { limiteMs: 4000 })
+  assert.equal(pedidos[0].init.signal, undefined)
+  assert.ok(pedidos[1].init.signal instanceof AbortSignal)
+})

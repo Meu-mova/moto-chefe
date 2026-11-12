@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
@@ -28,19 +27,22 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
   const [observacao, setObservacao] = useState('')
   const [entrega, setEntrega] = useState<EntregaDoFormulario>(ENTREGA_DO_FORMULARIO_INICIAL)
   const [loading, setLoading] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
 
   async function handleCriar() {
     if (!motoId) return
     setLoading(true)
+    setErro(null)
     try {
       const r = await criarPedidoVendaAction(motoId, observacao, entregaDoFormulario(entrega))
-      if (!r.ok) { toast.error(r.erro); return }
+      // A recusa fica no diálogo, junto do que foi digitado, para corrigir sem redigitar (#848).
+      if (!r.ok) { setErro(r.erro); return }
       setOpen(false)
       setMotoId('')
       setObservacao('')
       setEntrega(ENTREGA_DO_FORMULARIO_INICIAL)
     } catch (e: any) {
-      toast.error(e.message)
+      setErro(e.message)
     } finally {
       setLoading(false)
     }
@@ -54,7 +56,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}>Criar Pedido de Venda</Button>
+      <Button onClick={() => { setErro(null); setOpen(true) }}>Criar Pedido de Venda</Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
@@ -139,6 +141,7 @@ export function CriarPedidoDialog({ motos, papel }: Props) {
               </div>
             </section>
           </div>
+          {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
           <DialogFooter>
             <Button variant="outline" className="h-11" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button className="h-11" onClick={handleCriar} disabled={loading || !motoId || quemRecebeInvalido(entrega)}>

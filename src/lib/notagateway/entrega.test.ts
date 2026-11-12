@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, motoNaNota, totalComFrete, valorDaMoto, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, type EntregaVenda } from './entrega'
+import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, motoNaNota, totalComFrete, valorDaMoto, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, travaDaEntregaEmOutroEstado, ENTREGA_EM_OUTRO_ESTADO, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -261,4 +261,26 @@ test('motoNaNota: o valor da moto na nota, ou nulo quando o valor da venda não 
   assert.equal(motoNaNota(350, 350), null)
   assert.equal(motoNaNota(300, 350), null)
   assert.equal(motoNaNota(1000, 0), 1000)
+})
+
+// Trava da entrega em outro estado (#848, decisão do Luis 12/11/2026): pedido e NF decidem por aqui.
+const ENTREGAR_EM = (uf: string): EntregaVenda => ({
+  modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', recebe: null,
+  endereco: { cep: '', logradouro: 'Rua A', numero: '1', complemento: '', bairro: 'Centro', cidade: '4106902', nomeCidade: 'Curitiba', uf },
+})
+
+test('trava da entrega: "Entregar" em UF diferente da do emitente recusa com a frase', () => {
+  assert.equal(travaDaEntregaEmOutroEstado(ENTREGAR_EM('PR'), 'MG'), ENTREGA_EM_OUTRO_ESTADO)
+  assert.equal(ENTREGA_EM_OUTRO_ESTADO, 'Entrega para outro estado ainda não disponível. Use Retira na loja ou entrega no mesmo estado.')
+})
+
+test('trava da entrega: mesma UF (com espaço ou minúscula), retirada e venda sem Entrega passam', () => {
+  assert.equal(travaDaEntregaEmOutroEstado(ENTREGAR_EM('MG'), 'MG'), null)
+  assert.equal(travaDaEntregaEmOutroEstado(ENTREGAR_EM('mg'), ' mg '), null)
+  assert.equal(travaDaEntregaEmOutroEstado({ modo: 'retira', modalidade: '' }, 'MG'), null)
+  assert.equal(travaDaEntregaEmOutroEstado(null, 'MG'), null)
+})
+
+test('trava da entrega: UF do emitente desconhecida não trava (avise, não bloqueie)', () => {
+  assert.equal(travaDaEntregaEmOutroEstado(ENTREGAR_EM('PR'), null), null)
 })

@@ -83,6 +83,23 @@ export function conflitoDaUfDoFormulario(entrega: EntregaVenda | null, formulari
   return entrega?.modo === 'entregar' && uf && uf !== entrega.endereco.uf ? UF_DO_FORMULARIO_DIFERENTE : null
 }
 
+export const ENTREGA_EM_OUTRO_ESTADO = 'Entrega para outro estado ainda não disponível. Use Retira na loja ou entrega no mesmo estado.'
+
+/**
+ * Trava provisória da entrega em outra UF (#848): a SEFAZ recusa com 732 o caso que a NG ainda analisa, e a
+ * moto importada depende da #724. Sai num PR próprio quando os dois se resolverem. UF do emitente
+ * desconhecida (grupo sem NG, NG fora do ar) não trava: no pedido, avise, não bloqueie; a emissão já exige a UF.
+ */
+export function travaDaEntregaEmOutroEstado(entrega: EntregaVenda | null, ufEmitente: string | null): string | null {
+  return ufEmitente && entregaEmOutraUf(entrega, ufEmitente) ? ENTREGA_EM_OUTRO_ESTADO : null
+}
+
+const siglaUf = (uf: string) => uf.trim().toUpperCase()
+
+/** "Entregar" fora da UF do emitente. A trava (#848) e a operação da NF decidem por aqui, para não divergirem. */
+export const entregaEmOutraUf = (entrega: EntregaVenda | null, ufEmitente: string): boolean =>
+  entrega?.modo === 'entregar' && siglaUf(entrega.endereco.uf) !== siglaUf(ufEmitente)
+
 const NOME_DO_CLIENTE_LONGO = `O nome do cliente passa de ${LIMITE_TEXTO_XML} caracteres, o limite da nota para quem recebe a entrega. Corrija o nome do cliente antes de emitir.`
 
 /**
@@ -183,13 +200,14 @@ type DadosDaOperacao = {
  * (05/11/2026; o Luis estendeu à entrega em 07/11/2026). Prévia, payload e tela decidem por aqui.
  */
 export function operacaoDaVenda(d: DadosDaOperacao): OperacaoDaVenda {
-  const ufOrigem = d.ufEmitente.trim().toUpperCase()
-  const ufCliente = d.ufCliente.trim().toUpperCase()
+  const ufOrigem = siglaUf(d.ufEmitente)
+  const ufCliente = siglaUf(d.ufCliente)
   const paraOCliente = (motivo: MotivoOperacao) => ({ interestadual: ufCliente !== ufOrigem, motivo, ufOrigem, ufDestino: ufCliente })
   if (!d.entrega) return paraOCliente('sem_entrega')
   const entregar = d.entrega.modo === 'entregar'
-  const ufEntrega = d.entrega.modo === 'entregar' ? d.entrega.endereco.uf.trim().toUpperCase() : ufOrigem
-  if (ufEntrega !== ufOrigem) return { interestadual: true, motivo: 'entregar', ufOrigem, ufDestino: ufEntrega }
+  if (d.entrega.modo === 'entregar' && entregaEmOutraUf(d.entrega, ufOrigem)) {
+    return { interestadual: true, motivo: 'entregar', ufOrigem, ufDestino: siglaUf(d.entrega.endereco.uf) }
+  }
   // A moto fica na UF da loja (retirada ou entrega lá): as exceções do contador valem para os dois modos.
   if (ufCliente !== ufOrigem && d.ciclomotor) return paraOCliente(entregar ? 'entregar_ciclomotor' : 'retira_ciclomotor')
   if (ufCliente !== ufOrigem && d.clienteContribuinte) return paraOCliente(entregar ? 'entregar_contribuinte' : 'retira_contribuinte')

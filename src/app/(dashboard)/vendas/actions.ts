@@ -32,7 +32,8 @@ import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { conferirEntrega, freteDaVenda, motoNaNota } from '@/lib/notagateway/entrega'
+import { conferirEntrega, freteDaVenda, motoNaNota, travaDaEntregaEmOutroEstado } from '@/lib/notagateway/entrega'
+import { ufDoEmissorDaMoto } from '@/lib/notagateway/grupo-emissor'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { pedidoDoUsuario } from '@/lib/pedido-do-usuario'
@@ -146,9 +147,14 @@ async function criarPedidoVenda(motoId: string, observacao: string | undefined, 
     throw new RecusaUsuario('Sem permissão para criar pedido de venda')
   }
 
-  if (!(await motoDoUsuario(usuario, motoId))) throw new RecusaUsuario('Moto não encontrada')
+  const moto = await motoDoUsuario(usuario, motoId)
+  if (!moto) throw new RecusaUsuario('Moto não encontrada')
   const entrega = conferirEntrega(entregaDaTela)
   if (!entrega.ok) throw new RecusaUsuario(entrega.erro)
+  // Só "Entregar" consulta a NG: a retirada não depende da UF do emitente.
+  const ufEmitente = entrega.entrega.modo === 'entregar' ? await ufDoEmissorDaMoto(motoId, moto.lojaId) : null
+  const trava = travaDaEntregaEmOutroEstado(entrega.entrega, ufEmitente)
+  if (trava) throw new RecusaUsuario(trava)
 
   await db.transaction(tx => criarPedidoTx(tx, {
     motoId,
