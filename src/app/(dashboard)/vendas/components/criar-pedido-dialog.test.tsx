@@ -123,6 +123,7 @@ test('"Entregar": o CEP preenche rua, bairro, cidade, UF e o código IBGE; envia
   viaCep(VIACEP_SAO_LUIS)
   const t = await montar()
   await entregarComCep(t)
+  await t.clique(botao('Editar endereço'))
   assert.equal(campo<HTMLInputElement>(/^Rua/).value, 'Rua de exemplo')
   assert.equal(campo<HTMLSelectElement>(/^UF/).value, 'MA')
   assert.equal([...document.querySelectorAll('label')].some(l => /Código IBGE/.test(l.textContent ?? '')), false)
@@ -146,6 +147,87 @@ test('CEP não encontrado: aparece o código IBGE do município para digitar', a
   assert.deepEqual(criar.mock.calls[0].arguments[2], {
     modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', endereco: ENDERECO_SAO_LUIS, recebe: null,
   })
+})
+
+// CEP primeiro (#846, variante B): o endereço completo só aparece quando o CEP não resolve ou ao editar.
+const temRotulo = (rotulo: RegExp) => [...document.querySelectorAll('label')].some(l => rotulo.test((l.textContent ?? '').trim()))
+
+test('"Entregar" começa só com o CEP, sem os outros campos do endereço', async () => {
+  const t = await montar()
+  await t.clique(opcaoDeEntrega(/Entregar/))
+  assert.equal(temRotulo(/^CEP/), true)
+  for (const r of [/^Rua/, /^Número/, /^Complemento/, /^Bairro/, /^Cidade/, /^UF/]) assert.equal(temRotulo(r), false, `${r} apareceu antes do CEP`)
+})
+
+test('CEP achado: mostra "Endereço encontrado", o resumo e só Número e Complemento para digitar', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  assert.match(textoDaTela(), /Endereço encontrado/)
+  assert.match(textoDaTela(), /Rua de exemplo/)
+  assert.match(textoDaTela(), /Centro, São Luís \/ MA/)
+  assert.equal(temRotulo(/^Complemento/), true)
+  for (const r of [/^Rua/, /^Bairro/, /^Cidade/, /^UF/]) assert.equal(temRotulo(r), false, `${r} apareceu com o CEP achado`)
+})
+
+test('CEP não achado: abre o endereço completo, com o código IBGE', async () => {
+  viaCep({ erro: true })
+  const t = await montar()
+  await entregarComCep(t)
+  for (const r of [/^Rua/, /^Número/, /^Complemento/, /^Bairro/, /^Cidade/, /^UF/, /^Código IBGE/]) assert.equal(temRotulo(r), true, `${r} faltou`)
+  assert.doesNotMatch(textoDaTela(), /Endereço encontrado/)
+})
+
+test('"Editar endereço" abre o endereço completo com o que o CEP e a pessoa já preencheram', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  assert.ok(botao('Editar endereço'), 'sem o link "Editar endereço"')
+  await t.clique(botao('Editar endereço'))
+  assert.equal(campo<HTMLInputElement>(/^Rua/).value, 'Rua de exemplo')
+  assert.equal(campo<HTMLInputElement>(/^Número/).value, '100')
+  assert.equal(campo<HTMLInputElement>(/^Bairro/).value, 'Centro')
+  assert.equal(campo<HTMLInputElement>(/^Cidade/).value, 'São Luís')
+  assert.equal(campo<HTMLSelectElement>(/^UF/).value, 'MA')
+  assert.equal(botao('Editar endereço'), undefined)
+})
+
+test('CEP achado: envia do resumo, sem abrir "Editar endereço", o endereço completo', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await t.clique(botao('Criar pedido'))
+  assert.deepEqual((criar.mock.calls[0].arguments[2] as { endereco: object }).endereco, ENDERECO_SAO_LUIS)
+})
+
+test('CEP achado sem código IBGE: abre o endereço completo para digitar o código', async () => {
+  viaCep({ ...VIACEP_SAO_LUIS, ibge: '' })
+  const t = await montar()
+  await entregarComCep(t)
+  assert.equal(campo<HTMLInputElement>(/^Rua/).value, 'Rua de exemplo')
+  assert.equal(temRotulo(/^Código IBGE/), true)
+})
+
+// CEP geral (cidade inteira) volta sem rua: o resumo ficaria sem rua e sem campo para digitá-la.
+test('CEP achado sem rua: abre o endereço completo, com a cidade que veio', async () => {
+  viaCep({ ...VIACEP_SAO_LUIS, logradouro: '', bairro: '' })
+  const t = await montar()
+  await entregarComCep(t)
+  assert.equal(campo<HTMLInputElement>(/^Rua/).value, '')
+  assert.equal(campo<HTMLInputElement>(/^Cidade/).value, 'São Luís')
+  assert.doesNotMatch(textoDaTela(), /Endereço encontrado/)
+})
+
+test('trocar o CEP depois do resumo: some o endereço do CEP antigo, na tela e no envio', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  await digitar(campo<HTMLInputElement>(/^CEP/), '6500000')
+  assert.doesNotMatch(textoDaTela(), /Endereço encontrado|Rua de exemplo/)
+  await t.clique(botao('Criar pedido'))
+  const enviado = (criar.mock.calls[0].arguments[2] as { endereco: Record<string, string> }).endereco
+  assert.deepEqual([enviado.logradouro, enviado.bairro, enviado.nomeCidade, enviado.uf, enviado.cidade], ['', '', '', '', ''])
+  assert.equal(enviado.numero, '100')
 })
 
 test('"Outra pessoa recebe" com CPF inválido mostra o erro e não deixa criar; com CPF válido envia nome e documento', async () => {
@@ -180,6 +262,7 @@ test('trocar a UF depois do CEP apaga o código IBGE e pede o novo, que fica vis
   viaCep(VIACEP_SAO_LUIS)
   const t = await montar()
   await entregarComCep(t)
+  await t.clique(botao('Editar endereço'))
   await escolher(campo<HTMLSelectElement>(/^UF/), 'PI')
   assert.equal(campo<HTMLInputElement>(/^Código IBGE do município/).value, '')
   await digitar(campo<HTMLInputElement>(/^Código IBGE do município/), '2211001')
@@ -192,6 +275,7 @@ test('trocar a cidade à mão depois do CEP apaga o código IBGE e pede o novo',
   viaCep(VIACEP_SAO_LUIS)
   const t = await montar()
   await entregarComCep(t)
+  await t.clique(botao('Editar endereço'))
   await digitar(campo<HTMLInputElement>(/^Cidade/), 'Paço do Lumiar')
   assert.equal(campo<HTMLInputElement>(/^Código IBGE do município/).value, '')
 })
@@ -252,4 +336,19 @@ test('"Frete adicionado" sem valor avisa que o pedido sai sem frete (avisa, não
   assert.match(textoDaTela(), /Informe o valor do frete\. Sem ele o pedido sai sem frete\./)
   await digitar(campo<HTMLInputElement>(/^Valor cobrado do cliente/), '35000')
   assert.doesNotMatch(textoDaTela(), /Informe o valor do frete/)
+})
+
+// Endereço que já chega preenchido (além do CEP) abre inteiro: nada fica escondido.
+test('EntregaCampos com endereço já preenchido abre os campos completos', async () => {
+  const { act } = await import('react')
+  const { createRoot } = await import('react-dom/client')
+  const { EntregaCampos, ENTREGA_DO_FORMULARIO_INICIAL } = await import('./entrega-campos')
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+  const root = createRoot(container)
+  montados.push(() => act(async () => { root.unmount(); container.remove() }))
+  const valor = { ...ENTREGA_DO_FORMULARIO_INICIAL, modo: 'entregar' as const, endereco: { ...ENDERECO_SAO_LUIS } }
+  await act(async () => { root.render(createElement(EntregaCampos, { valor, onChange: () => {} })) })
+  assert.equal(campo<HTMLInputElement>(/^Rua/).value, 'Rua de exemplo')
+  assert.equal(botao('Editar endereço'), undefined)
 })
