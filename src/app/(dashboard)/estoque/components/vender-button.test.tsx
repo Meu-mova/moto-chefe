@@ -34,7 +34,8 @@ const esperar = (ms: number) => new Promise(r => setTimeout(r, ms))
 const textoDaTela = () => document.body.textContent ?? ''
 const botao = (texto: string) => [...document.querySelectorAll('button')].find(b => (b.textContent ?? '').trim() === texto)
 const campo = <T extends HTMLElement>(rotulo: RegExp) => {
-  const label = [...document.querySelectorAll('label')].find(l => rotulo.test((l.textContent ?? '').trim()))
+  // Só rótulo ligado a um campo: o "CEP" do comprador não tem id, o da Entrega tem.
+  const label = [...document.querySelectorAll('label')].find(l => l.htmlFor && rotulo.test((l.textContent ?? '').trim()))
   const el = label?.htmlFor ? document.getElementById(label.htmlFor) : null
   assert.ok(el, `campo com o rótulo ${rotulo} não está na tela`)
   return el as T
@@ -154,4 +155,44 @@ test('a recusa some ao trocar para Reserva', async () => {
   assert.equal(document.querySelector('[role="alert"]')?.textContent, 'Recusa sintética.')
   await t.clique(botao('Reserva'))
   assert.equal(document.querySelector('[role="alert"]'), null)
+})
+
+const opcaoDeEntrega = (nome: RegExp) => [...document.querySelectorAll<HTMLInputElement>('[role="radiogroup"] input[type="radio"]')]
+  .find(r => nome.test(r.closest('label')?.textContent ?? ''))
+const ENDERECO_SAO_LUIS = {
+  cep: '65000-000', logradouro: 'Rua de exemplo', numero: '100', complemento: '', bairro: 'Centro', cidade: '2111300', nomeCidade: 'São Luís', uf: 'MA',
+}
+
+async function entregarEmSaoLuis(t: Awaited<ReturnType<typeof montar>>) {
+  mock.method(globalThis, 'fetch', async () => Response.json({ logradouro: 'Rua de exemplo', bairro: 'Centro', localidade: 'São Luís', uf: 'MA', ibge: '2111300' }))
+  await t.clique(opcaoDeEntrega(/Entregar/))
+  await digitar(campo<HTMLInputElement>(/^CEP/), '65000000')
+  await t.act(() => esperar(50))
+  await digitar(campo<HTMLInputElement>(/^Número/), '100')
+  await t.clique(campo<HTMLInputElement>(/^Outra pessoa recebe/))
+  await digitar(campo<HTMLInputElement>(/^Nome de quem recebe/), 'Maria Exemplo')
+}
+
+test('"Entregar" com endereço e outra pessoa recebendo vai inteiro para a venda', async () => {
+  const t = await montar()
+  await preencherVenda(t)
+  await entregarEmSaoLuis(t)
+  await digitar(campo<HTMLInputElement>(/^CPF ou CNPJ de quem recebe/), '52998224725')
+  await t.clique(botao('Confirmar Venda'))
+  mock.restoreAll()
+  assert.deepEqual(registrar.mock.calls[0]?.arguments[0].entrega, {
+    modo: 'entregar', modalidade: 'TransporteProprioPorContaDoDestinatario', endereco: ENDERECO_SAO_LUIS,
+    recebe: { nome: 'Maria Exemplo', cpfCnpj: '529.982.247-25' },
+  })
+})
+
+test('quem recebe com CPF inválido deixa "Confirmar Venda" desabilitado', async () => {
+  const t = await montar()
+  await preencherVenda(t)
+  await entregarEmSaoLuis(t)
+  await digitar(campo<HTMLInputElement>(/^CPF ou CNPJ de quem recebe/), '52998224724')
+  mock.restoreAll()
+  assert.equal(botao('Confirmar Venda')?.disabled, true)
+  await t.clique(botao('Confirmar Venda'))
+  assert.equal(registrar.mock.callCount(), 0)
 })
