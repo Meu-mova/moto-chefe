@@ -1,0 +1,18 @@
+{
+  "id": 1000000007,
+  "status": "approved",
+  "status_detail": "accredited",
+  "payment_type_id": "credit_card",
+  "payment_method_id": "visa",
+  "transaction_amount": 500,
+  "transaction_amount_refunded": 0,
+  "installments": 1,
+  "date_created": "2026-11-10T14:00:00.000-03:00",
+  "date_approved": "2026-11-10T17:25:00.000Z",
+  "date_last_updated": "2026-11-10T14:00:05.000-03:00",
+  "authorization_code": "654321",
+  "transaction_details": { "net_received_amount": 480 },
+  "point_of_interaction": { "type": "CHECKOUT" },
+  "card": { "last_four_digits": "0000" },
+  "payer": { "first_name": "Fulano", "last_name": "Ficticio" }
+}

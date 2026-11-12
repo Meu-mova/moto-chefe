@@ -30,7 +30,7 @@ export function tipoDoCartao(texto: string): 'credito' | 'debito' | null {
   return null
 }
 
-export type Operadora = 'infinitypay' | 'stone' | 'pagueveloz'
+export type Operadora = 'infinitypay' | 'stone' | 'pagueveloz' | 'mercadopago'
 
 export type PayloadConciliacao = {
   operadora: Operadora
