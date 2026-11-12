@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { documentosAssinatura, vendas } from '@/lib/db/schema'
-import { podeAgirNaLoja } from '@/lib/acesso-registro'
+import { documentosAssinatura } from '@/lib/db/schema'
+import type { podeAgirNaLoja } from '@/lib/acesso-registro'
+import { vendaEmQueAge } from '@/lib/venda-do-usuario'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -24,12 +25,6 @@ export async function dossieDoUsuario(
   const [doc] = await exec.select().from(documentosAssinatura)
     .where(eq(documentosAssinatura.id, documentoId)).limit(1)
   if (!doc) return null
-  const [venda] = await exec.select({ lojaId: vendas.lojaId, numero: vendas.numero })
-    .from(vendas).where(eq(vendas.id, doc.vendaId)).limit(1)
-  if (!venda) return null
-  // Venda sem loja não tem Conta para conferir: só admin_geral, como no painel da venda.
-  const pode = venda.lojaId
-    ? await podeAgirNaLoja(usuario, venda.lojaId, exec)
-    : usuario.papel === 'admin_geral'
-  return pode ? { doc, venda } : null
+  const venda = await vendaEmQueAge(usuario, doc.vendaId, exec)
+  return venda ? { doc, venda } : null
 }

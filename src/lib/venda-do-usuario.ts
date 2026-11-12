@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, type SQL } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { grupos, lojas, vendas } from '@/lib/db/schema'
-import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
+import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
 import { podeVerGrupo } from '@/lib/acesso-grupo'
 import { lojasDoEscopo } from '@/lib/conta'
 
@@ -59,4 +59,25 @@ export async function vendaDoUsuarioParaNf(
     { id: linha.grupoId, contaId: linha.contaId },
   )
   return pode ? linha.venda : null
+}
+
+/**
+ * Venda pelo id em que o usuário pode agir (podeAgirNaLoja: admin no grupo que vê, o resto
+ * na própria loja), ou null. Conta no where, como vendaDoUsuario. Usada pelo painel de
+ * assinatura e pelo dossiê, que respondem igual para outra Conta e id inexistente.
+ */
+export async function vendaEmQueAge(
+  usuario: Parameters<typeof podeAgirNaLoja>[0],
+  vendaId: string,
+  exec: Executor = db,
+) {
+  const daConta = usuario.papel === 'admin_geral' ? undefined
+    : usuario.contaId ? inArray(vendas.lojaId, lojasDoEscopo(usuario)) : null
+  if (daConta === null) return null
+  const [venda] = await exec.select({ id: vendas.id, lojaId: vendas.lojaId, numero: vendas.numero })
+    .from(vendas)
+    .where(and(eq(vendas.id, vendaId), daConta))
+    .limit(1)
+  if (!venda || !(await podeAgirNaLoja(usuario, venda.lojaId, exec))) return null
+  return venda
 }
