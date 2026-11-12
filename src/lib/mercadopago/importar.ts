@@ -5,7 +5,7 @@ import { and, asc, eq, isNotNull, ne, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, grupos, pixRecebimentosMcp } from '@/lib/db/schema'
 import { PIX_ESTORNADO } from '@/lib/pix-status'
-import { CARTAO_ESTORNADO } from '@/lib/cartao-status'
+import { CARTAO_ESTORNADO, cartaoNaoEstornado } from '@/lib/cartao-status'
 import { decifrar } from '@/lib/cripto'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import type { Operadora } from '@/lib/conciliacao-cartao'
@@ -82,7 +82,10 @@ async function gravarCartao(tx: Tx, grupoId: string, lojaIds: string[], t: Carta
   const [existente] = await tx.select({ id: conciliacoesCartao.id }).from(conciliacoesCartao)
     .where(and(eq(conciliacoesCartao.grupoId, grupoId), eq(conciliacoesCartao.operadora, OPERADORA), eq(conciliacoesCartao.nsu, nsu)))
     .limit(1)
-  if (existente) return 'duplicada'
+  if (existente) {
+    await atualizarEstornoParcial(tx, grupoId, existente.id, t)
+    return 'duplicada'
+  }
 
   const porAutorizacao = t.autorizacao ? await casarPorAutorizacao(tx, lojaIds, t.autorizacao) : null
   const alvos = porAutorizacao && temAlvo(porAutorizacao) ? porAutorizacao : await casarPorValor(tx, lojaIds, t)
@@ -114,6 +117,24 @@ async function gravarCartao(tx: Tx, grupoId: string, lojaIds: string[], t: Carta
     .returning({ id: conciliacoesCartao.id })
   if (inseridas.length === 0) return 'duplicada'
   return casou ? 'conciliada' : 'pendente'
+}
+
+/**
+ * Estorno parcial que chega depois da 1ª importação (o pagamento segue aprovado, só o valor devolvido
+ * cresce): grava o novo `raw_data.estornado` na linha que já existe. Não mexe em vínculo, conciliado
+ * nem status, e a linha segue contada como duplicada. Linha estornada por inteiro fica como está.
+ */
+async function atualizarEstornoParcial(tx: Tx, grupoId: string, id: string, t: Cartao): Promise<void> {
+  const estornado = Number(t.rawData?.estornado ?? 0)
+  if (!Number.isFinite(estornado)) return
+  await tx.update(conciliacoesCartao)
+    .set({ rawData: sql`jsonb_set(coalesce(${conciliacoesCartao.rawData}, '{}'::jsonb), '{estornado}', to_jsonb(${estornado}::numeric))` })
+    .where(and(
+      eq(conciliacoesCartao.id, id),
+      eq(conciliacoesCartao.grupoId, grupoId),
+      cartaoNaoEstornado,
+      sql`coalesce((${conciliacoesCartao.rawData}->>'estornado')::numeric, 0) is distinct from ${estornado}::numeric`,
+    ))
 }
 
 /** true só quando a linha entrou agora (xmax = 0); reescrita do mesmo grupo e linha de outro grupo não contam. */

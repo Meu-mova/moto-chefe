@@ -242,3 +242,32 @@ test('isolamento: o mesmo nsu em A e em B vira uma linha em cada grupo, sem dupl
   assert.equal((await cartoesDoGrupo(a.grupoId)).length, 1)
   assert.equal((await cartoesDoGrupo(b.grupoId)).length, 1)
 })
+
+test('estorno parcial depois da 1ª importação atualiza raw_data.estornado sem mexer no vínculo', async () => {
+  const a = await semearConta('A')
+  const b = await semearConta('B')
+  const vendaId = await semearVendaMoto(a, pagamentoDaFixture)
+  const id = novoId()
+  const estornadoDe = async (grupoId: string) => (await execRows(sql`select raw_data->>'estornado' as estornado, status, conciliado, venda_id
+    from conciliacoes_cartao where grupo_id = ${grupoId} and operadora = 'mercadopago' and nsu = ${String(id)}`))[0]
+
+  await mod.importarMercadoPagoDoGrupo(a.grupoId, { agora: AGORA, buscar: buscarFixo([pg(credito3x, { id })]) })
+  await mod.importarMercadoPagoDoGrupo(b.grupoId, { agora: AGORA, buscar: buscarFixo([pg(credito3x, { id })]) })
+  assert.equal(Number((await estornadoDe(a.grupoId)).estornado), 0)
+
+  const parcial = pg(credito3x, { id, status_detail: 'partially_refunded', transaction_amount_refunded: 150 })
+  const r = await mod.importarMercadoPagoDoGrupo(a.grupoId, { agora: AGORA, buscar: buscarFixo([parcial]) })
+  // Segue contada como duplicada: a linha não é nova.
+  assert.deepEqual(r, { importadas: 0, duplicadas: 1, conciliadas: 0, pixNovos: 0, estornos: 0, ignorados: 0 })
+  const depois = await estornadoDe(a.grupoId)
+  assert.equal(Number(depois.estornado), 150)
+  assert.equal(depois.status, 'aprovado')
+  assert.equal(depois.conciliado, true)
+  assert.equal(depois.venda_id, vendaId)
+  // Isolamento: a linha do mesmo nsu em B não muda.
+  assert.equal(Number((await estornadoDe(b.grupoId)).estornado), 0)
+
+  // Rodar de novo com o mesmo valor não muda nada.
+  await mod.importarMercadoPagoDoGrupo(a.grupoId, { agora: AGORA, buscar: buscarFixo([parcial]) })
+  assert.deepEqual(await estornadoDe(a.grupoId), depois)
+})
