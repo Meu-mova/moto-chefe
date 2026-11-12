@@ -14,6 +14,7 @@ import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conci
 import { extrairTerminalInfinityPay } from '@/lib/conciliacao-terminal'
 import { detectarFormato } from '@/lib/conciliacao-formato'
 import { lerRelatorioCielo, type TransacaoCielo } from '@/lib/conciliacao-cielo'
+import { lerRelatorioRede, type TransacaoRede } from '@/lib/conciliacao-rede'
 import { grupos } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 
@@ -31,7 +32,7 @@ type LinhaRelatorio = {
   terminal: string | null
 }
 
-const comoLinhaDoRelatorio = (t: TransacaoCielo): LinhaRelatorio => ({
+const comoLinhaDoRelatorio = (t: TransacaoCielo | TransacaoRede): LinhaRelatorio => ({
   dataTransacao: t.dataTransacao,
   tipo: t.tipo,
   bandeira: t.rawData.bandeira,
@@ -182,6 +183,7 @@ async function importarRelatorio(formData: FormData) {
 
   let rows: LinhaRelatorio[] = []
   let semCodigo = 0
+  let incompletas = 0
   if (operadora === 'infinitypay')      rows = parseInfinityPay(text)
   else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
   else if (operadora === 'stone')       rows = parseStone(text)
@@ -191,6 +193,12 @@ async function importarRelatorio(formData: FormData) {
     if (!lido.ok) throw new RecusaUsuario(lido.erro)
     rows = lido.transacoes.map(comoLinhaDoRelatorio)
     semCodigo = lido.semCodigo
+  }
+  else if (operadora === 'rede') {
+    const lido = lerRelatorioRede(text)
+    if (!lido.ok) throw new RecusaUsuario(lido.erro)
+    rows = lido.transacoes.map(comoLinhaDoRelatorio)
+    incompletas = lido.incompletas
   }
   else throw new RecusaUsuario(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
   if (!(await maquininhasDoGrupo(db, grupo.id)).some(m => m.operadora === operadora)) {
@@ -203,12 +211,12 @@ async function importarRelatorio(formData: FormData) {
   // o que aconteceu com uma transação de BH importada em Sul de Minas.
   // Cada maquininha pertence a um grupo, então o serial do aparelho denuncia o
   // engano antes de gravar qualquer coisa. O serial é achado por dois caminhos:
-  // na InfinityPay ele vem embutido no NSU; na Stone e na Cielo vem na coluna
+  // na InfinityPay ele vem embutido no NSU; na Stone, na Cielo e na Rede (estabelecimento) vem na coluna
   // própria e é guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
     // Só a Conta do grupo ativo: terminal visto em outra Conta conta como desconhecido (#460).
-    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal, { soSerial: operadora === 'cielo' }) : []
+    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal, { soSerial: operadora === 'cielo' || operadora === 'rede' }) : []
     if (vistos.length > 0 && !vistos.includes(grupo.id)) {
       throw new RecusaUsuario('Esse relatório parece ser de outro grupo. Confira o grupo ativo; nada foi gravado.')
     }
@@ -312,7 +320,7 @@ async function importarRelatorio(formData: FormData) {
   }
 
   revalidatePath('/conciliacao')
-  return { importadas, duplicadas, conciliadas, semCodigo }
+  return { importadas, duplicadas, conciliadas, semCodigo, incompletas }
 }
 
 export async function vincularVendaAction(conciliacaoId: string, alvoId: string, tipo: 'moto' | 'peca' | 'os' = 'moto') {

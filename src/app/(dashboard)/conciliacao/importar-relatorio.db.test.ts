@@ -1,4 +1,4 @@
-// Teste de banco: a importação do relatório da Cielo pela Server Action de verdade, contra o
+// Teste de banco: a importação dos relatórios da Cielo e da Rede pela Server Action de verdade, contra o
 // Postgres descartável. Só a fronteira de fora é simulada: sessão, cookie do grupo ativo e
 // revalidatePath. O usuário do admin_rede vem do `usuarioDaRede` real, como em produção.
 import { after, afterEach, before, mock, test } from 'node:test'
@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { semearContaBase, semearGrupo } from '@/test/semear-conta'
 import { montarRelatorioCielo, vendaCielo, type LinhaCielo } from '@/test/relatorio-cielo-sintetico'
+import { montarRelatorioRede, parcelaRede, vendaParceladaRede, type LinhaRede } from '@/test/relatorio-rede-sintetico'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
@@ -69,11 +70,11 @@ test('sem Código da venda a linha não entra e a tela recebe quantas ficaram de
   const cod = codigos()
   const arquivo = [vendaCielo({ 'Código da venda': cod(1) }), vendaCielo({ 'Código da venda': '' }), vendaCielo({ 'Código da venda': cod(3) })]
   const r = await importar(arquivo)
-  assert.deepEqual(r, { ok: true, dados: { importadas: 2, duplicadas: 0, conciliadas: 0, semCodigo: 1 } })
+  assert.deepEqual(r, { ok: true, dados: { importadas: 2, duplicadas: 0, conciliadas: 0, semCodigo: 1, incompletas: 0 } })
   assert.deepEqual((await gravadasDoGrupo(b.grupoId)).map(l => l.nsu), [cod(1), cod(3)])
 
   const de_novo = await importar(arquivo)
-  assert.deepEqual(de_novo, { ok: true, dados: { importadas: 0, duplicadas: 2, conciliadas: 0, semCodigo: 1 } })
+  assert.deepEqual(de_novo, { ok: true, dados: { importadas: 0, duplicadas: 2, conciliadas: 0, semCodigo: 1, incompletas: 0 } })
   assert.equal((await gravadasDoGrupo(b.grupoId)).length, 2)
 })
 
@@ -175,4 +176,66 @@ test('a trava da Cielo olha só o serial: Código da venda de outro grupo que CO
   const r = await importar([vendaCielo({ 'Código da venda': codigos()(1), 'Número da máquina': serial })])
   assert.equal(r.ok, true)
   assert.equal((await gravadasDoGrupo(a2)).length, 1)
+})
+
+// ── Rede (#857) ──────────────────────────────────────────────────────────────
+
+async function contaComRede() {
+  const suf = randomUUID()
+  const base = await semearContaBase(db, { prefixo: 'CR857', nome: suf, cnpj: suf })
+  await db.execute(sql`insert into maquininhas (grupo_id, nome, operadora) values (${base.grupoId}, 'Rede', 'rede')`)
+  return base
+}
+async function importarRede(linhasDoRelatorio: LinhaRede[]) {
+  const fd = new FormData()
+  fd.set('operadora', 'rede')
+  fd.set('file', new File([montarRelatorioRede(linhasDoRelatorio)], 'rede.csv'))
+  return actions.importarRelatorioAction(fd)
+}
+// NSU/CV e estabelecimento só deste teste: o banco é compartilhado entre os arquivos do test:db.
+const nsuUnico = () => String(Math.floor(10000000 + Math.random() * 89999999))
+
+test('Rede: parcelas viram uma venda; incompleta fica de fora e é contada; reimportar não duplica', async () => {
+  const b = await contaComRede()
+  usuario = socio(b)
+  const [n1, n2] = [nsuUnico(), nsuUnico()]
+  const arquivo = [...vendaParceladaRede(3, { 'NSU/CV': n1 }), ...vendaParceladaRede(2, { 'NSU/CV': n2 }).slice(0, 1)]
+  const r = await importarRede(arquivo)
+  assert.deepEqual(r, { ok: true, dados: { importadas: 1, duplicadas: 0, conciliadas: 0, semCodigo: 0, incompletas: 1 } })
+  const gravadas = await linhas<{ nsu: string; valor_bruto: string; parcelas: number }>(
+    sql`select nsu, valor_bruto, parcelas from conciliacoes_cartao where grupo_id = ${b.grupoId}`)
+  assert.deepEqual(gravadas.map(g => [g.nsu, Number(g.valor_bruto), g.parcelas]), [[`2026-11-03:${n1}:123456`, 300, 3]])
+
+  const de_novo = await importarRede(arquivo)
+  assert.deepEqual(de_novo, { ok: true, dados: { importadas: 0, duplicadas: 1, conciliadas: 0, semCodigo: 0, incompletas: 1 } })
+})
+
+test('Rede, Conta A e Conta B: o mesmo NSU grava nas duas; estabelecimento de A importado em B não revela A', async () => {
+  const a = await contaComRede()
+  const b = await contaComRede()
+  const nsu = nsuUnico()
+  const estabelecimento = nsuUnico()
+  usuario = socio(a)
+  assert.equal((await importarRede([parcelaRede({ 'NSU/CV': nsu, estabelecimento })])).ok, true)
+  usuario = socio(b)
+  const r = await importarRede([parcelaRede({ 'NSU/CV': nsu, estabelecimento })])
+  assert.equal(r.ok, true)
+  assert.equal((await gravadasDoGrupo(a.grupoId)).length, 1)
+  assert.equal((await gravadasDoGrupo(b.grupoId)).length, 1)
+})
+
+test('Rede: estabelecimento de outro grupo da MESMA Conta recusa e nada grava', async () => {
+  const a1 = await contaComRede()
+  const { grupoId: a2 } = await semearGrupo(db, a1.contaId, { prefixo: 'CR857', nome: `segundo-${randomUUID()}`, cnpj: randomUUID() })
+  await db.execute(sql`insert into maquininhas (grupo_id, nome, operadora) values (${a2}, 'Rede', 'rede')`)
+  const estabelecimento = nsuUnico()
+  usuario = socio(a1)
+  await importarRede([parcelaRede({ 'NSU/CV': nsuUnico(), estabelecimento })])
+
+  usuario = socio(a1, { gruposAcesso: [a2] })
+  grupoAtivoNoCookie = a2
+  const r = await importarRede([parcelaRede({ 'NSU/CV': nsuUnico(), estabelecimento })])
+  assert.equal(r.ok, false)
+  assert.match(r.ok ? '' : r.erro, /outro grupo/)
+  assert.equal((await gravadasDoGrupo(a2)).length, 0)
 })
