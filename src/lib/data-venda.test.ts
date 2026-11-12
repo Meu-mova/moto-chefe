@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dataPuraBr, diaBrt, diaCurtoBrt, diaEHoraBrt, fimDoDiaBrt, hojeBrt, inicioDoDiaBrt, mesBrt, parseDataInput, rotuloMesCurto, rotuloMesCurtoAA } from './data-venda'
+import { dataBrParaIso, dataPuraBr, diaBrt, diaCurtoBrt, diaEHoraBrt, fimDoDiaBrt, hojeBrt, inicioDoDiaBrt, mesBrt, parseDataInput, rotuloMesCurto, rotuloMesCurtoAA } from './data-venda'
 
 test('mesBrt: virada de mês à noite NÃO pula pro mês seguinte', () => {
   // 01/08 02:00Z = 31/07 23:00 em Brasília — ainda é julho.
@@ -98,6 +98,14 @@ test('rotuloMesCurtoAA: ano e mês viram "out/26", aceitando número ou texto', 
   assert.equal(rotuloMesCurtoAA(2026, 10), 'out/26')
   assert.equal(rotuloMesCurtoAA('2026', '01'), 'jan/26')
   assert.equal(rotuloMesCurtoAA(2027, 12), 'dez/27')
+})
+
+test('dataBrParaIso: dd/mm/aaaa vira aaaa-mm-dd; data que não existe ou fora do formato vira null', () => {
+  assert.equal(dataBrParaIso('03/11/2026'), '2026-11-03')
+  assert.equal(dataBrParaIso(' 29/02/2028 '), '2028-02-29')
+  for (const ruim of ['31/02/2026', '29/02/2027', '3/11/2026', '2026-11-03', 'xx/yy/zzzz', '']) {
+    assert.equal(dataBrParaIso(ruim), null, ruim)
+  }
 })
 
 test('dataPuraBr: data pura sai no mesmo dia, onde o diaBrt daria o dia anterior', () => {

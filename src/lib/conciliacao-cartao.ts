@@ -14,6 +14,22 @@ export type TransacaoCartao = {
   rawData?: Record<string, unknown>
 }
 
+// Venda lida de relatório baixado do portal (Cielo, Rede): sempre com chave e os dois valores.
+export type TransacaoDoRelatorio = TransacaoCartao & {
+  nsu: string
+  valorLiquido: number
+  rawData: { bandeira: string; portador: string | null; serial: string | null }
+}
+
+// "Crédito à vista", "Débito"...: "dito" e "bito" são ASCII e sobrevivem a qualquer codificação
+// do acento. O que não é nenhum dos dois (Pix, saque) devolve null.
+export function tipoDoCartao(texto: string): 'credito' | 'debito' | null {
+  const t = texto.toLowerCase()
+  if (t.includes('bito')) return 'debito'
+  if (t.includes('dito')) return 'credito'
+  return null
+}
+
 export type Operadora = 'infinitypay' | 'stone' | 'pagueveloz'
 
 export type PayloadConciliacao = {
