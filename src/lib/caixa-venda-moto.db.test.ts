@@ -57,6 +57,8 @@ const vender = (motoId: string, pagamentos: { tipo: string; valor: number }[]) =
   motoId, clienteNome: 'Cliente ' + P, clienteCpf: '52998224725', clienteCelular: '35999990775', clienteEmail: 'c@example.com',
   clienteCep: '', clienteLogradouro: '', clienteNumero: '', clienteComplemento: '', clienteBairro: '', clienteCidade: '', clienteEstado: '',
   valorTotal: '12000', pagamentos, origemId: conta.origemId,
+  // Desde o #852/#856 o Vender exige a Entrega; aqui ela não importa.
+  entrega: { modo: 'retira', modalidade: '' } as const,
 })
 
 const caixaDaMoto = (motoId: string) => execRows(sql`select l.loja_id, l.descricao, l.valor, l.data::text as data, l.venda_id = v.id as da_venda

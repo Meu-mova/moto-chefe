@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { semearContaBase, semearGrupo, semearUsuario } from '@/test/semear-conta'
-import { ENTREGA_EM_OUTRO_ESTADO } from '@/lib/notagateway/entrega'
+import { ENTREGA_EM_OUTRO_ESTADO, FRETE_FORA_DO_VENDER, operacaoDaVenda, type EntregaVenda } from '@/lib/notagateway/entrega'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
@@ -27,13 +27,16 @@ let execRows: Db['execRows']
 let criarPedidoVendaAction: Actions['criarPedidoVendaAction']
 let efetivarVendaAction: Actions['efetivarVendaAction']
 let editarVendaAction: Actions['editarVendaAction']
+let registrarVendaCompletaAction: Actions['registrarVendaCompletaAction']
+let solicitarAprovacaoVendaAction: Actions['solicitarAprovacaoVendaAction']
+let aprovarVendaAction: Actions['aprovarVendaAction']
 let vendaDoUsuarioParaNf: typeof import('@/lib/venda-do-usuario')['vendaDoUsuarioParaNf']
 let vendas: typeof import('@/lib/db/schema')['vendas']
 let eq: typeof import('drizzle-orm')['eq']
 
 before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
-  ;({ criarPedidoVendaAction, efetivarVendaAction, editarVendaAction } = await import('@/app/(dashboard)/vendas/actions'))
+  ;({ criarPedidoVendaAction, efetivarVendaAction, editarVendaAction, registrarVendaCompletaAction, solicitarAprovacaoVendaAction, aprovarVendaAction } = await import('@/app/(dashboard)/vendas/actions'))
   ;({ vendaDoUsuarioParaNf } = await import('@/lib/venda-do-usuario'))
   ;({ vendas } = await import('@/lib/db/schema'))
   ;({ eq } = await import('drizzle-orm'))
@@ -374,4 +377,147 @@ test('trava #848: NG que não responde não segura o pedido: grava em poucos seg
   assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: true, dados: undefined })
   assert.ok(Date.now() - inicio < 6000, `demorou ${Date.now() - inicio} ms`)
   assert.equal((await pedidosDaMoto(a.motoId)).length, 1)
+})
+
+// "Vender" do Showroom (#852): a mesma Entrega e a mesma trava do Novo pedido, direto na venda.
+const vendaDoShowroom = (c: Awaited<ReturnType<typeof semearConta>>, entrega: unknown, tipo = 'pix') => ({
+  motoId: c.motoId, clienteNome: 'Cliente sintético', clienteCpf: '52998224725', clienteCelular: '35999990774', clienteEmail: 'c@example.com',
+  clienteCep: '', clienteLogradouro: '', clienteNumero: '', clienteComplemento: '', clienteBairro: '', clienteCidade: '', clienteEstado: 'MG',
+  valorTotal: '12000', pagamentos: [{ tipo, valor: 12000 }], origemId: c.origemId, entrega: entrega as EntregaVenda,
+})
+const entregaDoPedidoDaMoto = async (motoId: string) => (await pedidosDaMoto(motoId)).map(p => p.entrega)
+const aprovadorDeTransferencia = (c: Awaited<ReturnType<typeof contaComNg>>) =>
+  ({ ...c.socio, aprovaPagamentoSensivel: true, gruposAprovacao: [c.grupoId] })
+
+test('Vender: "Retira na loja" chega à venda e ao pedido sem consultar a Nota Gateway', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  assert.equal((await registrarVendaCompletaAction(vendaDoShowroom(a, RETIRA))).ok, true)
+  assert.deepEqual((await vendasDaMoto(a.motoId)).map(v => v.entrega), [RETIRA])
+  assert.deepEqual(await entregaDoPedidoDaMoto(a.motoId), [RETIRA])
+  assert.deepEqual(a.chamadas, [])
+})
+
+test('Vender: "Entregar" na UF do emitente grava; a venda lida para a NF traz a Entrega, que fica dentro do estado mesmo com o comprador de outra UF', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  assert.equal((await registrarVendaCompletaAction(vendaDoShowroom(a, ENTREGAR_MG))).ok, true)
+  const venda = await vendaDoUsuarioParaNf(a.aux, eq(vendas.motoId, a.motoId))
+  assert.deepEqual(venda?.entrega, ENTREGAR_MG)
+  assert.equal(operacaoDaVenda({ entrega: venda!.entrega, ufEmitente: 'MG', ufCliente: 'SP', clienteContribuinte: false, ciclomotor: false }).interestadual, false)
+})
+
+test('Vender: "Entregar" em outra UF que a do emitente é recusado com a frase e nada é gravado', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  assert.deepEqual(await registrarVendaCompletaAction(vendaDoShowroom(a, ENTREGAR)), { ok: false, erro: ENTREGA_EM_OUTRO_ESTADO })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [])
+  assert.deepEqual(await execRows(sql`select disponibilidade from motos where id = ${a.motoId}`), [{ disponibilidade: 'disponivel' }])
+})
+
+test('Vender: NG respondendo erro (500) não segura a venda: "Entregar" é gravado', async () => {
+  const a = await contaComNg('MG')
+  mock.restoreAll()
+  const chamadas = ngComUf({}, 500)
+  usuario = a.vendedor
+  assert.equal((await registrarVendaCompletaAction(vendaDoShowroom(a, ENTREGAR))).ok, true)
+  assert.equal(chamadas.length, 1)
+  assert.deepEqual((await vendasDaMoto(a.motoId)).map(v => v.entrega), [ENTREGAR])
+})
+
+test('Vender: modalidade fora da lista é recusada e nada é gravado', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  const r = await registrarVendaCompletaAction(vendaDoShowroom(a, { modo: 'retira', modalidade: 'Inventada' }))
+  assert.equal(r.ok, false)
+  assert.deepEqual(await vendasDaMoto(a.motoId), [])
+})
+
+test('Vender: Conta B na moto da Conta A recebe a frase de moto inexistente, sem consultar a NG nem gravar', async () => {
+  const a = await contaComNg('MG')
+  const b = await semearConta()
+  usuario = b.vendedor
+  assert.deepEqual(await registrarVendaCompletaAction(vendaDoShowroom({ ...b, motoId: a.motoId }, ENTREGAR)), { ok: false, erro: 'Moto não encontrada' })
+  assert.deepEqual(a.chamadas, [])
+  assert.deepEqual(await vendasDaMoto(a.motoId), [])
+})
+
+test('Vender com aprovação: o pedido guarda a Entrega e a venda aprovada a recebe, sem consultar a NG de novo', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  assert.deepEqual(await solicitarAprovacaoVendaAction(vendaDoShowroom(a, ENTREGAR_MG, 'transferencia'), '', 'pagamento_sensivel'), { ok: true, dados: undefined })
+  const [{ id }] = await execRows(sql`select id from aprovacoes_venda where moto_id = ${a.motoId} and status = 'pendente'`)
+  const consultasAntes = a.chamadas.length
+  usuario = aprovadorDeTransferencia(a)
+  assert.deepEqual(await aprovarVendaAction(id as string), { ok: true, dados: undefined })
+  assert.equal(a.chamadas.length, consultasAntes)
+  assert.deepEqual((await vendasDaMoto(a.motoId)).map(v => v.entrega), [ENTREGAR_MG])
+})
+
+test('Vender com aprovação: "Entregar" em outra UF é recusado já no pedido de aprovação, sem nada gravado', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  assert.deepEqual(await solicitarAprovacaoVendaAction(vendaDoShowroom(a, ENTREGAR, 'transferencia'), '', 'pagamento_sensivel'), { ok: false, erro: ENTREGA_EM_OUTRO_ESTADO })
+  assert.deepEqual(await execRows(sql`select id from aprovacoes_venda where moto_id = ${a.motoId}`), [])
+})
+
+test('Vender com aprovação: pedido de aprovação de antes da Entrega vira venda com a Entrega vazia', async () => {
+  const a = await contaComNg('MG')
+  const { entrega: _semEntrega, ...antigo } = vendaDoShowroom(a, RETIRA, 'transferencia')
+  const id = await idDe(sql`insert into aprovacoes_venda (moto_id, loja_id, vendedor_id, valor, dados_venda, motivo, tipo, disponibilidade_anterior, status)
+    select ${a.motoId}, loja_id, ${a.vendedor.id}, '12000', ${JSON.stringify(antigo)}::jsonb, 'Pagamento via Transferência Bancária', 'pagamento_sensivel', 'disponivel', 'pendente'
+    from motos where id = ${a.motoId} returning id`)
+  usuario = aprovadorDeTransferencia(a)
+  assert.deepEqual(await aprovarVendaAction(id), { ok: true, dados: undefined })
+  assert.deepEqual((await vendasDaMoto(a.motoId)).map(v => v.entrega), [null])
+})
+
+test('Vender: Entrega com frete cobrado é recusada até o frete do "Vender" existir, e nada é gravado', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  const comFrete = { ...ENTREGAR, modalidade: 'TransporteProprioPorContaDoRemetente', frete: 350 }
+  assert.deepEqual(await registrarVendaCompletaAction(vendaDoShowroom(a, comFrete)), { ok: false, erro: FRETE_FORA_DO_VENDER })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [])
+})
+
+test('Vender: frete cobrado é recusado antes de consultar a Nota Gateway', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  const comFrete = { ...ENTREGAR_MG, frete: 350 }
+  assert.deepEqual(await registrarVendaCompletaAction(vendaDoShowroom(a, comFrete)), { ok: false, erro: FRETE_FORA_DO_VENDER })
+  assert.deepEqual(a.chamadas, [])
+})
+
+test('Vender: NG que não responde não segura a venda: "Entregar" grava em poucos segundos, sem a trava', async () => {
+  const a = await contaComNg('MG')
+  mock.restoreAll()
+  // Só larga quando a própria venda desiste (signal), como no Novo pedido.
+  mock.method(globalThis, 'fetch', (_input: unknown, init?: RequestInit) => new Promise((_ok, falha) => {
+    init?.signal?.addEventListener('abort', () => falha(init.signal?.reason))
+  }))
+  usuario = a.vendedor
+  const inicio = Date.now()
+  assert.equal((await registrarVendaCompletaAction(vendaDoShowroom(a, ENTREGAR))).ok, true)
+  assert.ok(Date.now() - inicio < 6000, `demorou ${Date.now() - inicio} ms`)
+  assert.deepEqual((await vendasDaMoto(a.motoId)).map(v => v.entrega), [ENTREGAR])
+})
+
+test('Vender com aprovação: Conta B não pede aprovação na moto da Conta A nem aprova a solicitação da A; a Entrega da A fica intacta', async () => {
+  const a = await contaComNg('MG')
+  const b = await contaComNg('MG')
+  usuario = b.vendedor
+  assert.deepEqual(
+    await solicitarAprovacaoVendaAction(vendaDoShowroom({ ...b, motoId: a.motoId }, ENTREGAR_MG, 'transferencia'), '', 'pagamento_sensivel'),
+    { ok: false, erro: 'Moto não encontrada' },
+  )
+  assert.deepEqual(a.chamadas, [])
+
+  usuario = a.vendedor
+  assert.equal((await solicitarAprovacaoVendaAction(vendaDoShowroom(a, ENTREGAR_MG, 'transferencia'), '', 'pagamento_sensivel')).ok, true)
+  const [{ id }] = await execRows(sql`select id from aprovacoes_venda where moto_id = ${a.motoId} and status = 'pendente'`)
+  usuario = aprovadorDeTransferencia(b)
+  assert.deepEqual(await aprovarVendaAction(id as string), { ok: false, erro: 'Solicitação não encontrada' })
+  assert.deepEqual(await aprovarVendaAction(randomUUID()), { ok: false, erro: 'Solicitação não encontrada' })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [])
+  assert.deepEqual(await execRows(sql`select status, dados_venda->'entrega' as entrega from aprovacoes_venda where id = ${id}`), [{ status: 'pendente', entrega: ENTREGAR_MG }])
 })
