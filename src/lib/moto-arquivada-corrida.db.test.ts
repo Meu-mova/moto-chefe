@@ -92,7 +92,8 @@ async function novaMoto(rotulo: string) {
 }
 
 const cliente = { clienteNome: 'Cliente ' + P, clienteCpf: CPF, clienteCelular: '35999990688', clienteEmail: 'c@example.com',
-  clienteCep: '', clienteLogradouro: '', clienteNumero: '', clienteComplemento: '', clienteBairro: '', clienteCidade: '', clienteEstado: '' }
+  clienteCep: '', clienteLogradouro: '', clienteNumero: '', clienteComplemento: '', clienteBairro: '', clienteCidade: '', clienteEstado: '',
+  entrega: { modo: 'retira', modalidade: '' } as const }
 const venda = (motoId: string, tipo = 'pix') => ({ motoId, ...cliente, valorTotal: '1000', pagamentos: [{ tipo, valor: 1000 }], origemId: semente.origemId })
 
 // Sessões esperando lock por causa de uma das sessões dadas.

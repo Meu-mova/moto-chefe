@@ -92,6 +92,7 @@ const venda = (c: Conta, motoId: string, tipo: string) => ({
   motoId, clienteNome: 'Cliente ' + P, clienteCpf: '52998224725', clienteCelular: '35999990774', clienteEmail: 'c@example.com',
   clienteCep: '', clienteLogradouro: '', clienteNumero: '', clienteComplemento: '', clienteBairro: '', clienteCidade: '', clienteEstado: '',
   valorTotal: '12000', pagamentos: [{ tipo, valor: 12000 }], origemId: c.origemId,
+  entrega: { modo: 'retira', modalidade: '' } as const,
 })
 
 /** Itens do pedido da moto, pela moto (o pedido do "Vender" nasce dentro da action). */

@@ -32,7 +32,7 @@ import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { conferirEntrega, freteDaVenda, motoNaNota, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { conferirEntrega, FRETE_FORA_DO_VENDER, freteDaVenda, motoNaNota, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { ufDoEmissorDaMoto } from '@/lib/notagateway/grupo-emissor'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
@@ -137,6 +137,14 @@ async function buscarPrecificacao(modeloId: string, lojaId: string) {
   }
 }
 
+/** Entrega do pedido de aprovação, conferida de novo sem a NG; pedido de antes da Entrega fica sem ela. */
+function comEntregaGuardada(data: DadosVendaCompleta): DadosVendaCompleta {
+  if (data.entrega === undefined) return data
+  const entrega = conferirEntrega(data.entrega)
+  if (!entrega.ok) throw new RecusaUsuario(entrega.erro)
+  return { ...data, entrega: entrega.entrega }
+}
+
 /** Confere a Entrega vinda da tela e aplica a trava de outra UF (#848); recusa antes de qualquer gravação. */
 async function entregaConferida(motoId: string, lojaId: string, entregaDaTela: unknown): Promise<EntregaVenda> {
   const entrega = conferirEntrega(entregaDaTela)
@@ -146,6 +154,13 @@ async function entregaConferida(motoId: string, lojaId: string, entregaDaTela: u
   const trava = travaDaEntregaEmOutroEstado(entrega.entrega, ufEmitente)
   if (trava) throw new RecusaUsuario(trava)
   return entrega.entrega
+}
+
+/** Entrega do "Vender" do Showroom: a mesma do Novo pedido, ainda sem frete cobrado. */
+async function entregaDoVender(motoId: string, lojaId: string, entregaDaTela: unknown): Promise<EntregaVenda> {
+  const entrega = await entregaConferida(motoId, lojaId, entregaDaTela)
+  if (freteDaVenda(entrega)) throw new RecusaUsuario(FRETE_FORA_DO_VENDER)
+  return entrega
 }
 
 export async function criarPedidoVendaAction(...a: Parameters<typeof criarPedidoVenda>) {
@@ -272,6 +287,8 @@ type DadosVendaCompleta = {
   /** Por onde o cliente chegou. Obrigatório — viaja no dados_venda da aprovação. */
   origemId: string
   origemDetalhe?: string
+  /** Entrega da venda (#852). Pedido de aprovação gravado antes dela chega sem o campo. */
+  entrega?: EntregaVenda
 }
 
 async function criarVendaTx(
@@ -310,6 +327,7 @@ async function criarVendaTx(
     observacao: null,
     dataPedido: dataVendaFinal,
     dataAtualizacao: dataVendaFinal,
+    entrega: data.entrega ?? null,
   }).returning({ id: pedidosVenda.id })
   // O mesmo valor da venda: no "Vender" a venda é só a moto.
   await gravarMotoDoPedido(tx, { pedidoId: pedido.id, motoId: moto.id, valor: data.valorTotal })
@@ -400,6 +418,7 @@ async function criarVendaTx(
     dataVenda: dataVendaFinal,
     origemId: origem.origemId,
     origemDetalhe: origem.origemDetalhe,
+    entrega: data.entrega ?? null,
   }).returning({ id: vendas.id })
 
   // Marcar reserva como convertida
@@ -524,6 +543,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
   const origem = await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
+  data = { ...data, entrega: await entregaDoVender(moto.id, moto.lojaId, data.entrega) }
 
   await db.transaction(async (tx) => {
     await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem, grupoLiberado: usuario.grupoLiberado })
@@ -1656,6 +1676,8 @@ async function solicitarAprovacaoVenda(
   // Valida a origem já aqui, não só na aprovação: um dados_venda inválido só
   // quebraria na hora de aprovar, na frente de quem aprova.
   await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
+  // A trava de outra UF roda aqui; a aprovação usa a Entrega guardada sem consultar a NG de novo.
+  data = { ...data, entrega: await entregaDoVender(moto.id, moto.lojaId, data.entrega) }
 
   let motivoFinal: string
   // Snapshot do desconto: só existe no fluxo de valor mínimo. Fica NULL em
@@ -1796,7 +1818,7 @@ async function aprovarVenda(aprovacaoId: string) {
   const [moto] = await db.select().from(motos).where(eq(motos.id, aprovacao.motoId)).limit(1)
   if (!moto) throw new RecusaUsuario('Moto não encontrada')
 
-  const data = aprovacao.dadosVenda as unknown as DadosVendaCompleta
+  const data = comEntregaGuardada(aprovacao.dadosVenda as unknown as DadosVendaCompleta)
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
   // Revalida aqui também: o dados_venda pode ter sido gravado antes deste deploy
