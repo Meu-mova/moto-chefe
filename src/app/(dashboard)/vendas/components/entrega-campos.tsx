@@ -53,6 +53,8 @@ const NUMERO: Campo = { campo: 'numero', rotulo: 'Número', classe: 'col-span-2'
 const COMPLEMENTO: Campo = { campo: 'complemento', rotulo: 'Complemento', opcional: true, classe: 'col-span-4 @[34rem]:col-span-5' }
 const BAIRRO: Campo = { campo: 'bairro', rotulo: 'Bairro', classe: 'col-span-6 @[34rem]:col-span-7' }
 
+const ENDERECO_DO_CEP_VAZIO = { logradouro: '', bairro: '', cidade: '', nomeCidade: '', uf: '' } satisfies Partial<EnderecoDaEntrega>
+
 /** O que o endereço mostra: só o CEP, o resumo do CEP achado ou todos os campos. */
 type Exibicao = 'so_cep' | 'resumo' | 'completo'
 // Endereço que já chega preenchido (além do CEP) abre inteiro, para nada ficar escondido.
@@ -82,11 +84,19 @@ export function EntregaCampos({ valor, onChange }: Props) {
       ...(e.logradouro ? { logradouro: e.logradouro } : {}), ...(e.bairro ? { bairro: e.bairro } : {}),
       nomeCidade: e.cidade, uf: e.uf, cidade: e.ibge,
     })
-  })
+  }, () => setExibicao('completo'))
   const e = valor.endereco
-  const buscarCep = (cep: string) => { mudarEndereco({ cep }); buscar(cep) }
-  // CEP não achado abre tudo e não fecha mais: o que for digitado à mão não some.
-  if (busca === 'nao_achou' && exibicao !== 'completo') setExibicao('completo')
+  // Fora dos campos completos, o endereço do CEP antigo está escondido: trocar o CEP o apaga, para não ir
+  // na nota sem a pessoa ver. Com os campos à vista, o que ela digitou fica.
+  const buscarCep = (cep: string) => {
+    if (exibicao === 'completo') mudarEndereco({ cep })
+    else {
+      setExibicao('so_cep')
+      setIbgeAMao(false)
+      mudarEndereco({ cep, ...ENDERECO_DO_CEP_VAZIO })
+    }
+    buscar(cep)
+  }
   const campoTexto = (c: Campo) => (
     <div key={c.campo} className={`space-y-1 ${c.classe}`}>
       <Label htmlFor={`entrega-${c.campo}`}>
