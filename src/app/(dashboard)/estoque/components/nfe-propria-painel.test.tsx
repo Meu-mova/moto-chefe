@@ -7,6 +7,7 @@ import { RENAVE_COMPLETO_FATURAMENTO_DIRETO } from '@/test/renave-completo'
 import type { DadosTransporte } from '@/lib/notagateway/transporte'
 import type { NotaResumo } from '../../vendas/nfe-propria-actions'
 import { montarDom } from '@/test/montar-dom'
+import { clicar, digitarTexto } from '@/test/eventos-dom'
 
 const { dom, desmontar } = montarDom()
 after(desmontar)
@@ -30,6 +31,7 @@ const preview: Extract<PreviaNfe, { ok: true }> = {
   },
   renaveOrigem: {},
   transporteAnterior: null,
+  observacaoAnterior: null,
   resumo: {
     cliente: { nome: 'Comprador de teste', documento: '35281765043', endereco: 'Rua de teste, 10', email: null },
     produto: { descricao: 'Ciclomotor de teste', ncm: '87116000', cest: '', cfop: '5102', cst: '102', origemEntrada: '0', origemSaida: '0' },
@@ -142,7 +144,7 @@ test('o envio inicial leva a modalidade escolhida e a entrega que veio do compra
   await act(async () => conferi.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
   await click(/Transmitir teste/)
 
-  assert.deepEqual(chamadas, [['moto-teste', RENAVE_COMPLETO_FATURAMENTO_DIRETO, { modalidade: modalidade4, enderecoEntrega: entregaDoComprador }]])
+  assert.deepEqual(chamadas, [['moto-teste', RENAVE_COMPLETO_FATURAMENTO_DIRETO, { modalidade: modalidade4, enderecoEntrega: entregaDoComprador }, null]])
 })
 
 test('reabrir a recusa mostra o transporte do envio anterior e o reenvio leva o que o operador deixar', async () => {
@@ -242,4 +244,86 @@ test('nova recusa depois do reenvio mantém o RENAVE que o operador digitou (#67
   await click(/^Salvar e reenviar nº 9/)
   assert.match(container.textContent ?? '', /espécie/)
   assert.equal(container.querySelector<HTMLSelectElement>('select#renave-tipoCombustivel')?.value, '06')
+})
+
+// #849: observação da nota editável na conferência. Autopropelido: abre direto na conferência.
+const PADRAO_OBS = 'GARANTIA PADRAO\nChassi: ABC'
+const previaSemRenave: Extract<PreviaNfe, { ok: true }> = {
+  ...preview, exigeRenave: false, renave: null,
+  resumo: { ...preview.resumo!, observacao: PADRAO_OBS },
+}
+const textoDaTela = (container: Element) => container.textContent ?? ''
+const caixaObservacao = (container: Element) => container.querySelector<HTMLTextAreaElement>('textarea#observacao-edicao')
+const lapis = (container: Element) => container.querySelector<HTMLButtonElement>('button[aria-label="Editar observação da nota"]')
+async function marcarConferido(container: Element) {
+  await act(async () => container.querySelector<HTMLInputElement>('input[type=checkbox]')!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })))
+}
+
+test('lápis abre a observação padrão para editar; Cancelar descarta e a nota segue com o padrão (#849)', async () => {
+  const chamadas: unknown[][] = []
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => previaSemRenave,
+    transmitirNfePropriaAction: async (...args: unknown[]) => { chamadas.push(args); return { ok: true } } }
+  const { container, click } = await abrirPainel()
+  assert.ok(lapis(container), 'o lápis deve estar no título do bloco Tributos')
+  await clicar(lapis(container)!)
+  assert.equal(caixaObservacao(container)?.value, PADRAO_OBS)
+  await digitarTexto(caixaObservacao(container)!, 'TEXTO QUE NAO VAI')
+  await click(/^Cancelar$/)
+  assert.equal(caixaObservacao(container), null)
+  assert.doesNotMatch(textoDaTela(container), /Texto editado para esta nota/)
+  await marcarConferido(container)
+  await click(/Transmitir teste/)
+  assert.equal(chamadas[0][3], null)
+})
+
+test('Salvar mostra o texto editado na prévia e a transmissão o envia (#849)', async () => {
+  const chamadas: unknown[][] = []
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => previaSemRenave,
+    transmitirNfePropriaAction: async (...args: unknown[]) => { chamadas.push(args); return { ok: true } } }
+  const { container, click } = await abrirPainel()
+  await clicar(lapis(container)!)
+  await digitarTexto(caixaObservacao(container)!, '  GARANTIA DA LOJA  ')
+  await click(/^Salvar$/)
+  assert.equal(caixaObservacao(container), null)
+  assert.match(textoDaTela(container), /Texto editado para esta nota/)
+  assert.match(textoDaTela(container), /GARANTIA DA LOJA/)
+  assert.doesNotMatch(textoDaTela(container), /GARANTIA PADRAO/)
+  await marcarConferido(container)
+  await click(/Transmitir teste/)
+  assert.equal(chamadas[0][3], 'GARANTIA DA LOJA')
+})
+
+test('Voltar ao texto padrão desfaz a edição e a nota sai com o padrão (#849)', async () => {
+  const chamadas: unknown[][] = []
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, observacaoAnterior: 'EDITADO ANTES' }),
+    transmitirNfePropriaAction: async (...args: unknown[]) => { chamadas.push(args); return { ok: true } } }
+  const { container, click } = await abrirPainel()
+  assert.match(textoDaTela(container), /EDITADO ANTES/)
+  await clicar(lapis(container)!)
+  assert.equal(caixaObservacao(container)?.value, 'EDITADO ANTES')
+  await click(/^Voltar ao texto padrão$/)
+  assert.doesNotMatch(textoDaTela(container), /Texto editado para esta nota|EDITADO ANTES/)
+  await marcarConferido(container)
+  await click(/Transmitir teste/)
+  assert.equal(chamadas[0][3], null)
+})
+
+test('texto acima de 4.500 caracteres avisa e não deixa salvar (#849)', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => previaSemRenave }
+  const { container } = await abrirPainel()
+  await clicar(lapis(container)!)
+  await digitarTexto(caixaObservacao(container)!, 'x'.repeat(4501))
+  assert.match(textoDaTela(container), /4\.501 de 4\.500 caracteres/)
+  assert.equal(botao(container, /^Salvar$/)?.disabled, true)
+})
+
+test('reabrir a recusa traz a observação editada do envio anterior e o reenvio a leva (#849)', async () => {
+  const chamadas: unknown[][] = []
+  acoes = { ...acoes,
+    previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, notas: [recusa478], observacaoAnterior: 'EDITADO ANTES' }),
+    corrigirEReenviarNfAction: async (...args: unknown[]) => { chamadas.push(args); return { ok: true } } }
+  const { click } = await abrirPainel()
+  await click(/^Salvar e reenviar/)
+  assert.equal(chamadas.length, 1)
+  assert.equal(chamadas[0][4], 'EDITADO ANTES')
 })
