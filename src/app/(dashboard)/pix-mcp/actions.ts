@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
+import { pixQueCobre } from '@/lib/pix-status'
 
 const PAPEIS_PERMITIDOS = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
 
@@ -64,7 +65,8 @@ export async function lancarCorrespondenciaAction(
       lancadoPorId: usuario.id,
       lancadoEm: new Date(),
     })
-    .where(and(eq(pixRecebimentosMcp.id, id), eq(pixRecebimentosMcp.grupoId, grupo.id)))
+    // Pix estornado não se vincula e recebe a mesma frase de um Pix que não existe.
+    .where(and(eq(pixRecebimentosMcp.id, id), eq(pixRecebimentosMcp.grupoId, grupo.id), pixQueCobre))
     .returning({ id: pixRecebimentosMcp.id })
 
   if (atualizadas.length === 0) throw new Error('PIX não encontrado no grupo ativo')

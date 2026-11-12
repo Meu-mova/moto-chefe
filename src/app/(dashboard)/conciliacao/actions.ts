@@ -602,7 +602,8 @@ export async function vincularPixAlvoAction(pixId: string, alvo: AlvoConciliacao
   const [pix] = await db
     .select({ pagadorNome: pixRecebimentosMcp.pagadorNome })
     .from(pixRecebimentosMcp)
-    .where(and(eq(pixRecebimentosMcp.id, pixId), eq(pixRecebimentosMcp.grupoId, grupo.id)))
+    // Pix estornado não se vincula e recebe a mesma frase de um Pix que não existe.
+    .where(and(eq(pixRecebimentosMcp.id, pixId), eq(pixRecebimentosMcp.grupoId, grupo.id), pixQueCobre))
     .limit(1)
   if (!pix) throw new Error('PIX não encontrado no grupo ativo')
   if (ehTransferenciaInterna(pix.pagadorNome)) {
@@ -622,7 +623,7 @@ export async function vincularPixAlvoAction(pixId: string, alvo: AlvoConciliacao
       lancadoPorId: usuario.id,
       lancadoEm:   new Date(),
     })
-    .where(and(eq(pixRecebimentosMcp.id, pixId), eq(pixRecebimentosMcp.grupoId, grupo.id)))
+    .where(and(eq(pixRecebimentosMcp.id, pixId), eq(pixRecebimentosMcp.grupoId, grupo.id), pixQueCobre))
 
   revalidatePathsConciliacao()
 }

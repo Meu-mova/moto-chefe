@@ -81,3 +81,36 @@ test('pixConciliadoValor da lista de vendas soma só o Pix que cobre', async () 
   const venda = lista.find(v => v.id === vendaId)
   assert.equal(Number(venda?.pixConciliadoValor), 600)
 })
+
+test('vincular Pix estornado pelo painel da venda é recusado com a frase de "não encontrado"', async () => {
+  const { base, vendaId } = await semear()
+  const estornado = await pix(base.grupoId, 300, 'estornado', null)
+  await assert.rejects(actions.vincularPixAlvoAction(estornado, { tipo: 'moto', id: vendaId }), { message: 'PIX não encontrado no grupo ativo' })
+  await assert.rejects(actions.vincularPixAlvoAction(randomUUID(), { tipo: 'moto', id: vendaId }), { message: 'PIX não encontrado no grupo ativo' })
+  const [linha] = await linhas(sql`select venda_id, tipo_correspondencia from pix_recebimentos_mcp where id = ${estornado}`)
+  assert.equal(linha.venda_id, null)
+  assert.equal(linha.tipo_correspondencia, null)
+
+  const aprovado = await pix(base.grupoId, 300, 'aprovado', null)
+  await actions.vincularPixAlvoAction(aprovado, { tipo: 'moto', id: vendaId })
+  const [ligado] = await linhas(sql`select venda_id from pix_recebimentos_mcp where id = ${aprovado}`)
+  assert.equal(ligado.venda_id, vendaId)
+})
+
+test('lançar correspondência de Pix estornado em /pix-mcp é recusado com a frase de "não encontrado"', async () => {
+  const { base, vendaId } = await semear()
+  const nf = randomUUID().replace(/\D/g, '').slice(0, 9).padEnd(9, '7')
+  await db.execute(sql`update vendas set nota_fiscal_saida = ${nf} where id = ${vendaId}`)
+  const pixMcp = await import('@/app/(dashboard)/pix-mcp/actions')
+
+  const estornado = await pix(base.grupoId, 300, 'estornado', null)
+  await assert.rejects(pixMcp.lancarCorrespondenciaAction(estornado, 'venda', nf), { message: 'PIX não encontrado no grupo ativo' })
+  const [linha] = await linhas(sql`select venda_id, tipo_correspondencia from pix_recebimentos_mcp where id = ${estornado}`)
+  assert.equal(linha.venda_id, null)
+  assert.equal(linha.tipo_correspondencia, null)
+
+  const aprovado = await pix(base.grupoId, 300, 'aprovado', null)
+  await pixMcp.lancarCorrespondenciaAction(aprovado, 'venda', nf)
+  const [ligado] = await linhas(sql`select venda_id from pix_recebimentos_mcp where id = ${aprovado}`)
+  assert.equal(ligado.venda_id, vendaId)
+})
