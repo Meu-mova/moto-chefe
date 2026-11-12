@@ -83,6 +83,18 @@ export function conflitoDaUfDoFormulario(entrega: EntregaVenda | null, formulari
   return entrega?.modo === 'entregar' && uf && uf !== entrega.endereco.uf ? UF_DO_FORMULARIO_DIFERENTE : null
 }
 
+export const ENTREGA_EM_OUTRO_ESTADO = 'Entrega para outro estado ainda não disponível. Use Retira na loja ou entrega no mesmo estado.'
+
+/**
+ * Trava provisória da entrega em outra UF (#848): a SEFAZ recusa com 732 o caso que a NG ainda analisa, e a
+ * moto importada depende da #724. Sai num PR próprio quando os dois se resolverem. UF do emitente
+ * desconhecida (grupo sem NG, NG fora do ar) não trava: no pedido, avise, não bloqueie; a emissão já exige a UF.
+ */
+export function travaDaEntregaEmOutroEstado(entrega: EntregaVenda | null, ufEmitente: string | null): string | null {
+  if (entrega?.modo !== 'entregar' || !ufEmitente) return null
+  return entrega.endereco.uf.trim().toUpperCase() === ufEmitente.trim().toUpperCase() ? null : ENTREGA_EM_OUTRO_ESTADO
+}
+
 const NOME_DO_CLIENTE_LONGO = `O nome do cliente passa de ${LIMITE_TEXTO_XML} caracteres, o limite da nota para quem recebe a entrega. Corrija o nome do cliente antes de emitir.`
 
 /**
