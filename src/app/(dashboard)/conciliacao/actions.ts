@@ -12,8 +12,39 @@ import { INICIO_CONCILIACAO, INICIO_CONCILIACAO_EM } from '@/lib/conciliacao-per
 import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import { extrairTerminalInfinityPay } from '@/lib/conciliacao-terminal'
+import { detectarFormato } from '@/lib/conciliacao-formato'
+import type { TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
+import { lerRelatorioCielo } from '@/lib/conciliacao-cielo'
+import { lerRelatorioRede } from '@/lib/conciliacao-rede'
 import { grupos } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
+
+// Linha comum aos leitores de relatório, o que a gravação precisa de cada transação.
+type LinhaRelatorio = {
+  dataTransacao: string
+  tipo: 'credito' | 'debito'
+  bandeira: string
+  parcelas: number
+  autorizacao: string | null
+  valorBruto: number
+  valorLiquido: number
+  nsu: string | null
+  portador: string | null
+  terminal: string | null
+}
+
+const comoLinhaDoRelatorio = (t: TransacaoDoRelatorio): LinhaRelatorio => ({
+  dataTransacao: t.dataTransacao,
+  tipo: t.tipo,
+  bandeira: t.rawData.bandeira,
+  parcelas: t.parcelas,
+  autorizacao: t.autorizacao ?? null,
+  valorBruto: t.valorBruto,
+  valorLiquido: t.valorLiquido,
+  nsu: t.nsu,
+  portador: t.rawData.portador,
+  terminal: t.rawData.serial,
+})
 
 // ── Parser CSV InfinityPay ────────────────────────────────────────────────────
 
@@ -48,7 +79,7 @@ function parseInfinityPay(text: string) {
     const [dd, mm, yyyy] = (c[0].split(' ')[0]).split('/')
     rows.push({
       dataTransacao: `${yyyy}-${mm}-${dd}`,
-      tipo:          c[1] === 'Débito' ? 'debito' : 'credito',
+      tipo:          c[1] === 'Débito' ? 'debito' as const : 'credito' as const,
       bandeira:      c[2],
       parcelas:      c[3] === 'À Vista' ? 1 : (parseInt(c[3], 10) || 1),
       autorizacao:   c[6] !== '000000' ? c[6] : null,
@@ -119,14 +150,6 @@ function parseStone(text: string) {
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
-function detectarFormato(primeiraLinha: string): string | null {
-  if (primeiraLinha.startsWith('Data e hora'))        return 'infinitypay'
-  if (primeiraLinha.startsWith('Cod PagueVeloz') ||
-      primeiraLinha.startsWith('Cod Pague'))           return 'pagueveloz'
-  if (primeiraLinha.startsWith('DOCUMENTO;STONECODE')) return 'stone'
-  return null
-}
-
 // Recusa volta como valor: em produção a mensagem de erro lançado não chega à tela (#404).
 export async function importarRelatorioAction(formData: FormData) {
   return acao(() => importarRelatorio(formData))
@@ -152,18 +175,32 @@ async function importarRelatorio(formData: FormData) {
   }
 
   // Auto-detecta o formato pelo cabeçalho
-  const primeiraLinha = text.trim().split(/\r?\n/)[0] ?? ''
-  const formatoDetectado = detectarFormato(primeiraLinha)
+  const formatoDetectado = detectarFormato(text)
   const operadora = formatoDetectado ?? operadoraSelecionada
 
   if (formatoDetectado && formatoDetectado !== operadoraSelecionada) {
     console.log(`[conciliacao] formato detectado: ${formatoDetectado} (selecionado: ${operadoraSelecionada})`)
   }
 
-  let rows: ReturnType<typeof parseInfinityPay> = []
+  let rows: LinhaRelatorio[] = []
+  let semCodigo = 0
+  let incompletas = 0
   if (operadora === 'infinitypay')      rows = parseInfinityPay(text)
   else if (operadora === 'pagueveloz')  rows = parsePagueVeloz(text)
   else if (operadora === 'stone')       rows = parseStone(text)
+  else if (operadora === 'cielo') {
+    // Arquivo ruim volta como recusa aqui, antes de gravar qualquer linha (a importação não é transacional).
+    const lido = lerRelatorioCielo(text)
+    if (!lido.ok) throw new RecusaUsuario(lido.erro)
+    rows = lido.transacoes.map(comoLinhaDoRelatorio)
+    semCodigo = lido.semCodigo
+  }
+  else if (operadora === 'rede') {
+    const lido = lerRelatorioRede(text)
+    if (!lido.ok) throw new RecusaUsuario(lido.erro)
+    rows = lido.transacoes.map(comoLinhaDoRelatorio)
+    incompletas = lido.incompletas
+  }
   else throw new RecusaUsuario(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
   if (!(await maquininhasDoGrupo(db, grupo.id)).some(m => m.operadora === operadora)) {
     throw new RecusaUsuario('Maquininha não encontrada')
@@ -175,12 +212,12 @@ async function importarRelatorio(formData: FormData) {
   // o que aconteceu com uma transação de BH importada em Sul de Minas.
   // Cada maquininha pertence a um grupo, então o serial do aparelho denuncia o
   // engano antes de gravar qualquer coisa. O serial é achado por dois caminhos:
-  // na InfinityPay ele vem embutido no NSU; na Stone vem na coluna própria e é
-  // guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
+  // na InfinityPay ele vem embutido no NSU; na Stone, na Cielo e na Rede (estabelecimento) vem na coluna
+  // própria e é guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
     // Só a Conta do grupo ativo: terminal visto em outra Conta conta como desconhecido (#460).
-    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal) : []
+    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal, { soSerial: operadora === 'cielo' || operadora === 'rede' }) : []
     if (vistos.length > 0 && !vistos.includes(grupo.id)) {
       throw new RecusaUsuario('Esse relatório parece ser de outro grupo. Confira o grupo ativo; nada foi gravado.')
     }
@@ -193,7 +230,7 @@ async function importarRelatorio(formData: FormData) {
   for (const r of rows) {
     if (!r.valorBruto || r.valorBruto <= 0) continue
 
-    // Evita duplicata por NSU (Stone, PagueVeloz)
+    // Evita duplicata por NSU (Stone, PagueVeloz) ou Código da venda (Cielo)
     if (r.nsu) {
       const [ex] = await db
         .select({ id: conciliacoesCartao.id })
@@ -284,7 +321,7 @@ async function importarRelatorio(formData: FormData) {
   }
 
   revalidatePath('/conciliacao')
-  return { importadas, duplicadas, conciliadas }
+  return { importadas, duplicadas, conciliadas, semCodigo, incompletas }
 }
 
 export async function vincularVendaAction(conciliacaoId: string, alvoId: string, tipo: 'moto' | 'peca' | 'os' = 'moto') {
