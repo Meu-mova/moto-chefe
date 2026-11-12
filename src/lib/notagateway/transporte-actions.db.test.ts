@@ -557,3 +557,120 @@ test('venda com frete editada para um valor que não cobre o frete: pendência e
   assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId), { ok: false, error: frase })
   assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
 })
+
+// #849: observação editada na prévia. Autopropelido: a regra vale também sem RENAVE.
+const EDITADA = 'GARANTIA DE 6 MESES PELA LOJA\nChassi conferido na entrega'
+const previaOk = async (motoId: string) => {
+  const p = await actions.previsualizarNfePropriaAction(motoId)
+  assert.equal(p.ok, true, JSON.stringify(p))
+  return p as Extract<typeof p, { ok: true }>
+}
+
+test('observação editada vai aparada no payload enviado e gravado; o padrão das próximas notas não muda (#849)', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido' })
+  user = f.user
+  const net = network(f)
+  const padrao = (await previaOk(f.motoId)).resumo!.observacao
+  const result = await actions.transmitirNfePropriaAction(f.motoId, null, undefined, `  ${EDITADA}  `)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].informacoesAdicionais, EDITADA)
+  const notes = (await snapshot(f)).notes as { payload: Payload }[]
+  assert.equal(notes[0].payload.informacoesAdicionais, EDITADA)
+  assert.equal((await previaOk(f.motoId)).resumo!.observacao, padrao)
+})
+
+test('observação vazia sai com o texto padrão (#849)', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido' })
+  user = f.user
+  const net = network(f)
+  const padrao = (await previaOk(f.motoId)).resumo!.observacao
+  const result = await actions.transmitirNfePropriaAction(f.motoId, null, undefined, '   ')
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].informacoesAdicionais, padrao)
+})
+
+test('observação acima de 4.500 caracteres: recusa sem gravar RENAVE, sem criar nota e sem chamar a NG (#849)', async () => {
+  const f = await fixture()
+  user = f.user
+  const net = network(f)
+  const antes = await snapshot(f)
+  const result = await actions.transmitirNfePropriaAction(f.motoId, renave, transport, 'x'.repeat(4501))
+  assert.equal(result.ok, false)
+  assert.match(result.ok ? '' : result.error, /4\.500 caracteres/)
+  assert.deepEqual(net.requests, [])
+  assert.deepEqual(await snapshot(f), antes)
+})
+
+test('salvar e reenviar com observação acima do limite não grava a correção nem muda a nota recusada (#849)', async () => {
+  const f = await fixture(true, {}, { categoria: 'autopropelido' })
+  user = f.user
+  const net = network(f)
+  const antes = await snapshot(f)
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87119000', cest: '' } }, null, undefined, 'x'.repeat(4501))
+  assert.equal(result.ok, false)
+  assert.deepEqual(net.requests, [])
+  assert.deepEqual(await snapshot(f), antes)
+})
+
+test('recusa com observação editada: a prévia devolve o texto e o reenvio o leva no mesmo id e linha (#849)', async () => {
+  const f = await fixture(true, { informacoesAdicionais: EDITADA }, { categoria: 'autopropelido' })
+  user = f.user
+  const net = network(f)
+  const previa = await previaOk(f.motoId)
+  assert.equal(previa.observacaoAnterior, EDITADA)
+  assert.equal(previa.transporteAnterior, null)
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87116000', cest: '' } }, null, undefined, previa.observacaoAnterior)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.equal(net.payloads[0].id, f.externalId)
+  assert.equal(net.payloads[0].informacoesAdicionais, EDITADA)
+  const notes = (await snapshot(f)).notes as { id: string; payload: Payload }[]
+  assert.deepEqual(notes.map(n => [n.id, n.payload.informacoesAdicionais]), [[f.noteId, EDITADA]])
+})
+
+test('recusa que levou o texto padrão não aparece como observação editada (#849)', async () => {
+  const f = await fixture(true, {}, { categoria: 'autopropelido' })
+  user = f.user
+  network(f)
+  const padrao = (await previaOk(f.motoId)).resumo!.observacao
+  await db.execute(sql`update notas_fiscais_saida set payload = ${JSON.stringify({ informacoesAdicionais: padrao })}::jsonb where id = ${f.noteId}`)
+  assert.equal((await previaOk(f.motoId)).observacaoAnterior, null)
+})
+
+test('observação da recusa não volta quando a última tentativa foi autorizada (#849)', async () => {
+  const f = await fixture(true, { informacoesAdicionais: EDITADA }, { categoria: 'autopropelido' })
+  await inserirNota(f, { idExterno: `${f.externalId}-b`, status: 'Autorizada' })
+  user = f.user
+  network(f)
+  assert.equal((await previaOk(f.motoId)).observacaoAnterior, null)
+})
+
+test('Conta B com observação editada na moto da Conta A recebe a resposta de moto inexistente e nada muda (#849)', async () => {
+  const a = await fixture(true, { informacoesAdicionais: EDITADA }, { categoria: 'autopropelido' })
+  const b = await fixture()
+  user = b.user
+  const net = network(a)
+  const inexistente = randomUUID()
+  const antes = await snapshot(a)
+  const transmitir = await actions.transmitirNfePropriaAction(a.motoId, null, undefined, 'TEXTO DA CONTA B')
+  const corrigir = await actions.corrigirEReenviarNfAction(a.motoId, { moto: { ncm: '87119000', cest: '' } }, null, undefined, 'TEXTO DA CONTA B')
+  assert.equal(transmitir.ok, false)
+  assert.deepEqual(transmitir, await actions.transmitirNfePropriaAction(inexistente, null, undefined, 'TEXTO DA CONTA B'))
+  assert.deepEqual(corrigir, await actions.corrigirEReenviarNfAction(inexistente, { moto: { ncm: '87119000', cest: '' } }, null, undefined, 'TEXTO DA CONTA B'))
+  assert.deepEqual(net.requests, [])
+  assert.deepEqual(await snapshot(a), antes)
+})
+
+test('recusa com o padrão antigo e a cor da moto mudada depois: a prévia mostra o texto da recusa como editado e o reenvio o leva (#849, aceito)', async () => {
+  const f = await fixture(true, {}, { categoria: 'autopropelido' })
+  user = f.user
+  const net = network(f)
+  const padraoAntigo = (await previaOk(f.motoId)).resumo!.observacao
+  await db.execute(sql`update notas_fiscais_saida set payload = ${JSON.stringify({ informacoesAdicionais: padraoAntigo })}::jsonb where id = ${f.noteId}`)
+  await db.execute(sql`update motos set cor = 'AZUL' where id = ${f.motoId}`)
+  const previa = await previaOk(f.motoId)
+  assert.match(previa.resumo!.observacao, /Cor: AZUL/)
+  assert.equal(previa.observacaoAnterior, padraoAntigo)
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87116000', cest: '' } }, null, undefined, previa.observacaoAnterior)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.match(net.payloads[0].informacoesAdicionais ?? '', /Cor: PRETA/)
+})
