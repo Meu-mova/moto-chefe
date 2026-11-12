@@ -985,6 +985,8 @@ export const lancamentosCaixa = pgTable('lancamentos_caixa', {
 // ─── categorias_caixa ────────────────────────────────────────────────────────
 export const categoriasCaixa = pgTable('categorias_caixa', {
   id: uuid('id').primaryKey().defaultRandom(),
+  // Opção do cliente: cada grupo tem as suas (#834, migração 0180).
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
   nome: text('nome').notNull(),
   tipo: text('tipo').notNull(), // 'entrada' | 'saida' | 'ambos'
   ativo: boolean('ativo').notNull().default(true),
@@ -994,11 +996,14 @@ export const categoriasCaixa = pgTable('categorias_caixa', {
   // Mesma ideia de categorias_despesa.conta_como_despesa.
   contaComoDespesa: boolean('conta_como_despesa').notNull().default(true),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+  // O mesmo nome pode existir como entrada e como saída.
+}, t => [uniqueIndex('categorias_caixa_grupo_tipo_nome_key').on(t.grupoId, t.tipo, sql`lower(trim(${t.nome}))`)])
 
 // ─── categorias_despesa ───────────────────────────────────────────────────────
 export const categoriasDespesa = pgTable('categorias_despesa', {
   id: uuid('id').primaryKey().defaultRandom(),
+  // Opção do cliente: cada grupo tem as suas (#834, migração 0180).
+  grupoId: uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
   nome: text('nome').notNull(),
   ativo: boolean('ativo').notNull().default(true),
   ordem: integer('ordem').notNull().default(0),
@@ -1019,7 +1024,7 @@ export const categoriasDespesa = pgTable('categorias_despesa', {
   // categoria nova ("Distribuição de lucros") passar a pedir sem deploy.
   exigeBeneficiario: boolean('exige_beneficiario').notNull().default(false),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
-})
+}, t => [uniqueIndex('categorias_despesa_grupo_nome_key').on(t.grupoId, sql`lower(trim(${t.nome}))`)])
 
 // ─── favorecidos_nao_operacionais ────────────────────────────────────────────
 // Metade das saídas grandes do extrato nunca foi categorizada, então a flag acima

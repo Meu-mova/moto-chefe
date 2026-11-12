@@ -141,8 +141,12 @@ async function main() {
   }
   const usuarioDe = (prefixo: string, loja: string) => idUsuario.get(`${prefixo}.${grupoDaLoja(loja)}@${DOMINIO_TESTE}`)!
 
-  await db.insert(categoriasCaixa).values(CATEGORIAS_CAIXA.map((c, i) => ({ ...c, ordem: i })))
-  await db.insert(categoriasDespesa).values(CATEGORIAS_DESPESA.map((c, i) => ({ ...c, ordem: i })))
+  // Categoria é do grupo (#834): cada grupo do seed recebe a sua cópia da lista.
+  for (const g of GRUPOS) {
+    const grupoId = idGrupo.get(g.chave)!
+    await db.insert(categoriasCaixa).values(CATEGORIAS_CAIXA.map((c, i) => ({ ...c, grupoId, ordem: i })))
+    await db.insert(categoriasDespesa).values(CATEGORIAS_DESPESA.map((c, i) => ({ ...c, grupoId, ordem: i })))
+  }
 
   const listaMotos = montarMotos()
   const idMoto = new Map<string, string>()

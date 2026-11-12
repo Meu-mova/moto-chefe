@@ -1,4 +1,5 @@
 'use client'
+import { temCategoria } from '@/lib/despesas-operacionais'
 import { useState } from 'react'
 import { hojeBrt } from '@/lib/data-venda'
 import { useRouter } from 'next/navigation'
@@ -51,7 +52,8 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
   const [banco, setBanco]                 = useState(inicial?.banco ?? '')
   const [beneficiario, setBeneficiario]   = useState(inicial?.beneficiario ?? '')
 
-  const exigeBeneficiario = categoriasComBeneficiario.includes(categoria)
+  // Mesma comparação do servidor: sem caixa e sem espaço nas pontas (#834).
+  const exigeBeneficiario = temCategoria(new Set(categoriasComBeneficiario), categoria)
 
   function resetar() {
     setLojaId('')
@@ -88,11 +90,13 @@ export function DespesaDialog({ lojas, categorias, categoriasComBeneficiario, be
         banco,
       }
       if (modo === 'criar') {
-        await criarDespesaAction(dados)
+        const r = await criarDespesaAction(dados)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Despesa registrada!')
         resetar()
       } else {
-        await editarDespesaAction(inicial!.id, dados)
+        const r = await editarDespesaAction(inicial!.id, dados)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Despesa atualizada!')
       }
       onOpenChange?.(false)
