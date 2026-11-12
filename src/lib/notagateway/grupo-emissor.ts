@@ -2,6 +2,7 @@ import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { db } from '@/lib/db'
 import { contas, grupos, lojas, motos } from '@/lib/db/schema'
+import { configNotaGateway, ufDaEmpresa } from './client'
 
 type Executor = Pick<typeof db, 'execute'>
 
@@ -51,4 +52,20 @@ export async function faltasParaEmitir(grupoId: string, exec: Executor = db): Pr
   if (!r?.a1) faltas.push('sem certificado A1 válido')
   if (!r?.empresa) faltas.push('sem empresa na Nota Gateway')
   return faltas
+}
+
+/**
+ * UF do CNPJ que emite a NF da moto, pela mesma consulta da emissão (Consultar Empresa na NG). Nula quando
+ * não dá para saber (grupo sem NG, NG fora do ar): quem chama decide; o pedido segue (#848).
+ */
+export async function ufDoEmissorDaMoto(motoId: string, lojaId: string): Promise<string | null> {
+  try {
+    const emissor = await grupoEmissorDaVenda(motoId, lojaId)
+    const cfg = emissor && await configNotaGateway(emissor.grupoId)
+    return cfg ? await ufDaEmpresa(cfg) : null
+  } catch (e) {
+    // Mensagens do client só trazem o status HTTP, sem token nem empresaId.
+    console.warn('[pedido] UF do emissor indisponível, pedido segue sem a trava:', e instanceof Error ? e.message : e)
+    return null
+  }
 }

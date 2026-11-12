@@ -2,15 +2,17 @@
 // para a venda e a Conta B não lê nem altera a da Conta A. Roda contra o Postgres descartável do CI
 // (job `banco`); local: `npm run test:db:local`.
 // As actions gravam fora de transação de teste: cada cenário cria a própria Conta e só confere o que criou.
-import { after, before, mock, test } from 'node:test'
+import { after, afterEach, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
-import { semearContaBase, semearUsuario } from '@/test/semear-conta'
+import { semearContaBase, semearGrupo, semearUsuario } from '@/test/semear-conta'
+import { ENTREGA_EM_OUTRO_ESTADO } from '@/lib/notagateway/entrega'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
 process.env.DATABASE_URL = url
+process.env.CERT_MASTER_KEY = 'a'.repeat(64)
 
 type Usuario = { id: string; papel: string; lojaId: string; contaId: string; gruposAcesso: string[] }
 let usuario: Usuario
@@ -261,4 +263,97 @@ test('efetivar com frete: o item moto vale a moto e a venda vale moto + frete; e
     clienteNome: 'Cliente sintético', clienteCpf: '52998224725',
   }), { ok: true, dados: undefined })
   assert.deepEqual(await itemDaMoto(a.motoId), [{ valor_unitario: null }])
+})
+
+// Trava da entrega em outro estado (#848): a UF do emitente vem da Nota Gateway (Consultar Empresa), mockada só no fetch.
+const ENTREGAR_MG = { ...ENTREGAR, endereco: { ...ENTREGAR.endereco, cidade: '3170701', nomeCidade: 'Varginha', uf: 'MG' } }
+
+async function ligarNg(grupoId: string, empresaId: string) {
+  const { cifrar } = await import('@/lib/cripto')
+  await db.execute(sql`insert into notagateway_config (grupo_id, token, empresa_id, ambiente)
+    values (${grupoId}, ${cifrar('credencial-sintetica')}, ${empresaId}, 'Homologacao')`)
+}
+
+/** NG sintética: cada empresaId responde a sua UF; `status` força erro. Devolve as chamadas feitas. */
+function ngComUf(ufs: Record<string, string>, status = 200) {
+  const chamadas: string[] = []
+  mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    const path = new URL(String(input)).pathname
+    chamadas.push(path)
+    if (status !== 200) return new Response('{}', { status })
+    const empresa = path.split('/').pop() ?? ''
+    return Response.json({ endereco: { uf: ufs[empresa] } })
+  })
+  return chamadas
+}
+afterEach(() => mock.restoreAll())
+
+async function contaComNg(uf = 'MG') {
+  const a = await semearConta()
+  const [{ grupo_id }] = await execRows(sql`select l.grupo_id from motos m join lojas l on l.id = m.loja_id where m.id = ${a.motoId}`)
+  const empresa = `empresa-${randomUUID()}`
+  await ligarNg(grupo_id as string, empresa)
+  return { ...a, grupoId: grupo_id as string, empresa, chamadas: ngComUf({ [empresa]: uf }) }
+}
+
+test('trava #848: "Entregar" em outra UF que a do emitente é recusado com a frase e nada é gravado', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: false, erro: ENTREGA_EM_OUTRO_ESTADO })
+  assert.deepEqual(await pedidosDaMoto(a.motoId), [])
+  assert.deepEqual(await execRows(sql`select disponibilidade from motos where id = ${a.motoId}`), [{ disponibilidade: 'disponivel' }])
+})
+
+test('trava #848: "Entregar" na UF do emitente grava como antes', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR_MG), { ok: true, dados: undefined })
+  assert.deepEqual((await pedidosDaMoto(a.motoId)).map(p => p.entrega), [ENTREGAR_MG])
+})
+
+test('trava #848: "Retira na loja" grava sem consultar a Nota Gateway', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', RETIRA), { ok: true, dados: undefined })
+  assert.deepEqual(a.chamadas, [])
+})
+
+test('trava #848: sem a UF do emitente (grupo sem NG ou NG com erro) o pedido "Entregar" é gravado', async () => {
+  const semNg = await semearConta()
+  const chamadas = ngComUf({})
+  usuario = semNg.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(semNg.motoId, '', ENTREGAR), { ok: true, dados: undefined })
+  assert.deepEqual(chamadas, [])
+
+  const comErro = await contaComNg('MG')
+  mock.restoreAll()
+  ngComUf({}, 500)
+  usuario = comErro.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(comErro.motoId, '', ENTREGAR), { ok: true, dados: undefined })
+  assert.equal((await pedidosDaMoto(comErro.motoId)).length, 1)
+})
+
+test('trava #848: Conta B na moto da Conta A recebe a frase de moto inexistente, sem consultar a NG', async () => {
+  const a = await contaComNg('MG')
+  const b = await semearConta()
+  usuario = b.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: false, erro: 'Moto não encontrada' })
+  assert.deepEqual(a.chamadas, [])
+  assert.deepEqual(await pedidosDaMoto(a.motoId), [])
+})
+
+test('trava #848: moto comprada por outro CNPJ da Conta usa a UF dele, não a da loja (#552)', async () => {
+  const a = await contaComNg('MA')
+  const sufixo = randomUUID()
+  const [{ conta_id }] = await execRows(sql`select conta_id from grupos where id = ${a.grupoId}`)
+  const { grupoId: entradaId } = await semearGrupo(db, conta_id as string, { prefixo: 'EV848', nome: sufixo, cnpj: sufixo })
+  const empresaEntrada = `empresa-${sufixo}`
+  await ligarNg(entradaId, empresaEntrada)
+  await db.execute(sql`update contas set transferencia_entre_grupos = true where id = ${conta_id}`)
+  await db.execute(sql`update motos set grupo_entrada_id = ${entradaId} where id = ${a.motoId}`)
+  mock.restoreAll()
+  ngComUf({ [a.empresa]: 'MA', [empresaEntrada]: 'MG' })
+  usuario = a.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: false, erro: ENTREGA_EM_OUTRO_ESTADO })
+  assert.deepEqual(await pedidosDaMoto(a.motoId), [])
 })
