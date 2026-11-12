@@ -75,6 +75,14 @@ export function pagamentosFecham(pgs: PagamentoEntrada[], valorEntrada: number):
   return Math.abs(somaPagamentos(pgs) - valorEntrada) < 0.01
 }
 
+/** Frase única da soma que não fecha: Vender e efetivação do pedido recusam igual. */
+export const SOMA_PAGAMENTOS_DIFERE = 'Somatório das formas de pagamento difere do valor da venda'
+
+/** Coluna `forma_pagamento` da venda: o tipo quando é uma forma só, 'multiplos' quando são várias. */
+export function formaPagamentoDaVenda(pgs: readonly { tipo: string }[]): string {
+  return pgs.length === 1 ? pgs[0].tipo : 'multiplos'
+}
+
 function fmtBRL(v: number): string {
   const [inteiro, centavos] = v.toFixed(2).split('.')
   return `R$ ${inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${centavos}`
