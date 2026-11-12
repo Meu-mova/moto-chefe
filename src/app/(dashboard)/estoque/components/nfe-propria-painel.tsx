@@ -510,14 +510,24 @@ function Bloco({ titulo, resumo, acao, abertoFixo, children }: {
         <button type="button" onClick={() => setAberto(!aberto)} aria-expanded={aberto} className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left">
           <span className="w-20 shrink-0 font-medium">{titulo}</span>
           <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{aberto ? '' : resumo}</span>
-          <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !aberto && '-rotate-90')} />
+          {!acao && <Seta aberto={aberto} />}
         </button>
-        {acao}
+        {acao && (
+          <>
+            {acao}
+            {/* A seta fica depois do lápis; o clique nela abre e fecha como o título. */}
+            <span aria-hidden onClick={() => setAberto(!aberto)} className="cursor-pointer py-3"><Seta aberto={aberto} /></span>
+          </>
+        )}
       </div>
       {aberto && <div className="space-y-0.5 pb-3 text-sm">{children}</div>}
     </div>
   )
 }
+
+const Seta = ({ aberto }: { aberto: boolean }) => (
+  <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !aberto && '-rotate-90')} />
+)
 
 /**
  * Bloco Tributos com a observação da nota (#849): o lápis abre o texto para
