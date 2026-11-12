@@ -32,7 +32,7 @@ import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { recusaSemVenda } from '@/lib/notas-emitidas'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
-import { conflitoDaUfDoFormulario, pendenciasDaEntrega, type EntregaVenda, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { conflitoDaUfDoFormulario, pendenciasDaEntrega, travaDaEntregaEmOutroEstado, type EntregaVenda, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -158,6 +158,10 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
     valor, pagamentos: pagamentosMova, temFicha: !!ficha,
   }), ...pendenciasDaEntrega(venda.entrega, venda.clienteNome, valor)]
   if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
+  // Só "Entregar" precisa da UF já aqui; a trava (#848) vem primeiro, é o que a loja tem de mudar.
+  const ufEntregar = venda.entrega?.modo === 'entregar' ? await ufDaEmpresa(cfg) : null
+  const travaEntrega = travaDaEntregaEmOutroEstado(venda.entrega, ufEntregar)
+  if (travaEntrega) pendencias.unshift(travaEntrega)
 
   const regra: RegraSaida | null = regraRow
     ? {
@@ -214,7 +218,7 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
 
   return {
     venda, grupoId, emissor, cfg, regra, ficha: ficha ?? null, sugestao, observacao, pagamentosMova, valor, pendencias,
-    renaveExigido, renave, renaveOrigem,
+    renaveExigido, renave, renaveOrigem, travaEntrega, ufEntregar,
   }
 }
 
@@ -300,7 +304,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
 
     let resumo: Extract<PreviaNfe, { ok: true }>['resumo'] = null
     if (e.ficha && e.regra && !e.pendencias.length) {
-      const uf = await ufDaEmpresa(e.cfg)
+      const uf = e.ufEntregar ?? await ufDaEmpresa(e.cfg)
       // O veículo ainda vai ser preenchido na tela: a prévia é o resto da nota.
       const dados = dadosDaVenda({ ...e, renave: null }, uf, 'previa')
       const p = montarNfeVendaMoto(dados, e.regra)
@@ -432,6 +436,8 @@ export async function corrigirEReenviarNfAction(motoId: string, correcao: Correc
   try {
     const usuario = await exigirPapel('corrigir')
     const e = await montarEmissao(motoId, usuario)
+    // Correção não destrava a entrega em outro estado: recusa antes de gravar, como a UF do formulário.
+    if (e.travaEntrega) return { ok: false, error: e.travaEntrega }
     const r = conferirRenave(e.renaveExigido, renave)
     if (!r.ok) return r
     const t = operacaoExigeEntrega(r.dados?.tipoOperacao) ? validarDadosTransporte(transporte) : null
@@ -600,7 +606,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
       if (!g.ok) return { ok: false, error: g.erro }
     }
 
-    const uf = await ufDaEmpresa(e.cfg)
+    const uf = e.ufEntregar ?? await ufDaEmpresa(e.cfg)
     const payload = montarNfeVendaMoto(dadosDaVenda(eComRenave, uf, idExterno, transporteValidado), e.regra)
 
     notaId = await gravarEnvio(db, escolha, {

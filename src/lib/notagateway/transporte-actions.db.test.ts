@@ -5,7 +5,7 @@ import { sql } from 'drizzle-orm'
 import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 import { RENAVE_COMPLETO_FATURAMENTO_DIRETO } from '@/test/renave-completo'
 import type { DadosTransporte } from './transporte'
-import { PENDENCIA_SEM_MODALIDADE, UF_DO_FORMULARIO_DIFERENTE, type EntregaVenda } from './entrega'
+import { ENTREGA_EM_OUTRO_ESTADO, PENDENCIA_SEM_MODALIDADE, UF_DO_FORMULARIO_DIFERENTE, type EntregaVenda } from './entrega'
 import type { montarNfeVendaMoto } from './payload'
 
 const url = process.env.TEST_DATABASE_URL
@@ -387,78 +387,115 @@ test('venda com Entrega sem modalidade: prévia lista a pendência e transmitir 
   assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
 })
 
-// "Entregar" (#726): emitente MG, cliente de MG, entrega no PR. Quem recebe vazio = o comprador da venda.
+// "Entregar" (#726): emitente MG. Entrega no PR fica travada (#848) até a NG responder o 732 e a #724 entrar;
+// o teste de ação com CFOP 6102 volta quando a trava sair (o payload.test.ts segue cobrindo a regra).
 const ENTREGAR_PR: EntregaVenda = {
   modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente',
   endereco: { cep: '80010000', logradouro: 'Rua Entrega', numero: '20', complemento: '', bairro: 'Centro', cidade: '4106902', nomeCidade: 'Curitiba', uf: 'PR' },
   recebe: null,
 }
+const ENTREGAR_MG: EntregaVenda = {
+  ...ENTREGAR_PR, endereco: { ...ENTREGAR_PR.endereco, cep: '37002000', cidade: '3170701', nomeCidade: 'Varginha', uf: 'MG' },
+}
+const entregaMg = { ...expectedTransport.enderecoEntrega, cidade: '3170701', uf: 'MG', cep: '37002000' }
+const formularioMg: DadosTransporte = { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, cidade: '3170701', uf: 'MG' } }
 
-test('venda "Entregar" em outra UF com cliente da UF da loja: prévia e nota para outro estado, enderecoEntrega com o comprador', async () => {
+test('trava #848: venda "Entregar" em outra UF que a do emitente: prévia avisa sem resumo, transmitir recusa sem nota nem envio', async () => {
   const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_PR })
   user = f.user
   const net = network(f)
   const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.ok(previa.ok)
+  assert.deepEqual(previa.pendencias, [ENTREGA_EM_OUTRO_ESTADO])
+  assert.equal(previa.resumo, null)
+  assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId), { ok: false, error: ENTREGA_EM_OUTRO_ESTADO })
+  assert.equal(await numeroDeNotas(f), 0)
+  assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
+})
+
+test('trava #848: faturamento direto (tpOp 2) da venda "Entregar" em outra UF recusa com a mesma frase, sem envio', async () => {
+  const f = await fixture(false, {}, { entrega: ENTREGAR_PR })
+  user = f.user
+  const net = network(f)
+  assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId, renave, transport), { ok: false, error: ENTREGA_EM_OUTRO_ESTADO })
+  assert.equal(await numeroDeNotas(f), 0)
+  assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
+})
+
+test('trava #848: corrigir e reenviar da venda "Entregar" em outra UF recusa antes de gravar a correção', async () => {
+  const f = await fixture(true, {}, { entrega: ENTREGAR_PR })
+  user = f.user
+  const net = network(f)
+  await db.execute(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, x_prod, origem) values (${f.motoId}, 'X', '87116000', 'X', '0') on conflict (moto_id) do update set ncm = '87116000'`)
+  const antes = await snapshot(f)
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87119000', cest: '' } }, renave, transport)
+  assert.deepEqual(result, { ok: false, error: ENTREGA_EM_OUTRO_ESTADO })
+  assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
+  assert.deepEqual(await snapshot(f), antes)
+})
+
+test('venda "Entregar" na UF do emitente: prévia e nota dentro do estado, enderecoEntrega com o comprador', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_MG })
+  user = f.user
+  const net = network(f)
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
   assert.ok(previa.ok && previa.resumo, JSON.stringify(previa))
-  assert.deepEqual(previa.resumo.operacao, { interestadual: true, motivo: 'entregar', ufOrigem: 'MG', ufDestino: 'PR' })
+  assert.deepEqual(previa.resumo.operacao, { interestadual: false, motivo: 'entregar', ufOrigem: 'MG', ufDestino: 'MG' })
   const result = await actions.transmitirNfePropriaAction(f.motoId)
   assert.equal(result.ok, true, JSON.stringify(result))
-  assert.equal(net.payloads[0].itens[0].cfop, '6102')
-  assert.equal(net.payloads[0].cliente.endereco.uf, 'MG')
+  assert.equal(net.payloads[0].itens[0].cfop, '5102')
   assert.equal(net.payloads[0].cliente.nome, 'COMPRADOR SINTÉTICO')
   assert.deepEqual(net.payloads[0].transporte, {
     frete: { modalidade: 'TransporteProprioPorContaDoRemetente' },
-    enderecoEntrega: { ...expectedTransport.enderecoEntrega, nomeDestinatario: net.payloads[0].cliente.nome, cep: '80010000' },
+    enderecoEntrega: { ...entregaMg, nomeDestinatario: net.payloads[0].cliente.nome },
   })
 })
 
 test('venda "Entregar" com outra pessoa recebendo: enderecoEntrega com nome, documento e tipo de pessoa dela', async () => {
-  const entrega = { ...ENTREGAR_PR, recebe: { nome: 'Empresa que recebe', cpfCnpj: '11222333000181' } } as EntregaVenda
+  const entrega = { ...ENTREGAR_MG, recebe: { nome: 'Empresa que recebe', cpfCnpj: '11222333000181' } } as EntregaVenda
   const f = await fixture(false, {}, { categoria: 'autopropelido', entrega })
   user = f.user
   const net = network(f)
   const result = await actions.transmitirNfePropriaAction(f.motoId)
   assert.equal(result.ok, true, JSON.stringify(result))
   assert.deepEqual(net.payloads[0].transporte?.enderecoEntrega, {
-    ...expectedTransport.enderecoEntrega, tipoPessoaDestinatario: 'J', cpfCnpjDestinatario: '11222333000181',
-    nomeDestinatario: 'Empresa que recebe', cep: '80010000',
+    ...entregaMg, tipoPessoaDestinatario: 'J', cpfCnpjDestinatario: '11222333000181', nomeDestinatario: 'Empresa que recebe',
   })
 })
 
 test('faturamento direto de venda "Entregar" com a UF do formulário diferente da Entrega: transmitir recusa, sem nota nem envio', async () => {
-  const f = await fixture(false, {}, { entrega: ENTREGAR_PR })
+  const f = await fixture(false, {}, { entrega: ENTREGAR_MG })
   user = f.user
   const net = network(f)
-  const formularioMg: DadosTransporte = { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, cidade: '3170701', uf: 'MG' } }
-  assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId, renave, formularioMg), { ok: false, error: UF_DO_FORMULARIO_DIFERENTE })
+  assert.deepEqual(await actions.transmitirNfePropriaAction(f.motoId, renave, transport), { ok: false, error: UF_DO_FORMULARIO_DIFERENTE })
   assert.equal(await numeroDeNotas(f), 0)
   assert.equal(net.requests.filter(r => r.method === 'POST').length, 0)
 })
 
 test('faturamento direto de venda "Entregar" com a mesma UF no formulário: a nota sai', async () => {
-  const f = await fixture(false, {}, { entrega: ENTREGAR_PR })
+  const f = await fixture(false, {}, { entrega: ENTREGAR_MG })
   user = f.user
   const net = network(f)
-  const result = await actions.transmitirNfePropriaAction(f.motoId, renave, transport)
+  const result = await actions.transmitirNfePropriaAction(f.motoId, renave, formularioMg)
   assert.equal(result.ok, true, JSON.stringify(result))
-  assert.equal(net.payloads[0].transporte?.enderecoEntrega?.uf, 'PR')
+  assert.equal(net.payloads[0].transporte?.enderecoEntrega?.uf, 'MG')
 })
 
 test('corrigir e reenviar de venda "Entregar" com a UF do formulário diferente: recusa antes de gravar a correção', async () => {
-  const f = await fixture(true, {}, { entrega: ENTREGAR_PR })
+  const f = await fixture(true, {}, { entrega: ENTREGAR_MG })
   user = f.user
   const net = network(f)
   await db.execute(sql`insert into motos_fiscal (moto_id, emitente_cnpj, ncm, x_prod, origem) values (${f.motoId}, 'X', '87116000', 'X', '0') on conflict (moto_id) do update set ncm = '87116000'`)
   const antes = await snapshot(f)
-  const formularioMg: DadosTransporte = { ...transport, enderecoEntrega: { ...transport.enderecoEntrega!, cidade: '3170701', uf: 'MG' } }
-  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87119000', cest: '' } }, renave, formularioMg)
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87119000', cest: '' } }, renave, transport)
   assert.deepEqual(result, { ok: false, error: UF_DO_FORMULARIO_DIFERENTE })
-  assert.deepEqual(net.requests, [])
+  // "Entregar" lê a UF do emitente (GET Consultar Empresa); nenhum envio.
+  assert.equal(net.requests.filter(r => r.method !== 'GET').length, 0)
   assert.deepEqual(await snapshot(f), antes)
 })
 
 test('venda "Entregar" ao próprio comprador com nome acima de 60 caracteres: a prévia lista a pendência e transmitir recusa', async () => {
-  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_PR })
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_MG })
   await db.execute(sql`update vendas set cliente_nome = ${'Comprador '.repeat(7)} where id = ${f.saleId}`)
   user = f.user
   const net = network(f)
@@ -472,7 +509,7 @@ test('venda "Entregar" ao próprio comprador com nome acima de 60 caracteres: a 
 
 // Frete cobrado (#726, 4b): a venda (1000) já tem o frete somado; a nota leva a moto no item e o frete em itens[].frete.
 test('venda "Entregar" com frete: prévia mostra o frete e a nota sai com o item sem o frete e o frete no item', async () => {
-  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: { ...ENTREGAR_PR, frete: 350 } as EntregaVenda })
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: { ...ENTREGAR_MG, frete: 350 } as EntregaVenda })
   user = f.user
   const net = network(f)
   const previa = await actions.previsualizarNfePropriaAction(f.motoId)
@@ -486,7 +523,7 @@ test('venda "Entregar" com frete: prévia mostra o frete e a nota sai com o item
 })
 
 test('venda com frete editada para um valor que não cobre o frete: pendência e transmitir recusa, sem envio', async () => {
-  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: { ...ENTREGAR_PR, frete: 1000 } as EntregaVenda })
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: { ...ENTREGAR_MG, frete: 1000 } as EntregaVenda })
   user = f.user
   const net = network(f)
   const frase = 'O valor da venda não cobre o frete cobrado (R$ 1.000,00). Corrija em Editar venda: o valor da venda inclui o frete.'
