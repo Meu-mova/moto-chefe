@@ -185,6 +185,7 @@ type TransacaoBruta = {
   tipo: string
   operationType: string
   descricao: string | null
+  categoria: string | null
   paymentData?: { payer?: string; recipient?: string }
 }
 
@@ -195,6 +196,7 @@ type TxMcp = {
   type: string
   operationType: string
   description: string
+  category?: string | null
   paymentData?: { payer?: string; recipient?: string }
 }
 
@@ -256,7 +258,10 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     if (!contasConteudo) return { ok: false, erro: 'Resposta inesperada do mcp.ai ao listar contas' }
 
     const contasPayload = JSON.parse(contasConteudo) as {
-      results?: Array<{ id: string; bank: string; subtype: string; taxNumber: string }>
+      results?: Array<{
+        id: string; bank?: string | null; marketingName?: string | null; name?: string | null
+        subtype: string; taxNumber: string
+      }>
     }
     // Cada CNPJ conectado aparece como um "item" próprio no mcp.ai — filtramos
     // pelo CNPJ do grupo ativo pra não misturar contas de grupos diferentes
@@ -264,9 +269,9 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
     // banco). Quais dessas contas interessam é decisão de CADA módulo, não
     // daqui: ver bancoEntraNoPix() e bancoEntraNaDespesa(). Filtrar banco neste
     // ponto foi o que sumiu com a Sicredi do Sul de Minas das despesas.
-    const contas = (contasPayload.results ?? []).filter(
-      c => c.subtype !== 'SAVINGS_ACCOUNT' && mesmoCnpj(c.taxNumber, cnpjGrupo),
-    )
+    const contas = (contasPayload.results ?? [])
+      .filter(c => c.subtype !== 'SAVINGS_ACCOUNT' && mesmoCnpj(c.taxNumber, cnpjGrupo))
+      .map(c => ({ ...c, bank: nomeDaConta(c) }))
 
     const inicioMs = dataInicio.getTime()
     const fimMs = dataFim.getTime()
@@ -356,6 +361,7 @@ async function listarTransacoesBrutas(dataInicio: Date, dataFim: Date, cnpjGrupo
           tipo: tx.type,
           operationType: tx.operationType,
           descricao: tx.description ?? null,
+          categoria: tx.category ?? null,
           paymentData: tx.paymentData,
         })
       }
@@ -471,15 +477,39 @@ export function ehTransferenciaEntreContas(descricao: string | null | undefined)
 /** Rótulo mostrado na coluna "tipo" de /pix-mcp para esses créditos. */
 const TIPO_TRANSFERENCIA_CONTAS = 'TRANSF'
 
+// A conta de Londrina (#861) manda o PIX recebido com operationType vazio e o "PIX" só na
+// categoria. A categoria só vale quando o banco não informa a operação: no Sicoob, por exemplo,
+// "OUTROS" é resgate ou depósito e não pode entrar por causa da categoria.
+const CATEGORIA_PIX = 'Transfer - PIX'
+
+/** Rótulo do crédito na conciliação de /pix-mcp ('PIX', 'TED', 'TRANSF'), ou null se não entra. */
+export function tipoDoCreditoConciliavel(t: {
+  tipo: string
+  operationType?: string | null
+  descricao?: string | null
+  categoria?: string | null
+}): string | null {
+  if (t.tipo !== 'CREDIT') return null
+  if (t.operationType && OPERACOES_CONCILIAVEIS.includes(t.operationType)) return t.operationType
+  if (ehTransferenciaEntreContas(t.descricao)) return TIPO_TRANSFERENCIA_CONTAS
+  if (!t.operationType && t.categoria === CATEGORIA_PIX) return 'PIX'
+  return null
+}
+
+// Nem todo banco preenche "bank" no Open Finance (Londrina, #861, só tem marketingName/name).
+// Quem tem "bank" segue com ele: as listas por CNPJ acima comparam esse nome.
+export function nomeDaConta(c: { bank?: string | null; marketingName?: string | null; name?: string | null }): string {
+  return c.bank || c.marketingName || c.name || 'Banco não informado'
+}
+
 export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGrupo: string): Promise<ResultadoPix> {
   const bruto = await listarTransacoesBrutas(dataInicio, dataFim, cnpjGrupo, 'pix')
   if (!bruto.ok) return bruto
 
-  const transacoes = bruto.transacoes
-    .filter(t => t.tipo === 'CREDIT'
-      && (OPERACOES_CONCILIAVEIS.includes(t.operationType) || ehTransferenciaEntreContas(t.descricao))
-      && bancoEntraNoPix(t.banco, cnpjGrupo))
-    .map(t => ({
+  const transacoes = bruto.transacoes.flatMap(t => {
+    const tipoOperacao = tipoDoCreditoConciliavel(t)
+    if (!tipoOperacao || !bancoEntraNoPix(t.banco, cnpjGrupo)) return []
+    return [{
       contaId: t.contaId,
       banco: t.banco,
       transacaoId: t.transacaoId,
@@ -487,10 +517,9 @@ export async function buscarPixRecebidos(dataInicio: Date, dataFim: Date, cnpjGr
       valor: t.valor,
       pagadorNome: t.paymentData?.payer?.trim() || extrairContraparteDaDescricao(t.descricao),
       descricao: t.descricao,
-      tipoOperacao: OPERACOES_CONCILIAVEIS.includes(t.operationType)
-        ? t.operationType
-        : TIPO_TRANSFERENCIA_CONTAS,
-    }))
+      tipoOperacao,
+    }]
+  })
 
   // Só interessa a conta pulada que a PIX usaria: banco fora do filtro não muda o que ela mostra.
   return { ok: true, transacoes, contasPuladas: bruto.contasPuladas.filter(b => bancoEntraNoPix(b, cnpjGrupo)) }
@@ -576,7 +605,9 @@ export async function buscarSaldosBancarios(cnpjGrupo: string): Promise<Resultad
 
     const payload = JSON.parse(conteudo) as { results?: Array<{
       id: string
-      bank: string
+      bank?: string | null
+      marketingName?: string | null
+      name?: string | null
       subtype: string
       number: string
       balance: string
@@ -590,7 +621,7 @@ export async function buscarSaldosBancarios(cnpjGrupo: string): Promise<Resultad
 
     const contas: ContaBancaria[] = resultados.map(r => ({
       id: r.id,
-      banco: r.bank,
+      banco: nomeDaConta(r),
       tipo: 'corrente',
       numero: r.number,
       // Só o saldo ao vivo — sem fallback pro balance do list_accounts (lixo no Sicoob)
