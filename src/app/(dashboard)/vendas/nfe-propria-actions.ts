@@ -12,7 +12,7 @@ import { lojasDoEscopo } from '@/lib/conta'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { normalizarCest } from '@/lib/nfe-fiscal'
-import { observacaoDaNota, observacaoDoPayload, observacoesVendaMoto } from '@/lib/nfe-observacoes'
+import { observacaoDaNota, observacaoDoPayload, observacaoEditada, observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { escolherTentativa, gravarEnvio, registrarEnvio } from '@/lib/notagateway/tentativa'
@@ -277,9 +277,6 @@ async function resumos(filtro: SQL): Promise<NotaResumo[]> {
 }
 
 const notasDaVenda = (vendaId: string) => resumos(eq(notasFiscaisSaida.vendaId, vendaId))
-
-/** O texto padrão de hoje não conta como edição: a tela só marca o que alguém mudou. */
-const observacaoEditada = (anterior: string | null, padrao: string) => (anterior && anterior !== padrao ? anterior : null)
 
 /** Só a última tentativa, e só se ainda está recusada: é a que o reenvio reaproveita. */
 async function payloadDaRecusa(vendaId: string, grupoId: string, ambiente: 'Homologacao' | 'Producao'): Promise<unknown> {

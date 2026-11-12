@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { LIMITE_OBSERVACAO_NF, observacaoDaNota, observacaoDoPayload, observacoesVendaMoto, TEXTO_GARANTIA } from './nfe-observacoes'
+import { LIMITE_OBSERVACAO_NF, observacaoDaNota, observacaoDoPayload, observacaoEditada, observacoesVendaMoto, TEXTO_GARANTIA } from './nfe-observacoes'
 
 const base = {
   marca: 'MOTO CHEFE',
@@ -57,4 +57,11 @@ test('lê do payload gravado o texto que foi na nota', () => {
   for (const sem of [null, {}, { informacoesAdicionais: null }, { informacoesAdicionais: 12 }]) {
     assert.equal(observacaoDoPayload(sem), null)
   }
+})
+
+test('só conta como editado o texto da recusa diferente do padrão de agora', () => {
+  assert.equal(observacaoEditada('EDITADO', PADRAO), 'EDITADO')
+  assert.equal(observacaoEditada(PADRAO, PADRAO), null)
+  assert.equal(observacaoEditada(null, PADRAO), null)
+  assert.equal(observacaoEditada('', PADRAO), null)
 })

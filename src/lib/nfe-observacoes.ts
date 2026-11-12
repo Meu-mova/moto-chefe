@@ -66,3 +66,8 @@ export function observacaoDoPayload(payload: unknown): string | null {
   const texto = (payload as { informacoesAdicionais?: unknown } | null)?.informacoesAdicionais
   return typeof texto === 'string' ? texto : null
 }
+
+/** O texto padrão de hoje não conta como edição: a tela só marca o que alguém mudou. */
+export function observacaoEditada(anterior: string | null, padrao: string): string | null {
+  return anterior && anterior !== padrao ? anterior : null
+}
