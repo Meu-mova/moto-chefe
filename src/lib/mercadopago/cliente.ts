@@ -14,9 +14,10 @@ function token(): string {
   return t
 }
 
-async function chamar<T>(caminho: string, init: RequestInit & { idempotencia?: string }): Promise<T> {
+/** Chamada com o token recebido (mensalidade usa o do MOVA; a maquininha usa o do grupo). */
+export async function chamarComToken<T>(token: string, caminho: string, init: RequestInit & { idempotencia?: string }): Promise<T> {
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${token()}`,
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
   }
   if (init.idempotencia) headers['X-Idempotency-Key'] = init.idempotencia
@@ -24,6 +25,10 @@ async function chamar<T>(caminho: string, init: RequestInit & { idempotencia?: s
   // Só o status vai para o erro: o corpo pode ecoar dados da requisição.
   if (!r.ok) throw new ErroMercadoPago(`Mercado Pago respondeu ${r.status} em ${caminho.split('?')[0]}`, r.status)
   return r.json() as Promise<T>
+}
+
+function chamar<T>(caminho: string, init: RequestInit & { idempotencia?: string }): Promise<T> {
+  return chamarComToken<T>(token(), caminho, init)
 }
 
 import type { Pagamento } from './webhook'
