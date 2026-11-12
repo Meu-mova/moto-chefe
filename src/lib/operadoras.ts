@@ -14,7 +14,7 @@ export const OPERADORAS = [
 ] as const
 
 // Só estas têm leitor de relatório na conciliação; as outras se conciliam à mão.
-const COM_RELATORIO = new Set(['infinitypay', 'stone', 'pagueveloz', 'cielo'])
+const COM_RELATORIO = new Set(['infinitypay', 'stone', 'pagueveloz', 'rede', 'cielo'])
 
 export function temRelatorio(operadora: string): boolean {
   return COM_RELATORIO.has(operadora)

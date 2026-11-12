@@ -8,9 +8,9 @@ test('lista do cadastro: as 3 com relatório, as de mercado e Outra (#471)', () 
   ])
 })
 
-test('InfinityPay, Stone, PagueVeloz e Cielo têm relatório importado (#471)', () => {
+test('InfinityPay, Stone, PagueVeloz, Rede e Cielo têm relatório importado (#471, #857)', () => {
   assert.deepEqual(['infinitypay', 'stone', 'pagueveloz', 'rede', 'cielo', 'sicredi'].map(temRelatorio),
-    [true, true, true, false, true, false])
+    [true, true, true, true, true, false])
 })
 
 test('Outra vira código a partir do nome livre; as da lista mantêm o código (#471)', () => {
@@ -26,8 +26,8 @@ test('nome de marca do código gravado; desconhecido aparece como veio (#460, #4
 })
 
 test('conciliação: importa só as com relatório; as outras viram aviso de manual (#471)', () => {
-  const r = separarPorRelatorio([{ operadora: 'rede', nome: 'Rede Itaú' }, { operadora: 'stone', nome: 'Stone' }])
-  assert.deepEqual(r, { comRelatorio: [{ operadora: 'stone', nome: 'Stone' }], manuais: [{ operadora: 'rede', nome: 'Rede Itaú' }] })
+  const r = separarPorRelatorio([{ operadora: 'getnet', nome: 'GetNet Loja' }, { operadora: 'stone', nome: 'Stone' }])
+  assert.deepEqual(r, { comRelatorio: [{ operadora: 'stone', nome: 'Stone' }], manuais: [{ operadora: 'getnet', nome: 'GetNet Loja' }] })
 })
 
 test('Outra com nome de operadora da lista é recusada (#471)', () => {

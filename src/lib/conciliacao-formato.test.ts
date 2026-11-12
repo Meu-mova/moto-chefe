@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { detectarFormato } from './conciliacao-formato'
 import { montarRelatorioCielo, vendaCielo } from '@/test/relatorio-cielo-sintetico'
+import { montarRelatorioRede, parcelaRede } from '@/test/relatorio-rede-sintetico'
 
 test('relatório da Cielo é reconhecido pela capa, mesmo com a 1ª linha sem cara de cabeçalho', () => {
   assert.equal(detectarFormato(montarRelatorioCielo({ linhas: [vendaCielo()] })), 'cielo')
@@ -17,4 +18,8 @@ test('InfinityPay, Stone e PagueVeloz continuam reconhecidos pela 1ª linha', ()
 test('texto que não é de nenhuma operadora não é reconhecido', () => {
   assert.equal(detectarFormato('coluna a;coluna b\n1;2'), null)
   assert.equal(detectarFormato(''), null)
+})
+
+test('relatório de pagamentos da Rede é reconhecido pelo cabeçalho', () => {
+  assert.equal(detectarFormato(montarRelatorioRede([parcelaRede()])), 'rede')
 })
