@@ -229,9 +229,16 @@ test('conta com "bank" mantém o nome de sempre (as listas por CNPJ dependem del
   assert.equal(nomeDaConta({ bank: 'Sicoob Empresas', marketingName: 'Outro', name: 'Outro' }), 'Sicoob Empresas')
 })
 
-test('conta sem "bank" usa o marketingName e depois o name (Londrina, #861)', () => {
-  assert.equal(nomeDaConta({ marketingName: 'Banco X Empresas', name: 'Conta Corrente' }), 'Banco X Empresas')
-  assert.equal(nomeDaConta({ bank: null, marketingName: null, name: 'Conta Corrente com Invest Fácil' }), 'Conta Corrente com Invest Fácil')
+// Na conta de Londrina o marketingName traz agência e conta: não pode virar o nome (nem ir para o log).
+test('conta sem "bank" usa o name, não o marketingName com agência e conta (Londrina, #861)', () => {
+  assert.equal(
+    nomeDaConta({ bank: null, marketingName: 'Agência: 1 | Conta: 0000000-0', name: 'Conta Corrente com Invest Fácil' }),
+    'Conta Corrente com Invest Fácil',
+  )
+})
+
+test('conta só com marketingName ainda tem nome', () => {
+  assert.equal(nomeDaConta({ marketingName: 'Banco X Empresas' }), 'Banco X Empresas')
 })
 
 test('conta sem nenhum nome não fica vazia (a coluna banco é obrigatória)', () => {
