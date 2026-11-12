@@ -428,3 +428,18 @@ test('Conta B com observação editada na moto da Conta A recebe a resposta de m
   assert.deepEqual(net.requests, [])
   assert.deepEqual(await snapshot(a), antes)
 })
+
+test('recusa com o padrão antigo e a cor da moto mudada depois: a prévia mostra o texto da recusa como editado e o reenvio o leva (#849, aceito)', async () => {
+  const f = await fixture(true, {}, 'autopropelido')
+  user = f.user
+  const net = network(f)
+  const padraoAntigo = (await previaOk(f.motoId)).resumo!.observacao
+  await db.execute(sql`update notas_fiscais_saida set payload = ${JSON.stringify({ informacoesAdicionais: padraoAntigo })}::jsonb where id = ${f.noteId}`)
+  await db.execute(sql`update motos set cor = 'AZUL' where id = ${f.motoId}`)
+  const previa = await previaOk(f.motoId)
+  assert.match(previa.resumo!.observacao, /Cor: AZUL/)
+  assert.equal(previa.observacaoAnterior, padraoAntigo)
+  const result = await actions.corrigirEReenviarNfAction(f.motoId, { moto: { ncm: '87116000', cest: '' } }, null, undefined, previa.observacaoAnterior)
+  assert.equal(result.ok, true, JSON.stringify(result))
+  assert.match(net.payloads[0].informacoesAdicionais ?? '', /Cor: PRETA/)
+})

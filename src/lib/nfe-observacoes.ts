@@ -67,7 +67,11 @@ export function observacaoDoPayload(payload: unknown): string | null {
   return typeof texto === 'string' ? texto : null
 }
 
-/** O texto padrão de hoje não conta como edição: a tela só marca o que alguém mudou. */
+/**
+ * O texto padrão de hoje não conta como edição: a tela só marca o que alguém mudou.
+ * Se um dado da moto mudou depois da recusa, o padrão antigo aparece como editado
+ * e o reenvio o leva; o operador vê o texto e usa "Voltar ao texto padrão" (aceito na #849).
+ */
 export function observacaoEditada(anterior: string | null, padrao: string): string | null {
   return anterior && anterior !== padrao ? anterior : null
 }
