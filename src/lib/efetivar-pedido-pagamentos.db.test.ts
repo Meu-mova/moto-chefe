@@ -114,9 +114,9 @@ test('C9: forma sem tipo ou com valor zero é recusada', async () => {
   const a = await semearConta('stone')
   usuario = a.aux
   assert.deepEqual(await efetivar(a, '1000', [{ tipo: 'pix', valor: 1000 }, { tipo: 'dinheiro', valor: 0 }]),
-    { ok: false, erro: 'Informe a forma e o valor de cada pagamento' })
+    { ok: false, erro: 'Toda forma de pagamento precisa de tipo e valor' })
   assert.deepEqual(await efetivar(a, '1000', [{ tipo: '', valor: 1000 }]),
-    { ok: false, erro: 'Informe a forma e o valor de cada pagamento' })
+    { ok: false, erro: 'Toda forma de pagamento precisa de tipo e valor' })
   assert.deepEqual(await vendaDaMoto(a.motoId), [])
 })
 

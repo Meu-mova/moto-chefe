@@ -4,7 +4,7 @@ import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, rese
 import { hojeBrt } from '@/lib/data-venda'
 import { lancamentosDinheiroDaVenda } from '@/lib/caixa-venda-moto'
 import { conferirMaquininhas } from '@/lib/maquininhas'
-import { formaPagamentoDaVenda, pagamentosFecham, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { formaPagamentoDaVenda, pagamentosFecham, pagamentosIncompletos, PAGAMENTO_INCOMPLETO, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { gravarMotoDoPedido } from '@/lib/pedido-venda'
@@ -87,7 +87,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
 
   const total = totalComFrete(d.valor, freteDaVenda(pedido.entrega))
   // Aqui e não na action: o frete que entra no total só se conhece lendo o pedido.
-  if (d.pagamentos.some(p => !p.tipo || !(p.valor > 0))) throw new RecusaUsuario('Informe a forma e o valor de cada pagamento')
+  if (pagamentosIncompletos(d.pagamentos)) throw new RecusaUsuario(PAGAMENTO_INCOMPLETO)
   if (!pagamentosFecham(d.pagamentos, total)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
   await conferirMaquininhas(tx, pedido.lojaId, d.pagamentos)
 

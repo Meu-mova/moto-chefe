@@ -9,7 +9,7 @@ import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, his
 import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
-import { pagamentosFecham, somaPagamentos, descreverPagamentos, formaPagamentoDaVenda, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { pagamentosFecham, descreverPagamentos, formaPagamentoDaVenda, pagamentosIncompletos, PAGAMENTO_INCOMPLETO, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lancamentosDinheiroDaVenda } from '@/lib/caixa-venda-moto'
 import { podeAbrirRegistroDaLoja, podeEditarVendaDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
 import { clientesDoEscopo, contaDaLoja, lojasDoEscopo } from '@/lib/conta'
@@ -1081,14 +1081,8 @@ async function registrarReserva(data: DadosReserva) {
   const { clienteCpf } = conferirComprador(data.clienteCpf)
 
   const pagamentos = data.pagamentos ?? []
-  if (pagamentos.some(p => !p.tipo || !(p.valor > 0))) {
-    throw new RecusaUsuario('Toda forma de pagamento precisa de tipo e valor')
-  }
-  if (!pagamentosFecham(pagamentos, valorNum)) {
-    throw new RecusaUsuario(
-      `A soma das formas de pagamento (${somaPagamentos(pagamentos).toFixed(2)}) não bate com a entrada (${valorNum.toFixed(2)})`,
-    )
-  }
+  if (pagamentosIncompletos(pagamentos)) throw new RecusaUsuario(PAGAMENTO_INCOMPLETO)
+  if (!pagamentosFecham(pagamentos, valorNum)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
   // meio_pagamento e as colunas de cartão guardam a PRIMEIRA linha — é o que o
   // comprovante, o histórico e queries/motos.ts leem. O detalhe vai no jsonb.
   const principal = pagamentos[0]
@@ -1344,14 +1338,8 @@ async function editarVenda(vendaId: string, dados: {
   const travaValor = travaDoValorVenda(usuario.papel, Number(vendaAtual.valor), valorNum)
   if (travaValor) throw new RecusaUsuario(travaValor)
 
-  for (const p of dados.pagamentos) {
-    if (!p.valor || p.valor <= 0) throw new RecusaUsuario('Valor de pagamento inválido')
-  }
-
-  const somaPayments = dados.pagamentos.reduce((s, p) => s + Number(p.valor), 0)
-  if (Math.abs(somaPayments - valorNum) > 0.01) {
-    throw new RecusaUsuario('Soma dos pagamentos não confere com o valor total')
-  }
+  if (pagamentosIncompletos(dados.pagamentos)) throw new RecusaUsuario(PAGAMENTO_INCOMPLETO)
+  if (!pagamentosFecham(dados.pagamentos, valorNum)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
 
   // ── NF de saída: só permite corrigir uma NF já existente ────────────────────
   // Para adicionar uma NF nova, use o botão "Confirmar NF de Saída"

@@ -80,7 +80,15 @@ export function pagamentosFecham(pgs: readonly PagamentoEntrada[], valorTotal: n
   return pgs.reduce((a, p) => a + centavos(num(p.valor)), 0) === centavos(valorTotal)
 }
 
-/** Frase única da soma que não fecha: Vender e efetivação do pedido recusam igual. */
+/** Frase única da forma de pagamento sem tipo ou sem valor (Vender, efetivação, editar, reserva, demanda). */
+export const PAGAMENTO_INCOMPLETO = 'Toda forma de pagamento precisa de tipo e valor'
+
+/** Alguma forma sem tipo, ou com valor que não é positivo. */
+export function pagamentosIncompletos(pgs: readonly { tipo?: string | null; valor: number | string }[]): boolean {
+  return pgs.some(p => !p.tipo || !(Number(p.valor) > 0))
+}
+
+/** Frase única da soma que não fecha: Vender, pedir aprovação, efetivação, editar venda e reserva. */
 export const SOMA_PAGAMENTOS_DIFERE = 'Somatório das formas de pagamento difere do valor da venda'
 
 /** Coluna `forma_pagamento` da venda: o tipo quando é uma forma só, 'multiplos' quando são várias. */

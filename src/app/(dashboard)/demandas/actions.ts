@@ -7,7 +7,7 @@ import { demandas } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { modeloUsavelNaLoja } from '@/lib/modelos-da-conta'
-import { pagamentosFecham, somaPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { pagamentosFecham, pagamentosIncompletos, PAGAMENTO_INCOMPLETO, somaPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lerDocumentoCliente } from '@/lib/documento'
 
 const ADMINS = ['admin_geral', 'admin_socio']
@@ -57,9 +57,7 @@ function validarSinal(sinal: DadosSinal): PagamentoEntrada {
   if (!(sinal.valorSinal > 0)) throw new Error('Valor do sinal é obrigatório')
   const pgs = sinal.pagamentos ?? []
   if (pgs.length === 0) throw new Error('Meio de pagamento do sinal é obrigatório')
-  if (pgs.some(p => !p.tipo || !(p.valor > 0))) {
-    throw new Error('Toda forma de pagamento precisa de tipo e valor')
-  }
+  if (pagamentosIncompletos(pgs)) throw new Error(PAGAMENTO_INCOMPLETO)
   if (!pagamentosFecham(pgs, sinal.valorSinal)) {
     throw new Error(
       `A soma das formas de pagamento (${somaPagamentos(pgs).toFixed(2)}) não bate com o sinal (${sinal.valorSinal.toFixed(2)})`,

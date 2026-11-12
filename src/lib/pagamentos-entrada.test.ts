@@ -5,6 +5,7 @@ import {
   somaPagamentos,
   pagamentosFecham,
   descreverPagamentos,
+  pagamentosIncompletos,
 } from './pagamentos-entrada'
 
 test('registro antigo (pagamentos nulo) vira uma linha só, com o meio de pagamento legado', () => {
@@ -99,4 +100,12 @@ test('pagamentosFecham compara em centavos: 1 centavo a mais ou a menos sempre r
   }
   assert.equal(pagamentosFecham([{ tipo: 'pix', valor: 0.1 }, { tipo: 'dinheiro', valor: 0.2 }], 0.3), true)
   assert.equal(pagamentosFecham([{ tipo: 'pix', valor: 5000.01 }], 5000), false)
+})
+
+test('pagamentosIncompletos: forma sem tipo, sem valor ou com valor zero/negativo', () => {
+  assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: 10 }, { tipo: 'dinheiro', valor: 0.01 }]), false)
+  assert.equal(pagamentosIncompletos([{ tipo: '', valor: 10 }]), true)
+  assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: 0 }]), true)
+  assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: -5 }]), true)
+  assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: Number.NaN }]), true)
 })
