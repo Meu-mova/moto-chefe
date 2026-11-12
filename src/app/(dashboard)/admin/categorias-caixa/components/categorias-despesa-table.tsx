@@ -68,13 +68,11 @@ function CategoriaDespesaDialog({
     }
     startTransition(async () => {
       try {
-        if (inicial) {
-          await editarCategoriaDespesaAction(inicial.id, dados)
-          toast.success('Categoria atualizada')
-        } else {
-          await criarCategoriaDespesaAction(dados)
-          toast.success('Categoria criada')
-        }
+        const r = inicial
+          ? await editarCategoriaDespesaAction(inicial.id, dados)
+          : await criarCategoriaDespesaAction(dados)
+        if (!r.ok) { toast.error(r.erro); return }
+        toast.success(inicial ? 'Categoria atualizada' : 'Categoria criada')
         onClose()
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
@@ -196,7 +194,8 @@ function ConfirmarExclusaoDespesaDialog({
     if (!categoria) return
     startTransition(async () => {
       try {
-        await excluirCategoriaDespesaAction(categoria.id)
+        const r = await excluirCategoriaDespesaAction(categoria.id)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Categoria excluída')
         onClose()
       } catch {
@@ -213,7 +212,7 @@ function ConfirmarExclusaoDespesaDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           A categoria <strong>{categoria?.nome}</strong> será removida permanentemente.
-          Despesas já lançadas não serão afetadas.
+          Se ela já tiver lançamentos, a exclusão é recusada: desative em vez de excluir.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
@@ -239,7 +238,8 @@ export function CategoriasDespesaTable({ categorias }: { categorias: CategoriaDe
   function handleToggle(cat: CategoriaDespesa) {
     startTransition(async () => {
       try {
-        await toggleAtivoDespesaAction(cat.id, !cat.ativo)
+        const r = await toggleAtivoDespesaAction(cat.id, !cat.ativo)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success(cat.ativo ? 'Categoria desativada' : 'Categoria ativada')
       } catch {
         toast.error('Erro ao alterar status')

@@ -49,6 +49,15 @@ aqui fica a lista curta de conferência.
   um 4xx da Nota Gateway ia para `motivo_status` e para o `log_acoes`; um 404 que ecoe o caminho
   leva junto o `empresaId`). Use só as mensagens da lista documentada; fora dela, `HTTP <status>`.
 
+## Isolamento entre Contas
+
+- **Opção do cliente sem `grupo_id` vaza para todas as Contas** (#834: `categorias_despesa` e
+  `categorias_caixa` eram uma lista só; editar, excluir e desativar filtravam só pelo `id`, e duas
+  actions de listar não pediam login. Uma Conta reclassificava o DRE da outra). Conferir: toda
+  tabela nova ou tocada que guarda opção do cliente (categoria, catálogo, cadastro) tem
+  `grupo_id not null`; todo `update`/`delete` por id leva o grupo no `where` e responde a mesma
+  frase para id de outra Conta e inexistente; toda action de listar checa login e papel.
+
 ## Permissão de página
 
 - **Checar a permissão no topo da página, antes de buscar dados** (#579: a busca recusava antes do
