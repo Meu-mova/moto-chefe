@@ -76,8 +76,8 @@ export function EntregaCampos({ valor, onChange }: Props) {
   const mudarMunicipio = (patch: Partial<EnderecoDaEntrega>) => { setIbgeAMao(true); mudarEndereco({ ...patch, cidade: '' }) }
   const { busca, buscar } = useBuscaCep(e => {
     setIbgeAMao(!e.ibge)
-    // Sem o código IBGE o resumo não basta: abre tudo para digitar o código.
-    setExibicao(atual => atual === 'completo' || !e.ibge ? 'completo' : 'resumo')
+    // Sem a rua (CEP geral) ou sem o código IBGE o resumo não basta: abre tudo para digitar.
+    setExibicao(atual => atual === 'completo' || !e.ibge || !e.logradouro ? 'completo' : 'resumo')
     mudarEndereco({
       ...(e.logradouro ? { logradouro: e.logradouro } : {}), ...(e.bairro ? { bairro: e.bairro } : {}),
       nomeCidade: e.cidade, uf: e.uf, cidade: e.ibge,
