@@ -27,6 +27,8 @@ afterEach(async () => {
   registrar.mock.resetCalls()
   solicitar.mock.resetCalls()
   registrar.mock.mockImplementation(async () => OK_VENDA)
+  // O fetch do CEP é desfeito aqui: teste que falha no meio não o vaza para o seguinte.
+  mock.restoreAll()
   for (const desmontar of montados.splice(0)) await desmontar()
 })
 
@@ -154,7 +156,7 @@ test('a recusa some ao trocar para Reserva', async () => {
   await t.clique(botao('Confirmar Venda'))
   assert.equal(document.querySelector('[role="alert"]')?.textContent, 'Recusa sintética.')
   await t.clique(botao('Reserva'))
-  assert.equal(document.querySelector('[role="alert"]'), null)
+  assert.equal(document.querySelector('[role="alert"]')?.textContent ?? null, null)
 })
 
 const opcaoDeEntrega = (nome: RegExp) => [...document.querySelectorAll<HTMLInputElement>('[role="radiogroup"] input[type="radio"]')]
@@ -179,7 +181,6 @@ test('"Entregar" com endereço e outra pessoa recebendo vai inteiro para a venda
   await entregarEmSaoLuis(t)
   await digitar(campo<HTMLInputElement>(/^CPF ou CNPJ de quem recebe/), '52998224725')
   await t.clique(botao('Confirmar Venda'))
-  mock.restoreAll()
   assert.deepEqual(registrar.mock.calls[0]?.arguments[0].entrega, {
     modo: 'entregar', modalidade: 'TransporteProprioPorContaDoDestinatario', endereco: ENDERECO_SAO_LUIS,
     recebe: { nome: 'Maria Exemplo', cpfCnpj: '529.982.247-25' },
@@ -191,7 +192,6 @@ test('quem recebe com CPF inválido deixa "Confirmar Venda" desabilitado', async
   await preencherVenda(t)
   await entregarEmSaoLuis(t)
   await digitar(campo<HTMLInputElement>(/^CPF ou CNPJ de quem recebe/), '52998224724')
-  mock.restoreAll()
   assert.equal(botao('Confirmar Venda')?.disabled, true)
   await t.clique(botao('Confirmar Venda'))
   assert.equal(registrar.mock.callCount(), 0)
