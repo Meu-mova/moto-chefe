@@ -318,18 +318,22 @@ test('trava #848: "Retira na loja" grava sem consultar a Nota Gateway', async ()
   assert.deepEqual(a.chamadas, [])
 })
 
-test('trava #848: sem a UF do emitente (grupo sem NG ou NG com erro) o pedido "Entregar" é gravado', async () => {
+test('trava #848: grupo sem a NG configurada: o pedido "Entregar" é gravado sem consultar a NG', async () => {
   const semNg = await semearConta()
   const chamadas = ngComUf({})
   usuario = semNg.vendedor
   assert.deepEqual(await criarPedidoVendaAction(semNg.motoId, '', ENTREGAR), { ok: true, dados: undefined })
   assert.deepEqual(chamadas, [])
+  assert.equal((await pedidosDaMoto(semNg.motoId)).length, 1)
+})
 
+test('trava #848: NG respondendo erro (500): o pedido "Entregar" é gravado', async () => {
   const comErro = await contaComNg('MG')
   mock.restoreAll()
-  ngComUf({}, 500)
+  const chamadas = ngComUf({}, 500)
   usuario = comErro.vendedor
   assert.deepEqual(await criarPedidoVendaAction(comErro.motoId, '', ENTREGAR), { ok: true, dados: undefined })
+  assert.equal(chamadas.length, 1)
   assert.equal((await pedidosDaMoto(comErro.motoId)).length, 1)
 })
 
