@@ -1,8 +1,8 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { documentosAssinatura } from '@/lib/db/schema'
+import { documentosAssinatura, vendas } from '@/lib/db/schema'
 import type { podeAgirNaLoja } from '@/lib/acesso-registro'
-import { vendaEmQueAge } from '@/lib/venda-do-usuario'
+import { vendaEmQueAge, vendasDoEscopo } from '@/lib/venda-do-usuario'
 
 type Executor = Pick<typeof db, 'select'>
 
@@ -22,9 +22,13 @@ export async function dossieDoUsuario(
   exec: Executor = db,
 ) {
   if (!PAPEIS_DOSSIE.has(usuario.papel)) return null
-  const [doc] = await exec.select().from(documentosAssinatura)
-    .where(eq(documentosAssinatura.id, documentoId)).limit(1)
-  if (!doc) return null
+  const daConta = vendasDoEscopo(usuario)
+  if (daConta === null) return null
+  const [linha] = await exec.select({ doc: documentosAssinatura }).from(documentosAssinatura)
+    .innerJoin(vendas, eq(vendas.id, documentosAssinatura.vendaId))
+    .where(and(eq(documentosAssinatura.id, documentoId), daConta)).limit(1)
+  if (!linha) return null
+  const { doc } = linha
   const venda = await vendaEmQueAge(usuario, doc.vendaId, exec)
   return venda ? { doc, venda } : null
 }

@@ -3,9 +3,18 @@ import { db } from '@/lib/db'
 import { grupos, lojas, vendas } from '@/lib/db/schema'
 import { podeAbrirRegistroDaLoja, podeAgirNaLoja } from '@/lib/acesso-registro'
 import { podeVerGrupo } from '@/lib/acesso-grupo'
-import { lojasDoEscopo } from '@/lib/conta'
+import { lojasDoEscopo, type EscopoDoUsuario } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'select'>
+
+/**
+ * Filtro de vendas da Conta (ou do grupo da persona) para o where: undefined para
+ * admin_geral (vê tudo), null para quem não tem Conta (não vê nada).
+ */
+export function vendasDoEscopo(usuario: EscopoDoUsuario & { papel: string }): SQL | undefined | null {
+  if (usuario.papel === 'admin_geral') return undefined
+  return usuario.contaId ? inArray(vendas.lojaId, lojasDoEscopo(usuario)) : null
+}
 
 /**
  * Venda mais recente que casa com o filtro (por id ou pela moto) e que o usuário pode
@@ -18,8 +27,7 @@ export async function vendaDoUsuario(
   filtro: SQL,
   exec: Executor = db,
 ) {
-  const daConta = usuario.papel === 'admin_geral' ? undefined
-    : usuario.contaId ? inArray(vendas.lojaId, lojasDoEscopo(usuario)) : null
+  const daConta = vendasDoEscopo(usuario)
   if (daConta === null) return null
   const [venda] = await exec.select().from(vendas)
     .where(and(filtro, daConta))
@@ -39,8 +47,7 @@ export async function vendaDoUsuarioParaNf(
   filtro: SQL,
   exec: Executor = db,
 ) {
-  const daConta = usuario.papel === 'admin_geral' ? undefined
-    : usuario.contaId ? inArray(vendas.lojaId, lojasDoEscopo(usuario)) : null
+  const daConta = vendasDoEscopo(usuario)
   if (daConta === null) return null
   const [linha] = await exec.select({ venda: vendas, grupoId: lojas.grupoId, contaId: grupos.contaId })
     .from(vendas)
@@ -71,8 +78,7 @@ export async function vendaEmQueAge(
   vendaId: string,
   exec: Executor = db,
 ) {
-  const daConta = usuario.papel === 'admin_geral' ? undefined
-    : usuario.contaId ? inArray(vendas.lojaId, lojasDoEscopo(usuario)) : null
+  const daConta = vendasDoEscopo(usuario)
   if (daConta === null) return null
   const [venda] = await exec.select({ id: vendas.id, lojaId: vendas.lojaId, numero: vendas.numero })
     .from(vendas)
