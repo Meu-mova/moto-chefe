@@ -66,7 +66,7 @@ const vendaDaMoto = (motoId: string) =>
   execRows(sql`select id, valor, forma_pagamento, pagamentos from vendas where moto_id = ${motoId}`)
 const caixaDaMoto = (motoId: string) => execRows(sql`select l.loja_id, l.tipo, l.categoria, l.valor, l.data::text as data
   from lancamentos_caixa l join vendas v on v.id = l.venda_id where v.moto_id = ${motoId} order by l.valor`)
-const hojeBrt = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+const diaDeHojeEmBrasilia = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 
 test('C1: dinheiro + PIX gravam as duas formas na venda do pedido, só com os campos conhecidos', async () => {
   const a = await semearConta('stone')
@@ -94,8 +94,8 @@ test('C3/C4: um lançamento de caixa por pagamento em dinheiro, na loja e no dia
   const pagamentos = [{ tipo: 'dinheiro', valor: 3000 }, { tipo: 'pix', valor: 10000 }, { tipo: 'dinheiro', valor: 2000 }]
   assert.deepEqual(await efetivar(a, '15000', pagamentos), { ok: true, dados: undefined })
   const esperado = [
-    { loja_id: a.lojaId, tipo: 'entrada', categoria: 'Venda', valor: '2000.00', data: hojeBrt() },
-    { loja_id: a.lojaId, tipo: 'entrada', categoria: 'Venda', valor: '3000.00', data: hojeBrt() },
+    { loja_id: a.lojaId, tipo: 'entrada', categoria: 'Venda', valor: '2000.00', data: diaDeHojeEmBrasilia() },
+    { loja_id: a.lojaId, tipo: 'entrada', categoria: 'Venda', valor: '3000.00', data: diaDeHojeEmBrasilia() },
   ]
   assert.deepEqual(await caixaDaMoto(a.motoId), esperado)
 

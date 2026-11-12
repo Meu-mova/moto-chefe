@@ -14,7 +14,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 export type DadosEfetivarPedido = {
   pedidoId: string
-  /** Loja do pedido, já conferida pela action (permissão e origem são avaliadas nela). */
+  /** Loja do pedido conferida pela action (permissão e origem). A gravação usa a loja lida do pedido sob a trava. */
   lojaId: string
   efetivadoPor: string
   clienteId: string | null
@@ -96,7 +96,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
   const [venda] = await tx.insert(vendas).values({
     pedidoVendaId: d.pedidoId,
     motoId: pedido.motoId,
-    lojaId: d.lojaId,
+    lojaId: pedido.lojaId,
     vendedorId: pedido.vendedorId,
     efetivadoPor: d.efetivadoPor,
     clienteId: d.clienteId,
@@ -130,7 +130,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
 
   await tx.insert(historicoEstoque).values({
     motoId: pedido.motoId,
-    lojaOrigemId: d.lojaId,
+    lojaOrigemId: pedido.lojaId,
     usuarioId: d.efetivadoPor,
     tipo: 'saida',
     referenciaTipo: 'pedido_venda',
@@ -139,7 +139,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
   })
 
   const caixa = lancamentosDinheiroDaVenda(d.pagamentos, {
-    lojaId: d.lojaId, usuarioId: d.efetivadoPor, vendaId: venda.id, descricao: `Venda dinheiro — ${d.clienteNome}`, data: hojeBrt(),
+    lojaId: pedido.lojaId, usuarioId: d.efetivadoPor, vendaId: venda.id, descricao: `Venda dinheiro — ${d.clienteNome}`, data: hojeBrt(),
   })
   if (caixa.length > 0) await tx.insert(lancamentosCaixa).values(caixa)
 
