@@ -158,9 +158,10 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
     valor, pagamentos: pagamentosMova, temFicha: !!ficha,
   }), ...pendenciasDaEntrega(venda.entrega, venda.clienteNome, valor)]
   if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
-  // Só "Entregar" precisa da UF já aqui; a trava (#848) vem primeiro, é o que a loja tem de mudar.
-  const ufEntregar = venda.entrega?.modo === 'entregar' ? await ufDaEmpresa(cfg) : null
-  const travaEntrega = travaDaEntregaEmOutroEstado(venda.entrega, ufEntregar)
+  // Só "Entregar" lê a UF do emitente já aqui, para a trava (#848). Invariante: "Entregar" => não nula,
+  // porque ufDaEmpresa joga em vez de devolver nula; tornar essa leitura tolerante pularia a trava na emissão.
+  const ufEmitente = venda.entrega?.modo === 'entregar' ? await ufDaEmpresa(cfg) : null
+  const travaEntrega = travaDaEntregaEmOutroEstado(venda.entrega, ufEmitente)
   if (travaEntrega) pendencias.unshift(travaEntrega)
 
   const regra: RegraSaida | null = regraRow
@@ -218,7 +219,7 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
 
   return {
     venda, grupoId, emissor, cfg, regra, ficha: ficha ?? null, sugestao, observacao, pagamentosMova, valor, pendencias,
-    renaveExigido, renave, renaveOrigem, travaEntrega, ufEntregar,
+    renaveExigido, renave, renaveOrigem, travaEntrega, ufEmitente,
   }
 }
 
@@ -304,7 +305,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
 
     let resumo: Extract<PreviaNfe, { ok: true }>['resumo'] = null
     if (e.ficha && e.regra && !e.pendencias.length) {
-      const uf = e.ufEntregar ?? await ufDaEmpresa(e.cfg)
+      const uf = e.ufEmitente ?? await ufDaEmpresa(e.cfg)
       // O veículo ainda vai ser preenchido na tela: a prévia é o resto da nota.
       const dados = dadosDaVenda({ ...e, renave: null }, uf, 'previa')
       const p = montarNfeVendaMoto(dados, e.regra)
@@ -606,7 +607,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
       if (!g.ok) return { ok: false, error: g.erro }
     }
 
-    const uf = e.ufEntregar ?? await ufDaEmpresa(e.cfg)
+    const uf = e.ufEmitente ?? await ufDaEmpresa(e.cfg)
     const payload = montarNfeVendaMoto(dadosDaVenda(eComRenave, uf, idExterno, transporteValidado), e.regra)
 
     notaId = await gravarEnvio(db, escolha, {
