@@ -123,6 +123,7 @@ test('"Entregar": o CEP preenche rua, bairro, cidade, UF e o código IBGE; envia
   viaCep(VIACEP_SAO_LUIS)
   const t = await montar()
   await entregarComCep(t)
+  await t.clique(botao('Editar endereço'))
   assert.equal(campo<HTMLInputElement>(/^Rua/).value, 'Rua de exemplo')
   assert.equal(campo<HTMLSelectElement>(/^UF/).value, 'MA')
   assert.equal([...document.querySelectorAll('label')].some(l => /Código IBGE/.test(l.textContent ?? '')), false)
@@ -146,6 +147,49 @@ test('CEP não encontrado: aparece o código IBGE do município para digitar', a
   assert.deepEqual(criar.mock.calls[0].arguments[2], {
     modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', endereco: ENDERECO_SAO_LUIS, recebe: null,
   })
+})
+
+// CEP primeiro (#846, variante B): o endereço completo só aparece quando o CEP não resolve ou ao editar.
+const temRotulo = (rotulo: RegExp) => [...document.querySelectorAll('label')].some(l => rotulo.test((l.textContent ?? '').trim()))
+
+test('"Entregar" começa só com o CEP, sem os outros campos do endereço', async () => {
+  const t = await montar()
+  await t.clique(opcaoDeEntrega(/Entregar/))
+  assert.equal(temRotulo(/^CEP/), true)
+  for (const r of [/^Rua/, /^Número/, /^Complemento/, /^Bairro/, /^Cidade/, /^UF/]) assert.equal(temRotulo(r), false, `${r} apareceu antes do CEP`)
+})
+
+test('CEP achado: mostra "Endereço encontrado", o resumo e só Número e Complemento para digitar', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  assert.match(textoDaTela(), /Endereço encontrado/)
+  assert.match(textoDaTela(), /Rua de exemplo/)
+  assert.match(textoDaTela(), /Centro, São Luís \/ MA/)
+  assert.equal(temRotulo(/^Complemento/), true)
+  for (const r of [/^Rua/, /^Bairro/, /^Cidade/, /^UF/]) assert.equal(temRotulo(r), false, `${r} apareceu com o CEP achado`)
+})
+
+test('CEP não achado: abre o endereço completo, com o código IBGE', async () => {
+  viaCep({ erro: true })
+  const t = await montar()
+  await entregarComCep(t)
+  for (const r of [/^Rua/, /^Número/, /^Complemento/, /^Bairro/, /^Cidade/, /^UF/, /^Código IBGE/]) assert.equal(temRotulo(r), true, `${r} faltou`)
+  assert.doesNotMatch(textoDaTela(), /Endereço encontrado/)
+})
+
+test('"Editar endereço" abre o endereço completo com o que o CEP e a pessoa já preencheram', async () => {
+  viaCep(VIACEP_SAO_LUIS)
+  const t = await montar()
+  await entregarComCep(t)
+  assert.ok(botao('Editar endereço'), 'sem o link "Editar endereço"')
+  await t.clique(botao('Editar endereço'))
+  assert.equal(campo<HTMLInputElement>(/^Rua/).value, 'Rua de exemplo')
+  assert.equal(campo<HTMLInputElement>(/^Número/).value, '100')
+  assert.equal(campo<HTMLInputElement>(/^Bairro/).value, 'Centro')
+  assert.equal(campo<HTMLInputElement>(/^Cidade/).value, 'São Luís')
+  assert.equal(campo<HTMLSelectElement>(/^UF/).value, 'MA')
+  assert.equal(botao('Editar endereço'), undefined)
 })
 
 test('"Outra pessoa recebe" com CPF inválido mostra o erro e não deixa criar; com CPF válido envia nome e documento', async () => {
@@ -180,6 +224,7 @@ test('trocar a UF depois do CEP apaga o código IBGE e pede o novo, que fica vis
   viaCep(VIACEP_SAO_LUIS)
   const t = await montar()
   await entregarComCep(t)
+  await t.clique(botao('Editar endereço'))
   await escolher(campo<HTMLSelectElement>(/^UF/), 'PI')
   assert.equal(campo<HTMLInputElement>(/^Código IBGE do município/).value, '')
   await digitar(campo<HTMLInputElement>(/^Código IBGE do município/), '2211001')
@@ -192,6 +237,7 @@ test('trocar a cidade à mão depois do CEP apaga o código IBGE e pede o novo',
   viaCep(VIACEP_SAO_LUIS)
   const t = await montar()
   await entregarComCep(t)
+  await t.clique(botao('Editar endereço'))
   await digitar(campo<HTMLInputElement>(/^Cidade/), 'Paço do Lumiar')
   assert.equal(campo<HTMLInputElement>(/^Código IBGE do município/).value, '')
 })
