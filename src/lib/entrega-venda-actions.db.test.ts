@@ -479,3 +479,11 @@ test('Vender: Entrega com frete cobrado é recusada até o frete do "Vender" exi
   assert.deepEqual(await registrarVendaCompletaAction(vendaDoShowroom(a, comFrete)), { ok: false, erro: FRETE_FORA_DO_VENDER })
   assert.deepEqual(await vendasDaMoto(a.motoId), [])
 })
+
+test('Vender: frete cobrado é recusado antes de consultar a Nota Gateway', async () => {
+  const a = await contaComNg('MG')
+  usuario = a.vendedor
+  const comFrete = { ...ENTREGAR_MG, frete: 350 }
+  assert.deepEqual(await registrarVendaCompletaAction(vendaDoShowroom(a, comFrete)), { ok: false, erro: FRETE_FORA_DO_VENDER })
+  assert.deepEqual(a.chamadas, [])
+})

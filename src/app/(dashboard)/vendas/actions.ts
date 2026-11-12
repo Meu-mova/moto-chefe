@@ -158,9 +158,10 @@ async function entregaConferida(motoId: string, lojaId: string, entregaDaTela: u
 
 /** Entrega do "Vender" do Showroom: a mesma do Novo pedido, ainda sem frete cobrado. */
 async function entregaDoVender(motoId: string, lojaId: string, entregaDaTela: unknown): Promise<EntregaVenda> {
-  const entrega = await entregaConferida(motoId, lojaId, entregaDaTela)
-  if (freteDaVenda(entrega)) throw new RecusaUsuario(FRETE_FORA_DO_VENDER)
-  return entrega
+  // O frete se recusa antes da NG: a frase vale para qualquer UF.
+  const conferida = conferirEntrega(entregaDaTela)
+  if (conferida.ok && freteDaVenda(conferida.entrega)) throw new RecusaUsuario(FRETE_FORA_DO_VENDER)
+  return entregaConferida(motoId, lojaId, entregaDaTela)
 }
 
 export async function criarPedidoVendaAction(...a: Parameters<typeof criarPedidoVenda>) {
