@@ -52,10 +52,14 @@ export async function sincronizarPix(grupo: { id: string; cnpj: string }): Promi
       .onConflictDoUpdate({
         target: pixRecebimentosMcp.transacaoId,
         set: {
+          // banco também se atualiza: até a v1.34.1 a conta de Londrina gravava agência e conta aqui (#861).
+          banco: sql`excluded.banco`,
           pagadorNome: sql`coalesce(excluded.pagador_nome, ${pixRecebimentosMcp.pagadorNome})`,
           descricao: sql`coalesce(excluded.descricao, ${pixRecebimentosMcp.descricao})`,
           tipoOperacao: sql`coalesce(excluded.tipo_operacao, ${pixRecebimentosMcp.tipoOperacao})`,
         },
+        // transacao_id é único no sistema todo: a linha de outro grupo nunca é reescrita.
+        setWhere: eq(pixRecebimentosMcp.grupoId, grupo.id),
       })
   }
   // Conta pulada = leitura incompleta. Grava o que veio, mas não avança a data: senão o
