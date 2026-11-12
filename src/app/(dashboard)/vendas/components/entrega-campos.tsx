@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CepInput } from '@/components/ui/cep-input'
@@ -143,9 +144,9 @@ export function EntregaCampos({ valor, onChange }: Props) {
             <>
               <div className="flex items-start justify-between gap-3 rounded-lg bg-muted px-3 py-2 text-sm">
                 <p><span className="font-medium">{e.logradouro}</span><br />{[e.bairro, `${e.nomeCidade} / ${e.uf}`].filter(Boolean).join(', ')}</p>
-                <button type="button" onClick={() => setExibicao('completo')} className="shrink-0 font-medium text-primary-text hover:underline">
+                <Button type="button" variant="link" onClick={() => setExibicao('completo')} className="h-auto p-0 text-primary-text">
                   Editar endereço
-                </button>
+                </Button>
               </div>
               <div className="grid grid-cols-6 gap-3">{[NUMERO, COMPLEMENTO].map(campoTexto)}</div>
             </>
