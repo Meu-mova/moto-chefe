@@ -2,9 +2,11 @@
 import { getUsuarioLogado, podeCategorizarDespesaBanco } from '@/lib/auth'
 import { getGrupoAtivo, listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { db } from '@/lib/db'
-import { despesas, despesasOpenFinance, categoriasDespesa, beneficiariosDespesa } from '@/lib/db/schema'
+import { despesas, despesasOpenFinance, beneficiariosDespesa } from '@/lib/db/schema'
+import { conferirCategoriaDespesa } from '@/lib/categorias-do-grupo'
 import { eq, and, asc, isNull } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
+import { acao, RecusaUsuario } from '@/lib/resultado-action'
 
 const ADMINS = ['admin_geral', 'admin_socio'] as const
 
@@ -36,27 +38,25 @@ function assertPodeCategorizar(usuario: { papel: string; email: string }) {
 }
 
 /**
- * Devolve o beneficiário a gravar, ou null quando a categoria não pede.
+ * Confere que a categoria é do grupo (#834) e devolve o beneficiário a gravar, ou null quando
+ * a categoria não pede.
  *
  * A exigência sai da CATEGORIA (categorias_despesa.exige_beneficiario), não de uma
  * lista de nomes aqui: assim uma categoria nova passa a pedir sem deploy. O nome
  * precisa estar no catálogo do grupo — texto livre viraria "Cesar", "cesar" e
  * "César" na mesma coluna, e o relatório por sócio não fecharia.
  */
-async function beneficiarioValido(
+async function categoriaEBeneficiario(
   grupoId: string,
   categoria: string,
   beneficiario: string | null | undefined,
+  categoriaAtual?: string | null,
 ): Promise<string | null> {
-  const [cat] = await db
-    .select({ exige: categoriasDespesa.exigeBeneficiario })
-    .from(categoriasDespesa)
-    .where(eq(categoriasDespesa.nome, categoria))
-    .limit(1)
-  if (!cat?.exige) return null
+  const { exigeBeneficiario } = await conferirCategoriaDespesa(db, grupoId, categoria, categoriaAtual)
+  if (!exigeBeneficiario) return null
 
   const nome = beneficiario?.trim()
-  if (!nome) throw new Error(`A categoria "${categoria}" exige informar a quem se destinou`)
+  if (!nome) throw new RecusaUsuario(`A categoria "${categoria}" exige informar a quem se destinou`)
 
   const [encontrado] = await db
     .select({ nome: beneficiariosDespesa.nome })
@@ -67,7 +67,7 @@ async function beneficiarioValido(
       eq(beneficiariosDespesa.ativo, true),
     ))
     .limit(1)
-  if (!encontrado) throw new Error('Beneficiário não encontrado no grupo ativo')
+  if (!encontrado) throw new RecusaUsuario('Beneficiário não encontrado no grupo ativo')
 
   return encontrado.nome
 }
@@ -84,14 +84,14 @@ async function lojaIdValidaNoGrupo(usuario: { papel: string; lojaId: string | nu
   return lojaIdsGrupo.includes(lojaId) ? lojaId : null
 }
 
-export async function criarDespesaAction(dados: DespesaInput) {
+async function criarDespesa(dados: DespesaInput) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
   parseValor(dados.valor)
   const grupo = await getGrupoAtivo(usuario)
   const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
-  const beneficiario = await beneficiarioValido(grupo.id, dados.categoria, dados.beneficiario)
+  const beneficiario = await categoriaEBeneficiario(grupo.id, dados.categoria, dados.beneficiario)
 
   await db.insert(despesas).values({
     grupoId:        grupo.id,
@@ -110,14 +110,17 @@ export async function criarDespesaAction(dados: DespesaInput) {
   revalidatePath('/financeiro')
 }
 
-export async function editarDespesaAction(id: string, dados: DespesaInput) {
+async function editarDespesa(id: string, dados: DespesaInput) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
   parseValor(dados.valor)
   const grupo = await getGrupoAtivo(usuario)
   const lojaId = await lojaIdValidaNoGrupo(usuario, dados.lojaId)
 
-  const beneficiario = await beneficiarioValido(grupo.id, dados.categoria, dados.beneficiario)
+  const [atual] = await db.select({ categoria: despesas.categoria }).from(despesas)
+    .where(and(eq(despesas.id, id), eq(despesas.grupoId, grupo.id))).limit(1)
+  if (!atual) throw new Error('Despesa não encontrada')
+  const beneficiario = await categoriaEBeneficiario(grupo.id, dados.categoria, dados.beneficiario, atual.categoria)
 
   const res = await db.update(despesas).set({
     lojaId,
@@ -137,6 +140,16 @@ export async function editarDespesaAction(id: string, dados: DespesaInput) {
   revalidatePath('/financeiro')
 }
 
+// Recusa de categoria (#834) volta como { ok: false, erro }: lançada, a mensagem some no build de
+// produção (#404). Os outros erros destas gravações seguem lançados, como antes.
+export async function criarDespesaAction(dados: DespesaInput) {
+  return acao(() => criarDespesa(dados))
+}
+
+export async function editarDespesaAction(id: string, dados: DespesaInput) {
+  return acao(() => editarDespesa(id, dados))
+}
+
 export async function excluirDespesaAction(id: string) {
   const usuario = await getUsuarioLogado()
   assertAdmin(usuario.papel)
@@ -152,7 +165,7 @@ export async function excluirDespesaAction(id: string) {
   revalidatePath('/financeiro')
 }
 
-export async function lancarDespesaOpenFinanceAction(
+async function lancarDespesaOpenFinance(
   id: string,
   categoria: string,
   lojaId: string | null,
@@ -164,7 +177,7 @@ export async function lancarDespesaOpenFinanceAction(
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
-  const beneficiarioValidado = await beneficiarioValido(grupo.id, categoria, beneficiario)
+  const beneficiarioValidado = await categoriaEBeneficiario(grupo.id, categoria, beneficiario)
 
   const [linha] = await db.select().from(despesasOpenFinance)
     .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
@@ -206,7 +219,7 @@ export async function lancarDespesaOpenFinanceAction(
   revalidatePath('/financeiro')
 }
 
-export async function editarCategorizacaoOpenFinanceAction(
+async function editarCategorizacaoOpenFinance(
   id: string,
   categoria: string,
   lojaId: string | null,
@@ -218,13 +231,13 @@ export async function editarCategorizacaoOpenFinanceAction(
 
   const grupo = await getGrupoAtivo(usuario)
   const lojaIdValida = await lojaIdValidaNoGrupo(usuario, lojaId)
-  const beneficiarioValidado = await beneficiarioValido(grupo.id, categoria, beneficiario)
 
   const [linha] = await db.select().from(despesasOpenFinance)
     .where(and(eq(despesasOpenFinance.id, id), eq(despesasOpenFinance.grupoId, grupo.id)))
     .limit(1)
   if (!linha) throw new Error('Saída não encontrada')
   if (!linha.despesaId) throw new Error('Essa saída ainda não foi lançada')
+  const beneficiarioValidado = await categoriaEBeneficiario(grupo.id, categoria, beneficiario, linha.categoria)
 
   await db.transaction(async (tx) => {
     await tx.update(despesas).set({
@@ -241,6 +254,14 @@ export async function editarCategorizacaoOpenFinanceAction(
 
   revalidatePath('/despesas')
   revalidatePath('/financeiro')
+}
+
+export async function lancarDespesaOpenFinanceAction(id: string, categoria: string, lojaId: string | null, beneficiario?: string | null) {
+  return acao(() => lancarDespesaOpenFinance(id, categoria, lojaId, beneficiario))
+}
+
+export async function editarCategorizacaoOpenFinanceAction(id: string, categoria: string, lojaId: string | null, beneficiario?: string | null) {
+  return acao(() => editarCategorizacaoOpenFinance(id, categoria, lojaId, beneficiario))
 }
 
 export async function cancelarCategorizacaoOpenFinanceAction(id: string) {

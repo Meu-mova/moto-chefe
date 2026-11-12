@@ -1,7 +1,8 @@
 import { AdminGuard, exigirAcessoPagina } from '../components/admin-guard'
 import { db } from '@/lib/db'
-import { categoriasCaixa, categoriasDespesa } from '@/lib/db/schema'
-import { asc } from 'drizzle-orm'
+import { getUsuarioLogado } from '@/lib/auth'
+import { getGrupoAtivo } from '@/lib/grupo'
+import { categoriasCaixaDoGrupo, categoriasDespesaDoGrupo } from '@/lib/categorias-do-grupo'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { CategoriasTable } from './components/categorias-table'
 import { CategoriasDespesaTable } from './components/categorias-despesa-table'
@@ -10,15 +11,10 @@ import { listarBeneficiariosAction } from '@/app/(dashboard)/despesas/actions'
 
 export default async function CategoriasCaixaPage() {
   await exigirAcessoPagina('/admin/categorias-caixa')
+  const grupo = await getGrupoAtivo(await getUsuarioLogado())
   const [categorias, categoriasDespesaLista, beneficiarios] = await Promise.all([
-    db
-      .select()
-      .from(categoriasCaixa)
-      .orderBy(categoriasCaixa.tipo, asc(categoriasCaixa.ordem), asc(categoriasCaixa.nome)),
-    db
-      .select()
-      .from(categoriasDespesa)
-      .orderBy(asc(categoriasDespesa.ordem), asc(categoriasDespesa.nome)),
+    categoriasCaixaDoGrupo(db, grupo.id),
+    categoriasDespesaDoGrupo(db, grupo.id),
     // A action já resolve o grupo ativo e checa o papel — o AdminGuard cobre a
     // rota, mas quem lista é ela.
     listarBeneficiariosAction(),

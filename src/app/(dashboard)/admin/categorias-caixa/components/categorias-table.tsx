@@ -55,13 +55,11 @@ function CategoriaDialog({
   function handleSalvar() {
     startTransition(async () => {
       try {
-        if (inicial) {
-          await editarCategoriaAction(inicial.id, { nome, tipo })
-          toast.success('Categoria atualizada')
-        } else {
-          await criarCategoriaAction({ nome, tipo })
-          toast.success('Categoria criada')
-        }
+        const r = inicial
+          ? await editarCategoriaAction(inicial.id, { nome, tipo })
+          : await criarCategoriaAction({ nome, tipo })
+        if (!r.ok) { toast.error(r.erro); return }
+        toast.success(inicial ? 'Categoria atualizada' : 'Categoria criada')
         onClose()
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
@@ -117,7 +115,8 @@ function ConfirmarExclusaoDialog({
     if (!categoria) return
     startTransition(async () => {
       try {
-        await excluirCategoriaAction(categoria.id)
+        const r = await excluirCategoriaAction(categoria.id)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Categoria excluída')
         onClose()
       } catch {
@@ -134,7 +133,7 @@ function ConfirmarExclusaoDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
           A categoria <strong>{categoria?.nome}</strong> será removida permanentemente.
-          Lançamentos existentes não serão afetados.
+          Se ela já tiver lançamentos, a exclusão é recusada: desative em vez de excluir.
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
@@ -160,7 +159,8 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
   function handleToggle(cat: Categoria) {
     startTransition(async () => {
       try {
-        await toggleAtivoAction(cat.id, !cat.ativo)
+        const r = await toggleAtivoAction(cat.id, !cat.ativo)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success(cat.ativo ? 'Categoria desativada' : 'Categoria ativada')
       } catch {
         toast.error('Erro ao alterar status')
@@ -173,7 +173,8 @@ export function CategoriasTable({ categorias }: { categorias: Categoria[] }) {
   function handleToggleDespesa(cat: Categoria) {
     startTransition(async () => {
       try {
-        await toggleContaComoDespesaCaixaAction(cat.id, !cat.contaComoDespesa)
+        const r = await toggleContaComoDespesaCaixaAction(cat.id, !cat.contaComoDespesa)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success(cat.contaComoDespesa
           ? 'Fora das despesas operacionais'
           : 'Conta como despesa operacional')
