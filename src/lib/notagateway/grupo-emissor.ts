@@ -54,6 +54,9 @@ export async function faltasParaEmitir(grupoId: string, exec: Executor = db): Pr
   return faltas
 }
 
+/** NG lenta não pode segurar o pedido: Server Actions do usuário andam em fila (hotfix v1.2.2). */
+const LIMITE_UF_NO_PEDIDO_MS = 4000
+
 /**
  * UF do CNPJ que emite a NF da moto, pela mesma consulta da emissão (Consultar Empresa na NG). Nula quando
  * não dá para saber (grupo sem NG, NG fora do ar): quem chama decide; o pedido segue (#848).
@@ -62,7 +65,7 @@ export async function ufDoEmissorDaMoto(motoId: string, lojaId: string): Promise
   try {
     const emissor = await grupoEmissorDaVenda(motoId, lojaId)
     const cfg = emissor && await configNotaGateway(emissor.grupoId)
-    return cfg ? await ufDaEmpresa(cfg) : null
+    return cfg ? await ufDaEmpresa(cfg, { limiteMs: LIMITE_UF_NO_PEDIDO_MS }) : null
   } catch (e) {
     // Mensagens do client só trazem o status HTTP, sem token nem empresaId.
     console.warn('[pedido] UF do emissor indisponível, pedido segue sem a trava:', e instanceof Error ? e.message : e)

@@ -357,3 +357,17 @@ test('trava #848: moto comprada por outro CNPJ da Conta usa a UF dele, não a da
   assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: false, erro: ENTREGA_EM_OUTRO_ESTADO })
   assert.deepEqual(await pedidosDaMoto(a.motoId), [])
 })
+
+test('trava #848: NG que não responde não segura o pedido: grava em poucos segundos, sem a trava', async () => {
+  const a = await contaComNg('MG')
+  mock.restoreAll()
+  // Só larga quando o próprio pedido desiste (signal); sem limite de tempo, ficaria pendurado para sempre.
+  mock.method(globalThis, 'fetch', (_input: unknown, init?: RequestInit) => new Promise((_ok, falha) => {
+    init?.signal?.addEventListener('abort', () => falha(init.signal?.reason))
+  }))
+  usuario = a.vendedor
+  const inicio = Date.now()
+  assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', ENTREGAR), { ok: true, dados: undefined })
+  assert.ok(Date.now() - inicio < 6000, `demorou ${Date.now() - inicio} ms`)
+  assert.equal((await pedidosDaMoto(a.motoId)).length, 1)
+})

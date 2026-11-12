@@ -34,7 +34,10 @@ export async function configNotaGateway(grupoId: string, exec: Pick<typeof db, '
   }
 }
 
-async function chamar(cfg: ConfigNotaGateway, method: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown) {
+/** `limiteMs`: quem não pode esperar a NG pendurada (o pedido, #848) desiste antes; o resto espera como sempre. */
+type OpcoesDaChamada = { limiteMs?: number }
+
+async function chamar(cfg: ConfigNotaGateway, method: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown, { limiteMs }: OpcoesDaChamada = {}) {
   if (!ambienteLiberado(cfg.ambiente, process.env.VERCEL_ENV)) {
     throw new Error(`${FORA_DA_PRODUCAO} — troque o ambiente do grupo em Admin → Notas fiscais`)
   }
@@ -48,6 +51,7 @@ async function chamar(cfg: ConfigNotaGateway, method: 'GET' | 'POST' | 'DELETE',
     },
     body: corpo ? JSON.stringify(corpo) : undefined,
     cache: 'no-store',
+    ...(limiteMs ? { signal: AbortSignal.timeout(limiteMs) } : {}),
   })
   const texto = await res.text()
   let json: unknown = null
@@ -140,15 +144,15 @@ export async function consultarNfe(cfg: ConfigNotaGateway, idExterno: string, { 
  * Consultar Empresa: a única leitura do cadastro do emitente (https://docs.notagateway.com.br/v2/reference/consultar-empresa).
  * Erro só com o status: a resposta traz o empresaId.
  */
-async function consultarEmpresa(cfg: ConfigNotaGateway): Promise<unknown> {
-  const r = await chamar(cfg, 'GET', `/empresas/${encodeURIComponent(cfg.empresaId)}`)
+async function consultarEmpresa(cfg: ConfigNotaGateway, opcoes: OpcoesDaChamada = {}): Promise<unknown> {
+  const r = await chamar(cfg, 'GET', `/empresas/${encodeURIComponent(cfg.empresaId)}`, undefined, opcoes)
   if (r.status >= 400) throw new Error(`Consultar Empresa respondeu HTTP ${r.status}`)
   return r.json
 }
 
 /** UF do emitente como a API tem cadastrada — decide operação interna x interestadual. */
-export async function ufDaEmpresa(cfg: ConfigNotaGateway): Promise<string> {
-  const uf = ((await consultarEmpresa(cfg)) as { endereco?: { uf?: unknown } } | null)?.endereco?.uf
+export async function ufDaEmpresa(cfg: ConfigNotaGateway, opcoes: OpcoesDaChamada = {}): Promise<string> {
+  const uf = ((await consultarEmpresa(cfg, opcoes)) as { endereco?: { uf?: unknown } } | null)?.endereco?.uf
   if (!uf) throw new Error('A empresa na Nota Gateway está sem UF no endereço')
   return String(uf)
 }
