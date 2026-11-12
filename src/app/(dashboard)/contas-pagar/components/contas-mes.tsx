@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { situacaoOcorrencia, labelBaseFormula, labelMesReferencia, type SituacaoConta } from '@/lib/contas-pagar'
 import { parseNumeroBR } from '@/lib/numero-br'
 import { marcarPagoAction, editarValorOcorrenciaAction, type OcorrenciaConta } from '../actions'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const fmt = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -13,11 +14,6 @@ const fmt = (v: string | number) =>
 function fmtData(d: string) {
   const [ano, mes, dia] = d.slice(0, 10).split('-')
   return `${dia}/${mes}`
-}
-
-function fmtCompetencia(mes: string) {
-  const [ano, m] = mes.split('-')
-  return `${m}/${ano}`
 }
 
 const SITUACAO_BADGE: Record<SituacaoConta, { label: string; cls: string }> = {
@@ -86,7 +82,7 @@ function Linha({ o, hoje, mostrarCompetencia }: {
           {o.descricao}
         </p>
         <p className="text-xs text-muted-foreground">
-          {mostrarCompetencia && <span className="text-destructive">{fmtCompetencia(o.competencia)} · </span>}
+          {mostrarCompetencia && <span className="text-destructive">{dataPuraBr(o.competencia)} · </span>}
           venc. {fmtData(o.vencimento)}
           {o.categoria ? ` · ${o.categoria}` : ''}
           {o.lojaNome ? ` · ${o.lojaNome}` : ' · empresa'}

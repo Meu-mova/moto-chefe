@@ -8,7 +8,7 @@ const { dom, desmontar } = montarDom()
 after(desmontar)
 
 // O que cada "Registrar entrada" mandou ao servidor, e por qual action.
-type Envio = { lojaId: string; motos: { chassi: string }[]; fiscais?: { chassi: string; emitente: { nfNumero: string } }[] }
+type Envio = { lojaId: string; motos: { chassi: string; modeloId: string }[]; fiscais?: { chassi: string; emitente: { nfNumero: string } }[] }
 const enviados: { action: 'lote' | 'nota'; dados: Envio }[] = []
 let respostaDoEnvio: { success?: string; error?: string } = { success: 'ok' }
 // Segura a resposta para o teste olhar a tela enquanto o registro está sendo enviado.
@@ -79,7 +79,7 @@ async function esperar(condicao: () => boolean) {
   assert.ok(condicao(), 'a tela não chegou ao estado esperado')
 }
 
-async function montar() {
+async function montar(apelidos: { nome: string; canonico: string }[] = []) {
   const React = (await import('react')).default
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
@@ -89,7 +89,7 @@ async function montar() {
   const raiz = createRoot(container)
   raizes.push(raiz)
   await act(async () => {
-    raiz.render(React.createElement(EntradaForm, { modelos, lojas: [{ id: 'l1', nome: 'Loja Centro' }] }))
+    raiz.render(React.createElement(EntradaForm, { modelos, lojas: [{ id: 'l1', nome: 'Loja Centro' }], apelidos }))
   })
 }
 
@@ -468,4 +468,19 @@ test('cada exclusão abre um aviso novo, com id próprio, e fecha o anterior', a
   assert.notEqual(segundo.id, primeiro.id)
   assert.ok(fechados.includes(primeiro.id), 'o aviso anterior foi fechado')
   assert.equal(segundo.acao?.label, 'Desfazer')
+})
+
+test('XML com apelido envia à action o id do modelo do catálogo', async () => {
+  await montar([{ nome: 'A7', canonico: 'GIGA' }])
+  const xml = notaXml('99007', ['TESTEALIAS000001']).replace('GIGA C/ BAU 1000W', 'A7 1000W')
+  await carregarXml(xml, 1)
+  await escolherLoja()
+  await clicar(botao('Registrar entrada'))
+  assert.deepEqual(enviados.map(e => ({
+    action: e.action,
+    lojaId: e.dados.lojaId,
+    motos: e.dados.motos.map(m => ({ chassi: m.chassi, modeloId: m.modeloId })),
+  })), [{
+    action: 'lote', lojaId: 'l1', motos: [{ chassi: 'TESTEALIAS000001', modeloId: 'm-giga' }],
+  }])
 })

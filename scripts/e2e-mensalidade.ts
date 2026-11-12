@@ -203,10 +203,17 @@ async function main() {
     const geral = await entrar(navegador, GERAL)
     t = await abrir(geral, '/admin/mensalidades')
     confere(t.texto.includes(GRUPO) && t.texto.includes('Conferir agora'), `admin vê o ${GRUPO} e o "Conferir agora"`)
-    await geral.getByRole('button', { name: 'Conferir agora' }).first().click()
-    await geral.waitForTimeout(6_000)
-    const [refAdmin] = await q<Mensalidade>(sql`select * from mensalidades where id = ${ref.id}`)
-    confere(refAdmin.status === 'paga', '"Conferir agora" acha o pagamento aprovado e dá baixa', refAdmin.status)
+    // Outros grupos sintéticos também podem ter mensalidade aberta: o botão é o da referência,
+    // dentro da seção do grupo de teste.
+    await geral.locator('section').filter({ has: geral.getByRole('heading', { name: GRUPO, exact: true }) })
+      .locator('li').filter({ hasText: COMPETENCIA_REF })
+      .getByRole('button', { name: 'Conferir agora' }).click()
+    let refAdmin: Mensalidade | undefined
+    for (let i = 0; i < 30 && refAdmin?.status !== 'paga'; i++) {
+      if (i) await geral.waitForTimeout(1_000)
+      ;[refAdmin] = await q<Mensalidade>(sql`select * from mensalidades where id = ${ref.id}`)
+    }
+    confere(refAdmin?.status === 'paga', '"Conferir agora" acha o pagamento aprovado e dá baixa', refAdmin?.status)
   } finally {
     await navegador.close()
     // Estado final neutro: tudo pago, sem bloqueio.

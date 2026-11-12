@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale'
 import { PrintTrigger } from './print-trigger'
 import { normalizarPagamentos } from '@/lib/pagamentos-entrada'
 import { rotuloDocumento } from '@/lib/documento'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const fmtR = (v: string | null) =>
   v ? parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
@@ -29,7 +30,7 @@ export default async function ImprimirReservaPage({ params }: { params: Promise<
 
   const criadoEm = format(new Date(reserva.criadoEm), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
   const geradoEm = format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
-  const dataPrevista = format(new Date(reserva.dataPrevistaFinalizacao + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
+  const dataPrevista = dataPuraBr(reserva.dataPrevistaFinalizacao)
   const endereco = [
     reserva.clienteLogradouro,
     reserva.clienteNumero && `nº ${reserva.clienteNumero}`,

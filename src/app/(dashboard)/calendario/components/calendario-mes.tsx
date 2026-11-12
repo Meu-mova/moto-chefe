@@ -15,6 +15,7 @@ import type { OcorrenciaCalendario } from '@/lib/queries/calendario'
 import { EventoDialog } from './evento-dialog'
 import { excluirEventoAction } from '../actions'
 import { marcarPagoAction, type ContaNoCalendario } from '../../contas-pagar/actions'
+import { dataPuraBr } from '@/lib/data-venda'
 
 type Categoria = { id: string; nome: string; cor: string }
 
@@ -39,9 +40,6 @@ function mesVizinho(mes: string, delta: number): string {
   const [y, m] = mes.split('-').map(Number)
   const d = new Date(y, m - 1 + delta, 1)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-function fmtData(yyyyMmDd: string) {
-  return format(new Date(`${yyyyMmDd}T12:00:00Z`), "dd/MM/yyyy", { locale: ptBR })
 }
 
 /**
@@ -249,7 +247,7 @@ export function CalendarioMes({ mes, ocorrencias, usuarioId, isAdmin, categorias
                   <p className="flex items-center gap-2">
                     <Clock size={14} className="text-muted-foreground" />
                     {multi
-                      ? <span>{fmtData(detalhe.inicio)} — {fmtData(detalhe.fim)}</span>
+                      ? <span>{dataPuraBr(detalhe.inicio)} — {dataPuraBr(detalhe.fim)}</span>
                       : <span>{format(new Date(`${detalhe.inicio}T12:00:00Z`), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>}
                     {detalhe.hora && <span className="tabular-nums">· {detalhe.hora}</span>}
                   </p>

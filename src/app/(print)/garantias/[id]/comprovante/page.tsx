@@ -9,14 +9,14 @@ import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { formatarCpfCnpj, soDigitosDoc } from '@/lib/documento'
 import { PrintTrigger } from './print-trigger'
+import { dataPuraBr } from '@/lib/data-venda'
 
 /** 'YYYY-MM-DD' formatado sem passar por new Date(): a data vem como texto do
  *  Postgres e o construtor a leria como meia-noite UTC, virando o dia anterior
  *  no fuso de Brasília. */
 function fmtData(d: string | null | undefined) {
   if (!d) return '—'
-  const [ano, mes, dia] = String(d).slice(0, 10).split('-')
-  return `${dia}/${mes}/${ano}`
+  return dataPuraBr(String(d).slice(0, 10))
 }
 
 export default async function ComprovanteGarantiaPage({ params }: { params: Promise<{ id: string }> }) {

@@ -27,15 +27,17 @@ async function chamar<T>(caminho: string, init: RequestInit & { idempotencia?: s
 }
 
 import type { Pagamento } from './webhook'
+import type { TipoCobranca } from '@/lib/mensalidade/regras'
 
 export type Preferencia = { id: string; init_point: string }
 
 /**
- * Link de pagamento (Checkout Pro) para uma mensalidade. A chave de idempotência
+ * Link de pagamento (Checkout Pro) para uma mensalidade ou adesão. A chave de idempotência
  * deriva do que se paga: a mesma cobrança com o mesmo valor devolve o mesmo link.
  */
 export function criarPreferencia(p: {
   mensalidadeId: string
+  tipo: TipoCobranca
   titulo: string
   valor: number
   emailPagador: string | null
@@ -43,7 +45,7 @@ export function criarPreferencia(p: {
 }): Promise<Preferencia> {
   return chamar<Preferencia>('/checkout/preferences', {
     method: 'POST',
-    idempotencia: `mensalidade-${p.mensalidadeId}-${p.valor.toFixed(2)}`,
+    idempotencia: `${p.tipo}-${p.mensalidadeId}-${p.valor.toFixed(2)}`,
     body: JSON.stringify({
       items: [{ title: p.titulo, quantity: 1, unit_price: p.valor, currency_id: 'BRL' }],
       external_reference: p.mensalidadeId,

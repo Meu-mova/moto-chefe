@@ -11,6 +11,7 @@ import { geoDaLoja } from '@/lib/frete'
 import { lojaSugerida } from '@/lib/adesao-endereco'
 import { colunasSede } from '@/lib/sede-colunas'
 import { emailsComAcesso } from '@/lib/ativacao-usuarios'
+import { certificateIsAllowedForGroup } from '@/lib/certificado-conta'
 
 // "Ativar cliente" a partir da adesão (#292): leva o certificado A1 e o login do
 // portal da fábrica da adesão para o grupo e a loja, sem passar pelo navegador.
@@ -27,7 +28,7 @@ async function adesaoComGrupo(adesaoId: string, exec: Executor) {
   }).from(adesoesMova).where(eq(adesoesMova.id, adesaoId)).limit(1)
   if (!a) return null
   if (!a.grupoId) return { ...a, grupoId: null }
-  const [g] = await exec.select({ id: grupos.id, nome: grupos.nome, cnpj: grupos.cnpj })
+  const [g] = await exec.select({ id: grupos.id, nome: grupos.nome, cnpj: grupos.cnpj, contaId: grupos.contaId })
     .from(grupos).where(eq(grupos.id, a.grupoId)).limit(1)
   return { ...a, grupo: g }
 }
@@ -52,7 +53,7 @@ export async function aplicarCertificadoDaAdesao(
   }
   // Mesma checagem de /admin/certificados: certificado de outro CNPJ não encosta no grupo.
   const cnpjDoGrupo = a.grupo.cnpj.replace(/\D/g, '')
-  if (dados.cnpj !== cnpjDoGrupo) {
+  if (!(await certificateIsAllowedForGroup(dados.cnpj, a.grupo, exec))) {
     return { ok: false, erro: `O certificado da adesão é de ${dados.titular} (CNPJ ${dados.cnpj}), e o grupo ${a.grupo.nome} é do CNPJ ${cnpjDoGrupo}.` }
   }
 

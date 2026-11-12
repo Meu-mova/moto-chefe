@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { UploadRelatorio } from './components/upload-relatorio'
 import { VincularVendaButton } from './components/vincular-venda-button'
+import { dataPuraBr } from '@/lib/data-venda'
 
 const fmt = (v: string | number) =>
   parseFloat(String(v)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -177,7 +178,7 @@ export default async function ConciliacaoPage({
                 return (
                   <tr key={t.id} className="hover:bg-muted transition-colors">
                     <td className="px-4 py-3 text-foreground whitespace-nowrap">
-                      {new Date(t.dataTransacao + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      {dataPuraBr(t.dataTransacao)}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {OPERADORA_LABEL[t.operadora] ?? t.operadora}

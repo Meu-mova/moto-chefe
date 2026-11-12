@@ -4,6 +4,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { salvarCertificado, lerDadosDoPfx } from '@/lib/sefaz/certificado'
 import { ufValida } from '@/lib/sefaz/uf'
+import { certificateIsAllowedForGroup } from '@/lib/certificado-conta'
 import { revalidatePath } from 'next/cache'
 
 export async function enviarCertificado(formData: FormData): Promise<{ ok: true; titular: string } | { ok: false; erro: string }> {
@@ -28,7 +29,7 @@ export async function enviarCertificado(formData: FormData): Promise<{ ok: true;
     // guardado, e a falha só apareceria na SEFAZ, como rejeição genérica.
     const dados = lerDadosDoPfx(pfx, senha)
     const cnpjDoGrupo = grupo.cnpj.replace(/\D/g, '')
-    if (dados.cnpj !== cnpjDoGrupo) {
+    if (!(await certificateIsAllowedForGroup(dados.cnpj, grupo))) {
       return { ok: false, erro: `Este certificado é de ${dados.titular} (CNPJ ${dados.cnpj}), e o grupo ativo é ${grupo.nome} (CNPJ ${cnpjDoGrupo}). Troque de grupo no topo da tela ou envie o certificado certo.` }
     }
 

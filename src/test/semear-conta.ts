@@ -67,3 +67,25 @@ export function semearUsuario(tx: Executor, base: Base, { papel, rotulo = papel,
       ${semLoja ? null : base.lojaId}, ${comGrupo ? sql`array[${base.grupoId}]::uuid[]` : sql`'{}'::uuid[]`}, ${comConta ? base.contaId : null})
     returning id`)
 }
+
+/**
+ * Ficha de adesão ligada ao grupo da `base` e, com `versao`, o contrato de adesão nessa versão da
+ * cobrança (2 = adesão no 1º acesso, #802). Padrões: taxa 399, mensal 499, contrato assinado.
+ */
+export function semearAdesao(tx: Executor, base: Base, o: {
+  taxa?: string | null; valorMensal?: string | null; email?: string | null; versao?: 1 | 2; statusContrato?: string
+} = {}) {
+  const email = o.email === undefined ? emailDeTeste(base.prefixo, base.nome, 'adesao') : o.email
+  const taxa = o.taxa === undefined ? '399' : o.taxa
+  const mensal = o.valorMensal === undefined ? '499' : o.valorMensal
+  return idDoInsert(tx, sql`
+    with a as (
+      insert into adesoes_mova (loja, responsavel, celular, cnpj_arquivo_path, store_login, usuarios, grupo_id, taxa_implantacao, valor_mensal, email)
+      values (${base.nome}, 'Resp', '35999999999', 'x', 'login', '[]'::jsonb, ${base.grupoId}, ${taxa}, ${mensal}, ${email}) returning id
+    ), c as (
+      insert into contratos_adesao (adesao_id, token, status, html_snapshot, snapshot_hash, email_destino, expira_em, versao_cobranca)
+      select a.id, gen_random_uuid()::text, ${o.statusContrato ?? 'assinado'}, '<p>c</p>', 'h', coalesce(${email}, 'x@teste.invalid'), now() + interval '7 days', ${o.versao ?? 1}
+      from a where ${o.versao !== undefined}
+    )
+    select id from a`)
+}
