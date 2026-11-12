@@ -18,6 +18,7 @@ import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimo
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
+import { EntregaEModalidade, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from '../../vendas/components/entrega-campos'
 import { ContribuinteIcmsCampos, DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 
 /** Add/remove/update das linhas de pagamento — a venda e a reserva têm um jogo cada. */
@@ -143,6 +144,8 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const [dataVenda, setDataVenda] = useState(hojeBrt())
   const [pgtos, setPgtos] = useState<Pgto[]>([{ id: '1', tipo: '', valor: '' }])
   const [motivo, setMotivo] = useState('')
+  const [entrega, setEntrega] = useState<EntregaDoFormulario>(ENTREGA_DO_FORMULARIO_INICIAL)
+  const [erro, setErro] = useState<string | null>(null)
 
   // Quando o total da venda muda numa finalização de reserva, atualiza o restante automaticamente
   useEffect(() => {
@@ -233,6 +236,14 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
     setValorReserva(''); setValorTotalVenda(''); setDataPrevista('')
     setPgtosReserva([{ id: '1', tipo: '', valor: '' }])
     setMotivo('')
+    setEntrega(ENTREGA_DO_FORMULARIO_INICIAL)
+    setErro(null)
+  }
+
+  // A recusa é da venda: não fica na tela da reserva.
+  function mudarTipo(novo: 'venda' | 'reserva') {
+    setTipo(novo)
+    setErro(null)
   }
 
   async function abrir(tipoInicial: 'venda' | 'reserva') {
@@ -390,7 +401,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
     tipo === 'venda'
       // Origem só vale para venda: reserva não pergunta (fica para o fechamento).
       ? !!(valorVenda && somatorioOk && pgtos.every(p => p.tipo && p.valor) && !cartaoIncompleto && valorOk
-          && origemPreenchida(origens, origemId, origemDetalhe))
+          && origemPreenchida(origens, origemId, origemDetalhe) && !quemRecebeInvalido(entrega))
       : !!(valorReserva && valorTotalVenda && dataPrevista && somaReservaOk && pgtosReservaOk
           && (reservaValidacao ? reservaValidacao.entradaOk : true))
   )
@@ -398,6 +409,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   async function handleSubmit() {
     if (!vendaValida) return
     setLoading(true)
+    setErro(null)
     try {
       const clienteBase = {
         clienteNome, clienteCpf, clienteCelular, clienteEmail,
@@ -418,6 +430,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
           origemId,
           origemDetalhe: origemDetalhe.trim() || undefined,
           dataVenda: dataVenda || undefined,
+          entrega: entregaDoFormulario(entrega),
           pagamentos: pgtos.map(p => ({
             tipo: p.tipo, valor: parseFloat(p.valor),
             ...(p.tipo === 'cartao_credito' ? { operadora: p.operadora, parcelas: parseInt(p.parcelas!) } : {}),
@@ -427,15 +440,16 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
         }
         if (precisaAprovacaoSensivel) {
           const r = await solicitarAprovacaoVendaAction(payload, motivo, 'pagamento_sensivel')
-          if (!r.ok) { toast.error(r.erro); return }
+          if (!r.ok) { setErro(r.erro); return }
           toast.success('Venda com transferência bancária enviada para aprovação!')
         } else if (precisaAprovacao) {
           const r = await solicitarAprovacaoVendaAction(payload, motivo)
-          if (!r.ok) { toast.error(r.erro); return }
+          if (!r.ok) { setErro(r.erro); return }
           toast.success('Pedido de aprovação enviado!')
         } else {
+          // A recusa fica no diálogo, junto do que foi digitado, como no Novo pedido (#848).
           const r = await registrarVendaCompletaAction(payload)
-          if (!r.ok) { toast.error(r.erro); return }
+          if (!r.ok) { setErro(r.erro); return }
           toast.success('Venda registrada com sucesso!')
           const k = r.dados.kommo.resultado
           if (k === 'virado') {
@@ -550,10 +564,10 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                 )}
                 {!soReserva && !reservaAtiva && (
                   <div className="flex gap-1.5">
-                    <Button type="button" variant={tipo === 'venda' ? 'default' : 'outline'} size="sm" onClick={() => setTipo('venda')}>
+                    <Button type="button" variant={tipo === 'venda' ? 'default' : 'outline'} size="sm" onClick={() => mudarTipo('venda')}>
                       Venda
                     </Button>
-                    <Button type="button" variant={tipo === 'reserva' ? 'default' : 'outline'} size="sm" onClick={() => setTipo('reserva')}>
+                    <Button type="button" variant={tipo === 'reserva' ? 'default' : 'outline'} size="sm" onClick={() => mudarTipo('reserva')}>
                       Reserva
                     </Button>
                   </div>
@@ -731,6 +745,11 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                   <Input value={clienteCidade} onChange={e => setClienteCidade(e.target.value)} placeholder="Cidade" />
                 </div>
               </div>
+              {tipo === 'venda' && (
+                <div className="space-y-4 border-t border-border pt-4">
+                  <EntregaEModalidade idModalidade="vender-modalidade" valor={entrega} onChange={setEntrega} />
+                </div>
+              )}
             </div>
 
             {/* Coluna direita — Pagamento */}
@@ -909,6 +928,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
             </div>
           </div>
 
+          {erro && <p role="alert" className="px-6 pt-3 text-sm text-destructive">{erro}</p>}
           <DialogFooter className="px-6 py-4 border-t shrink-0">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button onClick={handleSubmit} disabled={loading || !vendaValida}>

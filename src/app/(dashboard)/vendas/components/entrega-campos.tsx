@@ -10,7 +10,8 @@ import { DocumentoClienteInput } from '@/components/documento-cliente'
 import { useBuscaCep } from '@/components/use-busca-cep'
 import { lerDocumentoCliente } from '@/lib/documento'
 import { UFS } from '@/lib/sefaz/uf'
-import { conferirQuemRecebe, modalidadeComFrete, type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
+import { ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
+import { AVISO_SEM_MODALIDADE, conferirQuemRecebe, modalidadeComFrete, type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
 
 /** O que a tela edita: trocar de "Entregar" para "Retira" e voltar não apaga o endereço digitado. */
 export type EntregaDoFormulario = Pick<EntregaVenda, 'modalidade'> & {
@@ -204,5 +205,26 @@ export function EntregaCampos({ valor, onChange }: Props) {
       )}
 
     </div>
+  )
+}
+
+/** Entrega e modalidade do frete juntas: o mesmo bloco no Novo pedido e no "Vender" do Showroom (#852). */
+export function EntregaEModalidade({ idModalidade, valor, onChange }: Props & { idModalidade: string }) {
+  return (
+    <>
+      <EntregaCampos valor={valor} onChange={onChange} />
+      <div className="space-y-2">
+        <Label htmlFor={idModalidade}>Modalidade do frete na nota</Label>
+        <ModalidadeFreteSelect
+          id={idModalidade}
+          valor={valor.modalidade}
+          onChange={modalidade => onChange(anterior => ({ ...anterior, modalidade }))}
+          placeholder="Escolha"
+        />
+        {!valor.modalidade && (
+          <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">{AVISO_SEM_MODALIDADE}</p>
+        )}
+      </div>
+    </>
   )
 }

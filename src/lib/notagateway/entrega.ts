@@ -65,6 +65,9 @@ export const enderecoDaEntregaEmLinha = (e: EnderecoDaEntrega): string => [
   e.cep ? `CEP ${mascaraCep(e.cep)}` : '',
 ].filter(Boolean).join(', ')
 
+// O "Vender" do Showroom ainda não soma o frete ao valor e aos pagamentos (#854); sem isso a NF tiraria o frete da moto.
+export const FRETE_FORA_DO_VENDER = 'O frete cobrado ainda não vale no "Vender". Registre a venda sem frete ou use o Novo pedido.'
+
 /** Venda com Entrega e sem modalidade: o Novo pedido avisa e a NF não sai (#682). */
 export const AVISO_SEM_MODALIDADE = 'Escolha a modalidade do frete. Sem ela a nota não sai.'
 
