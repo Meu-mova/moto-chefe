@@ -108,7 +108,10 @@ export const grupos = pgTable('grupos', {
   // Destino do "Enviar ao contador" em Notas Emitidas (#402); cada CNPJ tem o seu.
   emailContador:      text('email_contador'),
   contaId:            uuid('conta_id').notNull().references(() => contas.id),
-})
+}, t => [
+  // Migração 0183: uma conta do Mercado Pago pertence a um grupo só.
+  uniqueIndex('idx_grupos_mp_user_id').on(t.mpUserId).where(sql`mp_user_id is not null`),
+])
 
 // ─── log_acoes ────────────────────────────────────────────────────────────────
 // Acessos e ações sensíveis, 12 meses (#198). Gravar só por src/lib/log-acoes.ts.
