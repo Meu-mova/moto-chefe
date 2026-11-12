@@ -7,7 +7,7 @@ import { conciliacoesCartao, grupos, pixRecebimentosMcp } from '@/lib/db/schema'
 import { decifrar } from '@/lib/cripto'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import type { Operadora } from '@/lib/conciliacao-cartao'
-import { casarPorAutorizacao, casarPorValor, lojaIdsDoGrupo } from '@/lib/conciliacao-casamento'
+import { casarPorAutorizacao, casarPorValor, lojaIdsDoGrupo, type Alvos } from '@/lib/conciliacao-casamento'
 import { classificarPagamento, type Classificacao } from '@/lib/conciliacao-mercadopago'
 import { buscarPagamentosAlterados } from './point'
 
@@ -72,6 +72,8 @@ export async function importarMercadoPagoDoGrupo(
   return r
 }
 
+const temAlvo = (a: Alvos) => (a.vendaId ?? a.pecaVendaId ?? a.osId) !== null
+
 async function gravarCartao(tx: Tx, grupoId: string, lojaIds: string[], t: Cartao): Promise<'duplicada' | 'conciliada' | 'pendente'> {
   const nsu = t.nsu!
   // Já gravada neste grupo: não casa de novo nem mexe no vínculo.
@@ -80,9 +82,9 @@ async function gravarCartao(tx: Tx, grupoId: string, lojaIds: string[], t: Carta
     .limit(1)
   if (existente) return 'duplicada'
 
-  let alvos = t.autorizacao ? await casarPorAutorizacao(tx, lojaIds, t.autorizacao) : null
-  if (!alvos || !(alvos.vendaId ?? alvos.pecaVendaId ?? alvos.osId)) alvos = await casarPorValor(tx, lojaIds, t)
-  const casou = (alvos.vendaId ?? alvos.pecaVendaId ?? alvos.osId) !== null
+  const porAutorizacao = t.autorizacao ? await casarPorAutorizacao(tx, lojaIds, t.autorizacao) : null
+  const alvos = porAutorizacao && temAlvo(porAutorizacao) ? porAutorizacao : await casarPorValor(tx, lojaIds, t)
+  const casou = temAlvo(alvos)
 
   const inseridas = await tx.insert(conciliacoesCartao).values({
     grupoId,
