@@ -128,9 +128,10 @@ test('vendas: uma linha por venda, dias de Brasília, só MotoChefe e só lojas 
       ['b', 'X819', 'PRETO', '2026-10-20T15:00:00.000Z'],
     ],
   )
-  // Cada venda leva o número e o chassi da moto (o detalhe que a fábrica pede).
+  // Cada venda leva o número e o chassi da moto (o detalhe que a fábrica pede). O número sai do
+  // pedido (trigger do banco), não do que o teste grava: confere só que veio um número.
   for (const l of v) {
-    assert.ok(l.numero > 981900, 'número da venda')
+    assert.ok(Number.isInteger(l.numero) && l.numero > 0, `número da venda: ${l.numero}`)
     assert.match(l.chassi, /^PAINEL819\d+$/)
   }
   const nov = nossas(await painel.vendasDoPainel('2026-11-01', '2026-11-01'))
