@@ -149,20 +149,25 @@ async function montarEmissao(motoId: string, usuario: Usuario) {
   const pagamentosMova = ((venda.pagamentos as PagamentoMova[] | null) ?? []).map(p => ({ ...p, valor: Number(p.valor) }))
   const valor = Number(venda.valor)
 
-  const pendencias = [...pendenciasDaVenda({
-    clienteNome: venda.clienteNome, clienteCpf: venda.clienteCpf,
-    clienteLogradouro: venda.clienteLogradouro, clienteNumero: venda.clienteNumero,
-    clienteBairro: venda.clienteBairro, clienteCidade: venda.clienteCidade,
-    clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
-    clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
-    valor, pagamentos: pagamentosMova, temFicha: !!ficha,
-  }), ...pendenciasDaEntrega(venda.entrega, venda.clienteNome, valor)]
-  if (!regraRow) pendencias.push('Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais')
   // Só "Entregar" lê a UF do emitente já aqui, para a trava (#848). Invariante: "Entregar" => não nula,
   // porque ufDaEmpresa joga em vez de devolver nula; tornar essa leitura tolerante pularia a trava na emissão.
   const ufEmitente = venda.entrega?.modo === 'entregar' ? await ufDaEmpresa(cfg) : null
   const travaEntrega = travaDaEntregaEmOutroEstado(venda.entrega, ufEmitente)
-  if (travaEntrega) pendencias.unshift(travaEntrega)
+
+  // A trava vem primeiro: é o que a loja tem de mudar antes de corrigir o resto.
+  const pendencias = [
+    ...(travaEntrega ? [travaEntrega] : []),
+    ...pendenciasDaVenda({
+      clienteNome: venda.clienteNome, clienteCpf: venda.clienteCpf,
+      clienteLogradouro: venda.clienteLogradouro, clienteNumero: venda.clienteNumero,
+      clienteBairro: venda.clienteBairro, clienteCidade: venda.clienteCidade,
+      clienteEstado: venda.clienteEstado, clienteCep: venda.clienteCep,
+      clienteIndicadorIe: venda.clienteIndicadorIe, clienteInscricaoEstadual: venda.clienteInscricaoEstadual,
+      valor, pagamentos: pagamentosMova, temFicha: !!ficha,
+    }),
+    ...pendenciasDaEntrega(venda.entrega, venda.clienteNome, valor),
+    ...(regraRow ? [] : ['Regra fiscal de saída do grupo não cadastrada — Admin → Notas fiscais']),
+  ]
 
   const regra: RegraSaida | null = regraRow
     ? {
