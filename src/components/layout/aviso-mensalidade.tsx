@@ -1,12 +1,11 @@
 import Link from 'next/link'
 import { formatarNumeroBR } from '@/lib/numero-br'
 import type { SituacaoMensalidade } from '@/lib/mensalidade/bloqueio'
-
-const dataBR = (d: string) => d.split('-').reverse().join('/')
+import { dataPuraBr } from '@/lib/data-venda'
 
 /**
  * Faixa no topo para quem paga a mensalidade: a do grupo ativo e, embaixo, os outros
- * grupos da empresa com mensalidade em aberto (variante B escolhida em 19/10/2026).
+ * grupos da empresa com mensalidade ou adesão em aberto (variante B escolhida em 19/10/2026).
  */
 export function AvisoMensalidade({ situacao, grupoAtivo, hoje }: { situacao: SituacaoMensalidade; grupoAtivo: string; hoje: string }) {
   const { aberta, outros } = situacao
@@ -18,7 +17,7 @@ export function AvisoMensalidade({ situacao, grupoAtivo, hoje }: { situacao: Sit
           <span>
             Mensalidade do MOVA de {grupoAtivo}:{' '}
             <span className="whitespace-nowrap font-medium">R$ {formatarNumeroBR(aberta.total)}</span>
-            {aberta.vencimento < hoje ? `, venceu em ${dataBR(aberta.vencimento)}` : `, vence em ${dataBR(aberta.vencimento)}`}.
+            {aberta.vencimento < hoje ? `, venceu em ${dataPuraBr(aberta.vencimento)}` : `, vence em ${dataPuraBr(aberta.vencimento)}`}.
           </span>
           <Link href="/mensalidade" className="font-medium underline">Pagar</Link>
         </div>
@@ -26,7 +25,7 @@ export function AvisoMensalidade({ situacao, grupoAtivo, hoje }: { situacao: Sit
       {outros.length > 0 && (
         <div className="border-b px-4 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 bg-warning/10 text-warning">
           <span>
-            Outros grupos da sua empresa com mensalidade em aberto:{' '}
+            Outros grupos da sua empresa com mensalidade ou adesão em aberto:{' '}
             {outros.map(o => `${o.nome}${o.bloqueado ? ' (bloqueado)' : ''}`).join(', ')}
           </span>
           <Link href="/mensalidade" className="font-medium underline">Ver</Link>

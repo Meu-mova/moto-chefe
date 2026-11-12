@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import { asc, eq } from 'drizzle-orm'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { db } from '@/lib/db'
-import { documentosAssinatura, assinaturaEventos, vendas, usuarios } from '@/lib/db/schema'
+import { assinaturaEventos, usuarios } from '@/lib/db/schema'
+import { dossieDoUsuario } from '@/lib/dossie-do-usuario'
 import { getUsuarioLogado } from '@/lib/auth'
 import { LABEL_TIPO, type TipoDocumento } from '@/lib/assinatura/documento'
 import type { Evidencias } from '@/lib/assinatura/hash'
@@ -40,19 +41,10 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
   const { id } = await params
   const usuario = await getUsuarioLogado()
 
-  const [doc] = await db.select().from(documentosAssinatura)
-    .where(eq(documentosAssinatura.id, id)).limit(1)
-  if (!doc) notFound()
-
-  // Restrito a admin_geral e admin_socio — mais fechado que o resto do sistema,
-  // de propósito: aqui está a FOTO do cliente, o dado mais sensível do conjunto.
-  // Vendedor e aux_adm continuam enviando, reenviando e vendo o status pelo
-  // painel da venda; só não abrem o registro fotográfico. Ver o spec (LGPD:
-  // acesso restrito a quem precisa).
-  if (!['admin_geral', 'admin_socio'].includes(usuario.papel)) notFound()
-
-  const [venda] = await db.select({ lojaId: vendas.lojaId, numero: vendas.numero })
-    .from(vendas).where(eq(vendas.id, doc.vendaId)).limit(1)
+  // Papel e Conta conferidos antes de qualquer link: outra Conta recebe o mesmo 404 de id inexistente.
+  const dossie = await dossieDoUsuario(usuario, id)
+  if (!dossie) notFound()
+  const { doc, venda } = dossie
 
   const eventos = await db.select().from(assinaturaEventos)
     .where(eq(assinaturaEventos.documentoId, doc.id))

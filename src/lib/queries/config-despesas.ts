@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
-import { categoriasDespesa, categoriasCaixa, favorecidosNaoOperacionais } from '@/lib/db/schema'
+import { favorecidosNaoOperacionais } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { categoriasCaixaDoGrupo, categoriasDespesaDoGrupo } from '@/lib/categorias-do-grupo'
 import type { ConfigDespesas, MotivoForaDoCalculo } from '@/lib/despesas-operacionais'
 
 /**
@@ -17,10 +18,8 @@ import type { ConfigDespesas, MotivoForaDoCalculo } from '@/lib/despesas-operaci
  * texto e tiraria TODAS as saídas do cálculo de uma vez.
  */
 export async function configDespesas(grupoId: string): Promise<ConfigDespesas> {
-  const [categoriasFora, favorecidosFora, categoriasCaixaFora] = await Promise.all([
-    db.select({ nome: categoriasDespesa.nome, motivo: categoriasDespesa.motivoNaoOperacional })
-      .from(categoriasDespesa)
-      .where(eq(categoriasDespesa.contaComoDespesa, false)),
+  const [doGrupo, favorecidosFora, caixaDoGrupo] = await Promise.all([
+    categoriasDespesaDoGrupo(db, grupoId),
     db.select({
       cnpj: favorecidosNaoOperacionais.cnpj,
       nomePadrao: favorecidosNaoOperacionais.nomePadrao,
@@ -28,10 +27,10 @@ export async function configDespesas(grupoId: string): Promise<ConfigDespesas> {
     })
       .from(favorecidosNaoOperacionais)
       .where(eq(favorecidosNaoOperacionais.grupoId, grupoId)),
-    db.select({ nome: categoriasCaixa.nome })
-      .from(categoriasCaixa)
-      .where(eq(categoriasCaixa.contaComoDespesa, false)),
+    categoriasCaixaDoGrupo(db, grupoId),
   ])
+  const categoriasFora = doGrupo.filter(c => !c.contaComoDespesa)
+  const categoriasCaixaFora = caixaDoGrupo.filter(c => !c.contaComoDespesa)
 
   return {
     categoriasForaDoCalculo: new Set(categoriasFora.map(c => c.nome)),
@@ -47,7 +46,7 @@ export async function configDespesas(grupoId: string): Promise<ConfigDespesas> {
     ),
     categoriasCaixaForaDoCalculo: new Set(categoriasCaixaFora.map(c => c.nome)),
     motivoPorCategoria: new Map(
-      categoriasFora.filter(c => c.motivo).map(c => [c.nome, c.motivo as MotivoForaDoCalculo]),
+      categoriasFora.filter(c => c.motivoNaoOperacional).map(c => [c.nome, c.motivoNaoOperacional as MotivoForaDoCalculo]),
     ),
   }
 }

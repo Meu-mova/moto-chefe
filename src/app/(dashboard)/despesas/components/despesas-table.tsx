@@ -10,6 +10,7 @@ import { moedaDeSaida } from '@/lib/moeda-saida'
 import { DespesaDialog } from './despesa-dialog'
 import { ListaDetalhe } from './lista-detalhe'
 import type { Loja, DespesaRow } from '../types'
+import { dataPuraBr } from '@/lib/data-venda'
 
 type Props = {
   despesas: DespesaRow[]
@@ -17,10 +18,6 @@ type Props = {
   categorias: string[]
   categoriasComBeneficiario: string[]
   beneficiarios: string[]
-}
-
-function fmtData(d: string) {
-  return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
 }
 
 export function DespesasTable({ despesas, lojas, categorias, categoriasComBeneficiario, beneficiarios }: Props) {
@@ -107,14 +104,14 @@ export function DespesasTable({ despesas, lojas, categorias, categoriasComBenefi
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{d.beneficiario ?? d.descricao ?? d.categoria}</span>
               <span className="block truncate text-xs text-muted-foreground">
-                {fmtData(d.data)} · {d.categoria} · {d.lojaNome ?? 'Geral'}
+                {dataPuraBr(d.data)} · {d.categoria} · {d.lojaNome ?? 'Geral'}
               </span>
             </span>
             <span className="font-semibold tabular-nums text-destructive">{moedaDeSaida(d.valor)}</span>
           </>
         )}
         tituloDetalhe="Despesa"
-        descricaoDetalhe={d => `${d.categoria} · ${fmtData(d.data)}`}
+        descricaoDetalhe={d => `${d.categoria} · ${dataPuraBr(d.data)}`}
         detalhe={d => (
           <>
             <p className="text-2xl font-bold tabular-nums text-destructive">{moedaDeSaida(d.valor)}</p>
@@ -124,7 +121,7 @@ export function DespesasTable({ despesas, lojas, categorias, categoriasComBenefi
                 ...(d.beneficiario ? [['A quem se destinou', d.beneficiario]] : []),
                 ['Descrição', d.descricao ?? '—'],
                 ['Loja', d.lojaNome ?? 'Geral'],
-                ['Data', fmtData(d.data)],
+                ['Data', dataPuraBr(d.data)],
                 ['Pagamento', d.formaPagamento],
                 ['Banco', d.banco],
                 ['Lançada por', d.usuarioNome],

@@ -141,10 +141,12 @@ jobs:
           done
           exit $falhou
 
-      - if: always()
+      # Prints só quando falha: guardados sempre, chegaram a 4,6 GB e encheram a
+      # cota de artefatos do repo (12/11/2026), derrubando outros checks.
+      - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: navegacao-${{ matrix.vaga }}
           path: prints/
-          retention-days: 7
+          retention-days: 3
           if-no-files-found: ignore

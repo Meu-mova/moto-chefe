@@ -7,7 +7,9 @@ import type { StatusAdesao } from '@/lib/adesao-campos'
 
 // Contrato de Licença de Uso do MOVA (#165). Texto: minuta do Cesar de
 // 30/09/2026 ajustada em 16/10/2026 (v2), sem testemunhas e com aceite
-// eletrônico só do lojista. Revisado pelo advogado.
+// eletrônico só do lojista. Revisado pelo advogado. Cláusulas 3.4 e 4.1 com a
+// taxa de implantação paga no 1º acesso (#806, texto validado pelo Luis em
+// 09/11/2026); contratos enviados antes guardam o texto antigo no snapshot.
 
 /**
  * Valores fechados com o Cesar na call de 16/10/2026. Os 7 dias de backup são
@@ -55,8 +57,13 @@ export type DadosContratoAdesao = {
   valorMensal: string | null
 }
 
+/**
+ * Todos os campos preenchidos e os dois valores maiores que zero: a 3.4 promete cobrar a taxa no
+ * 1º acesso, e a 4.1 conta a 1ª mensalidade desse pagamento (a tela já recusa ≤ 0; isto barra o SQL).
+ */
 export function dadosContratoCompletos(d: DadosContratoAdesao): boolean {
-  return Object.values(d).every(v => typeof v === 'string' && v.trim() !== '')
+  const preenchidos = Object.values(d).every(v => typeof v === 'string' && v.trim() !== '')
+  return preenchidos && Number(d.taxaImplantacao) > 0 && Number(d.valorMensal) > 0
 }
 
 const reais = (v: string) => `R$ ${formatarNumeroBR(v)}`
@@ -85,10 +92,10 @@ export function montarContratoAdesao(d: DadosContratoAdesao): string {
     <p>3.1. Os dados do CLIENTE ficam separados dos dados dos demais clientes do MOVA, e somente o CLIENTE e os usuários que ele cadastrar têm acesso a eles. Nenhum outro cliente do MOVA acessa os dados do CLIENTE.</p>
     <p>3.2. A implantação inclui: cadastro da empresa, das lojas e do usuário administrador, configuração inicial das regras fiscais com base nas informações do contador do CLIENTE e ${t.horasOrientacao} horas de orientação guiada, junto com o CLIENTE.</p>
     <p>3.3. O prazo de implantação é de até ${t.diasUteisImplantacao} dias úteis, contados do recebimento das informações e documentos solicitados pelo MOVA. Atraso no envio dessas informações pelo CLIENTE prorroga o prazo na mesma medida. Ao fim da implantação, o MOVA libera o acesso do CLIENTE ao sistema.</p>
-    <p>3.4. Taxa de implantação: ${reais(d.taxaImplantacao!)}, paga junto com a primeira mensalidade.</p>
+    <p>3.4. Taxa de implantação: ${reais(d.taxaImplantacao!)}, paga no primeiro acesso do CLIENTE ao sistema. O acesso ao sistema é liberado depois da confirmação desse pagamento.</p>
 
     <h2>4. Preço, cobrança e bloqueio</h2>
-    <p>4.1. O CLIENTE paga mensalidade de ${reais(d.valorMensal!)} por CNPJ. A primeira mensalidade vence 30 (trinta) dias após o primeiro acesso do CLIENTE ao sistema, e as seguintes no mesmo dia dos meses subsequentes. Quando esse dia for 29, 30 ou 31, o vencimento passa a ser o dia 28.</p>
+    <p>4.1. O CLIENTE paga mensalidade de ${reais(d.valorMensal!)} por CNPJ. A primeira mensalidade vence 30 (trinta) dias corridos após a confirmação do pagamento da taxa de implantação, e as seguintes no mesmo dia dos meses subsequentes. Quando esse dia for 29, 30 ou 31, o vencimento passa a ser o dia 28.</p>
     <p>4.2. A cobrança é enviada pelo MOVA por link de pagamento (Mercado Pago), para pagamento por PIX ou boleto. O pagamento só se considera feito quando confirmado pela instituição de pagamento.</p>
     <p>4.3. O valor será reajustado todo ano em fevereiro, a partir de fevereiro do ano seguinte ao da assinatura, pelo ${esc(t.indiceReajuste)}, ou pelo índice que o substituir, com aviso ao CLIENTE de pelo menos 30 dias.</p>
     <p>4.4. Atraso gera multa de ${esc(t.multaAtrasoPct)} e juros de 1% ao mês sobre o valor devido, calculados dia a dia.</p>
