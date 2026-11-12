@@ -434,6 +434,30 @@ test('trava #848: corrigir e reenviar da venda "Entregar" em outra UF recusa ant
   assert.deepEqual(await snapshot(f), antes)
 })
 
+test('trava #848: a trava vem antes das outras pendências da venda', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_PR })
+  await db.execute(sql`update vendas set cliente_nome = ${'Comprador '.repeat(7)} where id = ${f.saleId}`)
+  user = f.user
+  network(f)
+  const previa = await actions.previsualizarNfePropriaAction(f.motoId)
+  assert.ok(previa.ok)
+  assert.equal(previa.pendencias.length, 2)
+  assert.equal(previa.pendencias[0], ENTREGA_EM_OUTRO_ESTADO)
+})
+
+// Decisão do Maestro (12/11/2026): com a NG fora do ar, a prévia de venda "Entregar" mostra o erro, não as pendências.
+test('trava #848: prévia de venda "Entregar" com a NG fora do ar mostra o erro da consulta e não envia nada', async () => {
+  const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_PR })
+  user = f.user
+  const metodos: string[] = []
+  mock.method(globalThis, 'fetch', async (_input: unknown, init?: RequestInit) => {
+    metodos.push(init?.method ?? 'GET')
+    return new Response('{}', { status: 500 })
+  })
+  assert.deepEqual(await actions.previsualizarNfePropriaAction(f.motoId), { ok: false, error: 'Consultar Empresa respondeu HTTP 500' })
+  assert.deepEqual(metodos, ['GET'])
+})
+
 test('venda "Entregar" na UF do emitente: prévia e nota dentro do estado, enderecoEntrega com o comprador', async () => {
   const f = await fixture(false, {}, { categoria: 'autopropelido', entrega: ENTREGAR_MG })
   user = f.user
