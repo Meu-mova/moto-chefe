@@ -3,17 +3,12 @@
 //
 // O arquivo começa com uma capa (Ouvidoria, filtros, totalizador) e só depois traz o cabeçalho
 // das vendas; as colunas são lidas pelo nome (`relatorio-colunas.ts`).
-import type { TransacaoCartao } from '@/lib/conciliacao-cartao'
+import { tipoDoCartao, type TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
 import { chaveDaColuna, indicesDasColunas } from '@/lib/relatorio-colunas'
 
-// O leitor só devolve venda com Código da venda e com os dois valores lidos.
-export type TransacaoCielo = TransacaoCartao & {
-  nsu: string
-  valorLiquido: number
-  rawData: { bandeira: string; portador: string | null; serial: string | null }
-}
+export type TransacaoCielo = TransacaoDoRelatorio
 
 export type ResultadoCielo =
   | { ok: true; transacoes: TransacaoCielo[]; semCodigo: number }
@@ -44,15 +39,6 @@ type Indices = Record<keyof typeof COLUNAS, number>
 // "R$ 1.234,56" e "-R$ 23,45": tira o prefixo da moeda e deixa o número para o parseNumeroBR.
 const valorEmReais = (texto: string) => parseNumeroBR(texto.replace(/R\$/g, ''))
 
-// "Crédito à vista" / "Crédito parcelado loja 02x" / "Débito". Os trechos "dito" e "bito" são
-// ASCII e sobrevivem a qualquer codificação do acento. Pix, saque e afins não são cartão.
-function tipoDaForma(forma: string): 'credito' | 'debito' | null {
-  const f = forma.toLowerCase()
-  if (f.includes('bito')) return 'debito'
-  if (f.includes('dito')) return 'credito'
-  return null
-}
-
 const parcelasDaForma = (forma: string) => {
   const m = /(\d+)\s*x/i.exec(forma)
   return m ? Number(m[1]) || 1 : 1
@@ -62,7 +48,7 @@ type Lido = { transacao: TransacaoCielo } | { semCodigo: true } | { ignorada: tr
 
 function lerVenda(celulas: string[], i: Indices, numeroDaLinha: number): Lido {
   const celula = (campo: keyof Indices) => (celulas[i[campo]] ?? '').trim()
-  const tipo = tipoDaForma(celula('forma'))
+  const tipo = tipoDoCartao(celula('forma'))
   if (celula('status') !== 'Aprovada' || !tipo) return { ignorada: true }
 
   const dataTransacao = dataBrParaIso(celula('data'))

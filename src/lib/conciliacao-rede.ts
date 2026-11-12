@@ -3,16 +3,12 @@
 //
 // O arquivo traz UMA LINHA POR PARCELA, com o cabeçalho na 1ª linha. Uma venda em 18x vem em 18
 // linhas com o mesmo NSU/CV e autorização; o leitor junta as parcelas numa venda só.
-import type { TransacaoCartao } from '@/lib/conciliacao-cartao'
+import { tipoDoCartao, type TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
 import { indicesDasColunas } from '@/lib/relatorio-colunas'
 
-export type TransacaoRede = TransacaoCartao & {
-  nsu: string
-  valorLiquido: number
-  rawData: { bandeira: string; portador: string | null; serial: string | null }
-}
+export type TransacaoRede = TransacaoDoRelatorio
 
 export type ResultadoRede =
   | { ok: true; transacoes: TransacaoRede[]; incompletas: number }
@@ -50,17 +46,9 @@ type Parcela = {
 
 type Lida = { parcela: Parcela } | { ignorada: true } | { erro: string }
 
-// "Crédito" / "Débito": "dito" e "bito" são ASCII e sobrevivem a qualquer codificação do acento.
-function tipoDaModalidade(modalidade: string): 'credito' | 'debito' | null {
-  const m = modalidade.toLowerCase()
-  if (m.includes('bito')) return 'debito'
-  if (m.includes('dito')) return 'credito'
-  return null
-}
-
 function lerParcela(celulas: string[], i: Indices, numeroDaLinha: number): Lida {
   const celula = (campo: keyof Indices) => (celulas[i[campo]] ?? '').trim()
-  const tipo = tipoDaModalidade(celula('modalidade'))
+  const tipo = tipoDoCartao(celula('modalidade'))
   if (celula('status').toLowerCase() !== 'paga' || celula('cancelamento') || !tipo) return { ignorada: true }
 
   const dataTransacao = dataBrParaIso(celula('data'))

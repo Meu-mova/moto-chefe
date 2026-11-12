@@ -13,8 +13,9 @@ import { ehTransferenciaInterna } from '@/lib/pix-internos'
 import { pagamentosEfetivosOS, precisaConciliar, type PgtoOS } from '@/lib/conciliacao-status'
 import { extrairTerminalInfinityPay } from '@/lib/conciliacao-terminal'
 import { detectarFormato } from '@/lib/conciliacao-formato'
-import { lerRelatorioCielo, type TransacaoCielo } from '@/lib/conciliacao-cielo'
-import { lerRelatorioRede, type TransacaoRede } from '@/lib/conciliacao-rede'
+import type { TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
+import { lerRelatorioCielo } from '@/lib/conciliacao-cielo'
+import { lerRelatorioRede } from '@/lib/conciliacao-rede'
 import { grupos } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 
@@ -32,7 +33,7 @@ type LinhaRelatorio = {
   terminal: string | null
 }
 
-const comoLinhaDoRelatorio = (t: TransacaoCielo | TransacaoRede): LinhaRelatorio => ({
+const comoLinhaDoRelatorio = (t: TransacaoDoRelatorio): LinhaRelatorio => ({
   dataTransacao: t.dataTransacao,
   tipo: t.tipo,
   bandeira: t.rawData.bandeira,
