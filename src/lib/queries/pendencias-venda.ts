@@ -1,3 +1,4 @@
+import { PIX_ESTORNADO } from '@/lib/pix-status'
 import { db } from '@/lib/db'
 import { documentosAssinatura, lojas, usuarios, vendas } from '@/lib/db/schema'
 import { and, asc, eq, gte, inArray, sql } from 'drizzle-orm'
@@ -89,7 +90,7 @@ export async function pendenciasDeVendas(
         WHERE venda_id = ${sql.raw('"vendas"."id"')} AND conciliado = true
       ), 0)`,
       // Fonte única de PIX desde 15/09/2026, quando o ValidaPix saiu.
-      pixConciliadoValor: sql<number>`COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)`,
+      pixConciliadoValor: sql<number>`COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')} AND status <> ${PIX_ESTORNADO}), 0)`,
     })
     .from(vendas)
     .innerJoin(lojas, eq(vendas.lojaId, lojas.id))

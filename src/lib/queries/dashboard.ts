@@ -1,3 +1,4 @@
+import { PIX_ESTORNADO } from '@/lib/pix-status'
 import { db, execRows } from '@/lib/db'
 import { vendas, motos, transferencias, garantias, ordensServico, lancamentosCaixa, lojas, modelos, pedidosVenda, usuarios, conciliacoesCartao, vendasPecas } from '@/lib/db/schema'
 import { eq, and, gte, lte, ne, sql, count, sum, inArray, or, avg, desc, SQL } from 'drizzle-orm'
@@ -470,7 +471,7 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
           AND conciliado = true
         ), 0)`,
         // Fonte única de PIX desde 15/09/2026, quando o ValidaPix saiu.
-        pixConciliadoValor: sql<number>`COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')}), 0)`,
+        pixConciliadoValor: sql<number>`COALESCE((SELECT SUM(valor::numeric) FROM pix_recebimentos_mcp WHERE venda_id = ${sql.raw('"vendas"."id"')} AND status <> ${PIX_ESTORNADO}), 0)`,
       })
       .from(vendas)
       .where(and(eq(vendas.lojaId, lojaId), gte(vendas.dataVenda, desde))),
@@ -488,7 +489,7 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
         pixConciliadoValor: sql<number>`COALESCE((
           SELECT SUM(valor::numeric)
           FROM pix_recebimentos_mcp
-          WHERE os_id = ${sql.raw('"ordens_servico"."id"')}
+          WHERE os_id = ${sql.raw('"ordens_servico"."id"')} AND status <> ${PIX_ESTORNADO}
         ), 0)`,
       })
       .from(ordensServico)
@@ -506,7 +507,7 @@ export async function getPendenciasConciliacaoLoja(lojaId: string, desde: Date) 
         pixConciliadoValor: sql<number>`COALESCE((
           SELECT SUM(valor::numeric)
           FROM pix_recebimentos_mcp
-          WHERE peca_venda_id = ${sql.raw('"vendas_pecas"."id"')}
+          WHERE peca_venda_id = ${sql.raw('"vendas_pecas"."id"')} AND status <> ${PIX_ESTORNADO}
         ), 0)`,
       })
       .from(vendasPecas)

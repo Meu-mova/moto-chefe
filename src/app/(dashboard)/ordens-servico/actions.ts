@@ -2,6 +2,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
+import { pixQueCobre } from '@/lib/pix-status'
 import { ordensServico, osItens, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp, cuponsRevisao } from '@/lib/db/schema'
 import { and, eq, inArray } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -55,7 +56,7 @@ async function situacaoFinanceiraOS(osId: string) {
 
   const [cartoes, pix, aprovacoes] = await Promise.all([
     db.$count(conciliacoesCartao, and(eq(conciliacoesCartao.osId, osId), eq(conciliacoesCartao.conciliado, true))),
-    db.$count(pixRecebimentosMcp, eq(pixRecebimentosMcp.osId, osId)),
+    db.$count(pixRecebimentosMcp, and(eq(pixRecebimentosMcp.osId, osId), pixQueCobre)),
     db.$count(aprovacoesVenda, and(eq(aprovacoesVenda.osId, osId), eq(aprovacoesVenda.status, 'pendente'))),
   ])
 

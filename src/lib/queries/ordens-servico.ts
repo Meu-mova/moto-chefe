@@ -1,3 +1,4 @@
+import { PIX_ESTORNADO } from '@/lib/pix-status'
 import { db } from '@/lib/db'
 import { nomeDoModeloNaLoja } from '@/lib/modelos-da-conta'
 import { ordensServico, osItens, motos, lojas, grupos, usuarios, modelos, clientes, servicosCatalogo } from '@/lib/db/schema'
@@ -37,7 +38,7 @@ function buildSelect(mecanico: ReturnType<typeof alias<typeof usuarios, 'mecanic
     pixConciliadoValor:  sql<number>`COALESCE((
       SELECT SUM(valor::numeric)
       FROM pix_recebimentos_mcp
-      WHERE os_id = ${ordensServico.id}
+      WHERE os_id = ${ordensServico.id} AND status <> ${PIX_ESTORNADO}
     ), 0)`,
     dataPrevisao:        ordensServico.dataPrevisao,
     marcaExterna:        ordensServico.marcaExterna,

@@ -3,6 +3,7 @@ import { acao, RecusaUsuario } from '@/lib/resultado-action'
 import { maquininhasDoGrupo } from '@/lib/maquininhas'
 import { gruposDoTerminalNaConta } from '@/lib/terminal-da-conta'
 import { db } from '@/lib/db'
+import { pixQueCobre } from '@/lib/pix-status'
 import { conciliacoesCartao, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -469,7 +470,7 @@ export async function buscarPixDoAlvo(alvo: AlvoConciliacao) {
       observacao:    pixRecebimentosMcp.descricao,
     })
     .from(pixRecebimentosMcp)
-    .where(eq(coluna, alvo.id))
+    .where(and(eq(coluna, alvo.id), pixQueCobre))
 }
 
 // Busca livre: a lupa padrão só acha transação de valor praticamente idêntico. Quando
@@ -571,6 +572,7 @@ export async function buscarPixLivres(valor: number, query?: string): Promise<Pi
       eq(pixRecebimentosMcp.grupoId, grupo.id),
       gte(pixRecebimentosMcp.data, INICIO_CONCILIACAO_EM),
       isNull(pixRecebimentosMcp.tipoCorrespondencia),
+      pixQueCobre,
       filtro,
     ))
     .orderBy(desc(pixRecebimentosMcp.data))

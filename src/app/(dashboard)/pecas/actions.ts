@@ -2,6 +2,7 @@
 import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { db } from '@/lib/db'
+import { pixQueCobre, PIX_ESTORNADO } from '@/lib/pix-status'
 import { pecasCatalogo, pecasEstoqueLoja, vendasPecas, vendasPecasItens, lojas, usuarios, aprovacoesVenda, conciliacoesCartao, pixRecebimentosMcp } from '@/lib/db/schema'
 import { eq, and, gte, lte, desc, inArray, sql } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
@@ -244,7 +245,7 @@ async function vendaEditavel(vendaId: string) {
 async function avisosDaVenda(venda: { id: string; dataVenda: Date }) {
   const [cartao, pix] = await Promise.all([
     db.select({ id: conciliacoesCartao.id }).from(conciliacoesCartao).where(eq(conciliacoesCartao.pecaVendaId, venda.id)).limit(1),
-    db.select({ id: pixRecebimentosMcp.id }).from(pixRecebimentosMcp).where(eq(pixRecebimentosMcp.pecaVendaId, venda.id)).limit(1),
+    db.select({ id: pixRecebimentosMcp.id }).from(pixRecebimentosMcp).where(and(eq(pixRecebimentosMcp.pecaVendaId, venda.id), pixQueCobre)).limit(1),
   ])
   return avisosDaEdicao({ conciliada: cartao.length + pix.length > 0, dataVenda: venda.dataVenda })
 }
@@ -458,7 +459,7 @@ export async function listarVendasPecasAction(filtros: FiltrosVendasPecas = {}) 
       pixConciliadoValor: sql<number>`COALESCE((
         SELECT SUM(valor::numeric)
         FROM pix_recebimentos_mcp
-        WHERE peca_venda_id = ${vendasPecas.id}
+        WHERE peca_venda_id = ${vendasPecas.id} AND status <> ${PIX_ESTORNADO}
       ), 0)`,
       itens: sql<string>`(
         SELECT string_agg(${vendasPecasItens.descricao} || ' x' || ${vendasPecasItens.quantidade}, ', ')

@@ -142,6 +142,7 @@ export default async function PixMcpPage({
     descricao: l.descricao ?? null,
     valor: formatValor(l.valor),
     interna: ehInterna(l),
+    status: l.status,
     correspondencia: {
       tipo: l.tipoCorrespondencia,
       vendaNf: l.vendaId ? vendaNfById.get(l.vendaId) ?? null : null,

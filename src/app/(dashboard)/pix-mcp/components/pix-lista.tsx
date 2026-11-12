@@ -13,6 +13,8 @@ export type LinhaPix = {
   descricao: string | null
   valor: string
   interna: boolean
+  // 'aprovado' ou 'estornado' (PIX_ESTORNADO); a lista mostra o estornado, só não o conta como pagamento.
+  status: string
   correspondencia: Correspondencia
 }
 
