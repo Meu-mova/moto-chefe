@@ -20,22 +20,32 @@ type Db = typeof import('@/lib/db')
 let db: Db['db']
 let execRows: Db['execRows']
 let vendas: typeof import('@/app/(dashboard)/vendas/actions')
-let conta: { lojaId: string; modeloId: string; origemId: string }
+type Conta = { lojaId: string; modeloId: string; origemId: string; socio: Record<string, unknown> }
+let conta: Conta
+let contaB: Conta
 
 before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
   vendas = await import('@/app/(dashboard)/vendas/actions')
-  const base = await semearContaBase(db, { prefixo: P, nome: randomUUID(), cnpj: randomUUID() })
-  const socioId = await semearUsuario(db, base, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comGrupo: true })
-  const [modelo] = await execRows(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${P + randomUUID()}, 'autopropelido', '1000', 'hub', '32') returning id`)
-  const [origem] = await execRows(sql`insert into origens_venda (grupo_id, nome) values (${base.grupoId}, ${'Loja ' + P}) returning id`)
-  conta = { lojaId: base.lojaId, modeloId: modelo.id as string, origemId: origem.id as string }
-  usuarioDaSessao = { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId, grupoLiberado: null }
+  conta = await semearConta()
+  contaB = await semearConta()
+  usuarioDaSessao = conta.socio
 })
 after(async () => {
   restaurarMocks()
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
+
+async function semearConta(): Promise<Conta> {
+  const base = await semearContaBase(db, { prefixo: P, nome: randomUUID(), cnpj: randomUUID() })
+  const socioId = await semearUsuario(db, base, { papel: 'admin_socio', rotulo: 'socio', semLoja: true, comGrupo: true })
+  const [modelo] = await execRows(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max) values ('M', ${P + randomUUID()}, 'autopropelido', '1000', 'hub', '32') returning id`)
+  const [origem] = await execRows(sql`insert into origens_venda (grupo_id, nome) values (${base.grupoId}, ${'Loja ' + P}) returning id`)
+  return {
+    lojaId: base.lojaId, modeloId: modelo.id as string, origemId: origem.id as string,
+    socio: { id: socioId, papel: 'admin_socio', lojaId: null, gruposAcesso: [base.grupoId], contaId: base.contaId, grupoLiberado: null },
+  }
+}
 
 async function novaMoto() {
   const [m] = await execRows(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
@@ -84,4 +94,23 @@ test('Editar venda trocando as formas: apaga o dinheiro antigo e lança só o no
   assert.deepEqual(await caixaDaMoto(moto), [
     { loja_id: conta.lojaId, descricao: 'Venda dinheiro (editado) — Cliente ' + P, valor: '5000.00', data: '2026-11-07', da_venda: true },
   ])
+})
+
+test('Conta B não vende a moto nem edita a venda da Conta A: mesma frase de inexistente e o caixa da A intacto', async () => {
+  usuarioDaSessao = conta.socio
+  const moto = await novaMoto()
+  assert.equal((await vender(moto, [{ tipo: 'dinheiro', valor: 12000 }])).ok, true)
+  const [{ id }] = await execRows(sql`select id from vendas where moto_id = ${moto}`)
+  const caixaDaA = await caixaDaMoto(moto)
+
+  usuarioDaSessao = contaB.socio
+  const editar = (vendaId: string) => vendas.editarVendaAction(vendaId, {
+    valor: '12000', dataVenda: '2026-11-07', pagamentos: [{ tipo: 'dinheiro', valor: 100 }, { tipo: 'pix', valor: 11900 }],
+    clienteNome: 'Outro', clienteCpf: '52998224725',
+  })
+  assert.deepEqual(await editar(id as string), { ok: false, erro: 'Venda não encontrada' })
+  assert.deepEqual(await editar(id as string), await editar(randomUUID()))
+  assert.deepEqual(await vender(moto, [{ tipo: 'dinheiro', valor: 12000 }]), await vender(randomUUID(), [{ tipo: 'dinheiro', valor: 12000 }]))
+  assert.deepEqual(await caixaDaMoto(moto), caixaDaA)
+  usuarioDaSessao = conta.socio
 })
