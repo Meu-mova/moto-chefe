@@ -18,13 +18,14 @@ process.env.DATABASE_URL = url
 process.env.CERT_MASTER_KEY ??= 'c'.repeat(64)
 
 let db: typeof import('@/lib/db')['db']
+let execRows: typeof import('@/lib/db')['execRows']
 let mod: typeof import('./importar')
 let cifrar: typeof import('@/lib/cripto')['cifrar']
 let RecusaUsuario: typeof import('@/lib/resultado-action')['RecusaUsuario']
 let ErroMercadoPago: typeof import('./cliente')['ErroMercadoPago']
 
 before(async () => {
-  ;({ db } = await import('@/lib/db'))
+  ;({ db, execRows } = await import('@/lib/db'))
   mod = await import('./importar')
   ;({ cifrar } = await import('@/lib/cripto'))
   ;({ RecusaUsuario } = await import('@/lib/resultado-action'))
@@ -34,8 +35,6 @@ after(async () => {
   await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
 })
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const linhas = async (q: ReturnType<typeof sql>) => ((await db.execute(q)) as unknown as { rows: any[] }).rows
 
 const TOKEN = 'TEST-token-do-grupo'
 
@@ -43,7 +42,7 @@ async function semearConta(nome: string, { comToken = true } = {}) {
   const suf = randomUUID()
   const base = await semearContaBase(db, { prefixo: 'MPIMP', nome: `${nome} ${suf}`, cnpj: suf })
   const usuarioId = await semearUsuario(db, base, { papel: 'aux_adm' })
-  const [modelo] = await linhas(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
+  const [modelo] = await execRows(sql`insert into modelos (marca, modelo, categoria, potencia_w, motor, velocidade_max)
     values ('M', ${'MPIMP ' + suf}, 'autopropelido', '1000', 'hub', '32') returning id`)
   if (comToken) {
     await db.execute(sql`update grupos set mp_access_token = ${cifrar(TOKEN)}, mp_user_id = ${'mpuser-' + suf}
@@ -55,10 +54,10 @@ type Conta = Awaited<ReturnType<typeof semearConta>>
 
 // A fixture aprova em 2026-11-10 (Brasília); a venda é do mesmo dia.
 async function semearVendaMoto(c: Conta, pagamentos: Record<string, unknown>[]) {
-  const [moto] = await linhas(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
+  const [moto] = await execRows(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
     values (${randomUUID()}, ${c.modeloId}, ${c.lojaId}, 'CINZA', '1', 'vendida', 'vendida') returning id`)
-  const [pedido] = await linhas(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${moto.id}, ${c.lojaId}, ${c.usuarioId}) returning id`)
-  const [venda] = await linhas(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento, pagamentos, data_venda)
+  const [pedido] = await execRows(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${moto.id}, ${c.lojaId}, ${c.usuarioId}) returning id`)
+  const [venda] = await execRows(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento, pagamentos, data_venda)
     values (${pedido.id}, ${moto.id}, ${c.lojaId}, ${c.usuarioId}, ${c.usuarioId}, 'Cliente sintético', '52998224725', 1000, 'cartao_credito',
       ${JSON.stringify(pagamentos)}::jsonb, ${'2026-11-10 12:00:00-03'}::timestamptz) returning id`)
   return venda.id as string
@@ -73,11 +72,11 @@ const AGORA = new Date('2026-11-12T12:00:00.000Z')
 const buscarFixo = (pagamentos: PagamentoMp[]) => async () => pagamentos
 
 async function cartoesDoGrupo(grupoId: string) {
-  return linhas(sql`select nsu, status, conciliado, venda_id from conciliacoes_cartao
+  return execRows(sql`select nsu, status, conciliado, venda_id from conciliacoes_cartao
     where grupo_id = ${grupoId} and operadora = 'mercadopago' order by nsu`)
 }
 async function pixPorTransacao(transacaoId: string) {
-  return linhas(sql`select grupo_id, conta_id, banco, tipo_operacao, valor, pagador_nome, status, venda_id
+  return execRows(sql`select grupo_id, conta_id, banco, tipo_operacao, valor, pagador_nome, status, venda_id
     from pix_recebimentos_mcp where transacao_id = ${transacaoId}`)
 }
 
@@ -206,6 +205,40 @@ test('401 não grava nada', async () => {
     (e: unknown) => e instanceof ErroMercadoPago && e.status === 401,
   )
   assert.equal((await cartoesDoGrupo(a.grupoId)).length, 0)
-  const [{ n }] = await linhas(sql`select count(*)::int as n from pix_recebimentos_mcp where grupo_id = ${a.grupoId}`)
+  const [{ n }] = await execRows(sql`select count(*)::int as n from pix_recebimentos_mcp where grupo_id = ${a.grupoId}`)
   assert.equal(n, 0)
+})
+
+test('isolamento: estorno importado em B não mexe no cartão de A', async () => {
+  const a = await semearConta('A')
+  const b = await semearConta('B')
+  const vendaId = await semearVendaMoto(a, [{ tipo: 'cartao_credito', valor: 200, parcelas: 1 }])
+  const id = novoId()
+  const aprovado = pg(creditoEstornado, { id, status: 'approved', status_detail: 'accredited', transaction_amount_refunded: 0 })
+  await mod.importarMercadoPagoDoGrupo(a.grupoId, { agora: AGORA, buscar: buscarFixo([aprovado]) })
+  const antes = await cartoesDoGrupo(a.grupoId)
+  assert.equal(antes[0].venda_id, vendaId)
+  assert.equal(antes[0].conciliado, true)
+
+  const r = await mod.importarMercadoPagoDoGrupo(b.grupoId, { agora: AGORA, buscar: buscarFixo([pg(creditoEstornado, { id })]) })
+  assert.equal(r.estornos, 0)
+  assert.deepEqual(await cartoesDoGrupo(a.grupoId), antes)
+  assert.equal(antes[0].status, 'aprovado')
+  assert.equal((await cartoesDoGrupo(b.grupoId)).length, 0)
+})
+
+test('isolamento: o mesmo nsu em A e em B vira uma linha em cada grupo, sem duplicada', async () => {
+  const a = await semearConta('A')
+  const b = await semearConta('B')
+  const pagamento = pg(credito3x, { id: novoId() })
+  const ra = await mod.importarMercadoPagoDoGrupo(a.grupoId, { agora: AGORA, buscar: buscarFixo([pagamento]) })
+  const rb = await mod.importarMercadoPagoDoGrupo(b.grupoId, { agora: AGORA, buscar: buscarFixo([pagamento]) })
+  assert.equal(ra.importadas, 1); assert.equal(ra.duplicadas, 0)
+  assert.equal(rb.importadas, 1); assert.equal(rb.duplicadas, 0)
+  const [la] = await cartoesDoGrupo(a.grupoId)
+  const [lb] = await cartoesDoGrupo(b.grupoId)
+  assert.equal(la.nsu, String(pagamento.id))
+  assert.equal(lb.nsu, String(pagamento.id))
+  assert.equal((await cartoesDoGrupo(a.grupoId)).length, 1)
+  assert.equal((await cartoesDoGrupo(b.grupoId)).length, 1)
 })
