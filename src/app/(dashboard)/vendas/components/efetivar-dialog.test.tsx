@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
-import { clicar } from '@/test/eventos-dom'
+import { clicar, digitar, escolher, escolherOpcao } from '@/test/eventos-dom'
 import type { EntregaVenda } from '@/lib/notagateway/entrega'
 
 const { desmontar: desmontarDom } = montarDom()
@@ -64,7 +64,6 @@ test('"Retira na loja" do pedido e pedido antigo sem Entrega', async () => {
 
 // Frete cobrado (#726, 4b): a efetivação mostra o frete do pedido e o total; o servidor soma o frete do pedido.
 test('pedido com frete: mostra o frete cobrado, pede o valor da moto e soma o total', async () => {
-  const { digitar } = await import('@/test/eventos-dom')
   await abrir({ ...ENTREGAR, frete: 350 } as EntregaVenda)
   assert.match(entregaNaTela(), /Frete cobrado: R\$\s*350,00/)
   const rotulo = [...document.querySelectorAll('label')].find(l => /^Valor da moto/.test(l.textContent ?? ''))
@@ -82,22 +81,14 @@ test('pedido sem frete continua com "Valor (R$)" e sem total à parte', async ()
 
 // Pagamento do pedido (#775): a tela de hoje tem uma forma só e manda uma lista com ela, valendo moto + frete.
 test('efetivar manda a forma escolhida como lista de um pagamento, com o total (moto + frete)', async () => {
-  const { digitar } = await import('@/test/eventos-dom')
   enviados.splice(0)
   await abrir({ ...ENTREGAR, frete: 350 } as EntregaVenda, [{ id: 'o1', nome: 'Passou na porta', tipo: 'outro', pedeDetalhe: false }])
   const campoDe = (rotulo: RegExp) => [...document.querySelectorAll('label')].find(l => rotulo.test(l.textContent ?? ''))!.parentElement!.querySelector('input')!
   await digitar(campoDe(/^Nome do Cliente/), 'Cliente sintético')
   await digitar(campoDe(/^CPF\/CNPJ/), '52998224725')
   await digitar(campoDe(/^Valor da moto/), '1000000')
-  const { escolher } = await import('@/test/eventos-dom')
   await escolher(document.querySelector('select')!, 'o1')
-  await clicar([...document.querySelectorAll('button')].find(b => /Selecionar/.test(b.textContent ?? '')))
-  const { act } = await import('react')
-  const opcao = [...document.querySelectorAll('[role="option"]')].find(o => o.textContent?.trim() === 'Dinheiro')!
-  // O Select do @base-ui escolhe no ciclo do ponteiro, não só no click.
-  await act(async () => {
-    for (const tipo of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) opcao.dispatchEvent(new window.MouseEvent(tipo, { bubbles: true }))
-  })
+  await escolherOpcao([...document.querySelectorAll('button')].find(b => /Selecionar/.test(b.textContent ?? '')), 'Dinheiro')
   await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Confirmar Venda'))
   assert.equal(enviados.length, 1)
   assert.deepEqual(enviados[0].slice(3, 5), ['10000.00', [{ tipo: 'dinheiro', valor: 10350 }]])

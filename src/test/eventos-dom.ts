@@ -15,3 +15,16 @@ async function trocarValor(el: HTMLInputElement | HTMLSelectElement, prototipo: 
 
 export const digitar = (input: HTMLInputElement, valor: string) => trocarValor(input, window.HTMLInputElement.prototype, valor, 'input')
 export const escolher = (select: HTMLSelectElement, valor: string) => trocarValor(select, window.HTMLSelectElement.prototype, valor, 'change')
+
+/**
+ * Escolhe uma opção do `<Select>` do @base-ui: abre pelo gatilho e escolhe pelo ciclo do ponteiro,
+ * que é onde ele seleciona (só o `click` não basta).
+ */
+export async function escolherOpcao(gatilho: Element | null | undefined, rotulo: string) {
+  await clicar(gatilho)
+  const opcao = [...document.querySelectorAll('[role="option"]')].find(o => o.textContent?.trim() === rotulo)
+  if (!opcao) throw new Error(`opção "${rotulo}" não encontrada`)
+  await act(async () => {
+    for (const tipo of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) opcao.dispatchEvent(new window.MouseEvent(tipo, { bubbles: true }))
+  })
+}

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Printer } from 'lucide-react'
 import { marcarSinalDemandaAction, desmarcarSinalDemandaAction } from '../actions'
 import { ClienteCampos, CLIENTE_VAZIO, clienteCompleto, type ClienteForm } from './cliente-campos'
-import { PagamentosFields, pgtoIncompleto, type Pgto } from '../../estoque/components/pagamentos-fields'
+import { PagamentosFields, pgtoIncompleto, pgtosFecham, type Pgto } from '../../estoque/components/pagamentos-fields'
 
 type Props = {
   demandaId: string
@@ -31,7 +31,7 @@ export function MarcarSinalButton({ demandaId, sinalRecebido, valorSinal, isAdmi
 
   const valorNum = parseFloat(valor) || 0
   const soma = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
-  const somaOk = valorNum > 0 && Math.abs(soma - valorNum) < 0.01
+  const somaOk = pgtosFecham(pgtos, valorNum)
   const pgtosOk = pgtos.every(p => p.tipo && p.valor && !pgtoIncompleto(p, null, maquininhas))
   const valido = clienteCompleto(cliente) && somaOk && pgtosOk
 
