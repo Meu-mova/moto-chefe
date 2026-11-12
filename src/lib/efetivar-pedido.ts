@@ -4,7 +4,7 @@ import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, rese
 import { hojeBrt } from '@/lib/data-venda'
 import { lancamentosDinheiroDaVenda } from '@/lib/caixa-venda-moto'
 import { conferirMaquininhas } from '@/lib/maquininhas'
-import { formaPagamentoDaVenda, pagamentosFecham, pagamentosIncompletos, PAGAMENTO_INCOMPLETO, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { formaPagamentoDaVenda, pagamentosFecham, pagamentosIncompletos, PAGAMENTO_INCOMPLETO, projetarPagamentos, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { gravarMotoDoPedido } from '@/lib/pedido-venda'
@@ -105,7 +105,7 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     clienteCpf: d.clienteCpf,
     valor,
     formaPagamento: formaPagamentoDaVenda(d.pagamentos),
-    pagamentos: d.pagamentos,
+    pagamentos: projetarPagamentos(d.pagamentos),
     reservaId: reservaAtiva?.id ?? null,
     dataVenda: agora,
     origemId: d.origem.origemId,

@@ -45,15 +45,18 @@ function num(v: string | number | null | undefined): number {
   return isNaN(n) ? 0 : n
 }
 
+/** Só os campos conhecidos, com valor e parcelas em número: o que vem da tela não entra cru no jsonb. */
+export function projetarPagamentos(pgs: readonly PagamentoEntrada[]): PagamentoEntrada[] {
+  return pgs.map(p => ({
+    tipo: p.tipo,
+    valor: num(p.valor),
+    ...(p.operadora ? { operadora: p.operadora } : {}),
+    ...(p.parcelas ? { parcelas: Number(p.parcelas) } : {}),
+  }))
+}
+
 export function normalizarPagamentos(r: RegistroLegado): PagamentoEntrada[] {
-  if (Array.isArray(r.pagamentos) && r.pagamentos.length > 0) {
-    return (r.pagamentos as PagamentoEntrada[]).map(p => ({
-      tipo: p.tipo,
-      valor: num(p.valor),
-      ...(p.operadora ? { operadora: p.operadora } : {}),
-      ...(p.parcelas ? { parcelas: Number(p.parcelas) } : {}),
-    }))
-  }
+  if (Array.isArray(r.pagamentos) && r.pagamentos.length > 0) return projetarPagamentos(r.pagamentos as PagamentoEntrada[])
   // Legado: uma linha só, montada a partir das colunas antigas. Sem meio de
   // pagamento não há o que mostrar (demanda sem sinal).
   if (!r.meioPagamento) return []

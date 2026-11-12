@@ -6,6 +6,7 @@ import {
   pagamentosFecham,
   descreverPagamentos,
   pagamentosIncompletos,
+  projetarPagamentos,
 } from './pagamentos-entrada'
 
 test('registro antigo (pagamentos nulo) vira uma linha só, com o meio de pagamento legado', () => {
@@ -108,4 +109,15 @@ test('pagamentosIncompletos: forma sem tipo, sem valor ou com valor zero/negativ
   assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: 0 }]), true)
   assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: -5 }]), true)
   assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: Number.NaN }]), true)
+})
+
+test('projetarPagamentos guarda só tipo, valor (número), operadora e parcelas', () => {
+  const vindoDaTela = [
+    { tipo: 'cartao_credito', valor: '1000.5', operadora: 'stone', parcelas: '3', extra: 'x' },
+    { tipo: 'pix', valor: 200 },
+  ] as unknown as Parameters<typeof projetarPagamentos>[0]
+  assert.deepEqual(projetarPagamentos(vindoDaTela), [
+    { tipo: 'cartao_credito', valor: 1000.5, operadora: 'stone', parcelas: 3 },
+    { tipo: 'pix', valor: 200 },
+  ])
 })

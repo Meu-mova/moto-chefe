@@ -68,13 +68,15 @@ const caixaDaMoto = (motoId: string) => execRows(sql`select l.loja_id, l.tipo, l
   from lancamentos_caixa l join vendas v on v.id = l.venda_id where v.moto_id = ${motoId} order by l.valor`)
 const hojeBrt = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
 
-test('C1: dinheiro + PIX gravam as duas formas na venda do pedido', async () => {
+test('C1: dinheiro + PIX gravam as duas formas na venda do pedido, só com os campos conhecidos', async () => {
   const a = await semearConta('stone')
   usuario = a.aux
-  const pagamentos = [{ tipo: 'dinheiro', valor: 5000 }, { tipo: 'pix', valor: 10000 }]
-  assert.deepEqual(await efetivar(a, '15000', pagamentos), { ok: true, dados: undefined })
+  // Campo a mais vindo do navegador não entra no jsonb.
+  const daTela = [{ tipo: 'dinheiro', valor: 5000, extra: 'x' }, { tipo: 'pix', valor: 10000 }] as Pagamento[]
+  assert.deepEqual(await efetivar(a, '15000', daTela), { ok: true, dados: undefined })
   const [venda] = await vendaDaMoto(a.motoId)
-  assert.deepEqual([venda.valor, venda.forma_pagamento, venda.pagamentos], ['15000.00', 'multiplos', pagamentos])
+  assert.deepEqual([venda.valor, venda.forma_pagamento, venda.pagamentos],
+    ['15000.00', 'multiplos', [{ tipo: 'dinheiro', valor: 5000 }, { tipo: 'pix', valor: 10000 }]])
 })
 
 test('C2: soma que não fecha com o total é recusada com a frase do Vender e nada é gravado', async () => {
