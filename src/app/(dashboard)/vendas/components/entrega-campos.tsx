@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CepInput } from '@/components/ui/cep-input'
@@ -162,7 +163,7 @@ export function EntregaCampos({ valor, onChange }: Props) {
                 </div>
                 <div className="w-28 shrink-0 space-y-1">
                   <Label htmlFor="entrega-uf">UF</Label>
-                  <select id="entrega-uf" value={e.uf} onChange={ev => mudarMunicipio({ uf: ev.target.value })} className={CLASSE_SELECT_NATIVO}>
+                  <select id="entrega-uf" value={e.uf} onChange={ev => mudarMunicipio({ uf: ev.target.value })} className={cn(CLASSE_SELECT_NATIVO, 'h-8')}>
                     <option value="">Escolha</option>
                     {UFS.map(u => <option key={u.sigla} value={u.sigla}>{u.sigla}</option>)}
                   </select>
