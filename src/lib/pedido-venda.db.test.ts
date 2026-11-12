@@ -72,7 +72,7 @@ describe('efetivarPedidoTx (#181)', () => {
       const s = await semear(tx)
       const { vendaId } = await efetivarPedidoTx(tx, {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
-        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
+        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, pagamentos: [{ tipo: 'pix', valor: 15000 }],
         origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       })
       const [r] = ((await tx.execute(sql`
@@ -96,7 +96,7 @@ describe('efetivarPedidoTx (#181)', () => {
       const s = await semear(tx, { comReserva: true })
       const { vendaId } = await efetivarPedidoTx(tx, {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: null,
-        clienteNome: 'Sem Cadastro', clienteCpf: '529.982.247-25', valor: 9000, formaPagamento: 'dinheiro',
+        clienteNome: 'Sem Cadastro', clienteCpf: '529.982.247-25', valor: 9000, pagamentos: [{ tipo: 'dinheiro', valor: 9000 }],
         origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       })
       const [r] = ((await tx.execute(sql`
@@ -117,7 +117,7 @@ describe('efetivarPedidoTx (#181)', () => {
         numero = '10', bairro = 'Centro', cidade = 'Itajubá', uf = 'MG' where id = ${s.clienteId}`)
       const { vendaId } = await efetivarPedidoTx(tx, {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
-        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
+        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, pagamentos: [{ tipo: 'pix', valor: 15000 }],
         origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       })
       const [v] = ((await tx.execute(sql`select cliente_celular, cliente_email, cliente_cep, cliente_logradouro, cliente_numero,
@@ -136,7 +136,7 @@ describe('efetivarPedidoTx (#181)', () => {
       const deFora = await s.linha(sql`insert into clientes (nome, cpf_cnpj, conta_id) values ('Comprador de fora', '52998224725', ${outra.id}) returning id`)
       await assert.rejects(efetivarPedidoTx(tx, {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: deFora.id,
-        clienteNome: 'Comprador de fora', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
+        clienteNome: 'Comprador de fora', clienteCpf: '529.982.247-25', valor: 15000, pagamentos: [{ tipo: 'pix', valor: 15000 }],
         origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       }), /Cliente não encontrado/)
       const [p] = ((await tx.execute(sql`select status from pedidos_venda where id = ${s.pedidoId}`)) as unknown as { rows: any[] }).rows
@@ -149,7 +149,7 @@ describe('efetivarPedidoTx (#181)', () => {
       const s = await semear(tx)
       const dados = {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
-        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, formaPagamento: 'pix',
+        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 15000, pagamentos: [{ tipo: 'pix', valor: 15000 }],
         origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: s.grupoId,
       }
       // Sem movimento nas lojas do grupo liberado, o cliente é de outro grupo da Conta dona.
@@ -170,7 +170,7 @@ describe('efetivarPedidoTx (#181)', () => {
       const s = await semear(tx)
       const dados = {
         pedidoId: s.pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: null,
-        clienteNome: 'X', clienteCpf: '529.982.247-25', valor: 1, formaPagamento: 'pix',
+        clienteNome: 'X', clienteCpf: '529.982.247-25', valor: 1, pagamentos: [{ tipo: 'pix', valor: 1 }],
         origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       }
       await efetivarPedidoTx(tx, dados)
@@ -299,7 +299,7 @@ describe('ciclo do pedido (#181)', () => {
       const { pedidoId, lojaId } = await criarPedidoTx(tx, { motoId, vendedorId: s.vendedorId, observacao: null, entrega: RETIRA_SEM_MODALIDADE })
       await efetivarPedidoTx(tx, {
         pedidoId, lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
-        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 1000, formaPagamento: 'pix',
+        clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor: 1000, pagamentos: [{ tipo: 'pix', valor: 1000 }],
         origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
       })
       assert.deepEqual(await estado(s, motoId, pedidoId), { disponibilidade: null, status: 'vendida', pedido: 'efetivado' })
@@ -354,7 +354,7 @@ describe('itens do pedido (#774)', () => {
 
   const efetivar = (s: Semente, pedidoId: string, valor: number) => efetivarPedidoTx(s.tx, {
     pedidoId, lojaId: s.lojaId, efetivadoPor: s.auxId, clienteId: s.clienteId,
-    clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor, formaPagamento: 'pix',
+    clienteNome: 'Cliente Teste', clienteCpf: '529.982.247-25', valor, pagamentos: [{ tipo: 'pix', valor }],
     origem: { origemId: s.origemId, origemDetalhe: null }, grupoLiberado: null,
   })
 

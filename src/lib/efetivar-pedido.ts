@@ -2,6 +2,9 @@ import { and, eq } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, reservas, vendas } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
+import { lancamentosDinheiroDaVenda } from '@/lib/caixa-venda-moto'
+import { conferirMaquininhas } from '@/lib/maquininhas'
+import { formaPagamentoDaVenda, pagamentosFecham, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { gravarMotoDoPedido } from '@/lib/pedido-venda'
@@ -19,7 +22,8 @@ export type DadosEfetivarPedido = {
   clienteCpf: string
   /** Valor da moto digitado na efetivação; o frete cobrado vem do pedido e se soma aqui (#726). */
   valor: number
-  formaPagamento: string
+  /** Pagamento do pedido inteiro (#775): as formas somam moto + frete. */
+  pagamentos: PagamentoEntrada[]
   origem: { origemId: string; origemDetalhe: string | null }
   /** Persona do admin_rede (#517): só cliente do grupo liberado. */
   grupoLiberado: string | null
@@ -81,8 +85,13 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     .where(and(eq(reservas.motoId, pedido.motoId), eq(reservas.status, 'ativa')))
     .limit(1)
 
-  const agora = new Date()
   const total = totalComFrete(d.valor, freteDaVenda(pedido.entrega))
+  // Aqui e não na action: o frete que entra no total só se conhece lendo o pedido.
+  if (d.pagamentos.some(p => !p.tipo || !(p.valor > 0))) throw new RecusaUsuario('Informe a forma e o valor de cada pagamento')
+  if (!pagamentosFecham(d.pagamentos, total)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
+  await conferirMaquininhas(tx, pedido.lojaId, d.pagamentos)
+
+  const agora = new Date()
   const valor = total.toFixed(2)
   const [venda] = await tx.insert(vendas).values({
     pedidoVendaId: d.pedidoId,
@@ -95,8 +104,8 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     clienteNome: d.clienteNome,
     clienteCpf: d.clienteCpf,
     valor,
-    formaPagamento: d.formaPagamento,
-    pagamentos: [{ tipo: d.formaPagamento, valor: total }],
+    formaPagamento: formaPagamentoDaVenda(d.pagamentos),
+    pagamentos: d.pagamentos,
     reservaId: reservaAtiva?.id ?? null,
     dataVenda: agora,
     origemId: d.origem.origemId,
@@ -129,18 +138,10 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     observacao: `Venda (pedido efetivado) — Cliente: ${d.clienteNome} — Total: R$ ${valor}`,
   })
 
-  if (d.formaPagamento === 'dinheiro') {
-    await tx.insert(lancamentosCaixa).values({
-      lojaId: d.lojaId,
-      usuarioId: d.efetivadoPor,
-      tipo: 'entrada',
-      categoria: 'Venda',
-      descricao: `Venda dinheiro — ${d.clienteNome}`,
-      valor,
-      data: hojeBrt(),
-      vendaId: venda.id,
-    })
-  }
+  const caixa = lancamentosDinheiroDaVenda(d.pagamentos, {
+    lojaId: d.lojaId, usuarioId: d.efetivadoPor, vendaId: venda.id, descricao: `Venda dinheiro — ${d.clienteNome}`, data: hojeBrt(),
+  })
+  if (caixa.length > 0) await tx.insert(lancamentosCaixa).values(caixa)
 
   return { vendaId: venda.id }
 }

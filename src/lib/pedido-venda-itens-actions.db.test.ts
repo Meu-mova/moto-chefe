@@ -127,7 +127,7 @@ test('V3: Conta B efetiva o pedido da Conta A: mesma frase de id inexistente, e 
   assert.deepEqual(antes, [{ tipo: 'moto', motoId: moto, quantidade: '1.00', valorUnitario: null }])
   for (const usuario of [B.aux, B.socio]) {
     usuarioDaSessao = usuario
-    const efetivar = (id: string) => vendas.efetivarVendaAction(id, 'Cliente ' + P, '52998224725', '9000', 'pix', undefined, B.origemId)
+    const efetivar = (id: string) => vendas.efetivarVendaAction(id, 'Cliente ' + P, '52998224725', '9000', [{ tipo: 'pix', valor: 9000 }], undefined, B.origemId)
     assert.deepEqual(await efetivar(pedidoId), await efetivar(crypto.randomUUID()))
     assert.deepEqual(await efetivar(pedidoId), { ok: false, erro: 'Pedido não encontrado' })
   }

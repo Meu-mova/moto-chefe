@@ -73,7 +73,7 @@ async function criarPedido(c: Awaited<ReturnType<typeof semearConta>>) {
 }
 
 const efetivar = (pedidoId: string, origemId: string) =>
-  efetivarVendaAction(pedidoId, 'Cliente sintético', '529.982.247-25', '1000', 'pix', undefined, origemId)
+  efetivarVendaAction(pedidoId, 'Cliente sintético', '529.982.247-25', '1000', [{ tipo: 'pix', valor: 1000 }], undefined, origemId)
 
 test('o Novo pedido grava a Entrega e a efetivação a leva para a venda sem o navegador mandar de novo', async () => {
   const a = await semearConta()
@@ -194,7 +194,7 @@ test('pedido com frete: a efetivação grava moto + frete no valor e no pagament
   const [pedido] = await pedidosDaMoto(a.motoId)
   assert.deepEqual(pedido.entrega, COM_FRETE)
   usuario = a.aux
-  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', 'pix', undefined, a.origemId), { ok: true, dados: undefined })
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', [{ tipo: 'pix', valor: 10350 }], undefined, a.origemId), { ok: true, dados: undefined })
   const [venda] = await vendaDaMoto(a.motoId)
   assert.equal(Number(venda.valor), 10350)
   assert.deepEqual(venda.pagamentos, [{ tipo: 'pix', valor: 10350 }])
@@ -207,7 +207,7 @@ test('pedido com frete pago em dinheiro: o caixa recebe o total', async () => {
   assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
   const [pedido] = await pedidosDaMoto(a.motoId)
   usuario = a.aux
-  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', 'dinheiro', undefined, a.origemId), { ok: true, dados: undefined })
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', [{ tipo: 'dinheiro', valor: 10350 }], undefined, a.origemId), { ok: true, dados: undefined })
   const [venda] = await vendaDaMoto(a.motoId)
   assert.deepEqual(await execRows(sql`select valor from lancamentos_caixa where venda_id = ${venda.id}`), [{ valor: '10350.00' }])
 })
@@ -242,7 +242,7 @@ test('efetivar com frete: o item moto vale a moto e a venda vale moto + frete; e
   assert.deepEqual(await criarPedidoVendaAction(a.motoId, '', COM_FRETE), { ok: true, dados: undefined })
   const [pedido] = await pedidosDaMoto(a.motoId)
   usuario = a.aux
-  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', 'pix', undefined, a.origemId), { ok: true, dados: undefined })
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '10000', [{ tipo: 'pix', valor: 10350 }], undefined, a.origemId), { ok: true, dados: undefined })
   assert.deepEqual(await itemDaMoto(a.motoId), [{ valor_unitario: '10000.00' }])
   const [venda] = await vendaDaMoto(a.motoId)
   assert.equal(Number(venda.valor), 10350)
