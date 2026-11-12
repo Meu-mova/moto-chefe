@@ -78,6 +78,12 @@ export const grupos = pgTable('grupos', {
   // acesso dentro dela. Nulo = ainda usa a env MCPAI_ENDPOINT_URL global.
   // Ver src/lib/mcpai-credencial.ts.
   mcpaiEndpointUrl:   text('mcpai_endpoint_url'),
+  // Credencial do Mercado Pago (maquininha Point) do grupo. mpAccessToken é
+  // CIFRADO (AES-256-GCM/CERT_MASTER_KEY, formato iv:tag:dados). Nulo = grupo
+  // sem integração com o Mercado Pago.
+  mpAccessToken:      text('mp_access_token'),
+  mpPublicKey:        text('mp_public_key'),
+  mpUserId:           text('mp_user_id'),
   // OBSOLETO: avisos migraram para WhatsApp (env WHATSAPP_ALERTA_NUMERO).
   // Coluna mantida só pra evitar migração de drop; remover numa migração futura.
   telegramChatId:     text('telegram_chat_id'),
@@ -1189,6 +1195,8 @@ export const pixRecebimentosMcp = pgTable('pix_recebimentos_mcp', {
   // antes de 29/08/2026, quando só PIX entrava — o upsert do sync preenche.
   tipoOperacao:        text('tipo_operacao'),
   tipoCorrespondencia: tipoCorrespondenciaPixEnum('tipo_correspondencia'),
+  // Estado do Pix; 'aprovado' por padrão, muda em estorno.
+  status:              text('status').notNull().default('aprovado'),
   vendaId:             uuid('venda_id').references(() => vendas.id),
   osId:                uuid('os_id').references(() => ordensServico.id),
   pedidoId:            uuid('pedido_id').references(() => pedidosVenda.id),
