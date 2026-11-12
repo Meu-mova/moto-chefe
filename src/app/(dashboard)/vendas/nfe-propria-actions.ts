@@ -12,7 +12,7 @@ import { lojasDoEscopo } from '@/lib/conta'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { normalizarCest } from '@/lib/nfe-fiscal'
-import { observacoesVendaMoto } from '@/lib/nfe-observacoes'
+import { observacaoDaNota, observacaoDoPayload, observacaoEditada, observacoesVendaMoto } from '@/lib/nfe-observacoes'
 import { montarNfeVendaMoto, type DadosVendaMoto, type RegraSaida } from '@/lib/notagateway/payload'
 import { formaPagamentoNfe, idExternoNfe, pendenciasDaVenda, tipoPessoa, type PagamentoMova } from '@/lib/notagateway/venda'
 import { escolherTentativa, gravarEnvio, registrarEnvio } from '@/lib/notagateway/tentativa'
@@ -89,6 +89,8 @@ export type PreviaNfe =
       renaveOrigem: OrigemRenave
       /** Frete e entrega da recusa em aberto, para corrigir sem digitar de novo. */
       transporteAnterior: DadosTransporte | null
+      /** Observação editada que foi na recusa em aberto; nula quando foi o texto padrão. */
+      observacaoAnterior: string | null
       resumo: {
         cliente: { nome: string; documento: string; endereco: string; email: string | null }
         produto: { descricao: string; ncm: string; cest: string; cfop: string; cst: string; origemEntrada: string; origemSaida: string }
@@ -277,11 +279,11 @@ async function resumos(filtro: SQL): Promise<NotaResumo[]> {
 const notasDaVenda = (vendaId: string) => resumos(eq(notasFiscaisSaida.vendaId, vendaId))
 
 /** Só a última tentativa, e só se ainda está recusada: é a que o reenvio reaproveita. */
-async function transporteDaRecusa(vendaId: string, grupoId: string, ambiente: 'Homologacao' | 'Producao'): Promise<DadosTransporte | null> {
+async function payloadDaRecusa(vendaId: string, grupoId: string, ambiente: 'Homologacao' | 'Producao'): Promise<unknown> {
   const [ultima] = await db.select({ status: notasFiscaisSaida.status, payload: notasFiscaisSaida.payload }).from(notasFiscaisSaida)
     .where(and(eq(notasFiscaisSaida.vendaId, vendaId), eq(notasFiscaisSaida.grupoId, grupoId), eq(notasFiscaisSaida.ambiente, ambiente)))
     .orderBy(desc(notasFiscaisSaida.criadoEm)).limit(1)
-  return ultima && ehRecusada(ultima.status) ? transporteDoPayload(ultima.payload) : null
+  return ultima && ehRecusada(ultima.status) ? ultima.payload : null
 }
 
 export async function previsualizarNfePropriaAction(motoId: string): Promise<PreviaNfe> {
@@ -289,6 +291,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
     const usuario = await exigirPapel()
     const e = await montarEmissao(motoId, usuario)
     const notas = await notasDaVenda(e.venda.id)
+    const recusa = await payloadDaRecusa(e.venda.id, e.grupoId, e.cfg.ambiente)
 
     let resumo: Extract<PreviaNfe, { ok: true }>['resumo'] = null
     if (e.ficha && e.regra && !e.pendencias.length) {
@@ -345,7 +348,8 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
       exigeRenave: e.renaveExigido,
       renave: e.renave,
       renaveOrigem: e.renaveOrigem,
-      transporteAnterior: e.renaveExigido ? await transporteDaRecusa(e.venda.id, e.grupoId, e.cfg.ambiente) : null,
+      transporteAnterior: e.renaveExigido ? transporteDoPayload(recusa) : null,
+      observacaoAnterior: observacaoEditada(observacaoDoPayload(recusa), e.observacao),
       resumo,
       notas,
       correcao: {
@@ -417,7 +421,9 @@ export async function salvarCestMotoAction(motoId: string, cestBruto: string): P
  * "Salvar e reenviar nº N" (#347): grava a correção no cadastro de origem e a nota é
  * remontada dele. Não há salvar sem enviar: deixaria a venda sem nota.
  */
-export async function corrigirEReenviarNfAction(motoId: string, correcao: CorrecaoNf, renave?: DadosRenave | null, transporte?: DadosTransporte): Promise<ResultadoTransmissao> {
+export async function corrigirEReenviarNfAction(
+  motoId: string, correcao: CorrecaoNf, renave?: DadosRenave | null, transporte?: DadosTransporte, observacao?: string | null,
+): Promise<ResultadoTransmissao> {
   try {
     const usuario = await exigirPapel('corrigir')
     const e = await montarEmissao(motoId, usuario)
@@ -425,8 +431,10 @@ export async function corrigirEReenviarNfAction(motoId: string, correcao: Correc
     if (!r.ok) return r
     const t = operacaoExigeEntrega(r.dados?.tipoOperacao) ? validarDadosTransporte(transporte) : null
     if (t && !t.ok) return { ok: false, error: t.erro }
+    const o = observacaoDaNota(observacao, e.observacao)
+    if (!o.ok) return o
     await db.transaction(tx => gravarCorrecaoDaNf(tx, usuario, motoId, e.cfg.ambiente, correcao))
-    return transmitirNfePropriaAction(motoId, r.dados, t?.ok ? t.dados : undefined)
+    return transmitirNfePropriaAction(motoId, r.dados, t?.ok ? t.dados : undefined, observacao)
   } catch (err) {
     return { ok: false, error: (err as Error).message }
   }
@@ -506,8 +514,13 @@ async function resumoDaNota(id: string): Promise<NotaResumo> {
   return nota
 }
 
-/** `renave`: o formulário do veículo como está na tela (só ciclomotor). */
-export async function transmitirNfePropriaAction(motoId: string, renave?: DadosRenave | null, transporte?: DadosTransporte): Promise<ResultadoTransmissao> {
+/**
+ * `renave`: o formulário do veículo como está na tela (só ciclomotor).
+ * `observacao`: o texto editado na prévia; vazio ou ausente, sai o padrão.
+ */
+export async function transmitirNfePropriaAction(
+  motoId: string, renave?: DadosRenave | null, transporte?: DadosTransporte, observacao?: string | null,
+): Promise<ResultadoTransmissao> {
   let notaId: string | null = null
   try {
     const usuario = await exigirPapel()
@@ -520,7 +533,9 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     const r = conferirRenave(e.renaveExigido, renave)
     if (!r.ok) return r
     const renaveValidado = r.dados
-    const eComRenave = { ...e, renave: renaveValidado }
+    const o = observacaoDaNota(observacao, e.observacao)
+    if (!o.ok) return o
+    const eDaNota = { ...e, renave: renaveValidado, observacao: o.texto }
     let transporteValidado: DadosTransporte | undefined
     if (operacaoExigeEntrega(renaveValidado?.tipoOperacao)) {
       const t = validarDadosTransporte(transporte)
@@ -585,7 +600,7 @@ export async function transmitirNfePropriaAction(motoId: string, renave?: DadosR
     }
 
     const uf = await ufDaEmpresa(e.cfg)
-    const payload = montarNfeVendaMoto(dadosDaVenda(eComRenave, uf, idExterno, transporteValidado), e.regra)
+    const payload = montarNfeVendaMoto(dadosDaVenda(eDaNota, uf, idExterno, transporteValidado), e.regra)
 
     notaId = await gravarEnvio(db, escolha, {
       vendaId: e.venda.id, vendaNumero: e.venda.numero, grupoId: e.grupoId, ambiente: e.cfg.ambiente, payload, emitidaPor: usuario.id,
