@@ -5,6 +5,7 @@ import { and, asc, eq, isNotNull, ne, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { conciliacoesCartao, grupos, pixRecebimentosMcp } from '@/lib/db/schema'
 import { PIX_ESTORNADO } from '@/lib/pix-status'
+import { CARTAO_ESTORNADO } from '@/lib/cartao-status'
 import { decifrar } from '@/lib/cripto'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import type { Operadora } from '@/lib/conciliacao-cartao'
@@ -145,8 +146,8 @@ async function gravarPix(tx: Tx, grupoId: string, contaId: string, pix: Pix): Pr
 async function marcarEstorno(tx: Tx, grupoId: string, meio: 'cartao' | 'pix', chave: string): Promise<boolean> {
   if (meio === 'cartao') {
     const linhas = await tx.update(conciliacoesCartao)
-      .set({ status: 'estornado', conciliado: false })
-      .where(and(eq(conciliacoesCartao.grupoId, grupoId), eq(conciliacoesCartao.operadora, OPERADORA), eq(conciliacoesCartao.nsu, chave), ne(conciliacoesCartao.status, 'estornado')))
+      .set({ status: CARTAO_ESTORNADO, conciliado: false })
+      .where(and(eq(conciliacoesCartao.grupoId, grupoId), eq(conciliacoesCartao.operadora, OPERADORA), eq(conciliacoesCartao.nsu, chave), ne(conciliacoesCartao.status, CARTAO_ESTORNADO)))
       .returning({ id: conciliacoesCartao.id })
     return linhas.length > 0
   }

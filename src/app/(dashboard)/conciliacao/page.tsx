@@ -7,6 +7,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { getGrupoAtivo } from '@/lib/grupo'
 import { INICIO_CONCILIACAO } from '@/lib/conciliacao-periodo'
+import { cartaoPendente } from '@/lib/cartao-status'
 import { redirect } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { UploadRelatorio } from './components/upload-relatorio'
@@ -30,7 +31,8 @@ export default async function ConciliacaoPage({
   const filtroStatus =
     filtro === 'conciliadas' ? eq(conciliacoesCartao.conciliado, true) :
     filtro === 'todas'       ? undefined :
-    eq(conciliacoesCartao.conciliado, false)
+    // Estornada não é pendência; aparece só em "Todas".
+    cartaoPendente
 
   // Nada de antes do início do período de conciliação — ver INICIO_CONCILIACAO.
   const doPeriodo = and(
@@ -98,7 +100,7 @@ export default async function ConciliacaoPage({
   }
 
   const [totalPendentes, totalConciliadas] = await Promise.all([
-    db.$count(conciliacoesCartao, and(doPeriodo, eq(conciliacoesCartao.conciliado, false))),
+    db.$count(conciliacoesCartao, and(doPeriodo, cartaoPendente)),
     db.$count(conciliacoesCartao, and(doPeriodo, eq(conciliacoesCartao.conciliado, true))),
   ])
 

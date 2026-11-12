@@ -4,6 +4,7 @@ import { maquininhasDoGrupo } from '@/lib/maquininhas'
 import { gruposDoTerminalNaConta } from '@/lib/terminal-da-conta'
 import { db } from '@/lib/db'
 import { pixQueCobre } from '@/lib/pix-status'
+import { cartaoNaoEstornado, cartaoPendente } from '@/lib/cartao-status'
 import { conciliacoesCartao, pixRecebimentosMcp, vendas, modelos, motos, vendasPecas, ordensServico, clientes } from '@/lib/db/schema'
 import { eq, and, or, desc, gte, sql, isNull, ilike, inArray } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
@@ -291,6 +292,10 @@ async function importarRelatorio(formData: FormData) {
   return { importadas, duplicadas, conciliadas, semCodigo, incompletas }
 }
 
+// Linha de outro grupo, inexistente ou estornada recebem a mesma frase: estornada não se vincula
+// (vincular poria o valor devolvido de volta nas somas), e a frase não revela mais que "não achei".
+const CONCILIACAO_NAO_ENCONTRADA = 'Conciliação não encontrada'
+
 export async function vincularVendaAction(conciliacaoId: string, alvoId: string, tipo: 'moto' | 'peca' | 'os' = 'moto') {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) throw new Error('Sem permissão')
@@ -304,9 +309,9 @@ export async function vincularVendaAction(conciliacaoId: string, alvoId: string,
     }
     const atualizadas = await db.update(conciliacoesCartao)
       .set({ pecaVendaId: alvoId, vendaId: null, osId: null, conciliado: true, conciliadoEm: new Date() })
-      .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+      .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id), cartaoNaoEstornado))
       .returning({ id: conciliacoesCartao.id })
-    if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
+    if (atualizadas.length === 0) throw new RecusaUsuario(CONCILIACAO_NAO_ENCONTRADA)
     revalidatePath('/conciliacao')
     return
   }
@@ -318,9 +323,9 @@ export async function vincularVendaAction(conciliacaoId: string, alvoId: string,
     }
     const atualizadas = await db.update(conciliacoesCartao)
       .set({ osId: alvoId, vendaId: null, pecaVendaId: null, conciliado: true, conciliadoEm: new Date() })
-      .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+      .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id), cartaoNaoEstornado))
       .returning({ id: conciliacoesCartao.id })
-    if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
+    if (atualizadas.length === 0) throw new RecusaUsuario(CONCILIACAO_NAO_ENCONTRADA)
     revalidatePath('/conciliacao')
     return
   }
@@ -337,10 +342,10 @@ export async function vincularVendaAction(conciliacaoId: string, alvoId: string,
 
   const atualizadas = await db.update(conciliacoesCartao)
     .set({ vendaId: alvoId, pecaVendaId: null, osId: null, conciliado: true, conciliadoEm: new Date() })
-    .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id)))
+    .where(and(eq(conciliacoesCartao.id, conciliacaoId), eq(conciliacoesCartao.grupoId, grupo.id), cartaoNaoEstornado))
     .returning({ id: conciliacoesCartao.id })
 
-  if (atualizadas.length === 0) throw new Error('Conciliação não encontrada')
+  if (atualizadas.length === 0) throw new RecusaUsuario(CONCILIACAO_NAO_ENCONTRADA)
 
   revalidatePath('/conciliacao')
 }
@@ -383,6 +388,7 @@ export async function buscarConciliacoesPorValor(valor: number) {
         // Fora do período de conciliação não é candidato — ver INICIO_CONCILIACAO.
         gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
         sql`${conciliacoesCartao.vendaId} IS NULL`,
+        cartaoNaoEstornado,
         sql`ABS(${conciliacoesCartao.valorBruto}::numeric - ${valor}) <= 0.05`,
       )
     )
@@ -509,7 +515,7 @@ export async function buscarConciliacoesLivres(query: string) {
     .where(and(
       eq(conciliacoesCartao.grupoId, grupo.id),
       gte(conciliacoesCartao.dataTransacao, INICIO_CONCILIACAO),
-      eq(conciliacoesCartao.conciliado, false),
+      cartaoPendente,
       filtro,
     ))
     .orderBy(desc(conciliacoesCartao.dataTransacao))
