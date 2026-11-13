@@ -1,6 +1,6 @@
 import type { papelEnum } from '@/lib/db/schema'
 
-type PapelDoBanco = (typeof papelEnum.enumValues)[number]
+export type PapelDoBanco = (typeof papelEnum.enumValues)[number]
 
 // Única fonte do texto de cada papel nas telas internas: papel novo no enum quebra o type-check
 // até ganhar rótulo aqui. O formulário público de adesão tem texto próprio (PAPEIS_ADESAO).
