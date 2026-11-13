@@ -80,7 +80,7 @@ function Linha({ aprovacao, podeAprovar }: { aprovacao: AprovacaoPendente; podeA
     <div className={`flex flex-col gap-3 rounded-lg border px-4 py-3 md:flex-row md:items-center md:justify-between ${
       sensivel ? 'bg-info/10 border-info/30' : 'bg-warning/10 border-warning/30'
     }`}>
-      <div className="flex items-start gap-2.5 min-w-0">
+      <div className="flex items-start gap-2.5 min-w-0 md:flex-1">
         {sensivel
           ? <Landmark size={16} className="text-info mt-0.5 shrink-0" />
           : <TrendingDown size={16} className="text-warning mt-0.5 shrink-0" />}
