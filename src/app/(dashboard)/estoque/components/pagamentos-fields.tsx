@@ -7,6 +7,7 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { X, Plus } from 'lucide-react'
 import type { TaxasVenda } from '@/lib/preco-minimo'
+import { pagamentosFecham } from '@/lib/pagamentos-entrada'
 
 // Linhas de forma de pagamento — usadas tanto na venda quanto na entrada da
 // reserva. Vive aqui porque o vender-button já passava de mil linhas.
@@ -45,6 +46,11 @@ export function parcelasDisponiveis(tipo: string, taxas: TaxasVenda | null): num
       .sort((a, b) => a - b)
   }
   return []
+}
+
+/** Soma das linhas = total, pela mesma regra do servidor (centavos): tela e servidor decidem igual. */
+export function pgtosFecham(pgtos: readonly Pgto[], total: number): boolean {
+  return pagamentosFecham(pgtos.map(p => ({ tipo: p.tipo, valor: parseFloat(p.valor) || 0 })), total)
 }
 
 /** Linha incompleta = trava o submit. Mesma regra na venda e na reserva. */

@@ -196,3 +196,41 @@ test('quem recebe com CPF inválido deixa "Confirmar Venda" desabilitado', async
   await t.clique(botao('Confirmar Venda'))
   assert.equal(registrar.mock.callCount(), 0)
 })
+
+// Soma das formas (#775, r2): a tela decide pela mesma pagamentosFecham do servidor, em centavos. 1.000,01 contra
+// 1.000,00 passava na conta em float; agora o botão só habilita com o total exato.
+async function preencherComprador() {
+  await digitar(porPlaceholder(/^CPF ou CNPJ$/), '52998224725')
+  await digitar(porPlaceholder(/^Nome/), 'Cliente sintético')
+  await digitar(porPlaceholder(/^\(00\)/), '35999990774')
+  await digitar(porPlaceholder(/^email@/), 'c@example.com')
+}
+
+test('venda de R$ 1.000,00 com a forma em R$ 1.000,01 mantém "Confirmar Venda" desabilitado; com R$ 1.000,00 habilita', async () => {
+  const t = await montar({ reservaAtiva: undefined, papel: 'admin_socio' })
+  await preencherComprador()
+  await digitar(porPlaceholder(/^0,00$/, 0), '100000')
+  await preencherVenda(t)
+  const valorDaForma = porPlaceholder(/^0,00$/, 1)
+
+  await digitar(valorDaForma, '100000')
+  assert.equal(botao('Confirmar Venda')?.disabled, false, 'soma exata habilita')
+  await digitar(valorDaForma, '100001')
+  assert.equal(botao('Confirmar Venda')?.disabled, true, '1 centavo a mais desabilita')
+})
+
+test('reserva com entrada de R$ 1.000,00 e a forma em R$ 1.000,01 mantém "Confirmar Reserva" desabilitado; com R$ 1.000,00 habilita', async () => {
+  const t = await montar({ reservaAtiva: undefined, papel: 'admin_socio' })
+  await t.clique(botao('Reserva'))
+  await preencherComprador()
+  await digitar(porPlaceholder(/^0,00$/, 0), '100000')
+  await digitar(porPlaceholder(/^0,00$/, 1), '1000000')
+  await digitar(document.querySelectorAll<HTMLInputElement>('input[type="date"]')[1], '2026-12-01')
+  await pagarRestanteCom(t, 'PIX')
+  const valorDaForma = porPlaceholder(/^0,00$/, 2)
+
+  await digitar(valorDaForma, '100000')
+  assert.equal(botao('Confirmar Reserva')?.disabled, false, 'soma exata habilita')
+  await digitar(valorDaForma, '100001')
+  assert.equal(botao('Confirmar Reserva')?.disabled, true, '1 centavo a mais desabilita')
+})

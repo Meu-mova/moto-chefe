@@ -45,15 +45,18 @@ function num(v: string | number | null | undefined): number {
   return isNaN(n) ? 0 : n
 }
 
+/** Só os campos conhecidos, com valor e parcelas em número: o que vem da tela não entra cru no jsonb. */
+export function projetarPagamentos(pgs: readonly PagamentoEntrada[]): PagamentoEntrada[] {
+  return pgs.map(p => ({
+    tipo: p.tipo,
+    valor: num(p.valor),
+    ...(p.operadora ? { operadora: p.operadora } : {}),
+    ...(p.parcelas ? { parcelas: Number(p.parcelas) } : {}),
+  }))
+}
+
 export function normalizarPagamentos(r: RegistroLegado): PagamentoEntrada[] {
-  if (Array.isArray(r.pagamentos) && r.pagamentos.length > 0) {
-    return (r.pagamentos as PagamentoEntrada[]).map(p => ({
-      tipo: p.tipo,
-      valor: num(p.valor),
-      ...(p.operadora ? { operadora: p.operadora } : {}),
-      ...(p.parcelas ? { parcelas: Number(p.parcelas) } : {}),
-    }))
-  }
+  if (Array.isArray(r.pagamentos) && r.pagamentos.length > 0) return projetarPagamentos(r.pagamentos as PagamentoEntrada[])
   // Legado: uma linha só, montada a partir das colunas antigas. Sem meio de
   // pagamento não há o que mostrar (demanda sem sinal).
   if (!r.meioPagamento) return []
@@ -69,10 +72,31 @@ export function somaPagamentos(pgs: PagamentoEntrada[]): number {
   return pgs.reduce((a, p) => a + num(p.valor), 0)
 }
 
-/** A soma das formas tem que bater com a entrada, com folga de um centavo. */
-export function pagamentosFecham(pgs: PagamentoEntrada[], valorEntrada: number): boolean {
-  if (!(valorEntrada > 0) || pgs.length === 0) return false
-  return Math.abs(somaPagamentos(pgs) - valorEntrada) < 0.01
+const centavos = (v: number) => Math.round(v * 100)
+
+/**
+ * A soma das formas tem que bater com o total, centavo por centavo. Em centavos inteiros
+ * porque, em float, 1 centavo de diferença passava ou não conforme o valor (1000,01 − 1000 < 0,01).
+ */
+export function pagamentosFecham(pgs: readonly PagamentoEntrada[], valorTotal: number): boolean {
+  if (!(valorTotal > 0) || pgs.length === 0) return false
+  return pgs.reduce((a, p) => a + centavos(num(p.valor)), 0) === centavos(valorTotal)
+}
+
+/** Frase única da forma de pagamento sem tipo ou sem valor (Vender, efetivação, editar, reserva, demanda). */
+export const PAGAMENTO_INCOMPLETO = 'Toda forma de pagamento precisa de tipo e valor'
+
+/** Alguma forma sem tipo, ou com valor que não é positivo. */
+export function pagamentosIncompletos(pgs: readonly { tipo?: string | null; valor: number | string }[]): boolean {
+  return pgs.some(p => !p.tipo || !(Number(p.valor) > 0))
+}
+
+/** Frase única da soma que não fecha: Vender, pedir aprovação, efetivação, editar venda e reserva. */
+export const SOMA_PAGAMENTOS_DIFERE = 'Somatório das formas de pagamento difere do valor da venda'
+
+/** Coluna `forma_pagamento` da venda: o tipo quando é uma forma só, 'multiplos' quando são várias. */
+export function formaPagamentoDaVenda(pgs: readonly { tipo: string }[]): string {
+  return pgs.length === 1 ? pgs[0].tipo : 'multiplos'
 }
 
 function fmtBRL(v: number): string {

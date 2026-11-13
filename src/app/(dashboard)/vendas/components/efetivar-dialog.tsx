@@ -73,8 +73,10 @@ export function EfetivarDialog({ pedidoId, chassi, modelo, origens, entrega }: P
     if (!podeEfetivar) return
     setLoading(true)
     try {
+      // Uma forma só nesta tela; a lista de formas chega com a tela nova (#784). O total inclui o frete do pedido.
+      const pagamentos = [{ tipo: formaPagamento, valor: totalComFrete(Number(valor) || 0, frete) }]
       const r = await efetivarVendaAction(
-        pedidoId, clienteNome, clienteCpf, valor, formaPagamento, clienteId ?? undefined,
+        pedidoId, clienteNome, clienteCpf, valor, pagamentos, clienteId ?? undefined,
         origemId, origemDetalhe.trim() || undefined,
       )
       if (!r.ok) { toast.error(r.erro); return }

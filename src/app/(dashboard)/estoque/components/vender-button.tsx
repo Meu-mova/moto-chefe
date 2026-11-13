@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { Search, ShoppingCart, CalendarClock, AlertTriangle, CheckCircle2, UserCheck, UserX, Loader2 } from 'lucide-react'
-import { PagamentosFields, pgtoIncompleto, TIPOS_COM_PARCELAS, type Pgto } from './pagamentos-fields'
+import { PagamentosFields, pgtoIncompleto, pgtosFecham, TIPOS_COM_PARCELAS, type Pgto } from './pagamentos-fields'
 import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
 import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
@@ -362,7 +362,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const tipoPessoa = tipoPessoaSeCompleto(clienteCpf)
   const valorNum = parseFloat(valorVenda) || 0
   const somatorio = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
-  const somatorioOk = valorNum > 0 && Math.abs(somatorio - valorNum) < 0.01
+  const somatorioOk = pgtosFecham(pgtos, valorNum)
   const cartaoIncompleto = pgtos.some(p => pgtoIncompleto(p, taxasVenda, maquininhas))
   const clientePreenchido = !!(clienteNome && lerDocumentoCliente(clienteCpf).ok && clienteCelular && clienteEmail)
 
@@ -391,7 +391,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const valorReservaNum = parseFloat(valorReserva) || 0
   const valorTotalNum = parseFloat(valorTotalVenda) || 0
   const somaReserva = pgtosReserva.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
-  const somaReservaOk = valorReservaNum > 0 && Math.abs(somaReserva - valorReservaNum) < 0.01
+  const somaReservaOk = pgtosFecham(pgtosReserva, valorReservaNum)
   const pgtosReservaOk = pgtosReserva.every(p => p.tipo && p.valor && !pgtoIncompleto(p, taxasVenda, maquininhas))
   const reservaValidacao = precoMinimoPix
     ? validarReserva(valorReservaNum, valorTotalNum, precoMinimoPix)

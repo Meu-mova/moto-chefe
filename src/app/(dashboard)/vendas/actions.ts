@@ -9,7 +9,8 @@ import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, his
 import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
-import { pagamentosFecham, somaPagamentos, descreverPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { pagamentosFecham, descreverPagamentos, formaPagamentoDaVenda, pagamentosIncompletos, PAGAMENTO_INCOMPLETO, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
+import { lancamentosDinheiroDaVenda } from '@/lib/caixa-venda-moto'
 import { podeAbrirRegistroDaLoja, podeEditarVendaDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
 import { clientesDoEscopo, contaDaLoja, lojasDoEscopo } from '@/lib/conta'
 import { conferirComprador, conferirCompradorDaVenda, gravarCompradorDaVenda } from '@/lib/venda-comprador'
@@ -216,7 +217,7 @@ async function efetivarVenda(
   clienteNome: string,
   clienteCpf: string,
   valor: string,
-  formaPagamento: string,
+  pagamentos: PagamentoEntrada[],
   clienteId?: string,
   origemId?: string,
   origemDetalhe?: string,
@@ -234,7 +235,7 @@ async function efetivarVenda(
   const valorNum = parseFloat(valor)
   if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
-  if (TIPOS_PAGAMENTO_SENSIVEL.has(formaPagamento) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId))) {
+  if (temPagamentoSensivel(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId))) {
     throw new RecusaUsuario('Venda com financiamento ou transferência bancária precisa de aprovação. Use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
   }
 
@@ -251,7 +252,7 @@ async function efetivarVenda(
     clienteNome,
     clienteCpf: comprador.clienteCpf,
     valor: valorNum,
-    formaPagamento,
+    pagamentos,
     origem,
     grupoLiberado: usuario.grupoLiberado,
   }))
@@ -466,20 +467,11 @@ async function criarVendaTx(
     observacao: `Venda — Cliente: ${data.clienteNome} — Total: R$ ${valorNum.toFixed(2)} — ${descPagamentos}`,
   })
 
-  // Registrar pagamentos em dinheiro no caixa automaticamente
-  const pagamentosDinheiro = data.pagamentos.filter(p => p.tipo === 'dinheiro')
-  for (const pgto of pagamentosDinheiro) {
-    await tx.insert(lancamentosCaixa).values({
-      lojaId: moto.lojaId,
-      usuarioId: efetivadoPor,
-      tipo: 'entrada',
-      categoria: 'Venda',
-      descricao: `Venda dinheiro — ${data.clienteNome}`,
-      valor: pgto.valor.toFixed(2),
-      data: dataVendaFinal.toISOString().split('T')[0],
-      vendaId: venda.id,
-    })
-  }
+  const caixa = lancamentosDinheiroDaVenda(data.pagamentos, {
+    lojaId: moto.lojaId, usuarioId: efetivadoPor, vendaId: venda.id,
+    descricao: `Venda dinheiro — ${data.clienteNome}`, data: hojeBrt(dataVendaFinal),
+  })
+  if (caixa.length > 0) await tx.insert(lancamentosCaixa).values(caixa)
 
   return { vendaId: venda.id }
 }
@@ -510,10 +502,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
   const valorNum = parseFloat(data.valorTotal)
   if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
-  const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
-  if (Math.abs(soma - valorNum) > 0.01) {
-    throw new RecusaUsuario('Somatório das formas de pagamento difere do valor da venda')
-  }
+  if (!pagamentosFecham(data.pagamentos, valorNum)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
 
   // Transferência bancária sempre precisa da aprovação do responsável,
   // independente de valor ou papel — ver podeAprovarPagamentoSensivelNaLoja.
@@ -1119,14 +1108,8 @@ async function registrarReserva(data: DadosReserva) {
   const { clienteCpf } = conferirComprador(data.clienteCpf)
 
   const pagamentos = data.pagamentos ?? []
-  if (pagamentos.some(p => !p.tipo || !(p.valor > 0))) {
-    throw new RecusaUsuario('Toda forma de pagamento precisa de tipo e valor')
-  }
-  if (!pagamentosFecham(pagamentos, valorNum)) {
-    throw new RecusaUsuario(
-      `A soma das formas de pagamento (${somaPagamentos(pagamentos).toFixed(2)}) não bate com a entrada (${valorNum.toFixed(2)})`,
-    )
-  }
+  if (pagamentosIncompletos(pagamentos)) throw new RecusaUsuario(PAGAMENTO_INCOMPLETO)
+  if (!pagamentosFecham(pagamentos, valorNum)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
   // meio_pagamento e as colunas de cartão guardam a PRIMEIRA linha — é o que o
   // comprovante, o histórico e queries/motos.ts leem. O detalhe vai no jsonb.
   const principal = pagamentos[0]
@@ -1382,14 +1365,8 @@ async function editarVenda(vendaId: string, dados: {
   const travaValor = travaDoValorVenda(usuario.papel, Number(vendaAtual.valor), valorNum)
   if (travaValor) throw new RecusaUsuario(travaValor)
 
-  for (const p of dados.pagamentos) {
-    if (!p.valor || p.valor <= 0) throw new RecusaUsuario('Valor de pagamento inválido')
-  }
-
-  const somaPayments = dados.pagamentos.reduce((s, p) => s + Number(p.valor), 0)
-  if (Math.abs(somaPayments - valorNum) > 0.01) {
-    throw new RecusaUsuario('Soma dos pagamentos não confere com o valor total')
-  }
+  if (pagamentosIncompletos(dados.pagamentos)) throw new RecusaUsuario(PAGAMENTO_INCOMPLETO)
+  if (!pagamentosFecham(dados.pagamentos, valorNum)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
 
   // ── NF de saída: só permite corrigir uma NF já existente ────────────────────
   // Para adicionar uma NF nova, use o botão "Confirmar NF de Saída"
@@ -1397,9 +1374,7 @@ async function editarVenda(vendaId: string, dados: {
     ? (dados.notaFiscalSaida?.trim() || vendaAtual.notaFiscalSaida)
     : vendaAtual.notaFiscalSaida
 
-  const formaPagamento = dados.pagamentos.length === 1
-    ? dados.pagamentos[0].tipo
-    : 'multiplos'
+  const formaPagamento = formaPagamentoDaVenda(dados.pagamentos)
 
   await db.transaction(async tx => {
     // Atualiza a venda
@@ -1445,19 +1420,11 @@ async function editarVenda(vendaId: string, dados: {
     await tx.delete(lancamentosCaixa)
       .where(and(eq(lancamentosCaixa.vendaId, vendaId), eq(lancamentosCaixa.tipo, 'entrada')))
 
-    const pagamentosDinheiro = dados.pagamentos.filter(p => p.tipo === 'dinheiro')
-    for (const pgto of pagamentosDinheiro) {
-      await tx.insert(lancamentosCaixa).values({
-        lojaId:    vendaAtual.lojaId,
-        usuarioId: usuario.id,
-        tipo:      'entrada',
-        categoria: 'Venda',
-        descricao: `Venda dinheiro (editado) — ${dados.clienteNome}`,
-        valor:     pgto.valor.toFixed(2),
-        data:      dados.dataVenda,
-        vendaId,
-      })
-    }
+    const caixa = lancamentosDinheiroDaVenda(dados.pagamentos, {
+      lojaId: vendaAtual.lojaId, usuarioId: usuario.id, vendaId,
+      descricao: `Venda dinheiro (editado) — ${dados.clienteNome}`, data: dados.dataVenda,
+    })
+    if (caixa.length > 0) await tx.insert(lancamentosCaixa).values(caixa)
   })
 
   revalidatePath('/vendas')
@@ -1669,10 +1636,7 @@ async function solicitarAprovacaoVenda(
   const valorNum = parseFloat(data.valorTotal)
   if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
-  const soma = data.pagamentos.reduce((a, p) => a + p.valor, 0)
-  if (Math.abs(soma - valorNum) > 0.01) {
-    throw new RecusaUsuario('Somatório das formas de pagamento difere do valor da venda')
-  }
+  if (!pagamentosFecham(data.pagamentos, valorNum)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
 
   // Valida a origem já aqui, não só na aprovação: um dados_venda inválido só
   // quebraria na hora de aprovar, na frente de quem aprova.

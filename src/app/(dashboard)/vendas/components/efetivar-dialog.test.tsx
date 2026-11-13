@@ -4,13 +4,14 @@ import { createElement } from 'react'
 import test, { after, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { montarDom } from '@/test/montar-dom'
-import { clicar } from '@/test/eventos-dom'
+import { clicar, digitar, escolher, escolherOpcao } from '@/test/eventos-dom'
 import type { EntregaVenda } from '@/lib/notagateway/entrega'
 
 const { desmontar: desmontarDom } = montarDom()
 after(desmontarDom)
 
-mock.module('../actions', { namedExports: { efetivarVendaAction: async () => ({ ok: true, dados: undefined }) } })
+const enviados: unknown[][] = []
+mock.module('../actions', { namedExports: { efetivarVendaAction: async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } } } })
 mock.module('@/app/(dashboard)/clientes/actions', { namedExports: {
   buscarClientesAction: async () => [], criarClienteAction: async () => ({ ok: true, dados: undefined }),
 } })
@@ -20,14 +21,14 @@ afterEach(async () => { for (const desmontar of montados.splice(0)) await desmon
 
 const entregaNaTela = () => document.querySelector('[aria-label="Entrega do pedido"]')?.textContent ?? ''
 
-async function abrir(entrega: EntregaVenda | null) {
+async function abrir(entrega: EntregaVenda | null, origens: { id: string; nome: string; tipo: string; pedeDetalhe: boolean }[] = []) {
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
   const { EfetivarDialog } = await import('./efetivar-dialog')
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
-  await act(async () => { root.render(createElement(EfetivarDialog, { pedidoId: 'p1', chassi: 'LA1', modelo: 'MC JET', origens: [], entrega })) })
+  await act(async () => { root.render(createElement(EfetivarDialog, { pedidoId: 'p1', chassi: 'LA1', modelo: 'MC JET', origens, entrega })) })
   montados.push(() => act(async () => { root.unmount(); container.remove() }))
   await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Efetivar Venda'))
 }
@@ -63,7 +64,6 @@ test('"Retira na loja" do pedido e pedido antigo sem Entrega', async () => {
 
 // Frete cobrado (#726, 4b): a efetivação mostra o frete do pedido e o total; o servidor soma o frete do pedido.
 test('pedido com frete: mostra o frete cobrado, pede o valor da moto e soma o total', async () => {
-  const { digitar } = await import('@/test/eventos-dom')
   await abrir({ ...ENTREGAR, frete: 350 } as EntregaVenda)
   assert.match(entregaNaTela(), /Frete cobrado: R\$\s*350,00/)
   const rotulo = [...document.querySelectorAll('label')].find(l => /^Valor da moto/.test(l.textContent ?? ''))
@@ -77,4 +77,19 @@ test('pedido sem frete continua com "Valor (R$)" e sem total à parte', async ()
   await abrir(ENTREGAR)
   assert.ok([...document.querySelectorAll('label')].some(l => (l.textContent ?? '') === 'Valor (R$)'))
   assert.doesNotMatch(document.body.textContent ?? '', /Total \(moto \+ frete\)/)
+})
+
+// Pagamento do pedido (#775): a tela de hoje tem uma forma só e manda uma lista com ela, valendo moto + frete.
+test('efetivar manda a forma escolhida como lista de um pagamento, com o total (moto + frete)', async () => {
+  enviados.splice(0)
+  await abrir({ ...ENTREGAR, frete: 350 } as EntregaVenda, [{ id: 'o1', nome: 'Passou na porta', tipo: 'outro', pedeDetalhe: false }])
+  const campoDe = (rotulo: RegExp) => [...document.querySelectorAll('label')].find(l => rotulo.test(l.textContent ?? ''))!.parentElement!.querySelector('input')!
+  await digitar(campoDe(/^Nome do Cliente/), 'Cliente sintético')
+  await digitar(campoDe(/^CPF\/CNPJ/), '52998224725')
+  await digitar(campoDe(/^Valor da moto/), '1000000')
+  await escolher(document.querySelector('select')!, 'o1')
+  await escolherOpcao([...document.querySelectorAll('button')].find(b => /Selecionar/.test(b.textContent ?? '')), 'Dinheiro')
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Confirmar Venda'))
+  assert.equal(enviados.length, 1)
+  assert.deepEqual(enviados[0].slice(3, 5), ['10000.00', [{ tipo: 'dinheiro', valor: 10350 }]])
 })

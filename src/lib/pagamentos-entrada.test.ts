@@ -5,6 +5,8 @@ import {
   somaPagamentos,
   pagamentosFecham,
   descreverPagamentos,
+  pagamentosIncompletos,
+  projetarPagamentos,
 } from './pagamentos-entrada'
 
 test('registro antigo (pagamentos nulo) vira uma linha só, com o meio de pagamento legado', () => {
@@ -90,4 +92,32 @@ test('sem meio de pagamento e sem jsonb não inventa linha (demanda sem sinal)',
     cartaoParcelas: null,
   })
   assert.deepEqual(pgs, [])
+})
+
+test('pagamentosFecham compara em centavos: 1 centavo a mais ou a menos sempre recusa, e o total exato sempre fecha', () => {
+  for (const total of [100, 1000, 5000, 2.04, 12345.67, 0.3]) {
+    assert.equal(pagamentosFecham([{ tipo: 'pix', valor: total + 0.01 }], total), false, `${total} + 0,01`)
+    assert.equal(pagamentosFecham([{ tipo: 'pix', valor: total - 0.01 }], total), false, `${total} - 0,01`)
+  }
+  assert.equal(pagamentosFecham([{ tipo: 'pix', valor: 0.1 }, { tipo: 'dinheiro', valor: 0.2 }], 0.3), true)
+  assert.equal(pagamentosFecham([{ tipo: 'pix', valor: 5000.01 }], 5000), false)
+})
+
+test('pagamentosIncompletos: forma sem tipo, sem valor ou com valor zero/negativo', () => {
+  assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: 10 }, { tipo: 'dinheiro', valor: 0.01 }]), false)
+  assert.equal(pagamentosIncompletos([{ tipo: '', valor: 10 }]), true)
+  assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: 0 }]), true)
+  assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: -5 }]), true)
+  assert.equal(pagamentosIncompletos([{ tipo: 'pix', valor: Number.NaN }]), true)
+})
+
+test('projetarPagamentos guarda só tipo, valor (número), operadora e parcelas', () => {
+  const vindoDaTela = [
+    { tipo: 'cartao_credito', valor: '1000.5', operadora: 'stone', parcelas: '3', extra: 'x' },
+    { tipo: 'pix', valor: 200 },
+  ] as unknown as Parameters<typeof projetarPagamentos>[0]
+  assert.deepEqual(projetarPagamentos(vindoDaTela), [
+    { tipo: 'cartao_credito', valor: 1000.5, operadora: 'stone', parcelas: 3 },
+    { tipo: 'pix', valor: 200 },
+  ])
 })
