@@ -4,7 +4,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { PrintTrigger } from './print-trigger'
+import { PrintTrigger } from '@/components/print-trigger'
 
 // Fonte única: a mesma lista alimenta o checklist assinável em
 // @/lib/assinatura/documento. Duas cópias divergiriam com o tempo.

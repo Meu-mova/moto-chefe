@@ -11,7 +11,7 @@ import {
   type TipoDocumento, type PagamentoVenda,
 } from '@/lib/assinatura/documento'
 import { contratoDaVenda } from '@/lib/contratos-grupo'
-import { PrintTrigger } from '../../../../vendas/[id]/checklist-entrega/print-trigger'
+import { PrintTrigger } from '@/components/print-trigger'
 
 /**
  * Via em papel do contrato e do checklist.
