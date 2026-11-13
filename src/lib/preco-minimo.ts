@@ -14,11 +14,10 @@ export type PgtoCalc = {
 // Tipos que não têm taxa — vendedor recebe o valor integral
 const SEM_TAXA = new Set(['pix', 'dinheiro', 'transferencia', 'financiamento'])
 
-// Tabela de taxa por número de parcelas de cada tipo parcelado
+// Tabela de taxa por número de parcelas de cada tipo parcelado (financiamento está em SEM_TAXA)
 const TAXA_PARCELADA: Record<string, keyof TaxasVenda> = {
   cartao_credito: 'taxasCartao',
   link_pagamento: 'taxasLink',
-  financiamento: 'taxasFinanciamento',
 }
 
 // Líquido que o vendedor recebe de um pagamento (após taxa da operadora/financeira)
@@ -47,7 +46,7 @@ export function calcLiquidoRecebido(pagamentos: PgtoCalc[], taxas: TaxasVenda): 
 /** Parcelas (mais de 1) dos pagamentos que pagam taxa parcelada, sem repetir e em ordem: o "12x" do líquido. */
 export function parcelasComTaxa(pagamentos: PgtoCalc[]): number[] {
   const parcelas = pagamentos
-    .filter(p => !SEM_TAXA.has(p.tipo) && Object.hasOwn(TAXA_PARCELADA, p.tipo) && (p.parcelas ?? 0) > 1)
+    .filter(p => Object.hasOwn(TAXA_PARCELADA, p.tipo) && (p.parcelas ?? 0) > 1)
     .map(p => p.parcelas as number)
   return [...new Set(parcelas)].sort((a, b) => a - b)
 }
