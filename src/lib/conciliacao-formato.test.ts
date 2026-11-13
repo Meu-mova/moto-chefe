@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { detectarFormato } from './conciliacao-formato'
 import { montarRelatorioCielo, vendaCielo } from '@/test/relatorio-cielo-sintetico'
 import { montarRelatorioRede, parcelaRede } from '@/test/relatorio-rede-sintetico'
-import { montarRelatorioRendimento, operacaoRendimento } from '@/test/relatorio-rendimento-sintetico'
+import { CABECALHO_RENDIMENTO, montarRelatorioRendimento, operacaoRendimento } from '@/test/relatorio-rendimento-sintetico'
 
 test('relatório da Cielo é reconhecido pela capa, mesmo com a 1ª linha sem cara de cabeçalho', () => {
   assert.equal(detectarFormato(montarRelatorioCielo({ linhas: [vendaCielo()] })), 'cielo')
@@ -29,4 +29,9 @@ test('relatório de operações da Rendimento é reconhecido pelo cabeçalho, me
   const texto = montarRelatorioRendimento([operacaoRendimento()])
   assert.equal(detectarFormato(texto), 'rendimento')
   assert.equal(detectarFormato(texto.replace(/[óçãé]/g, '\uFFFD')), 'rendimento')
+})
+
+test('Rendimento com coluna nova no fim do cabeçalho continua reconhecida', () => {
+  const comColunaNova = montarRelatorioRendimento([operacaoRendimento()], [...CABECALHO_RENDIMENTO, 'Coluna Nova'])
+  assert.equal(detectarFormato(comColunaNova), 'rendimento')
 })
