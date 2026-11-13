@@ -7,6 +7,7 @@ import { tipoDoCartao, type TransacaoDoRelatorio } from '@/lib/conciliacao-carta
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
 import { indicesDasColunas, lerLinhasDoRelatorio, linhasDoRelatorio, recusaDoCabecalho, type Celula } from '@/lib/relatorio-colunas'
+import { centavos } from './centavos'
 
 export type TransacaoRede = TransacaoDoRelatorio
 
@@ -74,8 +75,6 @@ function lerParcela(celula: Celula<keyof typeof COLUNAS>, numeroDaLinha: number)
     },
   }
 }
-
-const centavos = (n: number) => Math.round(n * 100) / 100
 
 // Venda só entra com todas as parcelas no arquivo: valor parcial conciliaria errado.
 function juntarParcelas(parcelas: Parcela[]): TransacaoRede | null {

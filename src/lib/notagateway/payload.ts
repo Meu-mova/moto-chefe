@@ -24,6 +24,7 @@ import { ehCartao, type FormaPagamentoNfe } from './venda'
 import type { IndicadorIe } from '../documento'
 import { operacaoExigeEntrega, type VeiculoNovo } from './veiculo'
 import { validarDadosTransporte, type DadosTransporte } from './transporte'
+import { centavos } from '@/lib/centavos'
 
 export type RegraSaida = {
   naturezaOperacao: string
@@ -215,7 +216,6 @@ export function montarNfeVendaMoto(venda: DadosVendaMoto, regra: RegraSaida) {
   const federal = num(regra.ibptFederal)
   const estadual = num(regra.ibptEstadual)
   if (federal !== undefined || estadual !== undefined) {
-    const centavos = (v: number) => Math.round(v * 100) / 100
     const valorFederal = centavos((venda.valor * (federal ?? 0)) / 100)
     const valorEstadual = centavos((venda.valor * (estadual ?? 0)) / 100)
     impostos.percentualAproximadoTributos = {
