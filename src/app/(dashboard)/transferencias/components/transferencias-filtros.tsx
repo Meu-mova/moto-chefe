@@ -3,6 +3,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { STATUS_TRANSFERENCIA } from '@/lib/transferencia-tela'
 import { MultiSelectFiltro } from '../../estoque/components/multi-select-filtro'
 
 type Loja   = { id: string; nome: string }
@@ -14,11 +15,7 @@ type Props = {
   isAdmin: boolean
 }
 
-const statusOpcoes = [
-  { value: 'pendente',  label: 'Pendente' },
-  { value: 'aceita',    label: 'Aceita' },
-  { value: 'recusada',  label: 'Recusada' },
-]
+const statusOpcoes = [...STATUS_TRANSFERENCIA]
 
 function parse(v: string | null): string[] {
   if (!v) return []
