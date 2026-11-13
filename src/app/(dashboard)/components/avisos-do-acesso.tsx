@@ -10,7 +10,7 @@ type Props = { novidade: NovidadeDaVersao | null; usuarioId: string; comunicados
 
 /**
  * Janelas de quem entra: as Novidades da versão primeiro e, depois do Entendi, os comunicados não
- * lidos. Uma de cada vez. A etapa é estado daqui, não da prop: o LIDO recarrega o layout, a
+ * lidos. Uma de cada vez. O "já viu" é estado daqui, não da prop: o LIDO recarrega o layout, a
  * novidade volta nula, e o comunicado aberto não pode desmontar (AGENTS.md, Interface).
  */
 export function AvisosDoAcesso({ novidade, usuarioId, comunicados }: Props) {

@@ -41,7 +41,8 @@ const janelasAbertas = () => document.querySelectorAll('[data-slot="dialog-conte
 
 /** O que o navegador dispara num clique no fundo escuro, fora da janela. */
 async function clicarFora(act: (f: () => Promise<void>) => Promise<void>) {
-  const fundo = document.querySelector('[data-slot="dialog-overlay"]') ?? document.body
+  const fundo = document.querySelector('[data-slot="dialog-overlay"]')
+  assert.ok(fundo, 'fundo da janela não encontrado')
   await act(async () => {
     for (const tipo of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
       fundo.dispatchEvent(new window.MouseEvent(tipo, { bubbles: true, cancelable: true, button: 0 }))
@@ -106,7 +107,7 @@ test('seção sem item não aparece', async () => {
   assert.deepEqual(secoes, ['Correções'])
 })
 
-test('Entendi grava o cookie da pessoa com a versão e passa aos comunicados, sem chamar o servidor', async () => {
+test('Entendi grava o cookie da pessoa com a versão e passa aos comunicados, sem marcar nenhum como lido', async () => {
   const t = await montarAvisos(NOVIDADE, 'pessoa-a')
   await t.clique('Entendi')
   assert.deepEqual(cookiesDoNavegador(), { 'novidade-vista-pessoa-a': '1.36.0' })
