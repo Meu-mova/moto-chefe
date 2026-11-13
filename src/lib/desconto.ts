@@ -15,6 +15,9 @@
  * quem negocia mal de quem parcela muito.
  */
 
+import { centavos } from './centavos'
+import { parcelasComTaxa, type PgtoCalc } from './preco-minimo'
+
 /** A partir daqui existe registro de desconto — antes o fluxo de aprovação não existia. */
 export const DESCONTO_REGISTRADO_DESDE = '2026-07-10'
 
@@ -46,6 +49,49 @@ export function calcDesconto(l: LinhaDesconto): Desconto | null {
   return {
     margem: Math.max(0, minimo - liquido),
     preco: Math.max(0, minimo - (isNaN(bruto) ? 0 : bruto)),
+  }
+}
+
+/** O quadro "Mínimo, Venda, Líquido" de um pedido de aprovação abaixo do mínimo (#876). */
+export type QuadroAbaixoDoMinimo = {
+  minimo: number
+  venda: number
+  liquido: number
+  /** Zero quando a venda não ficou abaixo do mínimo no preço: a tela não mostra diferença. */
+  abaixoNoPreco: number
+  abaixoDepoisDasTaxas: number
+  rotuloLiquido: string
+}
+
+type PedidoDeAprovacao = LinhaDesconto & { dadosVenda: unknown }
+
+const PARCELAS_EM_LISTA = new Intl.ListFormat('pt-BR', { type: 'conjunction' })
+
+// dados_venda é o formulário inteiro gravado em jsonb; pedido antigo ou de outro fluxo pode vir sem pagamentos.
+function pagamentosDoPedido(dadosVenda: unknown): PgtoCalc[] {
+  const pagamentos = (dadosVenda as { pagamentos?: unknown } | null)?.pagamentos
+  return Array.isArray(pagamentos) ? pagamentos.filter(p => p !== null && typeof p === 'object') : []
+}
+
+function rotuloDoLiquido(pagamentos: PgtoCalc[], liquido: number, venda: number): string {
+  const parcelas = parcelasComTaxa(pagamentos)
+  // Líquido igual à venda: a tabela não tinha taxa para essas parcelas, então não há "12x" a explicar.
+  if (parcelas.length === 0 || liquido >= venda) return 'Líquido'
+  return `Líquido (${PARCELAS_EM_LISTA.format(parcelas.map(n => `${n}x`))})`
+}
+
+/** Null sem snapshot (pagamento sensível, pedido antigo), como calcDesconto. */
+export function quadroAbaixoDoMinimo(p: PedidoDeAprovacao): QuadroAbaixoDoMinimo | null {
+  const desconto = calcDesconto(p)
+  if (!desconto) return null
+  const minimo = Number(p.valorMinimoSnapshot)
+  const venda = Number(p.valor)
+  const liquido = Number(p.liquidoSnapshot)
+  return {
+    minimo, venda, liquido,
+    abaixoNoPreco: centavos(desconto.preco),
+    abaixoDepoisDasTaxas: centavos(desconto.margem),
+    rotuloLiquido: rotuloDoLiquido(pagamentosDoPedido(p.dadosVenda), liquido, venda),
   }
 }
 
