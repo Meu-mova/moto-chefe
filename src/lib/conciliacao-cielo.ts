@@ -6,7 +6,7 @@
 import { tipoDoCartao, type TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
-import { chaveDaColuna, indicesDasColunas } from '@/lib/relatorio-colunas'
+import { chaveDaColuna, indicesDasColunas, lerLinhasDoRelatorio, linhasDoRelatorio, type Celula } from '@/lib/relatorio-colunas'
 
 export type TransacaoCielo = TransacaoDoRelatorio
 
@@ -34,8 +34,6 @@ const ehCabecalho = (linha: string) => {
   return nomes.includes(chaveDaColuna(COLUNAS.data)) && nomes.includes(chaveDaColuna(COLUNAS.status))
 }
 
-type Indices = Record<keyof typeof COLUNAS, number>
-
 // "R$ 1.234,56" e "-R$ 23,45": tira o prefixo da moeda e deixa o número para o parseNumeroBR.
 const valorEmReais = (texto: string) => parseNumeroBR(texto.replace(/R\$/g, ''))
 
@@ -46,8 +44,7 @@ const parcelasDaForma = (forma: string) => {
 
 type Lido = { transacao: TransacaoCielo } | { semCodigo: true } | { ignorada: true } | { erro: string }
 
-function lerVenda(celulas: string[], i: Indices, numeroDaLinha: number): Lido {
-  const celula = (campo: keyof Indices) => (celulas[i[campo]] ?? '').trim()
+function lerVenda(celula: Celula<keyof typeof COLUNAS>, numeroDaLinha: number): Lido {
   const tipo = tipoDoCartao(celula('forma'))
   if (celula('status') !== 'Aprovada' || !tipo) return { ignorada: true }
 
@@ -85,25 +82,19 @@ function lerVenda(celulas: string[], i: Indices, numeroDaLinha: number): Lido {
 }
 
 export function lerRelatorioCielo(texto: string): ResultadoCielo {
-  const linhas = texto.split(/\r?\n/)
+  const linhas = linhasDoRelatorio(texto)
   const posCabecalho = linhas.findIndex(ehCabecalho)
   if (posCabecalho < 0) return { ok: false, erro: 'Cabeçalho do relatório da Cielo não encontrado. Confira se o arquivo é o "Detalhado de vendas".' }
 
   const indices = indicesDasColunas(celulasDaLinha(linhas[posCabecalho]), COLUNAS)
   if ('faltam' in indices) return { ok: false, erro: `O relatório da Cielo não tem a coluna: ${indices.faltam.join(', ')}.` }
 
-  const lidas = linhas
-    .map((linha, pos) => ({ linha, numero: pos + 1 }))
-    .slice(posCabecalho + 1)
-    .filter(({ linha }) => linha.trim() !== '')
-    .map(({ linha, numero }) => lerVenda(celulasDaLinha(linha), indices, numero))
-
-  const recusa = lidas.find((l): l is { erro: string } => 'erro' in l)
-  if (recusa) return { ok: false, erro: recusa.erro }
+  const lido = lerLinhasDoRelatorio(linhas, posCabecalho, indices, lerVenda)
+  if (!lido.ok) return lido
 
   return {
     ok: true,
-    transacoes: lidas.flatMap(l => ('transacao' in l ? [l.transacao] : [])),
-    semCodigo: lidas.filter(l => 'semCodigo' in l).length,
+    transacoes: lido.lidas.flatMap(l => ('transacao' in l ? [l.transacao] : [])),
+    semCodigo: lido.lidas.filter(l => 'semCodigo' in l).length,
   }
 }

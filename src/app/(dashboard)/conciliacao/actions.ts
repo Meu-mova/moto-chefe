@@ -16,6 +16,7 @@ import { detectarFormato } from '@/lib/conciliacao-formato'
 import type { TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
 import { lerRelatorioCielo } from '@/lib/conciliacao-cielo'
 import { lerRelatorioRede } from '@/lib/conciliacao-rede'
+import { lerRelatorioRendimento } from '@/lib/conciliacao-rendimento'
 import { grupos } from '@/lib/db/schema'
 import { revalidatePath } from 'next/cache'
 
@@ -45,6 +46,11 @@ const comoLinhaDoRelatorio = (t: TransacaoDoRelatorio): LinhaRelatorio => ({
   portador: t.rawData.portador,
   terminal: t.rawData.serial,
 })
+
+// Operadoras cujo serial (aparelho, estabelecimento, conta) vem em coluna própria e cujo NSU é um
+// código comprido: a trava de grupo errado procura só em rawData.serial, para um serial curto não
+// casar por acaso com o meio de um código.
+const SERIAL_SO_NA_COLUNA = ['cielo', 'rede', 'rendimento']
 
 // ── Parser CSV InfinityPay ────────────────────────────────────────────────────
 
@@ -201,6 +207,11 @@ async function importarRelatorio(formData: FormData) {
     rows = lido.transacoes.map(comoLinhaDoRelatorio)
     incompletas = lido.incompletas
   }
+  else if (operadora === 'rendimento') {
+    const lido = lerRelatorioRendimento(text)
+    if (!lido.ok) throw new RecusaUsuario(lido.erro)
+    rows = lido.transacoes.map(comoLinhaDoRelatorio)
+  }
   else throw new RecusaUsuario(`Formato não reconhecido. Verifique se o arquivo é da operadora correta.`)
   if (!(await maquininhasDoGrupo(db, grupo.id)).some(m => m.operadora === operadora)) {
     throw new RecusaUsuario('Maquininha não encontrada')
@@ -212,12 +223,13 @@ async function importarRelatorio(formData: FormData) {
   // o que aconteceu com uma transação de BH importada em Sul de Minas.
   // Cada maquininha pertence a um grupo, então o serial do aparelho denuncia o
   // engano antes de gravar qualquer coisa. O serial é achado por dois caminhos:
-  // na InfinityPay ele vem embutido no NSU; na Stone, na Cielo e na Rede (estabelecimento) vem na coluna
-  // própria e é guardado em rawData.serial. (A PagueVeloz não traz serial no arquivo.)
+  // na InfinityPay ele vem embutido no NSU; na Stone, na Cielo, na Rede (estabelecimento) e na
+  // Rendimento (conta da loja) vem na coluna própria e é guardado em rawData.serial. (A PagueVeloz
+  // não traz serial no arquivo.)
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
     // Só a Conta do grupo ativo: terminal visto em outra Conta conta como desconhecido (#460).
-    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal, { soSerial: operadora === 'cielo' || operadora === 'rede' }) : []
+    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal, { soSerial: SERIAL_SO_NA_COLUNA.includes(operadora) }) : []
     if (vistos.length > 0 && !vistos.includes(grupo.id)) {
       throw new RecusaUsuario('Esse relatório parece ser de outro grupo. Confira o grupo ativo; nada foi gravado.')
     }
@@ -230,7 +242,7 @@ async function importarRelatorio(formData: FormData) {
   for (const r of rows) {
     if (!r.valorBruto || r.valorBruto <= 0) continue
 
-    // Evita duplicata por NSU (Stone, PagueVeloz) ou Código da venda (Cielo)
+    // Evita duplicata por NSU (Stone, PagueVeloz), Código da venda (Cielo) ou Código (Rendimento)
     if (r.nsu) {
       const [ex] = await db
         .select({ id: conciliacoesCartao.id })
