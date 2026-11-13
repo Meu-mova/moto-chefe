@@ -1,13 +1,14 @@
-// Teste de banco: a importação dos relatórios da Cielo e da Rede pela Server Action de verdade, contra o
+// Teste de banco: a importação dos relatórios da Cielo, da Rede e da Rendimento pela Server Action de verdade, contra o
 // Postgres descartável. Só a fronteira de fora é simulada: sessão, cookie do grupo ativo e
 // revalidatePath. O usuário do admin_rede vem do `usuarioDaRede` real, como em produção.
 import { after, afterEach, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
-import { semearContaBase, semearGrupo } from '@/test/semear-conta'
+import { semearContaBase, semearGrupo, semearUsuario, type Base } from '@/test/semear-conta'
 import { montarRelatorioCielo, vendaCielo, type LinhaCielo } from '@/test/relatorio-cielo-sintetico'
 import { montarRelatorioRede, parcelaRede, vendaParceladaRede, type LinhaRede } from '@/test/relatorio-rede-sintetico'
+import { montarRelatorioRendimento, operacaoRendimento, type LinhaRendimento } from '@/test/relatorio-rendimento-sintetico'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
@@ -238,4 +239,120 @@ test('Rede: estabelecimento de outro grupo da MESMA Conta recusa e nada grava', 
   assert.equal(r.ok, false)
   assert.match(r.ok ? '' : r.erro, /outro grupo/)
   assert.equal((await gravadasDoGrupo(a2)).length, 0)
+})
+
+// ── Rendimento (#870) ────────────────────────────────────────────────────────
+
+async function contaComRendimento() {
+  const suf = randomUUID()
+  const base = await semearContaBase(db, { prefixo: 'CR870', nome: suf, cnpj: suf })
+  await db.execute(sql`insert into maquininhas (grupo_id, nome, operadora) values (${base.grupoId}, 'Rendimento', 'rendimento')`)
+  return base
+}
+async function importarRendimento(linhasDoRelatorio: LinhaRendimento[]) {
+  const fd = new FormData()
+  fd.set('operadora', 'rendimento')
+  // Codificado em latin-1, a codificação do arquivo da Rendimento: o cabeçalho tem "Código" e "Cód. Venda".
+  fd.set('file', new File([Buffer.from(montarRelatorioRendimento(linhasDoRelatorio), 'latin1')], 'OperacoesCartao.csv'))
+  return actions.importarRelatorioAction(fd)
+}
+// Código, conta e Cód. Venda só deste teste: o banco é compartilhado entre os arquivos do test:db.
+const contaRendimento = () => `${nsuUnico().slice(0, 5)}-${nsuUnico().slice(0, 1)}`
+const codVenda = () => randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()
+
+async function vendaDePecaComAutorizacao(base: Base, autorizacao: string) {
+  const vendedor = await semearUsuario(db, base, { papel: 'vendedor' })
+  const pagamentos = JSON.stringify([{ tipo: 'credito', valor: 3990, autorizacao }])
+  const [venda] = await linhas<{ id: string }>(sql`insert into vendas_pecas (loja_id, vendedor_id, forma_pagamento, pagamentos, valor_total)
+    values (${base.lojaId}, ${vendedor}, 'credito', ${pagamentos}::jsonb, 3990) returning id`)
+  return venda.id
+}
+
+test('Rendimento: arquivo em latin-1 grava só as pagas com os campos do relatório; reimportar não duplica', async () => {
+  const b = await contaComRendimento()
+  usuario = socio(b)
+  const [c1, c2, c3] = [nsuUnico(), nsuUnico(), nsuUnico()]
+  const arquivo = [
+    operacaoRendimento({ 'Código': c1, 'Parcelas': '0', 'Valor Total da Operação': '1.000,00', 'Valor Total a Pagar': '980,00', 'Cód. Venda': '' }),
+    operacaoRendimento({ 'Código': c2, 'Status': 'Cancelado' }),
+    operacaoRendimento({ 'Código': c3, 'Parcelas': '12', 'Bandeira': 'MASTERCARD', 'Cód. Venda': codVenda() }),
+  ]
+  const r = await importarRendimento(arquivo)
+  assert.deepEqual(r, { ok: true, dados: { importadas: 2, duplicadas: 0, conciliadas: 0, semCodigo: 0, incompletas: 0 } })
+  const gravadas = await linhas<{ nsu: string; operadora: string; data_transacao: string; valor_bruto: string; valor_liquido: string; parcelas: number; tipo: string; bandeira: string }>(
+    sql`select nsu, operadora, data_transacao::text, valor_bruto, valor_liquido, parcelas, tipo, raw_data->>'bandeira' as bandeira
+        from conciliacoes_cartao where grupo_id = ${b.grupoId} order by parcelas`)
+  assert.deepEqual(gravadas.map(g => [g.nsu, g.operadora, g.data_transacao, Number(g.valor_bruto), Number(g.valor_liquido), g.parcelas, g.tipo, g.bandeira]), [
+    [c1, 'rendimento', '2026-11-03', 1000, 980, 1, 'debito', 'visa'],
+    [c3, 'rendimento', '2026-11-03', 3990, 3830.4, 12, 'credito', 'mastercard'],
+  ])
+
+  const de_novo = await importarRendimento(arquivo)
+  assert.deepEqual(de_novo, { ok: true, dados: { importadas: 0, duplicadas: 2, conciliadas: 0, semCodigo: 0, incompletas: 0 } })
+})
+
+test('Rendimento, Conta A e Conta B: a autorização casa só com a venda da própria Conta', async () => {
+  const a = await contaComRendimento()
+  const b = await contaComRendimento()
+  const autorizacao = codVenda()
+  const vendaDeA = await vendaDePecaComAutorizacao(a, autorizacao)
+
+  usuario = socio(b)
+  const emB = await importarRendimento([operacaoRendimento({ 'Código': nsuUnico(), 'Conta': contaRendimento(), 'Cód. Venda': autorizacao })])
+  assert.deepEqual(emB, { ok: true, dados: { importadas: 1, duplicadas: 0, conciliadas: 0, semCodigo: 0, incompletas: 0 } })
+  const deB = await linhas<{ peca_venda_id: string | null; conciliado: boolean }>(
+    sql`select peca_venda_id, conciliado from conciliacoes_cartao where grupo_id = ${b.grupoId}`)
+  assert.deepEqual(deB, [{ peca_venda_id: null, conciliado: false }])
+
+  usuario = socio(a)
+  const emA = await importarRendimento([operacaoRendimento({ 'Código': nsuUnico(), 'Conta': contaRendimento(), 'Cód. Venda': autorizacao })])
+  assert.deepEqual(emA, { ok: true, dados: { importadas: 0, duplicadas: 0, conciliadas: 1, semCodigo: 0, incompletas: 0 } })
+  const deA = await linhas<{ peca_venda_id: string | null }>(sql`select peca_venda_id from conciliacoes_cartao where grupo_id = ${a.grupoId}`)
+  assert.deepEqual(deA, [{ peca_venda_id: vendaDeA }])
+})
+
+test('Rendimento, Conta A e Conta B: o mesmo Código grava nas duas; conta da Rendimento de A importada em B não revela A (sem vermelho: já valia)', async () => {
+  const a = await contaComRendimento()
+  const b = await contaComRendimento()
+  const codigo = nsuUnico()
+  const conta = contaRendimento()
+  usuario = socio(a)
+  assert.equal((await importarRendimento([operacaoRendimento({ 'Código': codigo, 'Conta': conta })])).ok, true)
+  usuario = socio(b)
+  const r = await importarRendimento([operacaoRendimento({ 'Código': codigo, 'Conta': conta })])
+  assert.deepEqual(r, { ok: true, dados: { importadas: 1, duplicadas: 0, conciliadas: 0, semCodigo: 0, incompletas: 0 } })
+  assert.deepEqual((await gravadasDoGrupo(a.grupoId)).map(l => l.nsu), [codigo])
+  assert.deepEqual((await gravadasDoGrupo(b.grupoId)).map(l => l.nsu), [codigo])
+})
+
+test('Rendimento: conta da Rendimento já vista em outro grupo da MESMA Conta recusa e nada grava', async () => {
+  const a1 = await contaComRendimento()
+  const { grupoId: a2 } = await semearGrupo(db, a1.contaId, { prefixo: 'CR870', nome: `segundo-${randomUUID()}`, cnpj: randomUUID() })
+  await db.execute(sql`insert into maquininhas (grupo_id, nome, operadora) values (${a2}, 'Rendimento', 'rendimento')`)
+  const conta = contaRendimento()
+  usuario = socio(a1)
+  await importarRendimento([operacaoRendimento({ 'Código': nsuUnico(), 'Conta': conta })])
+
+  usuario = socio(a1, { gruposAcesso: [a2] })
+  grupoAtivoNoCookie = a2
+  const r = await importarRendimento([operacaoRendimento({ 'Código': nsuUnico(), 'Conta': conta })])
+  assert.equal(r.ok, false)
+  assert.match(r.ok ? '' : r.erro, /outro grupo/)
+  assert.equal((await gravadasDoGrupo(a2)).length, 0)
+})
+
+test('Rendimento: arquivo só com operações não pagas volta recusado com o motivo, sem gravar nada', async () => {
+  const b = await contaComRendimento()
+  usuario = socio(b)
+  const r = await importarRendimento([operacaoRendimento({ 'Código': nsuUnico(), 'Status': 'Cancelado' })])
+  assert.deepEqual(r, { ok: false, erro: 'Nenhuma operação paga no arquivo. Nada foi gravado.' })
+  assert.equal((await gravadasDoGrupo(b.grupoId)).length, 0)
+})
+
+test('Rendimento: grupo sem maquininha da Rendimento não importa e nada grava', async () => {
+  const b = await contaComRede()   // tem maquininha, mas de outra operadora
+  usuario = socio(b)
+  const r = await importarRendimento([operacaoRendimento({ 'Código': nsuUnico() })])
+  assert.deepEqual(r, { ok: false, erro: 'Maquininha não encontrada' })
+  assert.equal((await gravadasDoGrupo(b.grupoId)).length, 0)
 })

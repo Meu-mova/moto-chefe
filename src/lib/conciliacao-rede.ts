@@ -6,7 +6,7 @@
 import { tipoDoCartao, type TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
-import { indicesDasColunas } from '@/lib/relatorio-colunas'
+import { indicesDasColunas, lerLinhasDoRelatorio, linhasDoRelatorio, recusaDoCabecalho, type Celula } from '@/lib/relatorio-colunas'
 
 export type TransacaoRede = TransacaoDoRelatorio
 
@@ -30,8 +30,6 @@ const COLUNAS = {
   status: 'status',
 } as const
 
-type Indices = Record<keyof typeof COLUNAS, number>
-
 type Parcela = {
   chave: string
   dataTransacao: string
@@ -46,8 +44,7 @@ type Parcela = {
 
 type Lida = { parcela: Parcela } | { ignorada: true } | { erro: string }
 
-function lerParcela(celulas: string[], i: Indices, numeroDaLinha: number): Lida {
-  const celula = (campo: keyof Indices) => (celulas[i[campo]] ?? '').trim()
+function lerParcela(celula: Celula<keyof typeof COLUNAS>, numeroDaLinha: number): Lida {
   const tipo = tipoDoCartao(celula('modalidade'))
   if (celula('status').toLowerCase() !== 'paga' || celula('cancelamento') || !tipo) return { ignorada: true }
 
@@ -98,26 +95,16 @@ function juntarParcelas(parcelas: Parcela[]): TransacaoRede | null {
 }
 
 export function lerRelatorioRede(texto: string): ResultadoRede {
-  const linhas = texto.replace(/^﻿/, '').split(/\r?\n/)
+  const linhas = linhasDoRelatorio(texto)
   const indices = indicesDasColunas(linhas[0].split(';'), COLUNAS)
   if ('faltam' in indices) {
-    // Sem nem as colunas-chave, não é o relatório da Rede; com elas, falta coluna específica.
-    const pareceRede = !indices.faltam.includes(COLUNAS.data) && !indices.faltam.includes(COLUNAS.status)
-    return pareceRede
-      ? { ok: false, erro: `O relatório da Rede não tem a coluna: ${indices.faltam.join(', ')}.` }
-      : { ok: false, erro: 'Cabeçalho do relatório da Rede não encontrado. Confira se o arquivo é o de pagamentos da Rede.' }
+    return { ok: false, erro: recusaDoCabecalho(indices.faltam, [COLUNAS.data, COLUNAS.status], 'Rede', 'de pagamentos da Rede') }
   }
 
-  const lidas = linhas
-    .map((linha, pos) => ({ linha, numero: pos + 1 }))
-    .slice(1)
-    .filter(({ linha }) => linha.trim() !== '')
-    .map(({ linha, numero }) => lerParcela(linha.split(';'), indices, numero))
+  const lido = lerLinhasDoRelatorio(linhas, 0, indices, lerParcela)
+  if (!lido.ok) return lido
 
-  const recusa = lidas.find((l): l is { erro: string } => 'erro' in l)
-  if (recusa) return { ok: false, erro: recusa.erro }
-
-  const porVenda = Map.groupBy(lidas.flatMap(l => ('parcela' in l ? [l.parcela] : [])), p => p.chave)
+  const porVenda = Map.groupBy(lido.lidas.flatMap(l => ('parcela' in l ? [l.parcela] : [])), p => p.chave)
   const vendas = [...porVenda.values()].map(juntarParcelas)
   return {
     ok: true,
