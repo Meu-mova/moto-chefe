@@ -23,7 +23,7 @@ Base da API: `https://api.notagateway.com.br`. Os caminhos abaixo vêm das pági
 
 | Operação | Página | Arquivo local | Método e caminho |
 |---|---|---|---|
-| Emitir | https://docs.notagateway.com.br/v2/reference/emitir-nota-fiscal-nfe | sem resumo ainda | `POST /v2/empresas/{empresaId}/nf-e` |
+| Emitir | https://docs.notagateway.com.br/v2/reference/emitir-nota-fiscal-nfe | `docs/fiscal/ng-informacoes-adicionais.md` (só `informacoesAdicionais`) | `POST /v2/empresas/{empresaId}/nf-e` |
 | Consultar | https://docs.notagateway.com.br/v2/reference/consultar-nota-fiscal-1 | sem resumo ainda | `GET /v2/empresas/{empresaId}/nf-e/{id}` |
 | Cancelar | https://docs.notagateway.com.br/v2/reference/cancelar-nota-fiscal | sem resumo ainda | `DELETE /v2/empresas/{empresaId}/nf-e/{id}`; a página não documenta prazo nem regra de cancelamento |
 | XML do cancelamento | https://docs.notagateway.com.br/v2/reference/consultar-xml-de-cancelamento-1 | sem resumo ainda | `GET /v2/empresas/{empresaId}/nf-e/{id}/xmlCancelamento` |

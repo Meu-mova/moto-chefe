@@ -6,7 +6,7 @@ export async function clicar(el: Element | null | undefined) {
 }
 
 // Troca o `value` pelo setter do protótipo: o React ignora a atribuição direta.
-async function trocarValor(el: HTMLInputElement | HTMLSelectElement, prototipo: object, valor: string, evento: string) {
+async function trocarValor(el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, prototipo: object, valor: string, evento: string) {
   await act(async () => {
     Object.getOwnPropertyDescriptor(prototipo, 'value')!.set!.call(el, valor)
     el.dispatchEvent(new window.Event(evento, { bubbles: true }))
@@ -15,6 +15,7 @@ async function trocarValor(el: HTMLInputElement | HTMLSelectElement, prototipo: 
 
 export const digitar = (input: HTMLInputElement, valor: string) => trocarValor(input, window.HTMLInputElement.prototype, valor, 'input')
 export const escolher = (select: HTMLSelectElement, valor: string) => trocarValor(select, window.HTMLSelectElement.prototype, valor, 'change')
+export const digitarTexto = (caixa: HTMLTextAreaElement, valor: string) => trocarValor(caixa, window.HTMLTextAreaElement.prototype, valor, 'input')
 
 /**
  * Escolhe uma opção do `<Select>` do @base-ui: abre pelo gatilho e escolhe pelo ciclo do ponteiro,

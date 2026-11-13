@@ -7,6 +7,7 @@ export const OPERADORAS = [
   { codigo: 'pagueveloz',  nome: 'PagueVeloz' },
   { codigo: 'rede',        nome: 'Rede' },
   { codigo: 'cielo',       nome: 'Cielo' },
+  { codigo: 'rendimento',  nome: 'Rendimento' },
   { codigo: 'getnet',      nome: 'GetNet' },
   { codigo: 'mercadopago', nome: 'Mercado Pago' },
   { codigo: 'sumup',       nome: 'SumUp' },
@@ -14,7 +15,7 @@ export const OPERADORAS = [
 ] as const
 
 // Só estas têm leitor de relatório na conciliação; as outras se conciliam à mão.
-const COM_RELATORIO = new Set(['infinitypay', 'stone', 'pagueveloz'])
+const COM_RELATORIO = new Set(['infinitypay', 'stone', 'pagueveloz', 'rede', 'cielo', 'rendimento'])
 
 export function temRelatorio(operadora: string): boolean {
   return COM_RELATORIO.has(operadora)

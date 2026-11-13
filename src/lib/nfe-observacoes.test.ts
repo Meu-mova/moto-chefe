@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { observacoesVendaMoto, TEXTO_GARANTIA } from './nfe-observacoes'
+import { LIMITE_OBSERVACAO_NF, observacaoDaNota, observacaoDoPayload, observacaoEditada, observacoesVendaMoto, TEXTO_GARANTIA } from './nfe-observacoes'
 
 const base = {
   marca: 'MOTO CHEFE',
@@ -30,4 +30,38 @@ test('campo vazio ou em branco vira N/I', () => {
   assert.match(t, /\nMotor: N\/I\n/)
   assert.match(t, /\nPotência: N\/I\n/)
   assert.match(t, /\nCor: N\/I$/)
+})
+
+const PADRAO = 'texto padrão da garantia'
+
+test('texto editado vale para a nota, sem os espaços das pontas', () => {
+  assert.deepEqual(observacaoDaNota('  GARANTIA DE 6 MESES\nChassi X  ', PADRAO), { ok: true, texto: 'GARANTIA DE 6 MESES\nChassi X' })
+})
+
+test('sem texto editado, ou só com espaços, a nota sai com o padrão', () => {
+  for (const vazio of [undefined, null, '', '   \n ']) {
+    assert.deepEqual(observacaoDaNota(vazio, PADRAO), { ok: true, texto: PADRAO })
+  }
+})
+
+test('texto no limite passa; um caractere acima é recusado com o tamanho na frase', () => {
+  const noLimite = 'a'.repeat(LIMITE_OBSERVACAO_NF)
+  assert.deepEqual(observacaoDaNota(noLimite, PADRAO), { ok: true, texto: noLimite })
+  const r = observacaoDaNota(noLimite + 'b', PADRAO)
+  assert.equal(r.ok, false)
+  assert.match(!r.ok ? r.error : '', /4\.500 caracteres/)
+})
+
+test('lê do payload gravado o texto que foi na nota', () => {
+  assert.equal(observacaoDoPayload({ informacoesAdicionais: 'editado' }), 'editado')
+  for (const sem of [null, {}, { informacoesAdicionais: null }, { informacoesAdicionais: 12 }]) {
+    assert.equal(observacaoDoPayload(sem), null)
+  }
+})
+
+test('só conta como editado o texto da recusa diferente do padrão de agora', () => {
+  assert.equal(observacaoEditada('EDITADO', PADRAO), 'EDITADO')
+  assert.equal(observacaoEditada(PADRAO, PADRAO), null)
+  assert.equal(observacaoEditada(null, PADRAO), null)
+  assert.equal(observacaoEditada('', PADRAO), null)
 })
