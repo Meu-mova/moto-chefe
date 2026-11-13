@@ -311,6 +311,20 @@ test('Rendimento, Conta A e Conta B: a autorização casa só com a venda da pr�
   assert.deepEqual(deA, [{ peca_venda_id: vendaDeA }])
 })
 
+test('Rendimento, Conta A e Conta B: o mesmo Código grava nas duas; conta da Rendimento de A importada em B não revela A (sem vermelho: já valia)', async () => {
+  const a = await contaComRendimento()
+  const b = await contaComRendimento()
+  const codigo = nsuUnico()
+  const conta = contaRendimento()
+  usuario = socio(a)
+  assert.equal((await importarRendimento([operacaoRendimento({ 'Código': codigo, 'Conta': conta })])).ok, true)
+  usuario = socio(b)
+  const r = await importarRendimento([operacaoRendimento({ 'Código': codigo, 'Conta': conta })])
+  assert.deepEqual(r, { ok: true, dados: { importadas: 1, duplicadas: 0, conciliadas: 0, semCodigo: 0, incompletas: 0 } })
+  assert.deepEqual((await gravadasDoGrupo(a.grupoId)).map(l => l.nsu), [codigo])
+  assert.deepEqual((await gravadasDoGrupo(b.grupoId)).map(l => l.nsu), [codigo])
+})
+
 test('Rendimento: conta da Rendimento já vista em outro grupo da MESMA Conta recusa e nada grava', async () => {
   const a1 = await contaComRendimento()
   const { grupoId: a2 } = await semearGrupo(db, a1.contaId, { prefixo: 'CR870', nome: `segundo-${randomUUID()}`, cnpj: randomUUID() })
