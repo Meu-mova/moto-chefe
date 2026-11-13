@@ -6,7 +6,7 @@
 import { tipoDoCartao, type TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
-import { chaveDaColuna, indicesDasColunas } from '@/lib/relatorio-colunas'
+import { chaveDaColuna, indicesDasColunas, lerLinhasDoRelatorio } from '@/lib/relatorio-colunas'
 
 export type TransacaoCielo = TransacaoDoRelatorio
 
@@ -92,18 +92,12 @@ export function lerRelatorioCielo(texto: string): ResultadoCielo {
   const indices = indicesDasColunas(celulasDaLinha(linhas[posCabecalho]), COLUNAS)
   if ('faltam' in indices) return { ok: false, erro: `O relatório da Cielo não tem a coluna: ${indices.faltam.join(', ')}.` }
 
-  const lidas = linhas
-    .map((linha, pos) => ({ linha, numero: pos + 1 }))
-    .slice(posCabecalho + 1)
-    .filter(({ linha }) => linha.trim() !== '')
-    .map(({ linha, numero }) => lerVenda(celulasDaLinha(linha), indices, numero))
-
-  const recusa = lidas.find((l): l is { erro: string } => 'erro' in l)
-  if (recusa) return { ok: false, erro: recusa.erro }
+  const lido = lerLinhasDoRelatorio(linhas, posCabecalho, (celulas, numero) => lerVenda(celulas, indices, numero))
+  if (!lido.ok) return lido
 
   return {
     ok: true,
-    transacoes: lidas.flatMap(l => ('transacao' in l ? [l.transacao] : [])),
-    semCodigo: lidas.filter(l => 'semCodigo' in l).length,
+    transacoes: lido.lidas.flatMap(l => ('transacao' in l ? [l.transacao] : [])),
+    semCodigo: lido.lidas.filter(l => 'semCodigo' in l).length,
   }
 }

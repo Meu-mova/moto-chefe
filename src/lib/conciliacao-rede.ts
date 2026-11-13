@@ -6,7 +6,7 @@
 import { tipoDoCartao, type TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
-import { indicesDasColunas } from '@/lib/relatorio-colunas'
+import { indicesDasColunas, lerLinhasDoRelatorio } from '@/lib/relatorio-colunas'
 
 export type TransacaoRede = TransacaoDoRelatorio
 
@@ -108,16 +108,10 @@ export function lerRelatorioRede(texto: string): ResultadoRede {
       : { ok: false, erro: 'Cabeçalho do relatório da Rede não encontrado. Confira se o arquivo é o de pagamentos da Rede.' }
   }
 
-  const lidas = linhas
-    .map((linha, pos) => ({ linha, numero: pos + 1 }))
-    .slice(1)
-    .filter(({ linha }) => linha.trim() !== '')
-    .map(({ linha, numero }) => lerParcela(linha.split(';'), indices, numero))
+  const lido = lerLinhasDoRelatorio(linhas, 0, (celulas, numero) => lerParcela(celulas, indices, numero))
+  if (!lido.ok) return lido
 
-  const recusa = lidas.find((l): l is { erro: string } => 'erro' in l)
-  if (recusa) return { ok: false, erro: recusa.erro }
-
-  const porVenda = Map.groupBy(lidas.flatMap(l => ('parcela' in l ? [l.parcela] : [])), p => p.chave)
+  const porVenda = Map.groupBy(lido.lidas.flatMap(l => ('parcela' in l ? [l.parcela] : [])), p => p.chave)
   const vendas = [...porVenda.values()].map(juntarParcelas)
   return {
     ok: true,
