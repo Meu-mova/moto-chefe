@@ -19,7 +19,7 @@ type Props = {
 export function JanelaDeAviso({ titulo, subtitulo, textoDoBotao, ocupado = false, aoConfirmar, children }: Props) {
   return (
     <Dialog open onOpenChange={() => {}} disablePointerDismissal>
-      <DialogContent className="max-w-lg" showCloseButton={false}>
+      <DialogContent className="sm:max-w-lg" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle className="text-lg">{titulo}</DialogTitle>
           {subtitulo && <p className="text-xs text-muted-foreground mt-1">{subtitulo}</p>}
