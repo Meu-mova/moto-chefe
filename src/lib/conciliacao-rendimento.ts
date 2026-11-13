@@ -5,7 +5,7 @@ import type { TransacaoDoRelatorio } from '@/lib/conciliacao-cartao'
 import { tipoDoCupom } from '@/lib/conciliacao-pagueveloz'
 import { dataBrParaIso } from '@/lib/data-venda'
 import { parseNumeroBR } from '@/lib/numero-br'
-import { indicesDasColunas, lerLinhasDoRelatorio } from '@/lib/relatorio-colunas'
+import { indicesDasColunas, lerLinhasDoRelatorio, linhasDoRelatorio, recusaDoCabecalho, type Celula } from '@/lib/relatorio-colunas'
 
 export type ResultadoRendimento =
   | { ok: true; transacoes: TransacaoDoRelatorio[] }
@@ -24,12 +24,9 @@ const COLUNAS = {
   codigoVenda: 'Cód. Venda',
 } as const
 
-type Indices = Record<keyof typeof COLUNAS, number>
-
 type Lida = { transacao: TransacaoDoRelatorio } | { ignorada: true } | { erro: string }
 
-function lerOperacao(celulas: string[], i: Indices, numeroDaLinha: number): Lida {
-  const celula = (campo: keyof Indices) => (celulas[i[campo]] ?? '').trim()
+function lerOperacao(celula: Celula<keyof typeof COLUNAS>, numeroDaLinha: number): Lida {
   if (celula('status') !== 'Pago') return { ignorada: true }
 
   // "03/11/2026 15:20:00" já vem na hora da loja: vale o dia, sem conversão de fuso.
@@ -66,17 +63,13 @@ function lerOperacao(celulas: string[], i: Indices, numeroDaLinha: number): Lida
 }
 
 export function lerRelatorioRendimento(texto: string): ResultadoRendimento {
-  const linhas = texto.replace(/^﻿/, '').split(/\r?\n/)
+  const linhas = linhasDoRelatorio(texto)
   const indices = indicesDasColunas(linhas[0].split(';'), COLUNAS)
   if ('faltam' in indices) {
-    // Sem nem as colunas-chave, não é o relatório da Rendimento; com elas, falta coluna específica.
-    const pareceRendimento = !indices.faltam.includes(COLUNAS.data) && !indices.faltam.includes(COLUNAS.status)
-    return pareceRendimento
-      ? { ok: false, erro: `O relatório da Rendimento não tem a coluna: ${indices.faltam.join(', ')}.` }
-      : { ok: false, erro: 'Cabeçalho do relatório da Rendimento não encontrado. Confira se o arquivo é o de operações da Rendimento.' }
+    return { ok: false, erro: recusaDoCabecalho(indices.faltam, [COLUNAS.data, COLUNAS.status], 'Rendimento', 'de operações da Rendimento') }
   }
 
-  const lido = lerLinhasDoRelatorio(linhas, 0, (celulas, numero) => lerOperacao(celulas, indices, numero))
+  const lido = lerLinhasDoRelatorio(linhas, 0, indices, lerOperacao)
   if (!lido.ok) return lido
   const transacoes = lido.lidas.flatMap(l => ('transacao' in l ? [l.transacao] : []))
   // Sem isso a tela diria só "0 importadas", sem explicar que nada no arquivo estava pago.
