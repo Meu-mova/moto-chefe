@@ -43,7 +43,8 @@ function lerOperacao(celulas: string[], i: Indices, numeroDaLinha: number): Lida
 
   // À vista vem com 0 parcelas. O arquivo não diz se foi crédito ou débito: vale o critério
   // da PagueVeloz (mais de 1 parcela é crédito), a confirmar com a loja (#870).
-  const parcelas = Number(celula('parcelas')) || 1
+  if (!/^\d+$/.test(celula('parcelas'))) return { erro: `Parcelas inválidas na linha ${numeroDaLinha}. Nada foi gravado.` }
+  const parcelas = Math.max(Number(celula('parcelas')), 1)
   return {
     transacao: {
       nsu: codigo,

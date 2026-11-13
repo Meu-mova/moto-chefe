@@ -60,6 +60,12 @@ test('linha paga com data, valor ou Código ruim recusa o arquivo inteiro e diz 
   assert.match(recusa(ler({ 'Código': '' })), /Código vazio na linha 2/)
 })
 
+test('Parcelas que não é número inteiro (negativo, fração, texto, vazio) recusa o arquivo e diz a linha', () => {
+  for (const parcelas of ['-3', '2.5', '2,5', 'x', '']) {
+    assert.equal(recusa(ler({ 'Parcelas': parcelas })), 'Parcelas inválidas na linha 2. Nada foi gravado.', `Parcelas = "${parcelas}"`)
+  }
+})
+
 test('cabeçalho: coluna faltando é dita pelo nome; arquivo de outro formato não é aceito como Rendimento', () => {
   const semLiquido = CABECALHO_RENDIMENTO.filter(c => c !== 'Valor Total a Pagar')
   assert.equal(recusa(lerRelatorioRendimento(montarRelatorioRendimento([operacaoRendimento()], semLiquido))),
