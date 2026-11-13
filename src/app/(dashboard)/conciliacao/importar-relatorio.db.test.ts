@@ -252,7 +252,7 @@ async function contaComRendimento() {
 async function importarRendimento(linhasDoRelatorio: LinhaRendimento[]) {
   const fd = new FormData()
   fd.set('operadora', 'rendimento')
-  // latin-1, como o arquivo real: o cabeçalho tem "Código", "Usuário", "Cód. Venda".
+  // Codificado em latin-1, a codificação do arquivo da Rendimento: o cabeçalho tem "Código" e "Cód. Venda".
   fd.set('file', new File([Buffer.from(montarRelatorioRendimento(linhasDoRelatorio), 'latin1')], 'OperacoesCartao.csv'))
   return actions.importarRelatorioAction(fd)
 }

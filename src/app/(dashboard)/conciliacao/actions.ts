@@ -47,6 +47,11 @@ const comoLinhaDoRelatorio = (t: TransacaoDoRelatorio): LinhaRelatorio => ({
   terminal: t.rawData.serial,
 })
 
+// Operadoras cujo serial (aparelho, estabelecimento, conta) vem em coluna própria e cujo NSU é um
+// código comprido: a trava de grupo errado procura só em rawData.serial, para um serial curto não
+// casar por acaso com o meio de um código.
+const SERIAL_SO_NA_COLUNA = ['cielo', 'rede', 'rendimento']
+
 // ── Parser CSV InfinityPay ────────────────────────────────────────────────────
 
 function parseCSVLine(line: string): string[] {
@@ -224,7 +229,7 @@ async function importarRelatorio(formData: FormData) {
   const terminais = [...new Set(rows.map(r => r.terminal).filter((t): t is string => !!t))]
   for (const terminal of terminais) {
     // Só a Conta do grupo ativo: terminal visto em outra Conta conta como desconhecido (#460).
-    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal, { soSerial: ['cielo', 'rede', 'rendimento'].includes(operadora) }) : []
+    const vistos = grupo.contaId ? await gruposDoTerminalNaConta(db, grupo.contaId, terminal, { soSerial: SERIAL_SO_NA_COLUNA.includes(operadora) }) : []
     if (vistos.length > 0 && !vistos.includes(grupo.id)) {
       throw new RecusaUsuario('Esse relatório parece ser de outro grupo. Confira o grupo ativo; nada foi gravado.')
     }
