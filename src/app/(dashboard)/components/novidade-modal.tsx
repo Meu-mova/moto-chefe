@@ -11,8 +11,8 @@ function Secao({ titulo, itens = [] }: { titulo: string; itens?: readonly ItemDa
     <section aria-labelledby={id} className="space-y-3">
       <h3 id={id} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</h3>
       <ul className="space-y-3">
-        {itens.map(item => (
-          <li key={item.titulo}>
+        {itens.map((item, i) => (
+          <li key={i}>
             <p className="font-medium text-foreground">{item.titulo}</p>
             <p className="text-muted-foreground">{item.texto}</p>
           </li>
