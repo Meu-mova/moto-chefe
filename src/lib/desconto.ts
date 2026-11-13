@@ -70,7 +70,7 @@ const PARCELAS_EM_LISTA = new Intl.ListFormat('pt-BR', { type: 'conjunction' })
 // dados_venda é o formulário inteiro gravado em jsonb; pedido antigo ou de outro fluxo pode vir sem pagamentos.
 function pagamentosDoPedido(dadosVenda: unknown): PgtoCalc[] {
   const pagamentos = (dadosVenda as { pagamentos?: unknown } | null)?.pagamentos
-  return Array.isArray(pagamentos) ? pagamentos : []
+  return Array.isArray(pagamentos) ? pagamentos.filter(p => p !== null && typeof p === 'object') : []
 }
 
 function rotuloDoLiquido(pagamentos: PgtoCalc[], liquido: number, venda: number): string {

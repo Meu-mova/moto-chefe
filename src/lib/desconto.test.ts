@@ -134,6 +134,7 @@ test('quadro: o líquido sem parcelas com taxa se chama só "Líquido"', () => {
   assert.equal(rotulo([{ tipo: 'cartao_debito', valor: 9950, parcelas: 1 }]), 'Líquido')
   assert.equal(rotulo([{ tipo: 'financiamento', valor: 9950, parcelas: 48 }]), 'Líquido')
   assert.equal(rotulo(undefined), 'Líquido')
+  assert.equal(rotulo([null, { tipo: 'cartao_credito', valor: 9950, parcelas: 12 }]), 'Líquido (12x)')
   // 12x sem taxa na tabela: o líquido é a própria venda, não houve taxa a mostrar.
   assert.equal(rotulo(cartao12x, '9950.00'), 'Líquido')
 })
