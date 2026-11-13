@@ -97,10 +97,19 @@ export function diaCurtoBrt(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' })
 }
 
+/** "09:20", no horário de Brasília. */
+function horaBrt(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
+}
+
 /** "09/10 às 09:20", no horário de Brasília. */
 export function diaEHoraBrt(iso: string): string {
-  const hora = new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
-  return `${diaCurtoBrt(iso)} às ${hora}`
+  return `${diaCurtoBrt(iso)} às ${horaBrt(iso)}`
+}
+
+/** "13/11/2026 09:12", no horário de Brasília. */
+export function dataEHoraBrt(iso: string): string {
+  return `${diaBrt(iso)} ${horaBrt(iso)}`
 }
 
 /**
