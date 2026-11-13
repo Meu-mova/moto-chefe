@@ -39,7 +39,9 @@ export async function montarDialogo<P extends object>(Componente: ComponentType<
   })
   const clique = (texto: string, ms = 50) => act(async () => { clicar(botao(texto)); await esperar(ms) })
   const marcar = (rotulo: string) => act(async () => { clicar(caixa(rotulo)) })
+  /** Desenha de novo com outras props, como quando o servidor manda o layout recarregado. */
+  const redesenhar = (novas: P) => act(async () => { root.render(createElement(Componente, novas)) })
   let montado = true
   const desmontar = () => act(async () => { if (!montado) return; montado = false; root.unmount(); container.remove() })
-  return { act, preencher, clique, marcar, desmontar }
+  return { act, preencher, clique, marcar, redesenhar, desmontar }
 }

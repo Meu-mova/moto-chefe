@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { marcarComoLidoAction } from '@/app/(dashboard)/admin/comunicados/actions'
 import { JanelaDeAviso } from './janela-de-aviso'
 
-type Comunicado = { id: string; titulo: string; conteudo: string }
+export type Comunicado = { id: string; titulo: string; conteudo: string }
 
 export function ComunicadoModal({ comunicados }: { comunicados: Comunicado[] }) {
   const [indice, setIndice] = useState(0)
