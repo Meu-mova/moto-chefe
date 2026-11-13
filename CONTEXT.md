@@ -201,6 +201,13 @@ _Evitar_: origem
 **Comunicado**:
 Aviso do grupo para os funcionários, filtrado por papel, com controle de leitura.
 
+**Novidades da versão**:
+Texto para as lojas sobre o que mudou numa versão do MOVA, igual para todas as Contas. Aparece numa
+janela para `admin_geral`, `admin_socio`, `admin_rede` e `aux_adm` ao entrar, uma vez por pessoa
+em cada navegador. Não é **Comunicado** (recado de um grupo) nem as **notas da release** (escritas
+para o Cesar, na GitHub Release).
+_Evitar_: changelog, notas da versão
+
 **Calendário**:
 Eventos de gestão do grupo (reuniões, datas), diferente da agenda da oficina.
 
