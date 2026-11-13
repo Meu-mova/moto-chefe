@@ -5,7 +5,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { podeAgirNaLoja } from '@/lib/acesso-registro'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { PrintTrigger } from './print-trigger'
+import { PrintTrigger } from '@/components/print-trigger'
 import { formatarCpfCnpj } from '@/lib/documento'
 
 const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
