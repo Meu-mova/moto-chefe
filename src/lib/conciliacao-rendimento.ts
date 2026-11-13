@@ -78,5 +78,8 @@ export function lerRelatorioRendimento(texto: string): ResultadoRendimento {
 
   const lido = lerLinhasDoRelatorio(linhas, 0, (celulas, numero) => lerOperacao(celulas, indices, numero))
   if (!lido.ok) return lido
-  return { ok: true, transacoes: lido.lidas.flatMap(l => ('transacao' in l ? [l.transacao] : [])) }
+  const transacoes = lido.lidas.flatMap(l => ('transacao' in l ? [l.transacao] : []))
+  // Sem isso a tela diria só "0 importadas", sem explicar que nada no arquivo estava pago.
+  if (transacoes.length === 0) return { ok: false, erro: 'Nenhuma operação paga no arquivo. Nada foi gravado.' }
+  return { ok: true, transacoes }
 }

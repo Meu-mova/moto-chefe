@@ -39,6 +39,12 @@ test('sem tipo no arquivo: 0 ou 1 parcela é débito com 1 parcela; 2 ou mais é
     [[1, 'debito'], [1, 'debito'], [2, 'credito'], [12, 'credito']])
 })
 
+test('arquivo sem nenhuma operação paga (só cabeçalho ou só canceladas) é recusado com o motivo', () => {
+  const motivo = 'Nenhuma operação paga no arquivo. Nada foi gravado.'
+  assert.equal(recusa(ler()), motivo)
+  assert.equal(recusa(ler({ 'Código': '1', 'Status': 'Cancelado' }, { 'Código': '2', 'Status': 'Pendente' })), motivo)
+})
+
 test('só entra o que tem Status Pago; o resto fica de fora sem recusar o arquivo', () => {
   const transacoes = lido(ler(
     { 'Código': '1', 'Status': 'Cancelado' },

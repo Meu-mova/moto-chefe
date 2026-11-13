@@ -341,6 +341,14 @@ test('Rendimento: conta da Rendimento já vista em outro grupo da MESMA Conta re
   assert.equal((await gravadasDoGrupo(a2)).length, 0)
 })
 
+test('Rendimento: arquivo só com operações não pagas volta recusado com o motivo, sem gravar nada', async () => {
+  const b = await contaComRendimento()
+  usuario = socio(b)
+  const r = await importarRendimento([operacaoRendimento({ 'Código': nsuUnico(), 'Status': 'Cancelado' })])
+  assert.deepEqual(r, { ok: false, erro: 'Nenhuma operação paga no arquivo. Nada foi gravado.' })
+  assert.equal((await gravadasDoGrupo(b.grupoId)).length, 0)
+})
+
 test('Rendimento: grupo sem maquininha da Rendimento não importa e nada grava', async () => {
   const b = await contaComRede()   // tem maquininha, mas de outra operadora
   usuario = socio(b)
