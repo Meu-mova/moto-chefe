@@ -15,6 +15,7 @@
  * quem negocia mal de quem parcela muito.
  */
 
+import { centavos } from './centavos'
 import { parcelasComTaxa, type PgtoCalc } from './preco-minimo'
 
 /** A partir daqui existe registro de desconto — antes o fluxo de aprovação não existia. */
@@ -64,7 +65,6 @@ export type QuadroAbaixoDoMinimo = {
 
 type PedidoDeAprovacao = LinhaDesconto & { dadosVenda: unknown }
 
-const centavos = (v: number) => Math.round(v * 100) / 100
 const PARCELAS_EM_LISTA = new Intl.ListFormat('pt-BR', { type: 'conjunction' })
 
 // dados_venda é o formulário inteiro gravado em jsonb; pedido antigo ou de outro fluxo pode vir sem pagamentos.
