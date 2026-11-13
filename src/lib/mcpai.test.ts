@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { extrairContraparteDaDescricao, bancoEntraNoPix, bancoEntraNaDespesa, ehTransferenciaEntreContas } from './mcpai'
+import {
+  extrairContraparteDaDescricao, bancoEntraNoPix, bancoEntraNaDespesa, ehTransferenciaEntreContas,
+  tipoDoCreditoConciliavel, nomeDaConta,
+} from './mcpai'
 
 // Todas as descrições abaixo foram capturadas ao vivo do mcp.ai em 2026-08-29
 // (contas Sicoob/Sicredi do Sul de Minas). O formato muda por banco E por tipo
@@ -188,4 +191,56 @@ test('Despesa: a data de início não afeta as contas sem corte', () => {
 
 test('Despesa: o corte não solta conta que nunca foi liberada', () => {
   assert.equal(bancoEntraNaDespesa('InfinitePay Empresas', SUL_DE_MINAS, DEPOIS), false)
+})
+
+// ── tipoDoCreditoConciliavel ─────────────────────────────────────────────────
+// Formato da conta de Londrina (#861), conferido no mcp.ai em 12/11/2026: o PIX
+// recebido vem com operationType vazio e o "PIX" só na categoria.
+
+test('PIX: crédito com operação vazia e categoria "Transfer - PIX" entra como PIX (Londrina, #861)', () => {
+  assert.equal(tipoDoCreditoConciliavel({ tipo: 'CREDIT', operationType: null, categoria: 'Transfer - PIX' }), 'PIX')
+})
+
+test('PIX: débito com categoria "Transfer - PIX" continua fora', () => {
+  assert.equal(tipoDoCreditoConciliavel({ tipo: 'DEBIT', operationType: null, categoria: 'Transfer - PIX' }), null)
+})
+
+test('PIX: crédito com operação vazia e outra categoria continua fora', () => {
+  assert.equal(tipoDoCreditoConciliavel({ tipo: 'CREDIT', operationType: null, categoria: 'Transfer - Internal' }), null)
+  assert.equal(tipoDoCreditoConciliavel({ tipo: 'CREDIT', operationType: null, categoria: null }), null)
+})
+
+test('PIX: operação informada manda; a categoria não solta o que o banco marcou como outra coisa', () => {
+  assert.equal(tipoDoCreditoConciliavel({ tipo: 'CREDIT', operationType: 'PIX' }), 'PIX')
+  assert.equal(tipoDoCreditoConciliavel({ tipo: 'CREDIT', operationType: 'TED' }), 'TED')
+  assert.equal(tipoDoCreditoConciliavel({ tipo: 'CREDIT', operationType: 'OUTROS', categoria: 'Transfer - PIX' }), null)
+})
+
+test('PIX: transferência entre contas do Sicoob segue entrando como TRANSF', () => {
+  assert.equal(
+    tipoDoCreditoConciliavel({ tipo: 'CREDIT', operationType: 'OUTROS', descricao: 'CRED.TRANSF.CONTAS INTERCREDIS' }),
+    'TRANSF',
+  )
+})
+
+// ── nomeDaConta ──────────────────────────────────────────────────────────────
+
+test('conta com "bank" mantém o nome de sempre (as listas por CNPJ dependem dele)', () => {
+  assert.equal(nomeDaConta({ bank: 'Sicoob Empresas', marketingName: 'Outro', name: 'Outro' }), 'Sicoob Empresas')
+})
+
+// Na conta de Londrina o marketingName traz agência e conta: não pode virar o nome (nem ir para o log).
+test('conta sem "bank" usa o name, não o marketingName com agência e conta (Londrina, #861)', () => {
+  assert.equal(
+    nomeDaConta({ bank: null, marketingName: 'Agência: 1 | Conta: 0000000-0', name: 'Conta Corrente com Invest Fácil' }),
+    'Conta Corrente com Invest Fácil',
+  )
+})
+
+test('conta só com marketingName ainda tem nome', () => {
+  assert.equal(nomeDaConta({ marketingName: 'Banco X Empresas' }), 'Banco X Empresas')
+})
+
+test('conta sem nenhum nome não fica vazia (a coluna banco é obrigatória)', () => {
+  assert.equal(nomeDaConta({}), 'Banco não informado')
 })
