@@ -1,12 +1,14 @@
 import { dataEHoraBrt, diaBrt } from '@/lib/data-venda'
 import { formatarCpfCnpj } from '@/lib/documento'
 
-// Lista única: o card, o filtro e o comprovante derivam daqui.
+// Lista única: o tipo e o rótulo do status no card, as opções do filtro e o comprovante saem daqui.
 export const STATUS_TRANSFERENCIA = [
   { value: 'pendente', label: 'Pendente' },
   { value: 'aceita',   label: 'Aceita' },
   { value: 'recusada', label: 'Recusada' },
 ] as const
+
+export type StatusTransferencia = typeof STATUS_TRANSFERENCIA[number]['value']
 
 export function rotuloStatusTransferencia(status: string): string {
   return STATUS_TRANSFERENCIA.find(s => s.value === status)?.label ?? status

@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { MotoStatusIcon } from '@/components/moto-status-icon'
-import { rotuloStatusTransferencia } from '@/lib/transferencia-tela'
+import { rotuloStatusTransferencia, type StatusTransferencia } from '@/lib/transferencia-tela'
 import { PrintButton } from '../../relatorio-fabrica/print-button'
 import { aceitarTransferenciaAction, recusarTransferenciaAction } from '../actions'
 import { format } from 'date-fns'
@@ -15,7 +15,7 @@ import { ptBR } from 'date-fns/locale'
 
 export type TransferenciaCardData = {
   id: string
-  status: 'pendente' | 'aceita' | 'recusada'
+  status: StatusTransferencia
   dataSolicitacao: Date | string | null
   dataResposta: Date | string | null
   observacao: string | null
@@ -31,7 +31,8 @@ export type TransferenciaCardData = {
   respondidoPorNome: string | null
 }
 
-const statusBadge: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+// Record pelo tipo da lista: status novo sem cor de selo não compila.
+const statusBadge: Record<StatusTransferencia, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pendente: 'outline',
   aceita:   'default',
   recusada: 'destructive',
@@ -96,7 +97,7 @@ export function TransferenciaCard({ transferencia: t, papel, lojaIdUsuario }: Pr
               </div>
             )}
           </div>
-          <Badge variant={statusBadge[t.status] ?? 'secondary'}>
+          <Badge variant={statusBadge[t.status]}>
             {rotuloStatusTransferencia(t.status)}
           </Badge>
         </div>
