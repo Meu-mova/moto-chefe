@@ -59,15 +59,12 @@ test('pendente para o aux_adm do destino: Aceitar, Recusar e Imprimir na mesma l
   assert.ok(linha && linha === botao('Imprimir')?.parentElement, 'os três dividem a mesma linha')
 })
 
-test('histórico (aceita e recusada): só Imprimir', async () => {
-  for (const status of ['aceita', 'recusada'] as const) {
+for (const status of ['aceita', 'recusada'] as const) {
+  test(`histórico (${status}): só Imprimir`, async () => {
     await montar({ ...pendente, status, respondidoPorNome: 'Bruno Exemplo', dataResposta: '2026-11-13T13:40:00.000Z' }, 'admin_socio', null)
-    assert.deepEqual(textos(), ['Imprimir'], status)
-    const { act } = await import('react')
-    await act(async () => { for (const r of raizes.splice(0)) r.unmount() })
-    document.body.innerHTML = ''
-  }
-})
+    assert.deepEqual(textos(), ['Imprimir'])
+  })
+}
 
 test('pendente que o usuário não responde (vendedor da origem): só Imprimir', async () => {
   await montar(pendente, 'vendedor', 'loja-origem')
