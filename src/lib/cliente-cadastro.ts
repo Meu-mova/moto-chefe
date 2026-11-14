@@ -13,10 +13,12 @@ type Escopo = { contaId: string; grupoLiberado?: string | null }
 const CAMPOS_DO_FORMULARIO = [
   'nome', 'tipoPessoa', 'cpfCnpj', 'sexo', 'email', 'celular',
   'endereco', 'numero', 'complemento', 'bairro', 'cep', 'cidade', 'uf',
-] as const
+] as const satisfies readonly (keyof typeof clientes.$inferInsert)[]
+type CampoDoFormulario = (typeof CAMPOS_DO_FORMULARIO)[number]
 
-const soDoFormulario = <T extends object>(dados: T): T =>
-  Object.fromEntries(Object.entries(dados).filter(([campo]) => (CAMPOS_DO_FORMULARIO as readonly string[]).includes(campo))) as T
+const soDoFormulario = <T extends object>(dados: T) =>
+  Object.fromEntries(Object.entries(dados).filter(([campo]) => (CAMPOS_DO_FORMULARIO as readonly string[]).includes(campo))) as
+    Pick<T, Extract<keyof T, CampoDoFormulario>>
 
 export const CPF_RECUSADO_NA_PERSONA = 'Não foi possível cadastrar este cliente. Fale com o administrador.'
 
