@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { motos, historicoEstoque } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { getUsuarioLogado } from '@/lib/auth'
-import { createClient } from '@/lib/supabase/server'
+import { mudarStatusMoto } from '@/lib/mudar-status-moto'
 import { revalidatePath } from 'next/cache'
 import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 
@@ -43,13 +43,6 @@ export async function correcaoStatusAdminAction(motoId: string, novoStatus: stri
   const admin = await assertAdmin()
   if (!observacao) throw new Error('Observação obrigatória para correção de status')
 
-  const supabase = await createClient()
-  const { error } = await supabase.rpc('mudar_status_moto', {
-    p_moto_id: motoId,
-    p_novo_status: novoStatus,
-    p_usuario_id: admin.id,
-    p_observacao: observacao,
-  })
-  if (error) throw new Error(error.message)
+  await mudarStatusMoto({ motoId, novoStatus, usuarioId: admin.id, observacao })
   revalidatePath(`/estoque/${motoId}`)
 }

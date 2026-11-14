@@ -27,7 +27,6 @@ type Db = typeof import('@/lib/db')
 let db: Db['db']
 const mocks = [
   mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => usuarioDaSessao } }),
-  mock.module('@/lib/supabase/server', { namedExports: { createClient: async () => ({}) } }),
   mock.module('next/cache', { namedExports: { revalidatePath: () => {} } }),
   mock.module('@/lib/kommo', { namedExports: { virarLeadKommo: async () => ({ resultado: 'sem_lead' }) } }),
   mock.module('@/lib/whatsapp/venda', { namedExports: { notificarVendaWhatsapp: async () => ({ resultado: 'desligado' }) } }),

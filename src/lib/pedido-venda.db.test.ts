@@ -316,24 +316,34 @@ describe('ciclo do pedido (#181)', () => {
 })
 
 // O que derrubou a efetivação (#181): a rpc efetivar_venda lia app.encryption_key,
-// configuração que não existe em nenhum banco. A guarda vê só rpc chamada com o
-// nome literal entre aspas simples, e current_setting de app.* no corpo da própria função.
-describe('funções chamadas por supabase.rpc', () => {
-  const arquivos = (dir: string) => listarArquivos(dir, f => /\.tsx?$/.test(f))
+// configuração que não existe em nenhum banco. A guarda vê só função chamada pelo servidor
+// como `select nome(${...` (nome literal e o 1º argumento interpolado; funções do próprio
+// Postgres, como min, ficam de fora), e current_setting de app.* no corpo da própria função.
+describe('funções do banco chamadas pelo app', () => {
+  const fontes = listarArquivos('src', f => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f)).map(f => ({ f, texto: readFileSync(f, 'utf8') }))
   const chamadas = [...new Set(
-    arquivos('src').flatMap(f => [...readFileSync(f, 'utf8').matchAll(/\.rpc\(\s*'([a-z_0-9]+)'/g)].map(m => m[1])),
+    fontes.flatMap(({ texto }) => [...texto.matchAll(/select ([a-z_0-9]+)\(\$\{/g)].map(m => m[1])),
   )].sort()
 
-  test('a lista de rpcs chamadas não está vazia (a varredura funciona)', () => {
-    assert.ok(chamadas.length > 0)
+  const doPublic = async () => new Set((await execRows(sql`select proname from pg_proc where pronamespace = 'public'::regnamespace`)).map(r => r.proname))
+
+  test('a varredura acha funções do app chamadas no código', async () => {
+    const existentes = await doPublic()
+    assert.ok(chamadas.some(n => existentes.has(n)))
   })
 
-  test('toda rpc chamada no código existe no banco', async () => {
-    const existentes = new Set((await execRows(sql`select proname from pg_proc where pronamespace = 'public'::regnamespace`)).map(r => r.proname))
-    assert.deepEqual(chamadas.filter(n => !existentes.has(n)), [])
+  // Pela sessão do usuário a chamada roda como login comum, que não executa nada no banco (#891).
+  test('nenhuma função é chamada pela sessão do usuário (supabase.rpc)', () => {
+    assert.deepEqual(fontes.filter(({ texto }) => texto.includes('.rpc(')).map(({ f }) => f), [])
   })
 
-  test('nenhuma rpc chamada depende de configuração app.* (current_setting)', async () => {
+  test('toda função chamada no código existe no banco', async () => {
+    const existentes = await doPublic()
+    const doPostgres = new Set((await execRows(sql`select proname from pg_proc where pronamespace = 'pg_catalog'::regnamespace`)).map(r => r.proname))
+    assert.deepEqual(chamadas.filter(n => !existentes.has(n) && !doPostgres.has(n)), [])
+  })
+
+  test('nenhuma função chamada depende de configuração app.* (current_setting)', async () => {
     const dependentes = (await execRows(sql`
       select proname from pg_proc
       where pronamespace = 'public'::regnamespace and prosrc ilike '%current_setting(''app.%'

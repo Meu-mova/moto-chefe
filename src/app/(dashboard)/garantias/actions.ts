@@ -1,5 +1,4 @@
 'use server'
-import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { lojaDaMotoParaGravar, travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
 import { podeAbrirRegistroDaLoja } from '@/lib/acesso-registro'
@@ -9,7 +8,7 @@ import { motoDaContaPorChassi } from '@/lib/busca-chassi'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
-import { and, eq, ilike, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, DrizzleQueryError, eq, ilike, inArray, isNotNull, sql } from 'drizzle-orm'
 import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia } from '@/lib/fabrica-scraper'
 import { escolherMotoPorChassi, garantiaEmAndamento, normalizarNumeroPedido, MIN_DIGITOS_SUFIXO_CHASSI } from '@/lib/garantia-importacao'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
@@ -17,6 +16,7 @@ import { listarContasFabrica, lojaDaContaDaGarantia } from '@/lib/fabrica-contas
 import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 import { motoNaoArquivada } from '@/lib/queries/showroom'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { addDias } from '@/lib/calendario'
 
 export async function exportarRelatorioGarantiasAction(filtros: {
   lojaId?: string
@@ -58,21 +58,32 @@ async function abrirGarantia(params: {
   if (!moto) throw new RecusaUsuario('Moto não encontrada')
   await conferirVinculosDaConta(moto.lojaId, { osId: params.osId }, usuario.grupoLiberado)
 
-  // Prazo fixo de 30 dias a partir da data de abertura
-  const fim = new Date(params.dataInicio)
-  fim.setDate(fim.getDate() + 30)
-  const dataFim = fim.toISOString().split('T')[0]
-
-  // A função do banco roda na transação que já travou a moto: um arquivar no meio faz recusar (#688).
-  await db.transaction(async tx => {
-    await travarMotoNaoArquivada(tx, params.motoId)
-    await tx.execute(sql`select abrir_garantia(${params.motoId}::uuid, ${moto.lojaId}::uuid, ${usuario.id}::uuid,
-      ${params.osId ?? null}::uuid, ${params.descricao}::text, ${params.dataInicio}::date, ${dataFim}::date,
-      ${params.dataPedidoPeca ?? null}::date, ${params.numeroPedidoFabrica ?? null}::text)`)
-  })
+  await gravarGarantia({ ...params, lojaId: moto.lojaId, abertaPor: usuario.id })
   revalidatePath('/garantias')
   revalidatePath('/vendas')
   revalidatePath(`/estoque/${params.motoId}`)
+}
+
+/** Abre a garantia pela função do banco, com prazo fixo de 30 dias a partir da abertura. */
+async function gravarGarantia(g: {
+  motoId: string
+  lojaId: string
+  abertaPor: string
+  osId?: string
+  descricao: string
+  dataInicio: string
+  dataPedidoPeca?: string
+  numeroPedidoFabrica?: string
+}) {
+  const dataFim = addDias(g.dataInicio, 30)
+
+  // A função do banco roda na transação que já travou a moto: um arquivar no meio faz recusar (#688).
+  await db.transaction(async tx => {
+    await travarMotoNaoArquivada(tx, g.motoId)
+    await tx.execute(sql`select abrir_garantia(${g.motoId}::uuid, ${g.lojaId}::uuid, ${g.abertaPor}::uuid,
+      ${g.osId ?? null}::uuid, ${g.descricao}::text, ${g.dataInicio}::date, ${dataFim}::date,
+      ${g.dataPedidoPeca ?? null}::date, ${g.numeroPedidoFabrica ?? null}::text)`)
+  })
 }
 
 export async function sincronizarFabricaAction(): Promise<{
@@ -149,6 +160,12 @@ export async function sincronizarFabricaAction(): Promise<{
   return { porLoja, semCredencial }
 }
 
+// Erro do banco vem embrulhado com a consulta e os ids; para a tela, só o motivo.
+function motivoDoErro(e: unknown): string {
+  if (e instanceof DrizzleQueryError && e.cause instanceof Error) return e.cause.message
+  return e instanceof Error ? e.message : String(e)
+}
+
 export type ResultadoImportacaoFabrica = {
   porLoja: { loja: string; importadas: number; semChassi: number; erro?: string }[]
   semCredencial: string[]
@@ -161,7 +178,6 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
   }
 
   const { contas, semCredencial } = await listarContasFabrica(usuario)
-  const supabase = await createClient()
   const porLoja: ResultadoImportacaoFabrica['porLoja'] = []
   const lojaIdsDoGrupo = await listarLojaIdsDoGrupoAtivo(usuario)
   const contaId = await contaDoGrupoAtivo(usuario)
@@ -221,21 +237,14 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
           continue
         }
 
-        const fim = new Date(dataAbertura)
-        fim.setDate(fim.getDate() + 30)
-
-        const { error } = await supabase.rpc('abrir_garantia', {
-          p_moto_id: moto.id,
-          p_loja_id: moto.lojaId,
-          p_aberta_por: usuario.id,
-          p_os_id: null,
-          p_descricao: peca ?? `Pedido fábrica #${numeroPedido}`,
-          p_data_inicio: dataAbertura,
-          p_data_fim: fim.toISOString().split('T')[0],
-          p_data_pedido_peca: null,
-          p_numero_pedido_fabrica: numeroPedido,
+        await gravarGarantia({
+          motoId: moto.id,
+          lojaId: moto.lojaId,
+          abertaPor: usuario.id,
+          descricao: peca ?? `Pedido fábrica #${numeroPedido}`,
+          dataInicio: dataAbertura,
+          numeroPedidoFabrica: numeroPedido,
         })
-        if (error) throw new Error(error.message)
         jaCadastrados.add(normalizarNumeroPedido(numeroPedido))
 
         // A garantia já existe a partir daqui — o update de status abaixo é só
@@ -265,7 +274,7 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
         loja: conta.lojaNome,
         importadas,
         semChassi,
-        erro: e instanceof Error ? e.message : String(e),
+        erro: motivoDoErro(e),
       })
     }
   }
@@ -279,16 +288,8 @@ export async function encerrarGarantiaAction(garantiaId: string, observacao?: st
   // A função do banco só compara com a loja do usuário: sem loja (admin_socio sem loja) ela deixa passar.
   const [garantia] = await db.select({ lojaId: garantias.lojaId }).from(garantias).where(eq(garantias.id, garantiaId)).limit(1)
   if (!garantia || !(await podeAbrirRegistroDaLoja(usuario, garantia.lojaId))) throw new Error('Garantia não encontrada')
-  const supabase = await createClient()
-  const { error } = await supabase.rpc('encerrar_garantia', {
-    p_garantia_id: garantiaId,
-    p_usuario_id: usuario.id,
-    p_papel: usuario.papel,
-    p_loja_usuario_id: usuario.lojaId ?? null,
-    p_observacao: observacao ?? null,
-    p_data_encerramento: dataEncerramento ?? null,
-  })
-  if (error) throw new Error(error.message)
+  await db.execute(sql`select encerrar_garantia(${garantiaId}::uuid, ${usuario.id}::uuid, ${usuario.papel}::text,
+    ${usuario.lojaId ?? null}::uuid, ${observacao ?? null}::text, ${dataEncerramento ?? null}::date)`)
   revalidatePath('/garantias')
   revalidatePath('/estoque')
 }

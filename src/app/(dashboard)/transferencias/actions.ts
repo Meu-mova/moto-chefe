@@ -1,5 +1,4 @@
 'use server'
-import { createClient } from '@/lib/supabase/server'
 import { getUsuarioLogado } from '@/lib/auth'
 import { lojaDaMotoParaGravar, travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
 import { revalidatePath } from 'next/cache'
@@ -71,12 +70,7 @@ export async function aceitarTransferenciaAction(transferenciaId: string) {
     throw new Error('Sem permissão para aceitar transferência')
   }
   await checarLojaDestino(usuario, transferenciaId)
-  const supabase = await createClient()
-  const { error } = await supabase.rpc('aceitar_transferencia', {
-    p_transferencia_id: transferenciaId,
-    p_respondido_por: usuario.id,
-  })
-  if (error) throw new Error(error.message)
+  await db.execute(sql`select aceitar_transferencia(${transferenciaId}::uuid, ${usuario.id}::uuid)`)
   revalidatePath('/transferencias')
   revalidatePath('/estoque')
 }
@@ -87,13 +81,7 @@ export async function recusarTransferenciaAction(transferenciaId: string, observ
     throw new Error('Sem permissão para recusar transferência')
   }
   await checarLojaDestino(usuario, transferenciaId)
-  const supabase = await createClient()
-  const { error } = await supabase.rpc('recusar_transferencia', {
-    p_transferencia_id: transferenciaId,
-    p_respondido_por: usuario.id,
-    p_observacao: observacao,
-  })
-  if (error) throw new Error(error.message)
+  await db.execute(sql`select recusar_transferencia(${transferenciaId}::uuid, ${usuario.id}::uuid, ${observacao}::text)`)
   revalidatePath('/transferencias')
   revalidatePath('/estoque')
 }

@@ -1,0 +1,2 @@
+# Falso positivo: nome de sequência num teste de banco, lido como chave (#891).
+2034592a089a49957df94e50796fefdd8c16b664:src/lib/acesso-direto-banco.db.test.ts:generic-api-key:157

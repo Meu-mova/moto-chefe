@@ -7,7 +7,6 @@ import { conferirCategoriaCaixaDaLoja } from '@/lib/categorias-do-grupo'
 import { acao } from '@/lib/resultado-action'
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 type LancamentoInput = {
