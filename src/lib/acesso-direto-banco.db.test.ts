@@ -190,6 +190,18 @@ describe('o app e o service_role seguem com acesso', () => {
 // A migração roda de novo numa transação desfeita, sobre um objeto aberto de propósito.
 describe('migração que fecha o acesso direto', () => {
   const migracao = sql.raw(readFileSync('src/lib/db/migrations/0187_login_sem_acesso_direto.sql', 'utf8'))
+  const falhaCom = (trecho: RegExp) => (e: { cause?: { message?: string } }) => trecho.test(e.cause?.message ?? '')
+  const pode = async (tx: Tx, q: SQL) => (await linhas(tx, sql`select (${q}) as pode`))[0].pode
+
+  // Privilégio dado por outro papel, que recebeu o direito de repassar: o REVOKE do dono não o tira, como num
+  // objeto de outro dono na produção. Só a conferência no fim da migração pega.
+  async function abrirPorOutro(tx: Tx, privilegio: string, objeto: string, papel: string) {
+    await tx.execute(sql.raw(`create role adb_conc nologin`))
+    await tx.execute(sql.raw(`grant ${privilegio} on ${objeto} to adb_conc with grant option`))
+    await tx.execute(sql.raw(`set local role adb_conc`))
+    await tx.execute(sql.raw(`grant ${privilegio} on ${objeto} to ${papel}`))
+    await tx.execute(sql.raw(`reset role`))
+  }
 
   test('fecha também o que foi liberado a todos (PUBLIC)', async () => {
     await emTransacaoDesfeita(async tx => {
@@ -201,14 +213,27 @@ describe('migração que fecha o acesso direto', () => {
     })
   })
 
-  test('falha, e não grava nada, se sobrar acesso que ela não fecha', async () => {
-    await assert.rejects(
-      db.transaction(async tx => {
-        await tx.execute(sql`create table adb891_aberta (id int)`)
-        await tx.execute(sql`grant select on adb891_aberta to anon`)
-        await tx.execute(migracao)
-      }),
-      (e: { cause?: { message?: string } }) => /acesso direto aberto: anon public\.adb891_aberta/.test(e.cause?.message ?? ''),
-    )
+  test('fecha também o acesso anônimo: tabela, sequência e padrão do schema', async () => {
+    await emTransacaoDesfeita(async tx => {
+      await tx.execute(sql`create table adb_t (id serial)`)
+      await tx.execute(sql`grant select on adb_t to anon`)
+      await tx.execute(sql.raw(`do $$ begin execute format('grant usage on sequence %s to anon', pg_get_serial_sequence('adb_t', 'id')); end $$`))
+      await tx.execute(sql`alter default privileges in schema public grant select on tables to anon`)
+      await tx.execute(migracao)
+      assert.deepEqual({
+        tabela: await pode(tx, sql`has_table_privilege('anon', 'adb_t', 'SELECT')`),
+        sequencia: await pode(tx, sql`has_sequence_privilege('anon', pg_get_serial_sequence('adb_t', 'id'), 'USAGE')`),
+        padrao: await pode(tx, sql`exists (select 1 from pg_default_acl d, aclexplode(d.defaclacl) a
+          where d.defaclnamespace = 'public'::regnamespace and a.grantee = 'anon'::regrole)`),
+      }, { tabela: false, sequencia: false, padrao: false })
+    })
+  })
+
+  test('falha, e não grava nada, se sobrar tabela aberta', async () => {
+    await assert.rejects(db.transaction(async tx => {
+      await tx.execute(sql`create table adb_t (id int)`)
+      await abrirPorOutro(tx, 'select', 'adb_t', 'anon')
+      await tx.execute(migracao)
+    }), falhaCom(/acesso direto aberto: anon public\.adb_t/))
   })
 })

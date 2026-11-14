@@ -15,10 +15,10 @@ BEGIN
   END LOOP;
 END $$;
 
--- Tabelas, views e sequências: o login comum não tem o que fazer aqui, nem por um
--- privilégio dado a todos (PUBLIC).
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, authenticated;
-REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, authenticated;
+-- Tabelas, views e sequências: o login comum e o anônimo não têm o que fazer aqui,
+-- nem por um privilégio dado a todos (PUBLIC).
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated;
 
 -- Funções: ninguém além do app as executa. Funções de extensão ficam de fora,
 -- como na 0123 (não são do app e não leem dado dele).
@@ -36,10 +36,10 @@ BEGIN
   END LOOP;
 END $$;
 
--- Objeto novo criado pelas migrações não nasce aberto ao login comum.
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM authenticated;
+-- Objeto novo criado pelas migrações não nasce aberto ao login comum nem ao anônimo.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated;
 -- O padrão por schema só soma ao padrão global, que dá EXECUTE a todos (PUBLIC) em
 -- função nova; por isso a mesma linha da 0123, com IN SCHEMA, não valeu. Aqui, sem
 -- IN SCHEMA, vale para toda função criada pelas migrações.
