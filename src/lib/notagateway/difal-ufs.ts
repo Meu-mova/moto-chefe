@@ -1,4 +1,4 @@
-import { UFS } from '@/lib/sefaz/uf'
+import { UFS, ufValida, type SiglaUf } from '@/lib/sefaz/uf'
 
 /**
  * Números do DIFAL por UF de destino (#904, decisões 1 e 7 da #724): venda de moto
@@ -10,7 +10,7 @@ import { UFS } from '@/lib/sefaz/uf'
  * Levantamento: esteira/caixa/nf-endereco-entrega-697-904-fontes-ufs.md.
  */
 
-export type SiglaUf = (typeof UFS)[number]['sigla']
+export type { SiglaUf }
 export type BaseDifal = 'unica' | 'dupla'
 
 export type PadraoUf = {
@@ -44,13 +44,13 @@ const CONFIRMADAS: Partial<Record<SiglaUf, Omit<PadraoUf, 'base'>>> = {
   SP: {
     aliquotaInterna: 18,
     fcp: null,
-    fonte: 'RICMS/SP, art. 52, I: https://legislacao.fazenda.sp.gov.br/Paginas/art052.aspx',
+    fonte: 'RICMS/SP, art. 52, I (alíquota geral; enquadramento da moto elétrica não conferido: art. 55, VI dá 25% para moto acima de 250 cm³): https://legislacao.fazenda.sp.gov.br/Paginas/art052.aspx',
     conferidoEm: '2026-11-14',
   },
   MG: {
     aliquotaInterna: 18,
     fcp: null,
-    fonte: 'Lei 6.763/1975, art. 12, I, d: https://www.almg.gov.br/legislacao-mineira/texto/LEI/6763/1975/',
+    fonte: 'Lei 6.763/1975, art. 12, I, d (alíquota geral; alíquota específica de moto não conferida): https://www.almg.gov.br/legislacao-mineira/texto/LEI/6763/1975/',
     conferidoEm: '2026-11-14',
   },
 }
@@ -63,7 +63,7 @@ export const TABELA_DIFAL_PADRAO: Readonly<Record<SiglaUf, PadraoUf>> = Object.f
 
 export function siglaUfValida(uf: string): SiglaUf | null {
   const s = uf.trim().toUpperCase()
-  return s in TABELA_DIFAL_PADRAO ? (s as SiglaUf) : null
+  return ufValida(s) ? s : null
 }
 
 /** Os números valendo para o grupo na UF: a correção do grupo, se houver; senão o padrão. */
