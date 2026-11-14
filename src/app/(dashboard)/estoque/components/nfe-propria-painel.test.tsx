@@ -495,7 +495,7 @@ test('venda antiga com NF viva: sem "Preencher entrega", com a frase da trava', 
   assert.match(cartao()?.textContent ?? '', /Cancele a NF antes de mudar a entrega\./)
 })
 
-test('pendência do CPF com dígito errado aparece em "Corrija antes de emitir" e a prévia abre', async () => {
+test('pendência do CPF com dígito errado vinda do servidor aparece em "Corrija antes de emitir"', async () => {
   acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, resumo: null, pendencias: ['CPF do comprador com dígito errado. Corrija em Editar venda para a nota sair.'] }) }
   const { container } = await abrirPainel()
   assert.match(container.textContent ?? '', /Corrija antes de emitirCPF do comprador com dígito errado\. Corrija em Editar venda para a nota sair\./)
@@ -504,3 +504,9 @@ test('pendência do CPF com dígito errado aparece em "Corrija antes de emitir" 
 async function escolherNaModalidade(valor: string) {
   await escolher(document.querySelector<HTMLSelectElement>('[aria-label="Alterar entrega"] #alterar-modalidade')!, valor)
 }
+
+test('venda antiga sem a UF do cliente: o aviso não mostra parêntese vazio', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, entrega: null, correcao: { ...previaSemRenave.correcao, comprador: { ...previaSemRenave.correcao.comprador, clienteEstado: null } } }) }
+  await abrirPainel()
+  assert.match(cartao()?.textContent ?? '', /a NF sai pela UF do endereço do cliente\./)
+})

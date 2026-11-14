@@ -326,7 +326,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       )}
 
       <ResumoDaEntrega rotulo="Entrega da venda" entrega={previa.entrega} avisoSemEntrega
-        semEntrega={<p className="text-warning">Esta venda é de antes da Entrega: a NF sai pela UF do endereço do cliente ({previa.correcao.comprador.clienteEstado ?? '?'}).</p>}
+        semEntrega={<p className="text-warning">Esta venda é de antes da Entrega: a NF sai pela UF do endereço do cliente{previa.correcao.comprador.clienteEstado ? ` (${previa.correcao.comprador.clienteEstado})` : ''}.</p>}
         acao={previa.travaDaEntrega
           ? <p className="text-muted-foreground sm:max-w-64 sm:text-right">{previa.travaDaEntrega}</p>
           : <AlterarEntregaDialog entrega={previa.entrega} freteFixo rotulo={previa.entrega ? 'Alterar entrega' : 'Preencher entrega'}
