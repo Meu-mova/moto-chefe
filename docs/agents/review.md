@@ -102,6 +102,9 @@ aqui fica a lista curta de conferência.
   ou navegação**: `npm run e2e:acesso:local`, com a cópia da produção de pé e o app em
   `localhost:3600` (passo a passo no topo de `scripts/e2e-acesso-rotas-local.ts`). Saiu do CI
   porque a fila do staging cancelava a matriz do PR ao lado (#594).
+- **Tela que abre janela ao entrar: o mesmo PR fecha a janela em todo script Playwright com login**
+  (#885: a janela de Novidades cobria a tela e a navegação ficou vermelha na 1ª rodada). Conferir:
+  `git grep -l "fecharNovidadesSeAbrir" scripts/` contra os scripts que fazem login; janela nova ganha o seu `fechar...SeAbrir`.
 - **Teste de tela monta o DOM com `montarDom()` de `src/test/montar-dom.ts`** (`const { dom, desmontar } = montarDom()` e
   `after(desmontar)`), nunca com `new JSDOM` e globais copiados à mão. A cópia foi parar em 8 arquivos e voltou
   em cada PR da folha (#628, #629) porque não havia helper para reusar. Cópia nova do boilerplate é achado "deveria" na revisão.
