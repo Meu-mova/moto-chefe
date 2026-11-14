@@ -17,3 +17,20 @@ export const abaixoDoMinimo = (liquido: number, minimo: number) => liquido < min
 
 /** Só sócio e admin geral vendem abaixo do mínimo sem pedir aprovação (auto-aprovação). */
 export const podeVenderAbaixoDoMinimo = (papel: string) => ['admin_geral', 'admin_socio'].includes(papel)
+
+export type TipoAprovacaoVenda = 'valor_minimo' | 'pagamento_sensivel'
+
+/**
+ * Qual aprovação a venda precisa, ou null para gravar direto. O pagamento sensível vem
+ * primeiro: quem aprova a transferência já vê a venda inteira.
+ */
+export function aprovacaoNecessaria(p: {
+  sensivelSemPermissao: boolean
+  /** Null sem precificação do modelo: sem mínimo, não há o que aprovar. */
+  preco: { liquido: number; minimo: number } | null
+  papel: string
+}): TipoAprovacaoVenda | null {
+  if (p.sensivelSemPermissao) return 'pagamento_sensivel'
+  if (p.preco && abaixoDoMinimo(p.preco.liquido, p.preco.minimo) && !podeVenderAbaixoDoMinimo(p.papel)) return 'valor_minimo'
+  return null
+}
