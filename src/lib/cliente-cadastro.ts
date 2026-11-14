@@ -1,8 +1,10 @@
 // ─── Cadastro de cliente (CPF único por Conta) ────────────────────────────────
 // Na persona do admin_rede (#517, ADR-0019), CPF repetido recebe uma frase neutra: a trava é
 // da Conta dona inteira, e "já cadastrado" revelaria que o cliente existe em outro grupo dela.
+import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { clientes } from '@/lib/db/schema'
+import { clientesDoEscopo } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'insert'>
 type Escopo = { contaId: string; grupoLiberado?: string | null }
@@ -27,6 +29,23 @@ export async function cadastrarCliente(
   try {
     const [novo] = await exec.insert(clientes).values({ ...dados, contaId: escopo.contaId }).returning({ id: clientes.id })
     return novo.id
+  } catch (e: unknown) {
+    if (cpfRepetido(e)) throw new Error(mensagemCpfRepetido(escopo))
+    throw e
+  }
+}
+
+export async function atualizarCliente(
+  exec: Pick<typeof db, 'update'>,
+  escopo: Escopo,
+  id: string,
+  dados: Partial<Omit<typeof clientes.$inferInsert, 'contaId'>>,
+): Promise<void> {
+  try {
+    const atualizados = await exec.update(clientes).set({ ...dados, atualizadoEm: new Date() })
+      .where(and(eq(clientes.id, id), clientesDoEscopo(escopo.contaId, escopo)))
+      .returning({ id: clientes.id })
+    if (!atualizados.length) throw new Error('Cliente não encontrado')
   } catch (e: unknown) {
     if (cpfRepetido(e)) throw new Error(mensagemCpfRepetido(escopo))
     throw e
