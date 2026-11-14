@@ -4,6 +4,8 @@
  * - 'avista_12x': PIX/dinheiro (o valor mínimo) e o total em 12x que o administrador digita
  *   por modelo, sem taxa nenhuma.
  */
+import { centavos } from './centavos'
+
 export const PADROES_SIMULADOR = ['taxas', 'avista_12x'] as const
 export type PadraoSimulador = (typeof PADROES_SIMULADOR)[number]
 
@@ -46,8 +48,6 @@ export type DestaqueAvista12x = {
   /** Frete calculado e os totais com ele; null sem frete. */
   comFrete: { custo: number; pix: number; parcela12x: number | null } | null
 }
-
-const centavos = (v: number) => Math.round(v * 100) / 100
 
 /** Parcela do total em 12x, em centavos. */
 export const parcelaDe12x = (total: number) => centavos(total / 12)

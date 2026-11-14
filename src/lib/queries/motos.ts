@@ -411,6 +411,10 @@ export async function listarAprovacoesPendentes(lojaIds: string[]) {
       tipo:            aprovacoesVenda.tipo,
       dadosVenda:      aprovacoesVenda.dadosVenda,
       dataSolicitacao: aprovacoesVenda.dataSolicitacao,
+      // Mínimo e líquido congelados no pedido: o card mostra quanto a venda ficou abaixo (#876).
+      valorMinimoSnapshot: aprovacoesVenda.valorMinimoSnapshot,
+      liquidoSnapshot:     aprovacoesVenda.liquidoSnapshot,
+      snapshotEstimado:    aprovacoesVenda.snapshotEstimado,
       vendedorNome:    usuarios.nome,
       lojaNome:        lojas.nome,
       // moto (null quando origem != 'moto')

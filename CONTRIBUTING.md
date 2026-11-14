@@ -133,7 +133,18 @@ Não crie label nova sem combinar.
   se houver algum `feat`; major só por marco de negócio decidido pelo Luis e pelo Cesar.
 - Passo a passo:
   1. Na `dev`, por PR, commit `chore(release): vX.Y.Z` atualizando o `version` do
-     `package.json`.
+     `package.json`. No mesmo PR, as **Novidades da versão** (a janela que `admin_geral`,
+     `admin_socio`, `admin_rede` e `aux_adm` veem ao entrar): o arquivo
+     `src/lib/novidades/versoes/X.Y.Z.ts` e a linha dele em `src/lib/novidades/lista.ts`, **ou**,
+     se nada mudou para a loja, a frase "Sem novidades para as lojas" no corpo do PR. O Luis
+     confere um dos dois ao revisar. O texto é escrito à parte das notas da release e vale para
+     todas as Contas:
+     - entra só o que a loja percebe, com título curto e uma ou duas frases em linguagem simples,
+       separado em Novidades e Correções;
+     - nunca entra: link, nome de cliente, loja, grupo ou cidade, falha de segurança ou de
+       isolamento, nem nada da parte **Interno** das notas;
+     - item que só vale para uma Conta fica de fora ou vira texto geral;
+     - sem travessão. O `npm test` recusa versão inválida, item vazio, link e travessão.
   2. PR `dev → main` (antes, `scripts/schema-diff.ts` sem diferença — ver
      `docs/infra/staging.md`). No botão do GitHub, "Squash and merge", com título
      `release: vX.Y.Z (#N)` e corpo escrito à mão: apague da caixa de mensagem toda linha
@@ -152,4 +163,5 @@ Não crie label nova sem combinar.
   7. Atualizar a descrição e a seção "No ar agora" do README do Project: `vX.Y.Z`, a data e o
      link das notas.
 - Hotfix: o bump (`chore(release)`, patch) vai na própria branch do hotfix, antes do PR para a
-  `main`; depois os passos 3 a 7 e o PR `main → dev` de sempre.
+  `main`, com as Novidades da versão ou "Sem novidades para as lojas" como no passo 1; depois os
+  passos 3 a 7 e o PR `main → dev` de sempre.

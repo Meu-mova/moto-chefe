@@ -11,6 +11,7 @@
 import { chromium, type Page } from 'playwright'
 import { motivoUrlRecusada } from './lib/smoke'
 import { ROTAS_MATRIZ, esperado, falhaDaVisita, usuariosDaMatriz } from './lib/acesso-rotas'
+import { fecharNovidadesSeAbrir } from './lib/janela-novidades'
 
 const base = (process.env.NAVEGACAO_URL ?? process.env.SMOKE_URL)?.replace(/\/$/, '')
 const senha = process.env.SMOKE_SENHA ?? process.env.SEED_SENHA
@@ -37,6 +38,7 @@ async function entrar(pagina: Page, email: string, rotulo = email) {
     pagina.click('button[type="submit"]'),
   ])
   if (new URL(pagina.url()).pathname.startsWith('/login')) throw new Error(`login recusado para ${rotulo}`)
+  await fecharNovidadesSeAbrir(pagina)
 }
 
 async function main() {

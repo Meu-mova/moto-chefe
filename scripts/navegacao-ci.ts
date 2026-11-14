@@ -20,6 +20,7 @@ import {
   ALTURA_POR_LARGURA, LARGURAS, TEMAS, fundosClarosGrandes, menuNoHamburguer, nomePrint,
   type CaixaComFundo, type Largura, type Tema,
 } from './lib/navegacao-ci'
+import { fecharNovidadesSeAbrir } from './lib/janela-novidades'
 
 const arg = (nome: string) => { const i = process.argv.indexOf(nome); return i >= 0 ? process.argv[i + 1] : undefined }
 const base = (process.env.NAVEGACAO_URL ?? process.env.SMOKE_URL)?.replace(/\/$/, '')
@@ -82,6 +83,7 @@ async function entrar(pagina: Page) {
   const destino = new URL(pagina.url())
   if (destino.pathname.startsWith('/login')) throw new Error(`login recusado (${destino.searchParams.get('error')})`)
   await pagina.waitForLoadState('load')
+  await fecharNovidadesSeAbrir(pagina)
 }
 
 /** Abre o menu (hambúrguer no celular/tablet) e expande todos os grupos; devolve o <nav>. */

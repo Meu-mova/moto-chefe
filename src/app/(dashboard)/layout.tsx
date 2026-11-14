@@ -19,9 +19,12 @@ import { podePagarMensalidade } from '@/lib/mensalidade/regras'
 import { hojeBrt } from '@/lib/data-venda'
 import { AvisoMensalidade } from '@/components/layout/aviso-mensalidade'
 import { itensDoUsuario } from '@/lib/navegacao-servidor'
-import { ComunicadoModal } from './components/comunicado-modal'
+import { AvisosDoAcesso } from './components/avisos-do-acesso'
 import { buscarComunicadosNaoLidosAction } from './admin/comunicados/actions'
 import { BotaoTema } from '@/components/theme-provider'
+import { NOVIDADES_DA_VERSAO } from '@/lib/novidades/lista'
+import { novidadeParaMostrar } from '@/lib/novidades/regra'
+import { nomeDoCookieDaNovidade } from '@/lib/novidades/cookie'
 
 // Timeout defensivo para as consultas do layout. O layout roda em TODA página;
 // sem isso, uma consulta que engasga no banco pendura qualquer tela até o limite
@@ -96,7 +99,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
       : null,
   ])
 
-  const recolhida = (await cookies()).get(COOKIE_SIDEBAR_RECOLHIDA)?.value === '1'
+  const cookiesDoPedido = await cookies()
+  const recolhida = cookiesDoPedido.get(COOKIE_SIDEBAR_RECOLHIDA)?.value === '1'
+  // Novidades da versão (#883) são acessórias como os comunicados: se falhar, abre sem a janela.
+  const novidade = (() => {
+    try {
+      const vista = cookiesDoPedido.get(nomeDoCookieDaNovidade(usuario.id))?.value ?? null
+      return novidadeParaMostrar(NOVIDADES_DA_VERSAO, usuario.papelReal, vista)
+    } catch (e) {
+      console.error('[novidades] janela:', e instanceof Error ? e.message : e)
+      return null
+    }
+  })()
   const itensIds = itensDoUsuario(usuario).map(i => i.id)
   // Só o rótulo do rodapé: o papel gravado (admin_rede), não o que governa as permissões.
   const usuarioMenu = { nome: usuario.nome, email: usuario.email, papel: usuario.papelReal, cargoNome: usuario.cargoNome }
@@ -116,7 +130,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </main>
         </div>
       </div>
-      <ComunicadoModal comunicados={comunicadosNaoLidos} />
+      <AvisosDoAcesso novidade={novidade} usuarioId={usuario.id} comunicados={comunicadosNaoLidos} />
     </Providers>
   )
 }

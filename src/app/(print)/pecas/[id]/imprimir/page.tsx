@@ -6,7 +6,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { podeVenderPeca } from '@/app/(dashboard)/pecas/papeis'
 import { formatarCpfCnpj } from '@/lib/documento'
-import { PrintTrigger } from './print-trigger'
+import { PrintTrigger } from '@/components/print-trigger'
 
 const fmt = (v: string | number) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
