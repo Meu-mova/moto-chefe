@@ -333,7 +333,7 @@ test('"Frete adicionado" sem valor avisa que o pedido sai sem frete (avisa, não
   const t = await montar()
   await entregarComCep(t)
   await t.clique(botaoFrete())
-  assert.match(textoDaTela(), /Informe o valor do frete\. Sem ele o pedido sai sem frete\./)
+  assert.match(textoDaTela(), /Informe o valor do frete\. Sem ele não há frete cobrado\./)
   await digitar(campo<HTMLInputElement>(/^Valor cobrado do cliente/), '35000')
   assert.doesNotMatch(textoDaTela(), /Informe o valor do frete/)
 })

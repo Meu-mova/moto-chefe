@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CepInput } from '@/components/ui/cep-input'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { CLASSE_SELECT_NATIVO } from '@/components/ui/select-nativo'
 import { DocumentoClienteInput } from '@/components/documento-cliente'
 import { useBuscaCep } from '@/components/use-busca-cep'
@@ -226,5 +227,37 @@ export function EntregaEModalidade({ idModalidade, valor, onChange }: Props & { 
         )}
       </div>
     </>
+  )
+}
+
+/**
+ * "+ Frete" e o valor cobrado do cliente: o mesmo bloco no Novo pedido e no "Vender" (#854). Só liga com a loja
+ * fazendo o frete; ligar marca "Entregar"; trocar a modalidade o tira (`freteDoFormulario`).
+ */
+export function FreteCobrado({ id, valor, onChange }: Props & { id: string }) {
+  const ligado = valor.modo === 'entregar' && valor.comFrete && modalidadeComFrete(valor.modalidade)
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold">Frete</h3>
+      <Button
+        type="button" variant="outline" aria-pressed={ligado}
+        disabled={!modalidadeComFrete(valor.modalidade)}
+        onClick={() => onChange(anterior => ({ ...anterior, modo: 'entregar', comFrete: !ligado }))}
+      >
+        {ligado ? 'Frete adicionado' : '+ Frete'}
+      </Button>
+      {ligado ? (
+        <div className="space-y-1">
+          <Label htmlFor={id}>Valor cobrado do cliente</Label>
+          <CurrencyInput id={id} value={valor.frete} onChange={frete => onChange(anterior => ({ ...anterior, frete }))} placeholder="0,00" />
+          {!freteDoFormulario(valor) && (
+            <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">Informe o valor do frete. Sem ele não há frete cobrado.</p>
+          )}
+          <p className="text-xs text-muted-foreground">Frete precisa de entrega: a opção &quot;Entregar&quot; fica marcada.</p>
+        </div>
+      ) : !modalidadeComFrete(valor.modalidade) && (
+        <p className="text-xs text-muted-foreground">Frete cobrado só quando a loja leva a moto ou contrata a transportadora.</p>
+      )}
+    </div>
   )
 }
