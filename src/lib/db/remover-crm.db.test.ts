@@ -1,5 +1,5 @@
 // Teste de banco: Postgres descartável, como src/lib/cliente-da-os.db.test.ts.
-// Migração 0188 (#927): tira o gatilho do `auth.users`, tira do realtime só as tabelas do `crm` e apaga o schema.
+// Migração 0188 (#927): tira o gatilho do `auth.users` e apaga o schema; as tabelas do `crm` saem do realtime junto.
 // O banco do CI não tem `auth.users` nem a publicação `supabase_realtime`: o teste cria os dois dentro da
 // transação desfeita, junto com um `crm` mínimo, e roda o SQL do arquivo da migração.
 import { after, before, test } from 'node:test'
