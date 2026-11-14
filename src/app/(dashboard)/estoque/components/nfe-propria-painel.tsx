@@ -108,6 +108,16 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
     })
   }
 
+  // Depois do "Alterar entrega" (#895): só a prévia muda (pendências, operação, trava); o que a pessoa já
+  // preencheu (ficha, RENAVE, frete, observação, etapa) fica.
+  function recarregarPrevia() {
+    startTransition(async () => {
+      const r = await previsualizarNfePropriaAction(motoId)
+      if (!r.ok) { setErro(r.error); return }
+      setPrevia(r)
+    })
+  }
+
   useEffect(() => carregar(true), [motoId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function salvarFicha() {
@@ -319,7 +329,7 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
         {previa.travaDaEntrega
           ? <p className="text-muted-foreground">{previa.travaDaEntrega}</p>
           : <AlterarEntregaDialog entrega={previa.entrega} freteFixo rotulo="Alterar entrega"
-              salvar={nova => alterarEntregaDaVendaAction(previa.vendaId, nova)} aoSalvar={() => carregar(false)} />}
+              salvar={nova => alterarEntregaDaVendaAction(previa.vendaId, nova)} aoSalvar={recarregarPrevia} />}
       </div>
 
       {previa.pendencias.length > 0 && (

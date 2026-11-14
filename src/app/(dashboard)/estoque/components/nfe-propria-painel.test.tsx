@@ -418,14 +418,12 @@ const ENTREGA_COM_FRETE = {
   modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', recebe: null, frete: 350,
   endereco: { cep: '37000000', logradouro: 'Rua de teste', numero: '10', complemento: '', bairro: 'Centro', cidade: '3170701', nomeCidade: 'Varginha', uf: 'MG' },
 } as const
-// Moto que não é ciclomotor: a prévia abre direto na conferência, onde fica a Entrega.
-const SEM_RENAVE = { ...preview, exigeRenave: false, renave: null }
 
 test('prévia: "Alterar entrega" sem o "+ Frete" (o frete cobrado não muda); salvar envia à venda e recarrega a prévia', async () => {
   const enviados: unknown[][] = []
   let previas = 0
   alterarDaVenda = async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } }
-  acoes = { ...acoes, previsualizarNfePropriaAction: async () => { previas++; return { ...SEM_RENAVE, entrega: ENTREGA_COM_FRETE } } }
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => { previas++; return { ...previaSemRenave, entrega: ENTREGA_COM_FRETE } } }
   const { container, click } = await abrirPainel()
   await click(/^Alterar entrega$/)
   const dialogo = document.querySelector('[aria-label="Alterar entrega"]')
@@ -436,13 +434,26 @@ test('prévia: "Alterar entrega" sem o "+ Frete" (o frete cobrado não muda); sa
   await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Salvar entrega'))
   assert.deepEqual(enviados, [['venda-teste', { ...ENTREGA_COM_FRETE, endereco: { ...ENTREGA_COM_FRETE.endereco, logradouro: 'Outra rua' } }]])
   assert.equal(previas, 2)
-  assert.ok(container)
+  assert.equal(document.querySelector('[aria-label="Alterar entrega"]'), null, 'o diálogo fechou')
 })
 
 test('prévia: com NF viva o "Alterar entrega" some e aparece a frase da trava', async () => {
   alterarDaVenda = unexpectedAction
-  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...SEM_RENAVE, entrega: ENTREGA_COM_FRETE, travaDaEntrega: 'Cancele a NF antes de mudar a entrega.' }) }
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, entrega: ENTREGA_COM_FRETE, travaDaEntrega: 'Cancele a NF antes de mudar a entrega.' }) }
   const { container } = await abrirPainel()
   assert.equal([...container.querySelectorAll('button')].some(b => /Alterar entrega/.test(b.textContent ?? '')), false)
   assert.match(container.textContent ?? '', /Cancele a NF antes de mudar a entrega\./)
+})
+
+test('prévia: salvar a Entrega recarrega só a prévia; a observação já editada continua', async () => {
+  alterarDaVenda = async () => ({ ok: true, dados: undefined })
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, entrega: ENTREGA_COM_FRETE }) }
+  const { container, click } = await abrirPainel()
+  await clicar(lapis(container)!)
+  await digitarTexto(caixaObservacao(container)!, 'GARANTIA DA LOJA')
+  await click(/^Salvar$/)
+  await click(/^Alterar entrega$/)
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Salvar entrega'))
+  assert.match(textoDaTela(container), /Texto editado para esta nota/)
+  assert.match(textoDaTela(container), /GARANTIA DA LOJA/)
 })
