@@ -33,6 +33,9 @@ aqui fica a lista curta de conferência.
 - **Tela nova ou mudada só vai para o código com protótipo aprovado pelo Luis, no desktop e no
   celular** (#597: três rodadas de revisão aprovaram uma tela que o Luis rejeitou no 1º preview).
   Conferir: o PR com tela cita o protótipo escolhido, e a tela bate com ele nas duas larguras.
+- **Campo gravado só com a data (`parseDataInput`) se mostra só com a data, por `diaBrt`** (#909: a
+  lista de vendas mostrava 09:00 em 533 de 535 vendas, a hora do meio-dia UTC). Conferir na Fase 0:
+  coluna com hora só se o campo guarda hora de verdade.
 
 ## Fluxo de dados
 
