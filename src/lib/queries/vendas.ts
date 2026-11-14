@@ -4,6 +4,7 @@ import { pedidosVenda, vendas, motos, lojas, grupos, usuarios, modelos, origensV
 import { eq, and, ilike, inArray, desc, sql, gte, lte } from 'drizzle-orm'
 import { inicioDoDiaBrt, fimDoDiaBrt } from '@/lib/data-venda'
 import { freteDaVendaExpr, valorDaMotoNosRelatoriosExpr } from './valor-liquido'
+import { pedidoEmAprovacaoSql } from '@/lib/pedido-de-aprovacao'
 
 export type PedidoComDetalhes = Awaited<ReturnType<typeof listarPedidosPorLoja>>[0]
 export type VendaComDetalhes  = Awaited<ReturnType<typeof listarVendas>>[0]
@@ -119,6 +120,7 @@ export async function listarPedidosPorLoja(lojaId: string) {
       motoId: pedidosVenda.motoId,
       lojaId: pedidosVenda.lojaId,
       chassi: motos.chassi,
+      emAprovacao: pedidoEmAprovacaoSql(sql.raw('"pedidos_venda"."id"')),
       cor: motos.cor,
       marca: modelos.marca,
       modelo: nomeDoModeloNaLoja(pedidosVenda.lojaId),
@@ -147,6 +149,7 @@ export async function listarTodosPedidos(lojaIds?: string[]) {
       motoId: pedidosVenda.motoId,
       lojaId: pedidosVenda.lojaId,
       chassi: motos.chassi,
+      emAprovacao: pedidoEmAprovacaoSql(sql.raw('"pedidos_venda"."id"')),
       cor: motos.cor,
       marca: modelos.marca,
       modelo: nomeDoModeloNaLoja(pedidosVenda.lojaId),
@@ -174,6 +177,7 @@ export async function buscarPedido(id: string) {
       motoId: pedidosVenda.motoId,
       lojaId: pedidosVenda.lojaId,
       chassi: motos.chassi,
+      emAprovacao: pedidoEmAprovacaoSql(sql.raw('"pedidos_venda"."id"')),
       cor: motos.cor,
       motoStatus: motos.status,
       motoLojaId: motos.lojaId,

@@ -8,7 +8,7 @@ import { conferirMaquininhas, operadorasGravadas } from '@/lib/maquininhas'
 import { motos, modelos, modeloBlingCodigos, pedidosVenda, vendas, reservas, historicoEstoque, lancamentosCaixa, precificacao, configuracaoTaxas, usuarios, clientes, aprovacoesVenda, demandas, notasFiscaisSaida, nfeBlingArquivo } from '@/lib/db/schema'
 import { eq, and, isNull, isNotNull, notInArray, inArray, desc, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { calcLiquidoRecebido, validarReserva } from '@/lib/preco-minimo'
+import { liquidoDaMoto, validarReserva } from '@/lib/preco-minimo'
 import { pagamentosFecham, descreverPagamentos, formaPagamentoDaVenda, pagamentosIncompletos, PAGAMENTO_INCOMPLETO, SOMA_PAGAMENTOS_DIFERE, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lancamentosDinheiroDaVenda } from '@/lib/caixa-venda-moto'
 import { podeAbrirRegistroDaLoja, podeEditarVendaDaLoja, podeVenderMotoDaLoja } from '@/lib/acesso-registro'
@@ -31,7 +31,7 @@ import { vendaTemNfViva } from '@/lib/notagateway/nf-viva'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
-import { efetivarPedidoTx } from '@/lib/efetivar-pedido'
+import { efetivarPedidoTx, pedirAprovacaoDoPedidoTx, type PedidoEmAprovacao } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
 import { conferirEntrega, FRETE_FORA_DO_VENDER, freteDaVenda, motoNaNota, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { ufDoEmissorDaMoto } from '@/lib/notagateway/grupo-emissor'
@@ -45,16 +45,9 @@ import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
 import { vendaDoUsuario } from '@/lib/venda-do-usuario'
 import { apagarVendaTx } from '@/lib/apagar-venda'
+import { abaixoDoMinimo, aprovacaoNecessaria, MOTIVO_OBRIGATORIO, motivoDaAprovacao, podeVenderAbaixoDoMinimo, temPagamentoSensivel, type TipoAprovacaoVenda } from '@/lib/aprovacao-venda'
+import { gravarPedidoDeAprovacaoTx } from '@/lib/pedido-de-aprovacao'
 import { apagarArquivosAssinatura } from '@/lib/assinatura/infra'
-
-// Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
-// aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
-// — o financiamento nasce pendente e só o admin_geral confirma que caiu na conta.
-// Ver precisaConciliar em @/lib/conciliacao-status.
-const TIPOS_PAGAMENTO_SENSIVEL = new Set(['transferencia'])
-function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
-  return pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
-}
 
 /**
  * Confere a origem contra o grupo da loja da MOTO e devolve o detalhe já limpo.
@@ -221,7 +214,8 @@ async function efetivarVenda(
   clienteId?: string,
   origemId?: string,
   origemDetalhe?: string,
-) {
+  motivo?: string,
+): Promise<{ aprovacao: TipoAprovacaoVenda } | undefined> {
   const usuario = await getUsuarioLogado()
   if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
     throw new RecusaUsuario('Sem permissão para efetivar venda')
@@ -235,29 +229,36 @@ async function efetivarVenda(
   const valorNum = parseFloat(valor)
   if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
 
-  if (temPagamentoSensivel(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId))) {
-    throw new RecusaUsuario('Venda com financiamento ou transferência bancária precisa de aprovação. Use o fluxo de venda pela ficha da moto (Vender) para pedir aprovação.')
-  }
-
   const origem = await garantirOrigemValida(pedido.lojaId, origemId, origemDetalhe)
   const comprador = conferirComprador(clienteCpf)
+  const dados = {
+    pedidoId, lojaId: pedido.lojaId, efetivadoPor: usuario.id, clienteId: clienteId || null, clienteNome,
+    clienteCpf: comprador.clienteCpf, valor: valorNum, pagamentos, origem, grupoLiberado: usuario.grupoLiberado,
+  }
+
+  // As mesmas regras do Vender (#776); o mínimo vale sobre a moto, sem o frete do pedido.
+  const [moto] = await db.select({ modeloId: motos.modeloId }).from(motos).where(eq(motos.id, pedido.motoId)).limit(1)
+  const prec = moto ? await buscarPrecificacao(moto.modeloId, pedido.lojaId) : null
+  const preco = prec && { liquido: liquidoDaMoto(pagamentos, prec.taxas, freteDaVenda(pedido.entrega)), minimo: prec.valorMinimoPix }
+  const tipo = aprovacaoNecessaria({
+    sensivelSemPermissao: temPagamentoSensivel(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId)),
+    preco,
+    papel: usuario.papel,
+  })
 
   // Pelo Drizzle, não pela sessão: a RLS de escrita em vendas só aceita
   // admin_geral, e o vínculo do cliente sumia calado para sócio e aux_adm (#181).
-  await db.transaction(tx => efetivarPedidoTx(tx, {
-    pedidoId,
-    lojaId: pedido.lojaId,
-    efetivadoPor: usuario.id,
-    clienteId: clienteId || null,
-    clienteNome,
-    clienteCpf: comprador.clienteCpf,
-    valor: valorNum,
-    pagamentos,
-    origem,
-    grupoLiberado: usuario.grupoLiberado,
-  }))
+  if (!tipo) {
+    await db.transaction(tx => efetivarPedidoTx(tx, dados))
+  } else {
+    const motivoFinal = motivoDaAprovacao(tipo, motivo)
+    if (!motivoFinal) throw new RecusaUsuario(MOTIVO_OBRIGATORIO)
+    const snapshot = tipo === 'valor_minimo' && preco ? { valorMinimo: preco.minimo, liquido: preco.liquido } : null
+    await db.transaction(tx => pedirAprovacaoDoPedidoTx(tx, { ...dados, numero: pedido.numero, tipo, motivo: motivoFinal, snapshot }))
+  }
   revalidatePath('/vendas')
   revalidatePath('/estoque')
+  return tipo ? { aprovacao: tipo } : undefined
 }
 
 // ─── Venda completa direto do estoque ────────────────────────────────────────
@@ -512,11 +513,10 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
 
   // admin_geral/admin_socio podem vender abaixo do mínimo direto (auto-aprovação);
   // os demais papéis devem usar solicitarAprovacaoVendaAction nesse caso.
-  const podeVenderAbaixoDoMinimo = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
-  if (prec && !podeVenderAbaixoDoMinimo) {
-    const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
-    if (liquido < prec.valorMinimoPix - 0.01) {
+  if (prec && !podeVenderAbaixoDoMinimo(usuario.papel)) {
+    const liquido = liquidoDaMoto(data.pagamentos, prec.taxas, 0)
+    if (abaixoDoMinimo(liquido, prec.valorMinimoPix)) {
       const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       throw new RecusaUsuario(
         `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)}, mínimo PIX ${fmt(prec.valorMinimoPix)}. Peça aprovação em vez de salvar direto.`
@@ -1644,30 +1644,23 @@ async function solicitarAprovacaoVenda(
   // A trava de outra UF roda aqui; a aprovação usa a Entrega guardada sem consultar a NG de novo.
   data = { ...data, entrega: await entregaDoVender(moto.id, moto.lojaId, data.entrega) }
 
-  let motivoFinal: string
+  const motivoFinal = motivoDaAprovacao(tipoAprovacao, motivo)
+  if (!motivoFinal) throw new RecusaUsuario(MOTIVO_OBRIGATORIO)
   // Snapshot do desconto: só existe no fluxo de valor mínimo. Fica NULL em
   // 'pagamento_sensivel', onde a trava não é sobre preço.
-  let snapshot: { valorMinimo: string; liquido: string } | null = null
+  let snapshot: { valorMinimo: number; liquido: number } | null = null
   if (tipoAprovacao === 'pagamento_sensivel') {
     if (!temPagamentoSensivel(data.pagamentos)) {
       throw new RecusaUsuario('Nenhum pagamento por transferência bancária nesta venda')
     }
-    const tiposUsados = data.pagamentos
-      .filter(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
-      .map(() => 'Transferência Bancária')
-    motivoFinal = motivo.trim() || `Pagamento via ${[...new Set(tiposUsados)].join(' + ')}`
   } else {
-    if (!motivo.trim()) throw new RecusaUsuario('Informe o motivo do pedido de aprovação')
     const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
     if (!prec) throw new RecusaUsuario('Sem preço mínimo configurado para este modelo. Use o fluxo normal de venda')
-    const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
-    if (liquido >= prec.valorMinimoPix - 0.01) {
+    const liquido = liquidoDaMoto(data.pagamentos, prec.taxas, 0)
+    if (!abaixoDoMinimo(liquido, prec.valorMinimoPix)) {
       throw new RecusaUsuario('Valor está dentro do mínimo. Use o fluxo normal de venda')
     }
-    // Congela os dois lados da conta que acabou de reprovar a venda. Recalcular
-    // isso depois usaria a precificação de então, que muda — ver a migração 0065.
-    snapshot = { valorMinimo: prec.valorMinimoPix.toFixed(2), liquido: liquido.toFixed(2) }
-    motivoFinal = motivo.trim()
+    snapshot = { valorMinimo: prec.valorMinimoPix, liquido }
   }
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
@@ -1678,30 +1671,9 @@ async function solicitarAprovacaoVenda(
 
   await db.transaction(async (tx) => {
     await travarMotoNaoArquivada(tx, moto.id)
-    await tx.insert(aprovacoesVenda).values({
-      motoId: moto.id,
-      lojaId: moto.lojaId,
-      vendedorId,
-      valor: data.valorTotal,
-      dadosVenda: data,
-      motivo: motivoFinal,
-      tipo: tipoAprovacao,
-      disponibilidadeAnterior: moto.disponibilidade,
-      status: 'pendente',
-      valorMinimoSnapshot: snapshot?.valorMinimo ?? null,
-      liquidoSnapshot: snapshot?.liquido ?? null,
-    })
-
-    await tx.update(motos)
-      .set({ disponibilidade: 'aguardando_aprovacao' })
-      .where(eq(motos.id, moto.id))
-
-    await tx.insert(historicoEstoque).values({
-      motoId: moto.id,
-      lojaOrigemId: moto.lojaId,
-      usuarioId: usuario.id,
-      tipo: 'mudanca_status',
-      referenciaTipo: 'aprovacao_venda',
+    await gravarPedidoDeAprovacaoTx(tx, {
+      origem: 'moto', moto, vendedorId, solicitadoPor: usuario.id, valor: data.valorTotal, dadosVenda: data,
+      tipo: tipoAprovacao, motivo: motivoFinal, snapshot,
       observacao: `Pedido de aprovação — Cliente: ${data.clienteNome} — Valor: R$ ${valorNum.toFixed(2)} — Motivo: ${motivoFinal}`,
     })
   })
@@ -1778,6 +1750,25 @@ async function aprovarVenda(aprovacaoId: string) {
     return
   }
 
+  // Pedido de venda (#776): o pedido e a moto já existem; a aprovação efetiva com os dados guardados.
+  if (aprovacao.origem === 'pedido') {
+    const dados = aprovacao.dadosVenda as PedidoEmAprovacao
+    // Revalida a origem como o Vender: pode ter sido desativada enquanto o pedido esperava.
+    const origem = await garantirOrigemValida(aprovacao.lojaId, dados.origem.origemId, dados.origem.origemDetalhe ?? undefined)
+    await db.transaction(async (tx) => {
+      const [claimed] = await tx.update(aprovacoesVenda)
+        .set({ status: 'aprovada', respondidoPor: usuario.id, dataResposta: new Date() })
+        .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))
+        .returning({ id: aprovacoesVenda.id })
+      if (!claimed) throw new RecusaUsuario('Esta solicitação não está mais pendente. Recarregue a página.')
+      await efetivarPedidoTx(tx, { ...dados, lojaId: aprovacao.lojaId, origem, efetivadoPor: usuario.id, daAprovacao: true })
+    })
+    revalidatePath('/vendas')
+    revalidatePath('/estoque')
+    revalidatePath('/caixa')
+    return
+  }
+
   // Moto (fluxo original): a venda também não existe ainda.
   if (!aprovacao.motoId) throw new Error('Aprovação de moto sem moto_id')
   const [moto] = await db.select().from(motos).where(eq(motos.id, aprovacao.motoId)).limit(1)
@@ -1838,7 +1829,8 @@ async function recusarVenda(aprovacaoId: string, observacao?: string) {
 
   // OS/Peça: nada foi criado/reservado ainda (a OS continua como estava, sem pagamento
   // aplicado; a venda de peça nunca chegou a existir) — só marca a solicitação como recusada.
-  if (aprovacao.origem !== 'moto') {
+  // Moto e pedido (#776) seguem abaixo: a moto volta à disponibilidade de antes (no pedido, reservada).
+  if (aprovacao.origem !== 'moto' && aprovacao.origem !== 'pedido') {
     const [claimed] = await db.update(aprovacoesVenda)
       .set({ status: 'recusada', respondidoPor: usuario.id, dataResposta: new Date() })
       .where(and(eq(aprovacoesVenda.id, aprovacaoId), eq(aprovacoesVenda.status, 'pendente')))

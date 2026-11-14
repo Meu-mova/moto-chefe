@@ -122,13 +122,13 @@ test('C9: forma sem tipo ou com valor zero é recusada', async () => {
   assert.deepEqual(await vendaDaMoto(a.motoId), [])
 })
 
-test('C8: transferência numa das formas, por aux_adm sem a permissão, segue recusada como hoje', async () => {
+test('C8: transferência numa das formas, por aux_adm sem a permissão, vai para aprovação de pagamento sensível (#776)', async () => {
   const a = await semearConta('stone')
   usuario = a.aux
   const r = await efetivar(a, '1000', [{ tipo: 'dinheiro', valor: 500 }, { tipo: 'transferencia', valor: 500 }])
-  assert.equal(r.ok, false)
-  assert.match((r as { erro: string }).erro, /precisa de aprovação/)
+  assert.deepEqual(r, { ok: true, dados: { aprovacao: 'pagamento_sensivel' } })
   assert.deepEqual(await vendaDaMoto(a.motoId), [])
+  assert.deepEqual(await caixaDaMoto(a.motoId), [])
 })
 
 test('C7: Conta B não efetiva o pedido da Conta A (mesma frase de inexistente) e não usa maquininha da Conta A', async () => {

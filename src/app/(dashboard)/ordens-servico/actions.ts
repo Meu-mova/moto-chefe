@@ -16,6 +16,7 @@ import { validarDocumento, isTipoPessoa } from '@/lib/documento'
 import { hojeBrt } from '@/lib/data-venda'
 import { aplicarPagamentoOS, conferirMaquininhasDaOS, type DadosPagamentoOS } from '@/lib/pagamento-os'
 import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
+import { temPagamentoSensivel } from '@/lib/aprovacao-venda'
 import {
   TIPO_PAGAMENTO_CUPOM, normalizarCodigoCupom, motivoCupomInvalido,
 } from '@/lib/cupom-revisao'
@@ -203,10 +204,6 @@ async function atualizarOS(osId: string, dados: {
   revalidatePath(`/ordens-servico/${osId}`)
 }
 
-// 'transferencia' precisa da mesma aprovação exigida em venda de moto — só quem tem
-// podeAprovarPagamentoSensivelNaLoja vê esse dado. Ver src/lib/grupo.ts.
-const TIPOS_PAGAMENTO_SENSIVEL_OS = new Set(['transferencia'])
-
 export async function registrarPagamentoOSAction(...a: Parameters<typeof registrarPagamentoOS>) {
   return acao(() => registrarPagamentoOS(...a))
 }
@@ -224,7 +221,8 @@ async function registrarPagamentoOS(osId: string, dados: DadosPagamentoOS) {
     throw new RecusaUsuario('OS gratuita não deve ter formas de pagamento lançadas')
   }
 
-  if (dados.pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL_OS.has(p.tipo))) {
+  // Mesma aprovação da venda de moto: só quem tem podeAprovarPagamentoSensivelNaLoja (src/lib/grupo.ts).
+  if (temPagamentoSensivel(dados.pagamentos)) {
     // A loja da OS é quem define o grupo em que a permissão é avaliada.
     const [os] = await db
       .select({ lojaId: ordensServico.lojaId, numero: ordensServico.numero })

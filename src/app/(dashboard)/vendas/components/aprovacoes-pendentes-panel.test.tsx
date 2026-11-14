@@ -85,3 +85,20 @@ test('financiamento ou transferência: o card não ganha quadro', async () => {
   assert.equal(itemDoQuadro('Mínimo'), undefined)
   assert.ok(textoDaTela().includes('Financiamento/Transferência'))
 })
+
+// Pedido de venda em aprovação (#776): o mesmo card, com o número do pedido e moto + frete = total; o quadro
+// segue sobre a moto (valor da aprovação sem o frete).
+test('pedido em aprovação: número do pedido, moto + frete = total e o quadro sobre a moto', async () => {
+  await desenhar({
+    ...ABAIXO_DO_MINIMO, origem: 'pedido', valor: '11900.00', valorMinimoSnapshot: '12000.00', liquidoSnapshot: '11900.00',
+    dadosVenda: { numero: 4321, frete: 150, pagamentos: [{ tipo: 'pix', valor: 12050 }] },
+  } as unknown as AprovacaoPendente)
+  assert.match(textoDaTela(), /Pedido #4321: MOTOCHEFE JETMAX/)
+  assert.match(textoDaTela(), /Moto R\$ 11\.900,00 \+ frete R\$ 150,00 = R\$ 12\.050,00/)
+  assert.match(textoDoItem('Venda'), /R\$ 11\.900,00/)
+})
+
+test('venda do Vender continua sem número de pedido nem linha de frete', async () => {
+  await desenhar(ABAIXO_DO_MINIMO)
+  assert.doesNotMatch(textoDaTela(), /Pedido #|frete/)
+})
