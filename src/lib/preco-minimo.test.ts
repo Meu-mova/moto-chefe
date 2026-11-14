@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { calcLiquidoRecebido, validarPrecoVenda, type TaxasVenda } from './preco-minimo'
+import { calcLiquidoRecebido, parcelasComTaxa, validarPrecoVenda, type TaxasVenda } from './preco-minimo'
 
 // Taxas no formato do banco (configuracao_taxas): fração, não percentual.
 const TAXAS: TaxasVenda = {
@@ -82,4 +82,26 @@ test('validarPrecoVenda: cartão pode reprovar mesmo com bruto acima do mínimo'
   const r = validarPrecoVenda([{ tipo: 'cartao_credito', valor: 10908, parcelas: 12 }], 10490, TAXAS)
   assert.equal(r.valido, false)
   assert.ok(r.deficit > 0)
+})
+
+test('parcelasComTaxa: as parcelas dos pagamentos parcelados que pagam taxa', () => {
+  assert.deepEqual(parcelasComTaxa([{ tipo: 'cartao_credito', valor: 9950, parcelas: 12 }]), [12])
+  assert.deepEqual(parcelasComTaxa([{ tipo: 'link_pagamento', valor: 9950, parcelas: 6 }]), [6])
+})
+
+test('parcelasComTaxa: à vista, débito, financiamento e crédito em 1x não têm parcelas a mostrar', () => {
+  assert.deepEqual(parcelasComTaxa([
+    { tipo: 'pix', valor: 1000 },
+    { tipo: 'cartao_debito', valor: 1000, parcelas: 1 },
+    { tipo: 'financiamento', valor: 1000, parcelas: 48 },
+    { tipo: 'cartao_credito', valor: 1000, parcelas: 1 },
+  ]), [])
+})
+
+test('parcelasComTaxa: N diferentes saem em ordem e sem repetir', () => {
+  assert.deepEqual(parcelasComTaxa([
+    { tipo: 'link_pagamento', valor: 3000, parcelas: 12 },
+    { tipo: 'cartao_credito', valor: 3000, parcelas: 6 },
+    { tipo: 'cartao_credito', valor: 3000, parcelas: 12 },
+  ]), [6, 12])
 })

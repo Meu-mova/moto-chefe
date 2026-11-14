@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   calcDesconto, somarDescontos, percentualDesconto,
-  periodoAnteriorAoRegistro, DESCONTO_REGISTRADO_DESDE,
+  periodoAnteriorAoRegistro, DESCONTO_REGISTRADO_DESDE, quadroAbaixoDoMinimo,
 } from './desconto'
 
 const linha = (valorMinimo: string | null, liquido: string | null, valor: string, estimado = false) => ({
@@ -96,4 +96,53 @@ test('período anterior a 10/07/2026 não tem registro de desconto', () => {
   assert.equal(periodoAnteriorAoRegistro('2026-07-10'), false)
   assert.equal(periodoAnteriorAoRegistro('2026-08-01'), false)
   assert.equal(periodoAnteriorAoRegistro(undefined), false)
+})
+
+// Pedido de aprovação como a lista de pendentes devolve: snapshot + dados_venda com os pagamentos.
+const pedido = (valorMinimo: string | null, liquido: string | null, valor: string, pagamentos: unknown) => ({
+  valorMinimoSnapshot: valorMinimo, liquidoSnapshot: liquido, valor, snapshotEstimado: false,
+  dadosVenda: { pagamentos },
+})
+const cartao12x = [{ tipo: 'cartao_credito', valor: 9950, parcelas: 12 }]
+
+test('quadro: o exemplo da #876, 9.950 em 12x com mínimo de 10.000', () => {
+  assert.deepEqual(quadroAbaixoDoMinimo(pedido('10000.00', '9111.72', '9950.00', cartao12x)), {
+    minimo: 10000, venda: 9950, liquido: 9111.72,
+    abaixoNoPreco: 50, abaixoDepoisDasTaxas: 888.28, rotuloLiquido: 'Líquido (12x)',
+  })
+})
+
+test('quadro: sem snapshot não há quadro', () => {
+  assert.equal(quadroAbaixoDoMinimo(pedido(null, null, '9950.00', cartao12x)), null)
+})
+
+test('quadro: vendeu no mínimo ou acima, a diferença no preço é zero', () => {
+  const q = quadroAbaixoDoMinimo(pedido('10000.00', '9156.59', '10000.00', cartao12x))
+  assert.equal(q?.abaixoNoPreco, 0)
+  assert.equal(q?.abaixoDepoisDasTaxas, 843.41)
+})
+
+test('quadro: resto de ponto flutuante abaixo de meio centavo vira zero', () => {
+  const q = quadroAbaixoDoMinimo(pedido('10000.10', '9000.00', '10000.0999', cartao12x))
+  assert.equal(q?.abaixoNoPreco, 0)
+})
+
+test('quadro: o líquido sem parcelas com taxa se chama só "Líquido"', () => {
+  const rotulo = (pagamentos: unknown, liquido = '9000.00') =>
+    quadroAbaixoDoMinimo(pedido('10000.00', liquido, '9950.00', pagamentos))?.rotuloLiquido
+  assert.equal(rotulo([{ tipo: 'pix', valor: 9000 }]), 'Líquido')
+  assert.equal(rotulo([{ tipo: 'cartao_debito', valor: 9950, parcelas: 1 }]), 'Líquido')
+  assert.equal(rotulo([{ tipo: 'financiamento', valor: 9950, parcelas: 48 }]), 'Líquido')
+  assert.equal(rotulo(undefined), 'Líquido')
+  assert.equal(rotulo([null, { tipo: 'cartao_credito', valor: 9950, parcelas: 12 }]), 'Líquido (12x)')
+  // 12x sem taxa na tabela: o líquido é a própria venda, não houve taxa a mostrar.
+  assert.equal(rotulo(cartao12x, '9950.00'), 'Líquido')
+})
+
+test('quadro: dois parcelados com N diferentes mostram os dois', () => {
+  const q = quadroAbaixoDoMinimo(pedido('10000.00', '8900.00', '9950.00', [
+    { tipo: 'cartao_credito', valor: 4975, parcelas: 6 },
+    { tipo: 'link_pagamento', valor: 4975, parcelas: 12 },
+  ]))
+  assert.equal(q?.rotuloLiquido, 'Líquido (6x e 12x)')
 })

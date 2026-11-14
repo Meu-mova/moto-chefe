@@ -8,7 +8,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { listarLojaIdsDoGrupoAtivo } from '@/lib/grupo'
 import { formatarCpfCnpj, soDigitosDoc } from '@/lib/documento'
-import { PrintTrigger } from './print-trigger'
+import { PrintTrigger } from '@/components/print-trigger'
 import { dataPuraBr } from '@/lib/data-venda'
 
 /** 'YYYY-MM-DD' formatado sem passar por new Date(): a data vem como texto do

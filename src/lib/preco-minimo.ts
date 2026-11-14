@@ -14,6 +14,12 @@ export type PgtoCalc = {
 // Tipos que não têm taxa — vendedor recebe o valor integral
 const SEM_TAXA = new Set(['pix', 'dinheiro', 'transferencia', 'financiamento'])
 
+// Tabela de taxa por número de parcelas de cada tipo parcelado (financiamento está em SEM_TAXA)
+const TAXA_PARCELADA: Record<string, keyof TaxasVenda> = {
+  cartao_credito: 'taxasCartao',
+  link_pagamento: 'taxasLink',
+}
+
 // Líquido que o vendedor recebe de um pagamento (após taxa da operadora/financeira)
 function liquidoDePgto(p: PgtoCalc, taxas: TaxasVenda): number {
   const v = p.valor
@@ -26,24 +32,23 @@ function liquidoDePgto(p: PgtoCalc, taxas: TaxasVenda): number {
 
   if (!p.parcelas) return 0 // sem parcelas → não calculável → 0 para disparar aviso
 
-  if (p.tipo === 'cartao_credito') {
-    const taxa = taxas.taxasCartao[String(p.parcelas)] ?? 0
-    return taxa > 0 ? v / (1 + taxa) : v
-  }
-  if (p.tipo === 'link_pagamento') {
-    const taxa = taxas.taxasLink[String(p.parcelas)] ?? 0
-    return taxa > 0 ? v / (1 + taxa) : v
-  }
-  if (p.tipo === 'financiamento') {
-    const taxa = taxas.taxasFinanciamento[String(p.parcelas)] ?? 0
-    return taxa > 0 ? v / (1 + taxa) : v
-  }
-  return v
+  const tabela = TAXA_PARCELADA[p.tipo]
+  if (!tabela) return v
+  const taxa = taxas[tabela][String(p.parcelas)] ?? 0
+  return taxa > 0 ? v / (1 + taxa) : v
 }
 
 // Soma do líquido recebido em todos os pagamentos
 export function calcLiquidoRecebido(pagamentos: PgtoCalc[], taxas: TaxasVenda): number {
   return pagamentos.reduce((acc, p) => acc + liquidoDePgto(p, taxas), 0)
+}
+
+/** Parcelas (mais de 1) dos pagamentos que pagam taxa parcelada, sem repetir e em ordem: o "12x" do líquido. */
+export function parcelasComTaxa(pagamentos: PgtoCalc[]): number[] {
+  const parcelas = pagamentos
+    .filter(p => Object.hasOwn(TAXA_PARCELADA, p.tipo) && (p.parcelas ?? 0) > 1)
+    .map(p => p.parcelas as number)
+  return [...new Set(parcelas)].sort((a, b) => a - b)
 }
 
 // Verifica se o total é suficiente dado o preço mínimo PIX

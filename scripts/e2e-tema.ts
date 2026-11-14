@@ -17,6 +17,7 @@ import { chromium, type Browser } from 'playwright'
 import AxeBuilder from '@axe-core/playwright'
 import { motivoRecusaForaDoStaging } from './lib/alvo-banco'
 import { motivoRecusa } from './lib/e2e-mensalidade'
+import { fecharNovidadesSeAbrir } from './lib/janela-novidades'
 
 const base = (process.env.E2E_URL ?? 'http://localhost:3390').replace(/\/$/, '')
 const pasta = process.env.E2E_PASTA ?? '/tmp/e2e-tema'
@@ -44,6 +45,7 @@ async function rodar(navegador: Browser) {
       pagina.click('button[type="submit"]'),
     ])
     if (new URL(pagina.url()).pathname.startsWith('/login')) throw new Error(`login falhou para ${usuario}`)
+    await fecharNovidadesSeAbrir(pagina)
     for (const rota of rotas) {
       await pagina.goto(`${base}${rota}`, { waitUntil: 'networkidle' })
       for (const tema of ['claro', 'escuro'] as const) {
