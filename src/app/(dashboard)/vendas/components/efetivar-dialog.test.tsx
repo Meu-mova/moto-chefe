@@ -14,8 +14,11 @@ const enviados: unknown[][] = []
 const SEM_TAXA = { taxasCartao: {}, taxasDebito: {}, taxasLink: {}, taxasFinanciamento: {} }
 let precificacao: { valorMinimoPix: number; taxas: typeof SEM_TAXA } | null = null
 let buscaDePreco: (() => Promise<unknown>) | null = null
+const alteracoes: unknown[][] = []
+let respostaDoAlterar: { ok: true; dados: undefined } | { ok: false; erro: string } = { ok: true, dados: undefined }
 mock.module('../actions', { namedExports: {
   efetivarVendaAction: async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } },
+  alterarEntregaDoPedidoAction: async (...a: unknown[]) => { alteracoes.push(a); return respostaDoAlterar },
   buscarPrecoMinimoAction: async () => (buscaDePreco ? buscaDePreco() : precificacao),
 } })
 mock.module('@/app/(dashboard)/clientes/actions', { namedExports: {
@@ -23,7 +26,10 @@ mock.module('@/app/(dashboard)/clientes/actions', { namedExports: {
 } })
 
 const montados: (() => Promise<void>)[] = []
-afterEach(async () => { for (const desmontar of montados.splice(0)) await desmontar(); precificacao = null; buscaDePreco = null })
+afterEach(async () => {
+  for (const desmontar of montados.splice(0)) await desmontar()
+  precificacao = null; buscaDePreco = null; alteracoes.length = 0; respostaDoAlterar = { ok: true, dados: undefined }
+})
 
 const entregaNaTela = () => document.querySelector('[aria-label="Entrega do pedido"]')?.textContent ?? ''
 
@@ -172,4 +178,42 @@ test('o botão espera a precificação chegar; se a busca falhar, libera e o ser
   await abrir(ENTREGAR, ORIGEM)
   await preencher('1000000', 'PIX')
   assert.equal(botao('Confirmar Venda')?.disabled, false)
+})
+
+// "Alterar" (#895): o mesmo bloco do Novo pedido num diálogo; a Entrega muda no pedido e o total segue o frete novo.
+const dialogoAlterar = () => document.querySelector('[aria-label="Alterar entrega"]')
+
+test('"Alterar" abre a Entrega do pedido preenchida; trocar para "Retira na loja" envia ao pedido e a efetivação mostra a nova', async () => {
+  await abrir(ENTREGAR)
+  await clicar(botao('Alterar'))
+  assert.ok(dialogoAlterar(), 'o diálogo "Alterar entrega" abriu')
+  const rua = document.getElementById('entrega-logradouro') as HTMLInputElement
+  assert.equal(rua.value, 'Rua de exemplo')
+  await clicar(document.querySelector('input[name="pedido-entrega"][value="retira"]'))
+  await clicar(botao('Salvar entrega'))
+  assert.deepEqual(alteracoes, [['p1', { modo: 'retira', modalidade: 'TransporteProprioPorContaDoRemetente' }]])
+  assert.equal(dialogoAlterar(), null)
+  assert.match(entregaNaTela(), /Retira na loja \(do pedido\)/)
+})
+
+test('"Alterar" na efetivação pode ligar o frete: vai ao pedido e o total passa a somar o frete novo', async () => {
+  await abrir(ENTREGAR)
+  await clicar(botao('Alterar'))
+  await clicar(botao('+ Frete'))
+  await digitar(document.querySelector<HTMLInputElement>('[aria-label="Alterar entrega"] #alterar-frete')!, '35000')
+  await clicar(botao('Salvar entrega'))
+  assert.deepEqual(alteracoes, [['p1', { ...ENTREGAR, frete: 350 }]])
+  const rotulo = [...document.querySelectorAll('label')].find(l => /^Valor da moto/.test(l.textContent ?? ''))!
+  await digitar(rotulo.parentElement!.querySelector('input')!, '100000')
+  assert.match(document.body.textContent ?? '', /Total \(moto \+ frete\): R\$\s*1\.350,00/)
+})
+
+test('recusa do servidor no "Alterar" fica no diálogo e a Entrega do pedido não muda', async () => {
+  respostaDoAlterar = { ok: false, erro: 'Pedido aguardando aprovação: recuse ou aprove antes de mudar a entrega.' }
+  await abrir(ENTREGAR)
+  await clicar(botao('Alterar'))
+  await clicar(document.querySelector('input[name="pedido-entrega"][value="retira"]'))
+  await clicar(botao('Salvar entrega'))
+  assert.match(dialogoAlterar()?.textContent ?? '', /Pedido aguardando aprovação/)
+  assert.match(entregaNaTela(), /Entregar em São Luís\/MA \(do pedido\)/)
 })
