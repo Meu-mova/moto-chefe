@@ -8,7 +8,14 @@
 // loja à fábrica; sem ele a loja não compra da MotoChefe. A regra de SQL mora em
 // @/lib/queries/painel-fabrica, e as duas pontas (marca e loja) num lugar só.
 //
-// Este arquivo é puro (sem banco): filtro, totais e CSV, usados pela tela e testados.
+// O que a fábrica vê de cada venda (decisão do Luis, #892): só data, número, loja,
+// modelo, cor e chassi. Os tipos abaixo só têm isso; o id da loja serve só para
+// filtrar pela URL e não aparece na tela, no Excel nem no impresso.
+//
+// Este arquivo é puro (sem banco): filtro, totais e planilha, usados pela tela e testados.
+import { dataEHoraBrt } from '@/lib/data-venda'
+
+export const ROTA_PAINEL_FABRICA = '/admin/painel-fabrica'
 
 /** Marca da fábrica. Comparada sem caixa, espaço nem acento: "MotoChefe", "MOTO CHEFE". */
 export const MARCA_PAINEL_FABRICA = 'MotoChefe'
@@ -20,7 +27,7 @@ export function ehMarcaDoPainel(marca: string | null | undefined): boolean {
   return !!marca && chaveMarca(marca) === chaveMarca(MARCA_PAINEL_FABRICA)
 }
 
-export type LojaPainel = { lojaId: string; lojaNome: string; cidade: string; grupoNome: string }
+export type LojaPainel = { lojaId: string; lojaNome: string }
 
 export type LinhaEstoquePainel = {
   lojaId: string
@@ -29,11 +36,19 @@ export type LinhaEstoquePainel = {
   quantidade: number
 }
 
-export type LinhaVendaPainel = {
+/** Uma moto vendida. */
+export type VendaPainel = {
+  /** ISO, em UTC; exibir pelo dia e hora de Brasília. */
+  data: string
+  numero: number
   lojaId: string
   modelo: string
-  quantidade: number
+  cor: string
+  chassi: string
 }
+
+export type Aba = 'estoque' | 'vendas'
+export const abaDaUrl = (v: unknown): Aba => (v === 'vendas' ? 'vendas' : 'estoque')
 
 /** Lista vazia = sem filtro (tudo). */
 export type FiltroPainel = { lojas: string[]; modelos: string[]; cores: string[] }
@@ -41,6 +56,8 @@ export type FiltroPainel = { lojas: string[]; modelos: string[]; cores: string[]
 export const FILTRO_VAZIO: FiltroPainel = { lojas: [], modelos: [], cores: [] }
 
 type ParamUrl = string | string[] | undefined
+/** O que a tela e o impresso leem da URL. */
+export type ParamsPainel = { aba?: string; de?: string; ate?: string; loja?: ParamUrl; modelo?: ParamUrl; cor?: ParamUrl }
 const lista = (v: ParamUrl) => (Array.isArray(v) ? v : v ? [v] : []).map(s => s.trim()).filter(Boolean)
 
 /** Filtro a partir da URL (`?loja=..&loja=..&modelo=..&cor=..`): a tela e o impresso leem igual. */
@@ -48,9 +65,9 @@ export function filtroDaUrl(p: { loja?: ParamUrl; modelo?: ParamUrl; cor?: Param
   return { lojas: lista(p.loja), modelos: lista(p.modelo), cores: lista(p.cor) }
 }
 
-/** Query string do filtro + período, para o link de impressão. */
-export function urlDoFiltro(f: FiltroPainel, de: string, ate: string): string {
-  const q = new URLSearchParams({ de, ate })
+/** Query string da aba, do filtro e do período (links das abas, da loja e do impresso). */
+export function urlDoFiltro(f: FiltroPainel, de: string, ate: string, aba: Aba): string {
+  const q = new URLSearchParams({ aba, de, ate })
   f.lojas.forEach(v => q.append('loja', v))
   f.modelos.forEach(v => q.append('modelo', v))
   f.cores.forEach(v => q.append('cor', v))
@@ -58,23 +75,25 @@ export function urlDoFiltro(f: FiltroPainel, de: string, ate: string): string {
 }
 
 /** Opções dos filtros: tudo o que existe no painel, sem o filtro aplicado. */
-export function opcoesDoPainel(estoque: LinhaEstoquePainel[], vendas: LinhaVendaPainel[]) {
+export function opcoesDoPainel(estoque: LinhaEstoquePainel[], vendas: VendaPainel[]) {
   const ordena = (s: Set<string>) => [...s].sort(ordemPt)
   return {
     modelos: ordena(new Set([...estoque.map(l => l.modelo), ...vendas.map(l => l.modelo)])),
-    cores: ordena(new Set(estoque.map(l => l.cor))),
+    cores: ordena(new Set([...estoque.map(l => l.cor), ...vendas.map(l => l.cor)])),
   }
 }
 
 const passa = (lista: string[], valor: string) => lista.length === 0 || lista.includes(valor)
+const passaNoFiltro = (f: FiltroPainel, l: { lojaId: string; modelo: string; cor: string }) =>
+  passa(f.lojas, l.lojaId) && passa(f.modelos, l.modelo) && passa(f.cores, l.cor)
 
 export function filtrarEstoque(linhas: LinhaEstoquePainel[], f: FiltroPainel): LinhaEstoquePainel[] {
-  return linhas.filter(l => passa(f.lojas, l.lojaId) && passa(f.modelos, l.modelo) && passa(f.cores, l.cor))
+  return linhas.filter(l => passaNoFiltro(f, l))
 }
 
-/** Venda não tem filtro de cor na tela: a cor filtra só o estoque. */
-export function filtrarVendas(linhas: LinhaVendaPainel[], f: FiltroPainel): LinhaVendaPainel[] {
-  return linhas.filter(l => passa(f.lojas, l.lojaId) && passa(f.modelos, l.modelo))
+/** Vendas do filtro, da mais recente para a mais antiga (empate: número maior primeiro). */
+export function filtrarVendas(vendas: VendaPainel[], f: FiltroPainel): VendaPainel[] {
+  return vendas.filter(v => passaNoFiltro(f, v)).sort((a, b) => b.data.localeCompare(a.data) || b.numero - a.numero)
 }
 
 const ordemPt = (a: string, b: string) => a.localeCompare(b, 'pt-BR')
@@ -105,25 +124,52 @@ export function resumirEstoque(linhas: LinhaEstoquePainel[]) {
   }
 }
 
-/** Vendas loja × modelo, com total por loja, por modelo e geral. */
-export function resumirVendas(linhas: LinhaVendaPainel[]) {
-  const celulas = new Map<string, number>()
-  const porLoja = new Map<string, number>()
-  const porModelo = new Map<string, number>()
-  let total = 0
-  for (const l of linhas) {
-    const k = `${l.lojaId}\u0000${l.modelo}`
-    celulas.set(k, (celulas.get(k) ?? 0) + l.quantidade)
-    porLoja.set(l.lojaId, (porLoja.get(l.lojaId) ?? 0) + l.quantidade)
-    porModelo.set(l.modelo, (porModelo.get(l.modelo) ?? 0) + l.quantidade)
-    total += l.quantidade
-  }
+const contarPor = <T>(itens: T[], chave: (i: T) => string) =>
+  new Map([...Map.groupBy(itens, chave)].map(([k, grupo]) => [k, grupo.length]))
+
+/** Matriz loja × modelo a partir das vendas uma a uma: a soma sempre bate com a lista. */
+export function resumirVendas(vendas: VendaPainel[]) {
+  const celulas = contarPor(vendas, v => `${v.lojaId}\u0000${v.modelo}`)
+  const porModelo = contarPor(vendas, v => v.modelo)
   return {
     celula: (lojaId: string, modelo: string) => celulas.get(`${lojaId}\u0000${modelo}`) ?? 0,
-    porLoja,
+    porLoja: contarPor(vendas, v => v.lojaId),
     porModelo,
     modelos: [...porModelo.keys()].sort(ordemPt),
-    total,
+    total: vendas.length,
+  }
+}
+
+export type Planilha = { nome: string; cabecalho: string[]; linhas: (string | number)[][] }
+
+/**
+ * Planilha da aba aberta, com as mesmas colunas da tela: só o que a fábrica pode ver
+ * (sem cidade, empresa nem id). Vendas na ordem recebida (a da tela).
+ */
+export function planilhaDoPainel(aba: Aba, d: {
+  lojas: LojaPainel[]
+  estoque: LinhaEstoquePainel[]
+  vendas: VendaPainel[]
+  de: string
+  ate: string
+  /** hojeBrt(), de quem chama: nome do arquivo do estoque. */
+  hoje: string
+}): Planilha {
+  const nomeLoja = new Map(d.lojas.map(l => [l.lojaId, l.lojaNome]))
+  const loja = (id: string) => nomeLoja.get(id) ?? ''
+  if (aba === 'vendas') {
+    return {
+      nome: `vendas-motochefe-${d.de}-a-${d.ate}.csv`,
+      cabecalho: ['Data', 'Venda', 'Loja', 'Modelo', 'Cor', 'Chassi'],
+      linhas: d.vendas.map(v => [dataEHoraBrt(v.data), v.numero, loja(v.lojaId), v.modelo, v.cor, v.chassi]),
+    }
+  }
+  return {
+    nome: `estoque-motochefe-${d.hoje}.csv`,
+    cabecalho: ['Loja', 'Modelo', 'Cor', 'Quantidade'],
+    linhas: d.estoque
+      .map(l => [loja(l.lojaId), l.modelo, l.cor, l.quantidade])
+      .sort((a, b) => a.slice(0, 3).join('|').localeCompare(b.slice(0, 3).join('|'), 'pt-BR')),
   }
 }
 

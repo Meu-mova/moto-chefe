@@ -27,6 +27,8 @@ const lojas = {} as Record<Chave, string>
 const contas: string[] = []
 const modelos = { mc: '', voi: '' }
 const CNPJS = ['00000000081901', '00000000081902', '00000000081903']
+let numeros = { a15: 0, a31: 0, b20: 0, a01nov: 0 }
+let chassis = { a15: '', a31: '', b20: '' }
 
 const linha = async (q: ReturnType<typeof sql>) => (await execRows(q))[0] as { id: string }
 const nossas = <T extends { lojaId: string }>(l: T[]) => l.filter(x => Object.values(lojas).includes(x.lojaId))
@@ -78,17 +80,23 @@ before(async () => {
   // Vendas: em 15/10 (dentro), uma Voi (fora pela marca), uma em 01/11 00:30 de Brasília
   // (fora do período de outubro) e uma na loja sem portal.
   const vender = async (loja: string, modelo: string, quando: string) => {
+    const chassi = 'PAINEL819' + seq
     const motoId = await moto(loja, modelo, 'PRETO', { vendida: true })
     const vendedor = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), 'Vend 819', ${'vend819-' + seq + '@teste.invalid'}, 'vendedor', ${loja}) returning id`)
     const pedido = await linha(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${motoId}, ${loja}, ${vendedor.id}) returning id`)
     await db.execute(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento, numero, data_venda)
       values (${pedido.id}, ${motoId}, ${loja}, ${vendedor.id}, ${vendedor.id}, 'Cliente', '52998224725', 1000, 'pix', ${981900 + seq}, ${quando}::timestamptz)`)
+    // O número da venda sai do pedido (trigger do banco), não do insert: lê o que ficou gravado.
+    const [gravada] = await execRows(sql`select numero from vendas where moto_id = ${motoId}`) as { numero: number }[]
+    return { numero: gravada.numero, chassi }
   }
-  await vender(lojas.a, modelos.mc, '2026-10-15T15:00:00Z')
-  await vender(lojas.a, modelos.mc, '2026-10-31T23:00:00Z') // 20h de 31/10 em Brasília: dentro
-  await vender(lojas.b, modelos.mc, '2026-10-20T15:00:00Z')
+  const a15 = await vender(lojas.a, modelos.mc, '2026-10-15T15:00:00Z')
+  const a31 = await vender(lojas.a, modelos.mc, '2026-10-31T23:00:00Z') // 20h de 31/10 em Brasília: dentro
+  const b20 = await vender(lojas.b, modelos.mc, '2026-10-20T15:00:00Z')
   await vender(lojas.a, modelos.voi, '2026-10-15T15:00:00Z')
-  await vender(lojas.a, modelos.mc, '2026-11-01T03:30:00Z') // 00:30 de 01/11 em Brasília: fora
+  const a01nov = await vender(lojas.a, modelos.mc, '2026-11-01T03:30:00Z') // 00:30 de 01/11 em Brasília: fora
+  numeros = { a15: a15.numero, a31: a31.numero, b20: b20.numero, a01nov: a01nov.numero }
+  chassis = { a15: a15.chassi, a31: a31.chassi, b20: b20.chassi }
   await vender(lojas.semPortal, modelos.mc, '2026-10-15T15:00:00Z')
 })
 
@@ -110,6 +118,10 @@ test('lojas do painel: as duas Contas com portal; sem portal, inativa e de Conta
   assert.deepEqual(ids, [lojas.a, lojas.b].sort())
 })
 
+test('lojas do painel: só o id e o nome, sem cidade nem nome do grupo', async () => {
+  for (const l of nossas(await painel.listarLojasDoPainel())) assert.deepEqual(Object.keys(l).sort(), ['lojaId', 'lojaNome'])
+})
+
 test('estoque: só MotoChefe no showroom, somado por loja × modelo × cor; a Voi não aparece', async () => {
   const e = nossas(await painel.estoqueDoPainel())
     .map(l => [l.lojaId === lojas.a ? 'a' : 'b', l.modelo, l.cor, l.quantidade])
@@ -118,11 +130,21 @@ test('estoque: só MotoChefe no showroom, somado por loja × modelo × cor; a Vo
   assert.ok(!e.some(l => l[1] === 'VOI819'), 'Voi nunca entra')
 })
 
-test('vendas: dias de Brasília, só MotoChefe e só lojas do painel', async () => {
+test('vendas: uma linha por venda, com número, cor e chassi; dias de Brasília, só MotoChefe e só lojas do painel', async () => {
   const v = nossas(await painel.vendasDoPainel('2026-10-01', '2026-10-31'))
-    .map(l => [l.lojaId === lojas.a ? 'a' : 'b', l.modelo, l.quantidade])
-    .sort((x, y) => String(x).localeCompare(String(y)))
-  assert.deepEqual(v, [['a', 'X819', 2], ['b', 'X819', 1]])
+    .map(l => [l.lojaId === lojas.a ? 'a' : 'b', l.numero, l.data, l.modelo, l.cor, l.chassi])
+    .sort((x, y) => Number(x[1]) - Number(y[1]))
+  assert.deepEqual(v, [
+    ['a', numeros.a15, '2026-10-15T15:00:00.000Z', 'X819', 'PRETO', chassis.a15],
+    ['a', numeros.a31, '2026-10-31T23:00:00.000Z', 'X819', 'PRETO', chassis.a31],
+    ['b', numeros.b20, '2026-10-20T15:00:00.000Z', 'X819', 'PRETO', chassis.b20],
+  ])
   const nov = nossas(await painel.vendasDoPainel('2026-11-01', '2026-11-01'))
-  assert.deepEqual(nov.map(l => l.quantidade), [1])
+  assert.deepEqual(nov.map(l => l.numero), [numeros.a01nov])
+})
+
+test('vendas: cada linha leva só data, número, loja, modelo, cor e chassi (sem id, cliente nem valor)', async () => {
+  const v = nossas(await painel.vendasDoPainel('2026-10-01', '2026-10-31'))
+  assert.equal(v.length, 3)
+  for (const l of v) assert.deepEqual(Object.keys(l).sort(), ['chassi', 'cor', 'data', 'lojaId', 'modelo', 'numero'])
 })
