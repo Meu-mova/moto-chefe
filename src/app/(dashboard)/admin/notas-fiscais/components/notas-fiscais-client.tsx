@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { salvarCredencialAction, salvarRegraAction } from '../actions'
+import { DifalUfs } from './difal-ufs'
 import type { CredencialTela } from '@/lib/notagateway/credencial-tela'
 import type { CorrecaoUf } from '@/lib/notagateway/difal-ufs'
 import { ShieldCheck, ShieldAlert, FileCheck2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
@@ -26,7 +27,7 @@ type LinhaGrupo = {
   regra: Regra | null
   certificado: { titular: string; cnpj: string; uf: string; validoAte: string } | null
   estoque: { total: number; comFicha: number }
-  /** #904: correções do grupo sobre a tabela padrão do DIFAL (a tela vem no 904-b). */
+  /** #904: correções do grupo sobre a tabela padrão do DIFAL. */
   difalCorrecoes: CorrecaoUf[]
 }
 
@@ -256,6 +257,20 @@ function CartaoGrupo({ linha, podeEditarCredencial, aberto, onToggle }: { linha:
                 <Campo label="CST / CSOSN do ICMS" valor={regra.cstIcmsInterestadual} onChange={setR('cstIcmsInterestadual')} placeholder="00" />
                 <Campo label="Alíquota ICMS (%)" valor={regra.aliquotaIcmsInterestadual} onChange={setR('aliquotaIcmsInterestadual')} placeholder="12.00" dica="Vazio = sem ICMS destacado" />
               </div>
+            </div>
+
+            <div className="rounded-lg border bg-muted/60 p-3 space-y-3">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Venda para fora da UF: moto importada</p>
+                <p className="text-[11px] text-muted-foreground">Números para calcular o DIFAL na nota de moto importada vendida a consumidor final de outro estado.</p>
+              </div>
+              <DifalUfs
+                grupoId={linha.grupoId}
+                ufEmitente={linha.certificado?.uf ?? null}
+                correcoes={linha.difalCorrecoes}
+                importado={regra.aliquotaIcmsImportado}
+                onImportado={setR('aliquotaIcmsImportado')}
+              />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-4">
