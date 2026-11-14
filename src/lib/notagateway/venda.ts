@@ -55,6 +55,9 @@ export type ConferenciaVenda = {
   temFicha: boolean
 }
 
+export const CPF_DIGITO_ERRADO = 'CPF do comprador com dígito errado. Corrija em Editar venda para a nota sair.'
+export const CNPJ_DIGITO_ERRADO = 'CNPJ do comprador com dígito errado. Corrija em Editar venda para a nota sair.'
+
 /**
  * O que impede transmitir. Cada item diz ONDE corrigir — o vendedor não sabe
  * o que é "enderDest", sabe o que é "editar a venda".
@@ -62,9 +65,6 @@ export type ConferenciaVenda = {
  * Moto sem ficha fiscal não entra aqui: ela tem o próprio formulário na tela
  * (preencher e seguir), e não é defeito da venda.
  */
-export const CPF_DIGITO_ERRADO = 'CPF do comprador com dígito errado. Corrija em Editar venda para a nota sair.'
-export const CNPJ_DIGITO_ERRADO = 'CNPJ do comprador com dígito errado. Corrija em Editar venda para a nota sair.'
-
 export function pendenciasDaVenda(v: ConferenciaVenda): string[] {
   const falta: string[] = []
   const vazio = (s: string | null) => !s || !s.trim()
