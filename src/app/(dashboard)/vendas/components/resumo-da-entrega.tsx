@@ -22,7 +22,7 @@ export function ResumoDaEntrega({ rotulo, entrega, sufixo, semEntrega, avisoSemE
   const fundo = !entrega && avisoSemEntrega ? 'border-transparent bg-warning/10' : 'border-border bg-muted'
   return (
     <section aria-label={rotulo} className={`space-y-1 rounded-lg border p-3 text-sm ${fundo}`}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-3">
         <p className="font-medium">{entrega ? `${textoDaEntrega(entrega)}${sufixo ? ` ${sufixo}` : ''}` : 'Entrega não informada'}</p>
         {acao}
       </div>
