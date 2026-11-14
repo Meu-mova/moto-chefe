@@ -5,7 +5,8 @@ import { carregarPainelFabrica } from '@/lib/queries/painel-fabrica'
 import {
   abaDaUrl, filtroDaUrl, filtrarEstoque, filtrarVendas, rotuloDaAba, MARCA_PAINEL_FABRICA, ROTA_PAINEL_FABRICA, type ParamsPainel,
 } from '@/lib/painel-fabrica'
-import { dataEHoraBrt, dataPuraBr } from '@/lib/data-venda'
+import { dataEHoraBrt } from '@/lib/data-venda'
+import { periodoBr } from '@/lib/notas-emitidas'
 import { TabelaEstoque, TabelaVendas } from '@/app/(dashboard)/admin/painel-fabrica/components/tabelas-painel'
 import { PrintButtons } from '@/app/(print)/relatorio-fabrica/imprimir/print-buttons'
 
@@ -19,7 +20,7 @@ export default async function PainelFabricaImprimirPage({ searchParams }: { sear
   const { de, ate, lojas, estoque, vendas } = await carregarPainelFabrica(params.de, params.ate)
   const filtro = filtroDaUrl(params)
   const nomesLojas = filtro.lojas.map(id => lojas.find(l => l.lojaId === id)?.lojaNome).filter(Boolean)
-  const periodo = `${dataPuraBr(de)} a ${dataPuraBr(ate)}`
+  const periodo = periodoBr(de, ate)
   const filtros = [
     `Lojas: ${nomesLojas.length ? nomesLojas.join(', ') : 'todas'}`,
     `Modelos: ${filtro.modelos.length ? filtro.modelos.join(', ') : 'todos'}`,

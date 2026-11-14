@@ -5,7 +5,8 @@ import {
   abaDaUrl, filtroDaUrl, filtrarEstoque, filtrarVendas, opcoesDoPainel, paraCsv, planilhaDoPainel, rotuloDaAba, urlDoFiltro,
   ABAS_PAINEL, MARCA_PAINEL_FABRICA, ROTA_PAINEL_FABRICA, type ParamsPainel,
 } from '@/lib/painel-fabrica'
-import { dataPuraBr, hojeBrt } from '@/lib/data-venda'
+import { hojeBrt } from '@/lib/data-venda'
+import { periodoBr } from '@/lib/notas-emitidas'
 import { cn } from '@/lib/utils'
 import { FiltrosPainel } from './components/filtros-painel'
 import { TabelaEstoque, TabelaVendas } from './components/tabelas-painel'
@@ -61,7 +62,7 @@ export default async function PainelFabricaPage({ searchParams }: { searchParams
 
       {aba === 'estoque'
         ? <TabelaEstoque lojas={lojas} estoque={estoqueFiltrado} />
-        : <TabelaVendas lojas={lojas} vendas={vendasFiltradas} periodo={`${dataPuraBr(de)} a ${dataPuraBr(ate)}`} filtro={filtro} de={de} ate={ate} />}
+        : <TabelaVendas lojas={lojas} vendas={vendasFiltradas} periodo={periodoBr(de, ate)} filtro={filtro} de={de} ate={ate} />}
     </div>
   )
 }
