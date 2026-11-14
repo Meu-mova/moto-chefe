@@ -1,3 +1,6 @@
+import { valorDaMoto } from '@/lib/notagateway/entrega'
+import { abaixoDoMinimo } from '@/lib/aprovacao-venda'
+
 export type TaxasVenda = {
   taxasCartao: Record<string, number>
   taxasDebito: Record<string, number>
@@ -43,6 +46,15 @@ export function calcLiquidoRecebido(pagamentos: PgtoCalc[], taxas: TaxasVenda): 
   return pagamentos.reduce((acc, p) => acc + liquidoDePgto(p, taxas), 0)
 }
 
+/**
+ * Líquido da moto: o líquido dos pagamentos menos o frete cobrado, com piso 0; a taxa do cartão sobre o
+ * frete fica com a moto. É a conta que se compara com o preço mínimo (decisão do Luis, #854 e #776) e a
+ * mesma do `valorLiquidoDaMotoExpr` (queries/valor-liquido.ts, #807), que a faz sobre a venda já gravada.
+ */
+export function liquidoDaMoto(pagamentos: PgtoCalc[], taxas: TaxasVenda, frete: number): number {
+  return Math.max(valorDaMoto(calcLiquidoRecebido(pagamentos, taxas), frete), 0)
+}
+
 /** Parcelas (mais de 1) dos pagamentos que pagam taxa parcelada, sem repetir e em ordem: o "12x" do líquido. */
 export function parcelasComTaxa(pagamentos: PgtoCalc[]): number[] {
   const parcelas = pagamentos
@@ -70,8 +82,8 @@ export function validarReserva(
 ): { entradaOk: boolean; totalOk: boolean; minimoEntrada: number } {
   const minimoEntrada = precoMinimoPix * 0.3
   return {
-    entradaOk: valorEntrada >= minimoEntrada - 0.01,
-    totalOk: valorTotalVenda >= precoMinimoPix - 0.01,
+    entradaOk: !abaixoDoMinimo(valorEntrada, minimoEntrada),
+    totalOk: !abaixoDoMinimo(valorTotalVenda, precoMinimoPix),
     minimoEntrada,
   }
 }

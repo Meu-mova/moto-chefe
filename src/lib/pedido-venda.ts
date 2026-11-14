@@ -4,6 +4,7 @@ import { historicoEstoque, motos, pedidosVenda, pedidosVendaItens, reservas, tra
 import { motivoBloqueioCriarPedido, podeCancelarPedido, type QuemCancela } from '@/lib/pedido-venda-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
+import { pedidoEmAprovacaoSql } from '@/lib/pedido-de-aprovacao'
 import type { EntregaVenda } from '@/lib/notagateway/entrega'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -60,6 +61,8 @@ export async function criarPedidoTx(
  * Cancela um pedido pendente e devolve a moto a 'disponivel'. Substitui a rpc
  * cancelar_pedido_venda, que gravava o status antigo e recusava o sócio (#181).
  */
+export const PEDIDO_AGUARDANDO_APROVACAO = 'Este pedido está aguardando aprovação. Aprove ou recuse antes de cancelar.'
+
 export async function cancelarPedidoTx(
   tx: Tx,
   d: { pedidoId: string; usuario: QuemCancela; observacao: string | null },
@@ -73,16 +76,20 @@ export async function cancelarPedidoTx(
   if (pedido.status !== 'pendente') throw new RecusaUsuario('Este pedido não está mais pendente. Recarregue a página.')
   if (!podeCancelarPedido(d.usuario, pedido)) throw new RecusaUsuario('Sem permissão para cancelar este pedido')
 
-  // O motivo do cancelamento vai só para o histórico: a observação de quem criou o pedido fica.
-  await tx.update(pedidosVenda)
-    .set({ status: 'cancelado', dataAtualizacao: new Date() })
-    .where(eq(pedidosVenda.id, d.pedidoId))
-
   const [moto] = await tx
     .select({ disponibilidade: motos.disponibilidade })
     .from(motos)
     .where(eq(motos.id, pedido.motoId))
     .for('update')
+  // Cancelar no meio deixaria a aprovação pendente sem pedido para efetivar (#776).
+  const [{ emAprovacao }] = await tx.select({ emAprovacao: pedidoEmAprovacaoSql(d.pedidoId) }).from(pedidosVenda).where(eq(pedidosVenda.id, d.pedidoId))
+  if (emAprovacao) throw new RecusaUsuario(PEDIDO_AGUARDANDO_APROVACAO)
+
+  // O motivo do cancelamento vai só para o histórico: a observação de quem criou o pedido fica.
+  await tx.update(pedidosVenda)
+    .set({ status: 'cancelado', dataAtualizacao: new Date() })
+    .where(eq(pedidosVenda.id, d.pedidoId))
+
   const [reservaAtiva] = await tx
     .select({ id: reservas.id })
     .from(reservas)

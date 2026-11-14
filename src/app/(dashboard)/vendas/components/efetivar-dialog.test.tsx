@@ -11,24 +11,30 @@ const { desmontar: desmontarDom } = montarDom()
 after(desmontarDom)
 
 const enviados: unknown[][] = []
-mock.module('../actions', { namedExports: { efetivarVendaAction: async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } } } })
+const SEM_TAXA = { taxasCartao: {}, taxasDebito: {}, taxasLink: {}, taxasFinanciamento: {} }
+let precificacao: { valorMinimoPix: number; taxas: typeof SEM_TAXA } | null = null
+let buscaDePreco: (() => Promise<unknown>) | null = null
+mock.module('../actions', { namedExports: {
+  efetivarVendaAction: async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } },
+  buscarPrecoMinimoAction: async () => (buscaDePreco ? buscaDePreco() : precificacao),
+} })
 mock.module('@/app/(dashboard)/clientes/actions', { namedExports: {
   buscarClientesAction: async () => [], criarClienteAction: async () => ({ ok: true, dados: undefined }),
 } })
 
 const montados: (() => Promise<void>)[] = []
-afterEach(async () => { for (const desmontar of montados.splice(0)) await desmontar() })
+afterEach(async () => { for (const desmontar of montados.splice(0)) await desmontar(); precificacao = null; buscaDePreco = null })
 
 const entregaNaTela = () => document.querySelector('[aria-label="Entrega do pedido"]')?.textContent ?? ''
 
-async function abrir(entrega: EntregaVenda | null, origens: { id: string; nome: string; tipo: string; pedeDetalhe: boolean }[] = []) {
+async function abrir(entrega: EntregaVenda | null, origens: { id: string; nome: string; tipo: string; pedeDetalhe: boolean }[] = [], quem = { papel: 'aux_adm', podeAprovarSensivel: false }) {
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
   const { EfetivarDialog } = await import('./efetivar-dialog')
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
-  await act(async () => { root.render(createElement(EfetivarDialog, { pedidoId: 'p1', chassi: 'LA1', modelo: 'MC JET', origens, entrega })) })
+  await act(async () => { root.render(createElement(EfetivarDialog, { pedidoId: 'p1', motoId: 'm1', chassi: 'LA1', modelo: 'MC JET', origens, entrega, ...quem })) })
   montados.push(() => act(async () => { root.unmount(); container.remove() }))
   await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Efetivar Venda'))
 }
@@ -92,4 +98,78 @@ test('efetivar manda a forma escolhida como lista de um pagamento, com o total (
   await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Confirmar Venda'))
   assert.equal(enviados.length, 1)
   assert.deepEqual(enviados[0].slice(3, 5), ['10000.00', [{ tipo: 'dinheiro', valor: 10350 }]])
+})
+
+// Preço mínimo e aprovação (#776): a tela decide pela mesma função do servidor.
+const ORIGEM = [{ id: 'o1', nome: 'Passou na porta', tipo: 'outro', pedeDetalhe: false }]
+const botao = (texto: string) => [...document.querySelectorAll('button')].find(b => b.textContent?.trim() === texto) as HTMLButtonElement | undefined
+async function preencher(valor: string, forma: string) {
+  const campoDe = (rotulo: RegExp) => [...document.querySelectorAll('label')].find(l => rotulo.test(l.textContent ?? ''))!.parentElement!.querySelector('input')!
+  await digitar(campoDe(/^Nome do Cliente/), 'Cliente sintético')
+  await digitar(campoDe(/^CPF\/CNPJ/), '52998224725')
+  await digitar(campoDe(/^Valor/), valor)
+  await escolher(document.querySelector('select')!, 'o1')
+  await escolherOpcao([...document.querySelectorAll('button')].find(b => /Selecionar/.test(b.textContent ?? '')), forma)
+}
+
+test('abaixo do mínimo: avisa, pede o motivo e manda o motivo junto ao pedir aprovação', async () => {
+  enviados.splice(0)
+  precificacao = { valorMinimoPix: 12000, taxas: SEM_TAXA }
+  await abrir(ENTREGAR, ORIGEM)
+  await preencher('1190000', 'PIX')
+  assert.match(document.querySelector('[role="status"]')?.textContent ?? '', /Abaixo do preço mínimo/)
+  assert.equal(botao('Pedir aprovação')?.disabled, true)
+  const { digitarTexto } = await import('@/test/eventos-dom')
+  await digitarTexto(document.querySelector('#efetivar-motivo') as HTMLTextAreaElement, 'Cliente fiel')
+  await clicar(botao('Pedir aprovação'))
+  assert.equal(enviados.length, 1)
+  assert.equal(enviados[0][8], 'Cliente fiel')
+})
+
+test('com frete, a moto no mínimo não pede aprovação (o frete não conta)', async () => {
+  precificacao = { valorMinimoPix: 12000, taxas: SEM_TAXA }
+  await abrir({ ...ENTREGAR, frete: 150 } as EntregaVenda, ORIGEM)
+  await preencher('1200000', 'PIX')
+  assert.equal(document.querySelector('[role="status"]'), null)
+  assert.ok(botao('Confirmar Venda'))
+  // Contraprova com a precificação carregada: 1 real abaixo na moto, mesmo com o frete, avisa.
+  const valor = [...document.querySelectorAll('label')].find(l => /^Valor da moto/.test(l.textContent ?? ''))!.parentElement!.querySelector('input')!
+  await digitar(valor, '1199900')
+  assert.match(document.querySelector('[role="status"]')?.textContent ?? '', /Abaixo do preço mínimo/)
+})
+
+test('transferência sem a permissão pede aprovação sem exigir motivo; com a permissão, efetiva', async () => {
+  await abrir(ENTREGAR, ORIGEM)
+  await preencher('1200000', 'Transferência bancária')
+  assert.match(document.querySelector('[role="status"]')?.textContent ?? '', /Transferência bancária precisa de aprovação/)
+  assert.equal(botao('Pedir aprovação')?.disabled, false)
+  for (const d of montados.splice(0)) await d()
+  await abrir(ENTREGAR, ORIGEM, { papel: 'aux_adm', podeAprovarSensivel: true })
+  await preencher('1200000', 'Transferência bancária')
+  assert.equal(document.querySelector('[role="status"]'), null)
+  assert.equal(botao('Confirmar Venda')?.disabled, false)
+})
+
+test('sócio abaixo do mínimo efetiva direto, como no servidor', async () => {
+  precificacao = { valorMinimoPix: 12000, taxas: SEM_TAXA }
+  await abrir(ENTREGAR, ORIGEM, { papel: 'admin_socio', podeAprovarSensivel: false })
+  await preencher('1000000', 'PIX')
+  assert.equal(document.querySelector('[role="status"]'), null)
+  assert.equal(botao('Confirmar Venda')?.disabled, false)
+})
+
+test('o botão espera a precificação chegar; se a busca falhar, libera e o servidor decide', async () => {
+  let chegar: (v: unknown) => void = () => {}
+  buscaDePreco = () => new Promise(r => { chegar = r })
+  await abrir(ENTREGAR, ORIGEM)
+  await preencher('1000000', 'PIX')
+  assert.equal(botao('Confirmar Venda')?.disabled, true)
+  const { act } = await import('react')
+  await act(async () => { chegar({ valorMinimoPix: 12000, taxas: SEM_TAXA }) })
+  assert.equal(botao('Pedir aprovação')?.disabled, true, 'abaixo do mínimo: agora pede o motivo')
+  for (const d of montados.splice(0)) await d()
+  buscaDePreco = async () => { throw new Error('rede') }
+  await abrir(ENTREGAR, ORIGEM)
+  await preencher('1000000', 'PIX')
+  assert.equal(botao('Confirmar Venda')?.disabled, false)
 })

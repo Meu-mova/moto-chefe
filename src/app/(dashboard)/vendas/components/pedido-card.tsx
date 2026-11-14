@@ -27,19 +27,22 @@ type Props = {
   lojaIdUsuario: string | null
   /** Origens ativas do grupo — a venda só efetiva com uma escolhida. */
   origens: OrigemParaEscolher[]
+  podeAprovarSensivel: boolean
 }
 
-export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens }: Props) {
+export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens, podeAprovarSensivel }: Props) {
   const [cancelarOpen, setCancelarOpen] = useState(false)
   const [observacao, setObservacao] = useState('')
   const [loading, setLoading] = useState(false)
 
   const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
 
-  const podeEfetivar = p.status === 'pendente' && ['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) &&
+  // Em aprovação (#776): quem decide é o aprovador; efetivar e cancelar esperam.
+  const aguardandoAprovacao = p.status === 'pendente' && p.emAprovacao
+  const podeEfetivar = p.status === 'pendente' && !aguardandoAprovacao && ['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) &&
     (isAdmin || lojaIdUsuario === p.lojaId)
 
-  const podeCancelar = podeCancelarPedido({ id: usuarioId, papel, lojaId: lojaIdUsuario }, p)
+  const podeCancelar = !aguardandoAprovacao && podeCancelarPedido({ id: usuarioId, papel, lojaId: lojaIdUsuario }, p)
 
   async function handleCancelar() {
     setLoading(true)
@@ -112,11 +115,15 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
             )}
           </div>
 
+          {aguardandoAprovacao && (
+            <p className="pt-1 border-t border-border text-xs font-medium text-warning">Aguardando aprovação</p>
+          )}
+
           {/* Ações */}
           {(podeEfetivar || podeCancelar) && (
             <div className="flex gap-2 pt-1 border-t border-border">
               {podeEfetivar && (
-                <EfetivarDialog pedidoId={p.id} chassi={p.chassi} modelo={`${p.marca} ${p.modelo}`} origens={origens} entrega={p.entrega} />
+                <EfetivarDialog pedidoId={p.id} motoId={p.motoId} chassi={p.chassi} modelo={`${p.marca} ${p.modelo}`} origens={origens} entrega={p.entrega} papel={papel} podeAprovarSensivel={podeAprovarSensivel} />
               )}
               {podeCancelar && (
                 <Button size="sm" variant="ghost"

@@ -21,7 +21,7 @@ export async function pedidoDoUsuario(
     : usuario.contaId ? inArray(pedidosVenda.lojaId, lojasDoEscopo(usuario)) : null
   if (daConta === null) return null
   const [pedido] = await exec
-    .select({ lojaId: pedidosVenda.lojaId, status: pedidosVenda.status })
+    .select({ lojaId: pedidosVenda.lojaId, status: pedidosVenda.status, motoId: pedidosVenda.motoId, numero: pedidosVenda.numero, entrega: pedidosVenda.entrega })
     .from(pedidosVenda)
     .where(and(eq(pedidosVenda.id, pedidoId), daConta))
     .limit(1)
