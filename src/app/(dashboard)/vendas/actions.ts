@@ -33,7 +33,7 @@ import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { efetivarPedidoTx, pedirAprovacaoDoPedidoTx, type PedidoEmAprovacao } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { conferirEntrega, FRETE_FORA_DO_VENDER, freteDaVenda, motoNaNota, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { conferirEntrega, freteDaVenda, motoNaNota, totalComFrete, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { ufDoEmissorDaMoto } from '@/lib/notagateway/grupo-emissor'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
@@ -150,12 +150,19 @@ async function entregaConferida(motoId: string, lojaId: string, entregaDaTela: u
   return entrega.entrega
 }
 
-/** Entrega do "Vender" do Showroom: a mesma do Novo pedido, ainda sem frete cobrado. */
-async function entregaDoVender(motoId: string, lojaId: string, entregaDaTela: unknown): Promise<EntregaVenda> {
-  // O frete se recusa antes da NG: a frase vale para qualquer UF.
-  const conferida = conferirEntrega(entregaDaTela)
-  if (conferida.ok && freteDaVenda(conferida.entrega)) throw new RecusaUsuario(FRETE_FORA_DO_VENDER)
-  return entregaConferida(motoId, lojaId, entregaDaTela)
+/**
+ * Moto, frete e total do "Vender" (#854): `valorTotal` é a moto e o frete vem na Entrega, como na efetivação
+ * do pedido. Os pagamentos fecham no total. Roda no pedido, na venda direta e de novo ao aprovar.
+ */
+function valoresDoVender(data: DadosVendaCompleta) {
+  const moto = parseFloat(data.valorTotal)
+  if (isNaN(moto) || moto <= 0) throw new RecusaUsuario('Valor inválido')
+  const conferida = data.entrega === undefined ? null : conferirEntrega(data.entrega)
+  if (conferida && !conferida.ok) throw new RecusaUsuario(conferida.erro)
+  const frete = freteDaVenda(conferida?.entrega ?? null)
+  const total = totalComFrete(moto, frete)
+  if (!pagamentosFecham(data.pagamentos, total)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
+  return { moto, frete, total }
 }
 
 export async function criarPedidoVendaAction(...a: Parameters<typeof criarPedidoVenda>) {
@@ -284,6 +291,7 @@ type DadosVendaCompleta = {
   /** Contribuinte de ICMS do comprador CNPJ ('contribuinte' | 'isento' | 'nao_contribuinte'). */
   clienteIndicadorIe?: string | null
   clienteInscricaoEstadual?: string | null
+  /** Valor da moto (#854); o frete cobrado vem na Entrega e o servidor o soma. O nome ficou do pedido de aprovação já gravado. */
   valorTotal: string
   dataVenda?: string
   pagamentos: { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }[]
@@ -312,7 +320,8 @@ async function criarVendaTx(
   await travarMotoNaoArquivada(tx, moto.id)
   // Aqui, e não só na action: a aprovação guardada chega direto (#460).
   await conferirMaquininhas(tx, moto.lojaId, data.pagamentos)
-  const valorNum = parseFloat(data.valorTotal)
+  // A aprovação chega aqui com o pedido guardado: moto + frete = pagamentos se reconfere.
+  const { total } = valoresDoVender(data)
 
   // Verificar reserva ativa para linkar
   const [reservaAtiva] = await tx
@@ -332,7 +341,7 @@ async function criarVendaTx(
     dataAtualizacao: dataVendaFinal,
     entrega: data.entrega ?? null,
   }).returning({ id: pedidosVenda.id })
-  // O mesmo valor da venda: no "Vender" a venda é só a moto.
+  // O item moto guarda só a moto: o frete fica na Entrega e no total da venda, como na efetivação (#726).
   await gravarMotoDoPedido(tx, { pedidoId: pedido.id, motoId: moto.id, valor: data.valorTotal })
 
   // Pedido de aprovação gravado antes da IE chega sem os campos: vira não contribuinte.
@@ -414,7 +423,7 @@ async function criarVendaTx(
     clienteBairro: data.clienteBairro,
     clienteCidade: data.clienteCidade,
     clienteEstado: data.clienteEstado,
-    valor: data.valorTotal,
+    valor: total.toFixed(2),
     formaPagamento: data.pagamentos[0].tipo,
     pagamentos: data.pagamentos,
     reservaId: reservaAtiva?.id ?? null,
@@ -465,7 +474,7 @@ async function criarVendaTx(
     tipo: 'saida',
     referenciaTipo: 'pedido_venda',
     referenciaId: pedido.id,
-    observacao: `Venda — Cliente: ${data.clienteNome} — Total: R$ ${valorNum.toFixed(2)} — ${descPagamentos}`,
+    observacao: `Venda — Cliente: ${data.clienteNome} — Total: R$ ${total.toFixed(2)} — ${descPagamentos}`,
   })
 
   const caixa = lancamentosDinheiroDaVenda(data.pagamentos, {
@@ -500,10 +509,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
     throw new RecusaUsuario('Moto tem uma venda aguardando aprovação. Aprove ou recuse antes de vender.')
   }
 
-  const valorNum = parseFloat(data.valorTotal)
-  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
-
-  if (!pagamentosFecham(data.pagamentos, valorNum)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
+  const { moto: valorDaMoto, frete, total } = valoresDoVender(data)
 
   // Transferência bancária sempre precisa da aprovação do responsável,
   // independente de valor ou papel — ver podeAprovarPagamentoSensivelNaLoja.
@@ -515,7 +521,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
   // os demais papéis devem usar solicitarAprovacaoVendaAction nesse caso.
   const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
   if (prec && !podeVenderAbaixoDoMinimo(usuario.papel)) {
-    const liquido = liquidoDaMoto(data.pagamentos, prec.taxas, 0)
+    const liquido = liquidoDaMoto(data.pagamentos, prec.taxas, frete)
     if (abaixoDoMinimo(liquido, prec.valorMinimoPix)) {
       const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       throw new RecusaUsuario(
@@ -533,7 +539,7 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
   const dataVendaFinal = data.dataVenda ? parseDataInput(data.dataVenda) : new Date()
 
   const origem = await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
-  data = { ...data, entrega: await entregaDoVender(moto.id, moto.lojaId, data.entrega) }
+  data = { ...data, entrega: await entregaConferida(moto.id, moto.lojaId, data.entrega) }
 
   await db.transaction(async (tx) => {
     await criarVendaTx(tx, { moto, data, vendedorId, efetivadoPor: usuario.id, dataVendaFinal, origem, grupoLiberado: usuario.grupoLiberado })
@@ -543,14 +549,15 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
   revalidatePath('/estoque')
   revalidatePath('/caixa')
 
-  // Vira o lead do cliente no Kommo pra "Venda Ganha" (best-effort, com timeout).
+  // Vira o lead do cliente no Kommo pra "Venda Ganha" (best-effort, com timeout). O lead leva o que o cliente
+  // paga (moto + frete); o aviso no WhatsApp, logo abaixo, leva só a moto, como metas e comissão (#796).
   const kommo: ResultadoVirarLead = await Promise.race([
-    virarLeadKommo(data.clienteCelular, valorNum),
+    virarLeadKommo(data.clienteCelular, total),
     new Promise<ResultadoVirarLead>(res => setTimeout(() => res({ resultado: 'erro' }), 8000)),
   ]).catch(() => ({ resultado: 'erro' as const }))
 
   await avisarVendaNoWhatsapp({
-    lojaId: moto.lojaId, modeloId: moto.modeloId, vendedorId, valor: valorNum,
+    lojaId: moto.lojaId, modeloId: moto.modeloId, vendedorId, valor: valorDaMoto,
   })
 
   return { kommo }
@@ -1633,16 +1640,13 @@ async function solicitarAprovacaoVenda(
   await conferirMaquininhas(db, moto.lojaId, data.pagamentos)
   if (bloqueio) throw new RecusaUsuario(bloqueio)
 
-  const valorNum = parseFloat(data.valorTotal)
-  if (isNaN(valorNum) || valorNum <= 0) throw new RecusaUsuario('Valor inválido')
-
-  if (!pagamentosFecham(data.pagamentos, valorNum)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
+  const { moto: valorDaMoto, frete } = valoresDoVender(data)
 
   // Valida a origem já aqui, não só na aprovação: um dados_venda inválido só
   // quebraria na hora de aprovar, na frente de quem aprova.
   await garantirOrigemValida(moto.lojaId, data.origemId, data.origemDetalhe)
   // A trava de outra UF roda aqui; a aprovação usa a Entrega guardada sem consultar a NG de novo.
-  data = { ...data, entrega: await entregaDoVender(moto.id, moto.lojaId, data.entrega) }
+  data = { ...data, entrega: await entregaConferida(moto.id, moto.lojaId, data.entrega) }
 
   const motivoFinal = motivoDaAprovacao(tipoAprovacao, motivo)
   if (!motivoFinal) throw new RecusaUsuario(MOTIVO_OBRIGATORIO)
@@ -1656,7 +1660,7 @@ async function solicitarAprovacaoVenda(
   } else {
     const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
     if (!prec) throw new RecusaUsuario('Sem preço mínimo configurado para este modelo. Use o fluxo normal de venda')
-    const liquido = liquidoDaMoto(data.pagamentos, prec.taxas, 0)
+    const liquido = liquidoDaMoto(data.pagamentos, prec.taxas, frete)
     if (!abaixoDoMinimo(liquido, prec.valorMinimoPix)) {
       throw new RecusaUsuario('Valor está dentro do mínimo. Use o fluxo normal de venda')
     }
@@ -1674,7 +1678,7 @@ async function solicitarAprovacaoVenda(
     await gravarPedidoDeAprovacaoTx(tx, {
       origem: 'moto', moto, vendedorId, solicitadoPor: usuario.id, valor: data.valorTotal, dadosVenda: data,
       tipo: tipoAprovacao, motivo: motivoFinal, snapshot,
-      observacao: `Pedido de aprovação — Cliente: ${data.clienteNome} — Valor: R$ ${valorNum.toFixed(2)} — Motivo: ${motivoFinal}`,
+      observacao: `Pedido de aprovação — Cliente: ${data.clienteNome} — Valor: R$ ${valorDaMoto.toFixed(2)} — Motivo: ${motivoFinal}`,
     })
   })
 

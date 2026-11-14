@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MotoActions } from './components/moto-actions'
 import { AcoesOuArquivada } from '../components/acoes-ou-arquivada'
 import { AprovacaoVendaCard } from './components/aprovacao-venda-card'
+import { contaDaAprovacao } from '@/lib/aprovacao-venda'
 import { EditarMotoButton } from './components/editar-moto-button'
 import { CorrigirPrecoCompraButton } from './components/corrigir-preco-compra-button'
 import { HistoricoTab } from './components/historico-tab'
@@ -176,7 +177,7 @@ export default async function MotoDetailPage({ params }: { params: Promise<{ id:
       {moto.disponibilidade === 'aguardando_aprovacao' && moto.aprovacaoPendenteId && (
         <AprovacaoVendaCard
           aprovacaoId={moto.aprovacaoPendenteId}
-          valor={parseFloat(moto.aprovacaoPendenteValor ?? '0')}
+          conta={contaDaAprovacao({ origem: moto.aprovacaoPendenteOrigem ?? 'moto', valor: moto.aprovacaoPendenteValor ?? '0', dadosVenda: moto.aprovacaoPendenteFreteGuardado })}
           motivo={moto.aprovacaoPendenteMotivo ?? ''}
           vendedorNome={usuariosOpts.find(u => u.id === moto.aprovacaoPendenteVendedorId)?.nome ?? 'Desconhecido'}
           dataSolicitacao={moto.aprovacaoPendenteDataSolicitacao ?? new Date().toISOString()}
