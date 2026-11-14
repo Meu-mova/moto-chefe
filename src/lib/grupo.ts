@@ -66,11 +66,12 @@ export async function grupoIdDaPropriaLoja(lojaId: string | null, exec: Leitor =
 export async function podeUsuarioVerGrupo(
   usuario: UsuarioComConta,
   grupoId: string,
+  exec: Leitor = db,
 ): Promise<boolean> {
   usuario = identidadeDeOrigem(usuario)
   const [grupoDaPropriaLoja, [grupo]] = await Promise.all([
-    grupoIdDaPropriaLoja(usuario.lojaId),
-    db.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1),
+    grupoIdDaPropriaLoja(usuario.lojaId, exec),
+    exec.select({ id: grupos.id, contaId: grupos.contaId }).from(grupos).where(eq(grupos.id, grupoId)).limit(1),
   ])
   return !!grupo && podeVerGrupo(usuario, grupoDaPropriaLoja, grupo)
 }

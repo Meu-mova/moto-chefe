@@ -436,8 +436,24 @@ export const regrasFiscaisSaida = pgTable('regras_fiscais_saida', {
   /** Lei da Transparencia: % aproximado de tributos (tabela do IBPT). */
   ibptFederal:              numeric('ibpt_federal', { precision: 5, scale: 2 }),
   ibptEstadual:             numeric('ibpt_estadual', { precision: 5, scale: 2 }),
+  /** #904: alíquota interestadual da moto importada no DIFAL; NULL até o admin preencher. */
+  aliquotaIcmsImportado:    numeric('aliquota_icms_importado', { precision: 5, scale: 2 }),
   atualizadoEm:             timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+// ─── difal_uf_correcoes (#904): correção do grupo sobre a tabela padrão do DIFAL ──
+// A tabela padrão mora no código (src/lib/notagateway/difal-ufs.ts); aqui só a UF que o grupo corrigiu.
+export const difalUfCorrecoes = pgTable('difal_uf_correcoes', {
+  grupoId:         uuid('grupo_id').notNull().references(() => grupos.id, { onDelete: 'cascade' }),
+  uf:              text('uf').notNull(),
+  aliquotaInterna: numeric('aliquota_interna', { precision: 5, scale: 2 }).notNull(),
+  fcp:             numeric('fcp', { precision: 5, scale: 2 }).notNull().default('0'),
+  base:            text('base').$type<'unica' | 'dupla'>().notNull(),
+  atualizadoPor:   uuid('atualizado_por').references(() => usuarios.id, { onDelete: 'set null' }),
+  atualizadoEm:    timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+}, t => ({
+  pk: primaryKey({ columns: [t.grupoId, t.uf] }),
+}))
 
 // ─── motos_fiscal (ficha fiscal da moto, copiada da NF-e de entrada) ─────────
 // A ficha e da MOTO, nao do modelo: o mesmo X12 vem da LAIOUNS como CEST
