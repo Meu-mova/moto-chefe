@@ -423,8 +423,7 @@ export async function registrarAssinaturaPapelAction(
   const ext = arquivo.type === 'application/pdf' ? 'pdf' : arquivo.type.split('/')[1]
   const caminho = `${montado.grupoId}/${doc.id}/via-assinada.${ext}`
 
-  const storage = clienteSupabaseAdmin()
-  const { error } = await storage.storage.from('assinaturas')
+  const { error } = await clienteSupabaseAdmin().storage.from('assinaturas')
     .upload(caminho, buffer, { contentType: arquivo.type, upsert: true })
   if (error) {
     // Sem a via anexada o registro não vale — desfaz para não deixar um

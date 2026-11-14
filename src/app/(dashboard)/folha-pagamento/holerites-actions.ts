@@ -93,10 +93,10 @@ export async function uploadHoleriteAction(formData: FormData) {
     avisos.push(`o PDF é da competência ${lido.competencia}, e não de ${mes}`)
   }
 
-  const storage = clienteSupabaseAdmin()
+  const storage = clienteSupabaseAdmin().storage
   const filePath = caminhoDoHolerite({ grupoId, mes, usuarioId, tipo }, crypto.randomUUID())
 
-  const { error } = await storage.storage
+  const { error } = await storage
     .from(BUCKET)
     .upload(filePath, file, { contentType: 'application/pdf' })
   if (error) throw new Error(`Erro no upload: ${error.message}`)
@@ -136,7 +136,7 @@ export async function uploadHoleriteAction(formData: FormData) {
   // Depois do upsert: se a gravação falhar, o arquivo novo é que fica órfão, e é
   // melhor sobrar arquivo do que a linha apontar para um PDF já apagado.
   if (anterior?.arquivoPath && anterior.arquivoPath !== filePath) {
-    await storage.storage.from(BUCKET).remove([anterior.arquivoPath])
+    await storage.from(BUCKET).remove([anterior.arquivoPath])
   }
 
   // Com aviso na leitura o valor NÃO entra sozinho: se o papel é de outra pessoa
