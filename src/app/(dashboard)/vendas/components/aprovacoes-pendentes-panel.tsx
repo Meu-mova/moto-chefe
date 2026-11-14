@@ -9,7 +9,8 @@ import { AlertTriangle, Landmark, TrendingDown } from 'lucide-react'
 import { aprovarVendaAction, recusarVendaAction } from '../actions'
 import type { AprovacaoPendente } from '@/lib/queries/motos'
 import { quadroAbaixoDoMinimo, type QuadroAbaixoDoMinimo } from '@/lib/desconto'
-import { resumoDoPedidoEmAprovacao } from '@/lib/aprovacao-venda'
+import { freteDaAprovacao, resumoDoPedidoEmAprovacao } from '@/lib/aprovacao-venda'
+import { totalComFrete } from '@/lib/notagateway/entrega'
 import { fmtBRL } from '@/lib/preco-minimo'
 
 type Props = {
@@ -50,6 +51,7 @@ function Linha({ aprovacao, podeAprovar }: { aprovacao: AprovacaoPendente; podeA
   const sensivel = aprovacao.tipo === 'pagamento_sensivel'
   const quadro = quadroAbaixoDoMinimo(aprovacao)
   const pedido = resumoDoPedidoEmAprovacao(aprovacao)
+  const frete = freteDaAprovacao(aprovacao)
 
   async function aprovar() {
     setLoading(true)
@@ -114,8 +116,8 @@ function Linha({ aprovacao, podeAprovar }: { aprovacao: AprovacaoPendente; podeA
           <p className="text-xs text-muted-foreground mt-0.5">
             {aprovacao.lojaNome} · {aprovacao.vendedorNome} · {new Date(aprovacao.dataSolicitacao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
           </p>
-          {pedido && pedido.frete > 0 && (
-            <p className="text-xs text-muted-foreground mt-0.5">Moto {fmtBRL(pedido.moto)} + frete {fmtBRL(pedido.frete)} = {fmtBRL(pedido.total)}</p>
+          {frete > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">Moto {fmtBRL(Number(aprovacao.valor))} + frete {fmtBRL(frete)} = {fmtBRL(totalComFrete(Number(aprovacao.valor), frete))}</p>
           )}
           <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-md" title={aprovacao.motivo}>{aprovacao.motivo}</p>
           {quadro && <QuadroDoMinimo quadro={quadro} />}

@@ -1,4 +1,4 @@
-import { totalComFrete } from '@/lib/notagateway/entrega'
+import { freteDaVenda, totalComFrete, type EntregaVenda } from '@/lib/notagateway/entrega'
 
 // Regras de quando uma venda de moto precisa de aprovação. Uma só para a tela e o servidor
 // do Vender e da efetivação do pedido (#776), e para o fechamento da OS (pagamento sensível).
@@ -52,8 +52,17 @@ export function motivoDaAprovacao(tipo: TipoAprovacaoVenda, motivo: string | und
  */
 export function resumoDoPedidoEmAprovacao(a: { origem: string; valor: string | number; dadosVenda: unknown }) {
   if (a.origem !== 'pedido') return null
-  const d = (a.dadosVenda ?? {}) as { numero?: unknown; frete?: unknown }
+  const d = (a.dadosVenda ?? {}) as { numero?: unknown }
   const moto = Number(a.valor)
-  const frete = Number(d.frete) || 0
+  const frete = freteDaAprovacao(a)
   return { numero: typeof d.numero === 'number' ? d.numero : null, moto, frete, total: totalComFrete(moto, frete) }
+}
+
+/**
+ * Frete cobrado guardado no pedido de aprovação, fora do `valor` (que é só a moto): o pedido (#776) o grava à
+ * parte, o "Vender" (#854) dentro da Entrega. Zero sem frete e em pedido de antes da Entrega.
+ */
+export function freteDaAprovacao(a: { origem: string; dadosVenda: unknown }): number {
+  const d = (a.dadosVenda ?? {}) as { frete?: unknown; entrega?: EntregaVenda | null }
+  return a.origem === 'pedido' ? Number(d.frete) || 0 : freteDaVenda(d.entrega ?? null)
 }
