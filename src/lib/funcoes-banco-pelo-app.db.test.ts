@@ -15,9 +15,18 @@ process.env.DATABASE_URL = url
 
 const P = 'FBA891'
 let usuarioDaSessao: Record<string, unknown> = {}
+// O portal da fábrica é a fronteira de fora: devolve os pedidos que cada teste define.
+let portal = { pedidos: [] as { numeroPedido: string; dataAbertura: string; status: string }[], chassi: '' }
 const mocks = [
   mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => usuarioDaSessao } }),
   mock.module('next/cache', { namedExports: { revalidatePath: () => {} } }),
+  mock.module('next/headers', { namedExports: { cookies: async () => ({ get: () => undefined }) } }),
+  mock.module('@/lib/fabrica-scraper', { namedExports: {
+    loginFabrica: async () => ({ cookie: 'sessao' }),
+    listarPedidosGarantiaFabrica: async () => portal.pedidos,
+    buscarDetalhePedidoGarantia: async () => ({ chassi: portal.chassi, peca: 'Bateria', status: 'Pedido enviado' }),
+    buscarStatusGarantiaFabrica: async () => null,
+  } }),
 ]
 
 type Db = typeof import('@/lib/db')
@@ -70,6 +79,7 @@ after(async () => {
   await db.execute(sql`delete from motos where chassi like ${P + '%'}`)
   await db.execute(sql`delete from modelos where modelo = ${P}`)
   await db.execute(sql`delete from usuarios where email like ${'%-' + P.toLowerCase() + '-%'}`)
+  await db.execute(sql`update lojas set fabrica_email = null, fabrica_senha = null where id = ${s.lojaId}`)
   await db.execute(sql`delete from lojas where grupo_id in (${s.grupoId}, ${s.grupoBId})`)
   await db.execute(sql`delete from grupos where id in (${s.grupoId}, ${s.grupoBId})`)
   await db.execute(sql`delete from contas where id in (${s.contaId}, ${s.contaBId})`)
@@ -172,5 +182,25 @@ describe('usuário de outra Conta', () => {
     usuarioDaSessao = quem.auxB
     await recusaIgualAInexistente(alvo => alterarStatusAction(alvo, 'em_garantia', 'x'), motoId)
     assert.equal((await umaLinha(sql`select status from motos where id = ${motoId}`)).status, 'montada')
+  })
+})
+
+// Importação da fábrica: abre a garantia pelo mesmo caminho da abertura manual.
+describe('importar garantias da fábrica', () => {
+  const importar = async (motoId: string, numeroPedido: string) => {
+    portal = { pedidos: [{ numeroPedido, dataAbertura: '2026-11-03', status: 'Pedido enviado' }],
+      chassi: (await umaLinha(sql`select chassi from motos where id = ${motoId}`)).chassi }
+    await db.execute(sql`update lojas set fabrica_email = 'loja@teste.invalid', fabrica_senha = 'senha' where id = ${s.lojaId}`)
+    usuarioDaSessao = quem.aux
+    return garantiasActions.importarGarantiasFabricaAction()
+  }
+
+  test('abre a garantia da moto do pedido, com prazo de 30 dias', async () => {
+    const motoId = await novaMoto('montada')
+    const r = await importar(motoId, `${P}-1`)
+    assert.deepEqual(r.porLoja.map(l => [l.importadas, l.semChassi, l.erro]), [[1, 0, undefined]])
+    assert.deepEqual(await umaLinha(sql`select g.loja_id, g.descricao, g.data_inicio::text, g.data_fim::text, g.status, m.status as moto
+      from garantias g join motos m on m.id = g.moto_id where g.numero_pedido_fabrica = ${P + '-1'}`),
+    { loja_id: s.lojaId, descricao: 'Bateria', data_inicio: '2026-11-03', data_fim: '2026-12-03', status: 'ativa', moto: 'em_garantia' })
   })
 })
