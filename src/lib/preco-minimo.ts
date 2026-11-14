@@ -47,9 +47,10 @@ export function calcLiquidoRecebido(pagamentos: PgtoCalc[], taxas: TaxasVenda): 
 }
 
 /**
- * Líquido da moto: o líquido dos pagamentos menos o frete cobrado, com piso 0; a taxa do cartão sobre o
- * frete fica com a moto. `foraDaMoto` = o frete e, no pedido, os acessórios (#778). É a conta que se compara com o preço mínimo (decisão do Luis, #854 e #776) e a
- * mesma do `valorLiquidoDaMotoExpr` (queries/valor-liquido.ts, #807), que a faz sobre a venda já gravada.
+ * Líquido da moto: o líquido dos pagamentos menos o que não é a moto (`foraDaMoto`: o frete cobrado e, no
+ * pedido, os acessórios, #778), com piso 0; a taxa do cartão sobre essa parte fica com a moto. É a conta
+ * que se compara com o preço mínimo (decisão do Luis, #854 e #776) e a mesma do `valorLiquidoDaMotoExpr`
+ * (queries/valor-liquido.ts, #807), que a faz sobre a venda já gravada, só com o frete.
  */
 export function liquidoDaMoto(pagamentos: PgtoCalc[], taxas: TaxasVenda, foraDaMoto: number): number {
   return Math.max(valorDaMoto(calcLiquidoRecebido(pagamentos, taxas), foraDaMoto), 0)
