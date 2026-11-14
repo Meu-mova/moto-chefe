@@ -78,14 +78,14 @@ before(async () => {
   for (const l of [lojas.semPortal, lojas.desativada, lojas.inativa]) await moto(l, modelos.mc, 'PRETO')
 
   // Vendas: em 15/10 (dentro), uma Voi (fora pela marca), uma em 01/11 00:30 de Brasília
-  // (fora do período de outubro) e uma na loja sem portal.
+  // (fora do período de outubro) e uma em cada loja fora do painel.
   const vender = async (loja: string, modelo: string, quando: string) => {
     const chassi = 'PAINEL819' + seq
     const motoId = await moto(loja, modelo, 'PRETO', { vendida: true })
     const vendedor = await linha(sql`insert into usuarios (id, nome, email, papel, loja_id) values (gen_random_uuid(), 'Vend 819', ${'vend819-' + seq + '@teste.invalid'}, 'vendedor', ${loja}) returning id`)
     const pedido = await linha(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${motoId}, ${loja}, ${vendedor.id}) returning id`)
-    await db.execute(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento, numero, data_venda)
-      values (${pedido.id}, ${motoId}, ${loja}, ${vendedor.id}, ${vendedor.id}, 'Cliente', '52998224725', 1000, 'pix', ${981900 + seq}, ${quando}::timestamptz)`)
+    await db.execute(sql`insert into vendas (pedido_venda_id, moto_id, loja_id, vendedor_id, efetivado_por, cliente_nome, cliente_cpf, valor, forma_pagamento, data_venda)
+      values (${pedido.id}, ${motoId}, ${loja}, ${vendedor.id}, ${vendedor.id}, 'Cliente', '52998224725', 1000, 'pix', ${quando}::timestamptz)`)
     // O número da venda sai do pedido (trigger do banco), não do insert: lê o que ficou gravado.
     const [gravada] = await execRows(sql`select numero from vendas where moto_id = ${motoId}`) as { numero: number }[]
     return { numero: gravada.numero, chassi }
@@ -97,7 +97,8 @@ before(async () => {
   const a01nov = await vender(lojas.a, modelos.mc, '2026-11-01T03:30:00Z') // 00:30 de 01/11 em Brasília: fora
   numeros = { a15: a15.numero, a31: a31.numero, b20: b20.numero, a01nov: a01nov.numero }
   chassis = { a15: a15.chassi, a31: a31.chassi, b20: b20.chassi }
-  await vender(lojas.semPortal, modelos.mc, '2026-10-15T15:00:00Z')
+  // Fora pela loja: sem portal, inativa e de Conta desativada.
+  for (const l of [lojas.semPortal, lojas.inativa, lojas.desativada]) await vender(l, modelos.mc, '2026-10-15T15:00:00Z')
 })
 
 after(async () => {
@@ -119,7 +120,9 @@ test('lojas do painel: as duas Contas com portal; sem portal, inativa e de Conta
 })
 
 test('lojas do painel: só o id e o nome, sem cidade nem nome do grupo', async () => {
-  for (const l of nossas(await painel.listarLojasDoPainel())) assert.deepEqual(Object.keys(l).sort(), ['lojaId', 'lojaNome'])
+  const l = nossas(await painel.listarLojasDoPainel())
+  assert.equal(l.length, 2)
+  for (const loja of l) assert.deepEqual(Object.keys(loja).sort(), ['lojaId', 'lojaNome'])
 })
 
 test('estoque: só MotoChefe no showroom, somado por loja × modelo × cor; a Voi não aparece', async () => {
