@@ -16,9 +16,10 @@ let precificacao: { valorMinimoPix: number; taxas: typeof SEM_TAXA } | null = nu
 let buscaDePreco: (() => Promise<unknown>) | null = null
 const alteracoes: unknown[][] = []
 let respostaDoAlterar: { ok: true; dados: undefined } | { ok: false; erro: string } = { ok: true, dados: undefined }
+let respostaDoAlterarFn: () => Promise<unknown> = async () => respostaDoAlterar
 mock.module('../actions', { namedExports: {
   efetivarVendaAction: async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } },
-  alterarEntregaDoPedidoAction: async (...a: unknown[]) => { alteracoes.push(a); return respostaDoAlterar },
+  alterarEntregaDoPedidoAction: async (...a: unknown[]) => { alteracoes.push(a); return respostaDoAlterarFn() },
   buscarPrecoMinimoAction: async () => (buscaDePreco ? buscaDePreco() : precificacao),
 } })
 mock.module('@/app/(dashboard)/clientes/actions', { namedExports: {
@@ -28,7 +29,7 @@ mock.module('@/app/(dashboard)/clientes/actions', { namedExports: {
 const montados: (() => Promise<void>)[] = []
 afterEach(async () => {
   for (const desmontar of montados.splice(0)) await desmontar()
-  precificacao = null; buscaDePreco = null; alteracoes.length = 0; respostaDoAlterar = { ok: true, dados: undefined }
+  precificacao = null; buscaDePreco = null; alteracoes.length = 0; respostaDoAlterar = { ok: true, dados: undefined }; respostaDoAlterarFn = async () => respostaDoAlterar
 })
 
 const entregaNaTela = () => document.querySelector('[aria-label="Entrega do pedido"]')?.textContent ?? ''
@@ -224,4 +225,36 @@ test('"Alterar" num pedido que já tem frete abre com o frete ligado e salvar se
   assert.equal(document.querySelector<HTMLInputElement>('#alterar-frete')?.value.replace(/\D/g, ''), '35000')
   await clicar(botao('Salvar entrega'))
   assert.deepEqual(alteracoes, [['p1', { ...ENTREGAR, frete: 350 }]])
+})
+
+test('enquanto salva a Entrega: botões travados e Escape não fecha; ao responder, fecha', async () => {
+  let responder!: () => void
+  respostaDoAlterarFn = () => new Promise(r => { responder = () => r({ ok: true, dados: undefined }) })
+  await abrir(ENTREGAR)
+  await clicar(botao('Alterar'))
+  await clicar(botao('Salvar entrega'))
+  assert.equal(botao('Salvando...')?.disabled, true)
+  assert.equal(botao('Voltar')?.disabled, true)
+  const { act } = await import('react')
+  await act(async () => { document.activeElement?.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+  assert.ok(dialogoAlterar(), 'Escape não fecha enquanto salva')
+  await act(async () => { responder() })
+  assert.equal(dialogoAlterar(), null)
+})
+
+test('falha inesperada ao salvar a Entrega avisa no diálogo e libera para tentar de novo', async () => {
+  respostaDoAlterarFn = async () => { throw new Error('rede') }
+  await abrir(ENTREGAR)
+  await clicar(botao('Alterar'))
+  await clicar(botao('Salvar entrega'))
+  assert.match(dialogoAlterar()?.textContent ?? '', /Não deu para salvar a entrega agora\. Tente de novo\./)
+  assert.equal(botao('Salvar entrega')?.disabled, false)
+})
+
+test('quem recebe com nome acima de 60 caracteres deixa o "Salvar entrega" desabilitado', async () => {
+  await abrir({ ...ENTREGAR, recebe: { nome: 'Maria', cpfCnpj: '529.982.247-25' } } as EntregaVenda)
+  await clicar(botao('Alterar'))
+  await digitar(document.getElementById('entrega-recebe-nome') as HTMLInputElement, 'x'.repeat(61))
+  assert.equal(botao('Salvar entrega')?.disabled, true)
+  assert.deepEqual(alteracoes, [])
 })
