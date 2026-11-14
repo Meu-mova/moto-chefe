@@ -1,5 +1,5 @@
 // Teste de banco: salvar as taxas da Precificação grava só os campos do formulário, sempre no
-// grupo ativo do servidor; o que vier a mais no envio não muda a linha de outro grupo.
+// grupo ativo do servidor.
 // Roda no Postgres descartável do CI. Local: `npm run test:db:local`.
 import { after, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -78,9 +78,9 @@ const comoNoBanco = (t: TaxasPayload) => ({
   atualizada_agora: true,
 })
 
-test('o envio com o grupo de outra Conta grava no grupo ativo e não muda as taxas da outra', async () => {
-  const forjado = { ...ENVIO, grupoId: s.grupoB, padraoSimulador: 'avista_12x', atualizadoEm: new Date('2020-01-01') }
-  await salvarTaxasAction(forjado as TaxasPayload)
+test('as taxas são gravadas só no grupo ativo, só com os campos do formulário', async () => {
+  const comCamposAMais = { ...ENVIO, grupoId: s.grupoB, padraoSimulador: 'avista_12x', atualizadoEm: new Date('2020-01-01') }
+  await salvarTaxasAction(comCamposAMais as TaxasPayload)
   assert.deepEqual(await taxasDo(s.grupoB), comoNoBanco(TAXAS_B))
   assert.deepEqual(await taxasDo(s.grupoA), comoNoBanco(ENVIO))
 })

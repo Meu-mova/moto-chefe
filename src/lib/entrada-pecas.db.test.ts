@@ -79,24 +79,24 @@ test('a nota grava só chave, número e fornecedor do que chega; Conta, grupo, l
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     const b = await semearConta(tx, 'B', '22222222000191')
-    const idForjado = '00000000-0000-4000-8000-000000000924'
+    const idEnviado = '00000000-0000-4000-8000-000000000924'
     const notaComMais = {
       ...NOTA, contaId: b.contaId, grupoId: b.grupoId, lojaId: b.lojaId,
-      id: idForjado, criadoEm: new Date('2020-01-01T00:00:00Z'),
+      id: idEnviado, criadoEm: new Date('2020-01-01T00:00:00Z'),
     } as typeof NOTA
     await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: notaComMais, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
 
     const notas = await linhas(tx, sql`select conta_id, grupo_id, loja_id, numero, fornecedor_cnpj, origem, impressao_digital,
-      id = ${idForjado} as id_forjado, criado_em > now() - interval '1 hour' as criada_agora
+      id = ${idEnviado} as id_enviado, criado_em > now() - interval '1 hour' as criada_agora
       from notas_entrada where chave_acesso = ${NOTA.chaveAcesso}`)
     assert.deepEqual(notas, [{
       conta_id: a.contaId, grupo_id: a.grupoId, loja_id: a.lojaId, numero: NOTA.numero, fornecedor_cnpj: NOTA.fornecedorCnpj,
-      origem: 'nota', impressao_digital: null, id_forjado: false, criada_agora: true,
+      origem: 'nota', impressao_digital: null, id_enviado: false, criada_agora: true,
     }])
   })
 })
 
-test('a nota não vira "planilha" nem ganha impressão digital pelo que chega; a gravação é recusada e nada fica', async () => {
+test('a nota só aceita os campos do formulário; o resto é recusado e nada fica', async () => {
   await emTransacaoDesfeita(async tx => {
     const a = await semearConta(tx, 'A', '11111111000191')
     const b = await semearConta(tx, 'B', '22222222000191')
