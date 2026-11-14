@@ -12,3 +12,10 @@ export async function vendaTemNfViva(tx: Executor, vendaId: string): Promise<boo
     .limit(1)
   return !!viva
 }
+
+/** As notas da venda com o que a trava do "Cancelar venda" e do Alterar a Entrega leem (`status.ts`). */
+export async function notasParaTravaDaVenda(tx: Executor, vendaId: string) {
+  const notas = await tx.select({ ambiente: notasFiscaisSaida.ambiente, status: notasFiscaisSaida.status, dataAutorizacao: notasFiscaisSaida.dataAutorizacao })
+    .from(notasFiscaisSaida).where(eq(notasFiscaisSaida.vendaId, vendaId))
+  return notas.map(n => ({ ...n, dataAutorizacao: n.dataAutorizacao?.toISOString() ?? null }))
+}

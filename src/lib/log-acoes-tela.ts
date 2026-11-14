@@ -11,8 +11,9 @@ export const ROTULO_TIPO: Record<string, string> = {
   preco_compra_alterado: 'Corrigiu preço de compra', grupo_movido_de_conta: 'Moveu grupo de Conta',
   transferencia_grupos_alterada: 'Mudou transferência entre grupos',
   moto_arquivada: 'Arquivou moto', moto_desarquivada: 'Desarquivou moto', moto_removida: 'Removeu moto',
+  entrega_alterada: 'Mudou a entrega',
 }
-export const TIPOS_SENSIVEIS = ['venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada', 'certificado_aplicado', 'portal_aplicado', 'notas_enviadas_contador', 'logo_danfe_enviada', 'preco_compra_alterado', 'grupo_movido_de_conta', 'transferencia_grupos_alterada', 'moto_arquivada', 'moto_desarquivada', 'moto_removida']
+export const TIPOS_SENSIVEIS = ['venda_cancelada', 'nf_emitida', 'nf_cancelada', 'permissao_alterada', 'certificado_aplicado', 'portal_aplicado', 'notas_enviadas_contador', 'logo_danfe_enviada', 'preco_compra_alterado', 'grupo_movido_de_conta', 'transferencia_grupos_alterada', 'moto_arquivada', 'moto_desarquivada', 'moto_removida', 'entrega_alterada']
 /** Desfazem algo já feito: a tela pinta de vermelho. */
 export const TIPOS_DESTRUTIVOS = ['venda_cancelada', 'nf_cancelada']
 export const ehSensivel = (tipo: string) => TIPOS_SENSIVEIS.includes(tipo)
@@ -85,6 +86,12 @@ export function agruparPorPessoa(eventos: EventoLog[]): PessoaNoLog[] {
 const brl = (v: unknown) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   // toLocaleString usa espaço sem quebra entre R$ e o valor.
   .replace(/\u00a0/g, ' ')
+/** Um lado da alteração da Entrega (#895), como o servidor gravou: modo e UF, e o frete quando há. */
+const entregaDoLog = (e: unknown) => {
+  if (!e || typeof e !== 'object') return 'sem entrega'
+  const { modo, uf, frete } = e as { modo?: unknown; uf?: unknown; frete?: unknown }
+  return [modo === 'entregar' ? `Entregar ${uf ?? '?'}` : 'Retira na loja', Number(frete) > 0 ? `frete ${brl(frete)}` : null].filter(Boolean).join(', ')
+}
 
 // Mesmas palavras do formulário de /admin/usuarios. Só a exibição: o detalhe gravado guarda o
 // nome do campo, e linha antiga também aparece com o texto novo (#620).
@@ -144,6 +151,7 @@ export function resumoDoEvento(e: EventoLog): string {
     case 'moto_arquivada':
     case 'moto_desarquivada':
     case 'moto_removida': return `${v('chassi')} · ${v('modelo')} · “${v('motivo')}”`
+    case 'entrega_alterada': return `${d.vendaId ? 'venda' : 'pedido'} · ${entregaDoLog(d.antes)} → ${entregaDoLog(d.depois)}`
     default: return `${dispositivoLegivel(e.userAgent)} · IP ${e.ip ?? '?'}`
   }
 }

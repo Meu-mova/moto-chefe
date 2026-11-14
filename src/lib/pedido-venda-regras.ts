@@ -11,6 +11,13 @@ export function podeCriarPedido(papel: string): boolean {
   return PAPEIS_QUE_CRIAM_PEDIDO.includes(papel)
 }
 
+const PAPEIS_QUE_EFETIVAM = ['admin_geral', 'admin_socio', 'aux_adm']
+
+/** Quem efetiva o pedido e, na efetivação, muda a Entrega dele (#895); tela e servidor usam a mesma regra. */
+export function podeEfetivarPedido(papel: string): boolean {
+  return PAPEIS_QUE_EFETIVAM.includes(papel)
+}
+
 export type QuemCancela = { id: string; papel: string; lojaId: string | null }
 export type PedidoParaCancelar = { status: string; lojaId: string; vendedorId: string }
 

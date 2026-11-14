@@ -1,7 +1,7 @@
 // Entrega da venda que chega do navegador (#725): o servidor só grava o que a regra aceita.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, motoNaNota, totalComFrete, valorDaMoto, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, travaDaEntregaEmOutroEstado, ENTREGA_EM_OUTRO_ESTADO, type EntregaVenda } from './entrega'
+import { conferirEntrega, conflitoDaUfDoFormulario, enderecoDaEntregaEmLinha, freteDaVenda, motoNaNota, totalComFrete, valorDaMoto, operacaoDaVenda, pendenciasDaEntrega, textoDaEntrega, textoDaOperacao, travaDaEntregaEmOutroEstado, ENTREGA_EM_OUTRO_ESTADO, CANCELE_A_NF_PARA_ALTERAR, entregaParaLog, travaDaAlteracaoDaEntrega, TRAVA_DO_ALTERAR, FRETE_FIXO_NA_VENDA, recusaDoFreteDaVendaEfetivada, SEM_FRETE_NA_VENDA, type EntregaVenda } from './entrega'
 
 test('retira na loja com uma modalidade da lista é aceita como veio', () => {
   assert.deepEqual(
@@ -283,4 +283,61 @@ test('trava da entrega: mesma UF (com espaço ou minúscula), retirada e venda s
 
 test('trava da entrega: UF do emitente desconhecida não trava (avise, não bloqueie)', () => {
   assert.equal(travaDaEntregaEmOutroEstado(ENTREGAR_EM('PR'), null), null)
+})
+
+// Alterar a Entrega depois da venda (#895): o frete cobrado já entrou no total e nos pagamentos, então não muda.
+const ENTREGA_COM_FRETE: EntregaVenda = {
+  modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente',
+  endereco: { cep: '65000000', logradouro: 'Rua A', numero: '1', complemento: '', bairro: 'Centro', cidade: '2111300', nomeCidade: 'São Luís', uf: 'MA' },
+  recebe: null, frete: 350,
+}
+
+test('venda com frete: outro endereço, quem recebe e modalidade com frete passam com o mesmo valor', () => {
+  const depois: EntregaVenda = {
+    ...ENTREGA_COM_FRETE, modalidade: 'ContratacaoPorContaDoRemetente',
+    endereco: { ...ENTREGA_COM_FRETE.endereco, logradouro: 'Rua B' }, recebe: { nome: 'Maria', cpfCnpj: '529.982.247-25' },
+  }
+  assert.equal(recusaDoFreteDaVendaEfetivada(ENTREGA_COM_FRETE, depois), null)
+})
+
+test('venda com frete: virar Retira, perder o frete ou mudar o valor (mesmo em centavos) é recusado', () => {
+  for (const depois of [
+    { modo: 'retira', modalidade: 'TransporteProprioPorContaDoRemetente' },
+    { ...ENTREGA_COM_FRETE, frete: undefined },
+    { ...ENTREGA_COM_FRETE, frete: 350.01 },
+  ] as EntregaVenda[]) assert.equal(recusaDoFreteDaVendaEfetivada(ENTREGA_COM_FRETE, depois), FRETE_FIXO_NA_VENDA)
+})
+
+test('venda sem frete (ou antiga, sem Entrega) não ganha frete; sem frete, muda à vontade', () => {
+  const semFrete = { ...ENTREGA_COM_FRETE, frete: undefined }
+  assert.equal(recusaDoFreteDaVendaEfetivada(semFrete, ENTREGA_COM_FRETE), SEM_FRETE_NA_VENDA)
+  assert.equal(recusaDoFreteDaVendaEfetivada(null, ENTREGA_COM_FRETE), SEM_FRETE_NA_VENDA)
+  assert.equal(recusaDoFreteDaVendaEfetivada(null, { modo: 'retira', modalidade: '' }), null)
+})
+
+test('o log da alteração guarda modo, UF, modalidade e frete de antes e de depois', () => {
+  assert.deepEqual(entregaParaLog(ENTREGA_COM_FRETE), { modo: 'entregar', uf: 'MA', modalidade: 'TransporteProprioPorContaDoRemetente', frete: 350 })
+  assert.deepEqual(entregaParaLog({ modo: 'retira', modalidade: '' }), { modo: 'retira', uf: null, modalidade: '', frete: 0 })
+  assert.equal(entregaParaLog(null), null)
+})
+
+// Trava do Alterar (#895): a mesma regra do "Cancelar venda", com a frase de cada situação da nota viva.
+const AGORA = new Date('2026-11-14T15:00:00Z')
+const nota = (ambiente: string, status: string, dataAutorizacao: string | null = '2026-11-14T12:00:00Z') => ({ ambiente, status, dataAutorizacao })
+
+test('trava do Alterar: cada nota de produção viva tem a sua orientação', () => {
+  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'Autorizada')], AGORA), CANCELE_A_NF_PARA_ALTERAR)
+  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'CancelamentoNegado')], AGORA), TRAVA_DO_ALTERAR.tentar_de_novo)
+  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'Enviando', null)], AGORA), TRAVA_DO_ALTERAR.emissao_em_andamento)
+  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'EmProcessoDeCancelamento')], AGORA), TRAVA_DO_ALTERAR.cancelamento_em_andamento)
+  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'Autorizada', '2026-11-12T12:00:00Z')], AGORA), TRAVA_DO_ALTERAR.fora_do_prazo)
+  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'Autorizada', null)], AGORA), TRAVA_DO_ALTERAR.sem_data)
+})
+
+test('trava do Alterar: homologação, notas mortas e venda sem nota liberam; uma viva entre mortas trava', () => {
+  for (const n of [nota('Homologacao', 'Autorizada'), ...['Negada', 'Denegada', 'Cancelada', 'Descartada'].map(s => nota('Producao', s))]) {
+    assert.equal(travaDaAlteracaoDaEntrega([n], AGORA), null, `${n.ambiente} ${n.status}`)
+  }
+  assert.equal(travaDaAlteracaoDaEntrega([], AGORA), null)
+  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'Negada'), nota('Producao', 'Autorizada')], AGORA), CANCELE_A_NF_PARA_ALTERAR)
 })
