@@ -146,7 +146,7 @@ test('vendas: uma linha por venda, com número, cor e chassi; dias de Brasília,
   assert.deepEqual(nov.map(l => l.numero), [numeros.a01nov])
 })
 
-test('vendas: cada linha leva só data, número, loja, modelo, cor e chassi (sem id, cliente nem valor)', async () => {
+test('vendas: cada linha leva só data, número, loja, modelo, cor e chassi (sem id da venda, cliente nem valor)', async () => {
   const v = nossas(await painel.vendasDoPainel('2026-10-01', '2026-10-31'))
   assert.equal(v.length, 3)
   for (const l of v) assert.deepEqual(Object.keys(l).sort(), ['chassi', 'cor', 'data', 'lojaId', 'modelo', 'numero'])
