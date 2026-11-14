@@ -267,8 +267,12 @@ test('cadastro de cliente na persona: CPF do grupo liberado e de outro grupo da 
     const { cadastrarCliente } = await import('@/lib/cliente-cadastro')
     const persona = usuarioDaRede(c.cadastro, await gruposLiberadosVivos(c.usuarioId, new Date('2026-10-29T12:00:00Z'), tx), c.liberado.grupo)
     const erro = async (escopo: { contaId: string; grupoLiberado: string | null }, cpf: string) => {
+      // A recusa sai do savepoint como erro para desfazê-lo: o CPF repetido abortou a transação.
       try {
-        await tx.transaction(sp => cadastrarCliente(sp, escopo, { nome: 'X', tipoPessoa: 'fisica', sexo: 'nao_identificado', cpfCnpj: cpf }))
+        await tx.transaction(async sp => {
+          const r = await cadastrarCliente(sp, escopo, { nome: 'X', tipoPessoa: 'fisica', sexo: 'nao_identificado', cpfCnpj: cpf })
+          if (!r.ok) throw new Error(r.erro)
+        })
         return null
       } catch (e) { return e instanceof Error ? e.message : String(e) }
     }

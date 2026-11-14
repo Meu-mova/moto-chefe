@@ -8,7 +8,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
-import { cadastrarCliente, cpfRepetido, mensagemCpfRepetido } from '@/lib/cliente-cadastro'
+import { atualizarCliente, cadastrarCliente } from '@/lib/cliente-cadastro'
 
 export type ClienteInput = {
   nome: string
@@ -133,9 +133,10 @@ export async function criarClienteAction(dados: ClienteInput): Promise<string> {
 
   const cpfCnpj = limparCpfCnpj(dados.cpfCnpj)
 
-  const id = await cadastrarCliente(db, { contaId: await contaDoGrupoAtivo(usuario), grupoLiberado: usuario.grupoLiberado }, { ...dados, cpfCnpj })
+  const r = await cadastrarCliente(db, { contaId: await contaDoGrupoAtivo(usuario), grupoLiberado: usuario.grupoLiberado }, { ...dados, cpfCnpj })
+  if (!r.ok) throw new Error(r.erro)
   revalidatePath('/clientes')
-  return id
+  return r.id
 }
 
 export async function atualizarClienteAction(id: string, dados: Partial<ClienteInput>) {
@@ -144,20 +145,13 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
 
   const cpfCnpj = dados.cpfCnpj !== undefined ? limparCpfCnpj(dados.cpfCnpj) : undefined
 
-  try {
-    const atualizados = await db.update(clientes).set({
-      ...dados,
-      ...(cpfCnpj !== undefined ? { cpfCnpj } : {}),
-      atualizadoEm: new Date(),
-    }).where(and(eq(clientes.id, id), clientesDoEscopo(await contaDoGrupoAtivo(usuario), usuario)))
-      .returning({ id: clientes.id })
-    if (!atualizados.length) throw new Error('Cliente não encontrado')
-    revalidatePath('/clientes')
-    revalidatePath(`/clientes/${id}`)
-  } catch (e: unknown) {
-    if (cpfRepetido(e)) throw new Error(mensagemCpfRepetido(usuario))
-    throw e
-  }
+  const r = await atualizarCliente(db, { contaId: await contaDoGrupoAtivo(usuario), grupoLiberado: usuario.grupoLiberado }, id, {
+    ...dados,
+    ...(cpfCnpj !== undefined ? { cpfCnpj } : {}),
+  })
+  if (!r.ok) throw new Error(r.erro)
+  revalidatePath('/clientes')
+  revalidatePath(`/clientes/${id}`)
 }
 
 export async function excluirClienteAction(id: string) {
