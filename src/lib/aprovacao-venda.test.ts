@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { abaixoDoMinimo, aprovacaoNecessaria, motivoDaAprovacao, podeVenderAbaixoDoMinimo, freteDaAprovacao, resumoDoPedidoEmAprovacao, temPagamentoSensivel } from './aprovacao-venda'
+import { abaixoDoMinimo, aprovacaoNecessaria, motivoDaAprovacao, podeVenderAbaixoDoMinimo, contaDaAprovacao, resumoDoPedidoEmAprovacao, temPagamentoSensivel } from './aprovacao-venda'
 import { liquidoDaMoto } from './preco-minimo'
 
 test('abaixoDoMinimo: 1 centavo abaixo ainda passa; 2 centavos abaixo pede aprovação', () => {
@@ -51,10 +51,10 @@ test('resumoDoPedidoEmAprovacao: número e moto + frete do pedido; null fora do 
   assert.equal(resumoDoPedidoEmAprovacao({ origem: 'moto', valor: '1', dadosVenda: { numero: 1 } }), null)
 })
 
-test('freteDaAprovacao: o pedido guarda o frete à parte; o Vender, na Entrega; sem frete ou origem antiga, zero', () => {
-  assert.equal(freteDaAprovacao({ origem: 'pedido', dadosVenda: { frete: 150 } }), 150)
-  assert.equal(freteDaAprovacao({ origem: 'moto', dadosVenda: { entrega: { modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', frete: 150 } } }), 150)
-  assert.equal(freteDaAprovacao({ origem: 'moto', dadosVenda: { entrega: { modo: 'retira', modalidade: '' } } }), 0)
-  assert.equal(freteDaAprovacao({ origem: 'moto', dadosVenda: {} }), 0)
-  assert.equal(freteDaAprovacao({ origem: 'os', dadosVenda: null }), 0)
+test('contaDaAprovacao: o pedido guarda o frete à parte; o Vender, na Entrega; sem frete ou pedido antigo, frete zero', () => {
+  const ENTREGAR = { modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', frete: 150 }
+  assert.deepEqual(contaDaAprovacao({ origem: 'pedido', valor: '11900.00', dadosVenda: { frete: 150 } }), { moto: 11900, frete: 150, total: 12050 })
+  assert.deepEqual(contaDaAprovacao({ origem: 'moto', valor: '11900.00', dadosVenda: { entrega: ENTREGAR } }), { moto: 11900, frete: 150, total: 12050 })
+  assert.deepEqual(contaDaAprovacao({ origem: 'moto', valor: '11900.00', dadosVenda: { entrega: { modo: 'retira', modalidade: '' } } }), { moto: 11900, frete: 0, total: 11900 })
+  assert.deepEqual(contaDaAprovacao({ origem: 'moto', valor: '11900.00', dadosVenda: null }), { moto: 11900, frete: 0, total: 11900 })
 })

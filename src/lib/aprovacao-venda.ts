@@ -47,22 +47,20 @@ export function motivoDaAprovacao(tipo: TipoAprovacaoVenda, motivo: string | und
 }
 
 /**
- * Número do pedido e a conta moto + frete do pedido em aprovação (#776), lidos de `dados_venda`; null fora
- * da origem 'pedido'. O valor da aprovação é só a moto (#796); o frete vem guardado à parte.
+ * Moto + frete = total de um pedido de aprovação de moto. O `valor` é só a moto (#796); o frete cobrado fica
+ * guardado à parte: o pedido (#776) o grava em `dados_venda.frete`, o "Vender" (#854) dentro da Entrega.
+ * Pedido sem frete ou de antes da Entrega: frete zero.
  */
+export function contaDaAprovacao(a: { origem: string; valor: string | number; dadosVenda: unknown }) {
+  const d = (a.dadosVenda ?? {}) as { frete?: unknown; entrega?: EntregaVenda | null }
+  const moto = Number(a.valor)
+  const frete = a.origem === 'pedido' ? Number(d.frete) || 0 : freteDaVenda(d.entrega ?? null)
+  return { moto, frete, total: totalComFrete(moto, frete) }
+}
+
+/** Número do pedido em aprovação (#776) e a conta moto + frete; null fora da origem 'pedido'. */
 export function resumoDoPedidoEmAprovacao(a: { origem: string; valor: string | number; dadosVenda: unknown }) {
   if (a.origem !== 'pedido') return null
   const d = (a.dadosVenda ?? {}) as { numero?: unknown }
-  const moto = Number(a.valor)
-  const frete = freteDaAprovacao(a)
-  return { numero: typeof d.numero === 'number' ? d.numero : null, moto, frete, total: totalComFrete(moto, frete) }
-}
-
-/**
- * Frete cobrado guardado no pedido de aprovação, fora do `valor` (que é só a moto): o pedido (#776) o grava à
- * parte, o "Vender" (#854) dentro da Entrega. Zero sem frete e em pedido de antes da Entrega.
- */
-export function freteDaAprovacao(a: { origem: string; dadosVenda: unknown }): number {
-  const d = (a.dadosVenda ?? {}) as { frete?: unknown; entrega?: EntregaVenda | null }
-  return a.origem === 'pedido' ? Number(d.frete) || 0 : freteDaVenda(d.entrega ?? null)
+  return { numero: typeof d.numero === 'number' ? d.numero : null, ...contaDaAprovacao(a) }
 }
