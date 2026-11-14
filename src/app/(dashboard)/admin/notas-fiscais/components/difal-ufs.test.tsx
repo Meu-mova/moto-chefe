@@ -126,6 +126,9 @@ test('T6: no celular, o botão abre a folha com Fechar, busca e linhas compactas
   assert.equal(folha.querySelectorAll('[data-linha-uf]').length, 1)
   await clicar(botao('Fechar'))
   assert.equal(document.querySelector('[data-folha-ufs]'), null)
+  // Reabrir começa sem a busca anterior.
+  await clicar(botao(/Ver tabela do MOVA/))
+  assert.equal((document.querySelector('[data-folha-ufs] input[type="search"]') as HTMLInputElement).value, '')
 })
 
 test('T6b: o lápis dentro da folha fecha a folha e abre só o diálogo de corrigir', async () => {

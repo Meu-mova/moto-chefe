@@ -67,7 +67,7 @@ export function DifalUfs({ grupoId, ufEmitente, correcoes, importado, onImportad
   }
 
   // Corrigir de dentro da folha fecha a folha antes: duas camadas modais embaralham foco e teclado.
-  const corrigir = (n: NumerosDifal) => { setFolhaAberta(false); setEditando(n) }
+  const corrigir = (n: NumerosDifal) => { setFolhaAberta(false); setBusca(''); setEditando(n) }
 
   const campoBusca = <Input type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar estado" aria-label="Buscar estado" />
 
@@ -142,12 +142,13 @@ export function DifalUfs({ grupoId, ufEmitente, correcoes, importado, onImportad
       </details>
 
       {/* Celular: botão que abre a folha de tela inteira (protótipo, opção 2). */}
-      <Sheet open={folhaAberta} onOpenChange={setFolhaAberta}>
+      <Sheet open={folhaAberta} onOpenChange={aberta => { setFolhaAberta(aberta); if (!aberta) setBusca('') }}>
         <SheetTrigger className="flex min-h-12 w-full items-center justify-between rounded-lg border bg-card px-3 text-sm font-medium md:hidden">
           <span className="flex items-center gap-2"><Table2 size={16} aria-hidden />Ver tabela do MOVA: {daTabela.length} estados</span>
           <ChevronRight size={16} aria-hidden />
         </SheetTrigger>
-        <SheetContent side="bottom" showCloseButton={false} className="h-dvh gap-0 p-0" data-folha-ufs>
+        {/* h-dvh com o prefixo do lado: o h-auto da base vence o h-dvh sozinho, e a folha cresce para cima da tela. */}
+        <SheetContent side="bottom" showCloseButton={false} className="gap-0 p-0 data-[side=bottom]:h-dvh" data-folha-ufs>
           <SheetHeader className="flex-row items-center justify-between border-b">
             <SheetTitle>Tabela do MOVA: {daTabela.length} estados</SheetTitle>
             <SheetClose render={<Button variant="ghost" size="sm" aria-label="Fechar" />}>Fechar</SheetClose>
