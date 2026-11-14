@@ -122,3 +122,14 @@ test('moto removida (#692): rótulo próprio, sensível, com chassi, modelo e o 
   assert.equal(ehSensivel('moto_removida'), true)
   assert.equal(ROTULO_TIPO.moto_removida, 'Removeu moto')
 })
+
+test('entrega alterada (#895): pedido ou venda, de onde para onde, com o frete quando há', () => {
+  const resumo = resumoDoEvento(ev({ tipo: 'entrega_alterada', detalhe: {
+    vendaId: 'v1',
+    antes: { modo: 'retira', uf: null, modalidade: '', frete: 0 },
+    depois: { modo: 'entregar', uf: 'MG', modalidade: 'TransporteProprioPorContaDoRemetente', frete: 350 },
+  } }))
+  assert.equal(resumo.replace(/\u00a0/g, ' '), 'venda · Retira na loja → Entregar MG, frete R$ 350,00')
+  assert.equal(ehSensivel('entrega_alterada'), true)
+  assert.equal(ROTULO_TIPO.entrega_alterada, 'Mudou a entrega')
+})
