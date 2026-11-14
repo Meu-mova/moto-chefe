@@ -173,6 +173,8 @@ test('D3b: a página da moto lê o pedido de aprovação com frete como moto + f
   assert.ok(moto)
   const conta = contaDaAprovacao({ origem: moto.aprovacaoPendenteOrigem ?? 'moto', valor: moto.aprovacaoPendenteValor ?? '0', dadosVenda: moto.aprovacaoPendenteFreteGuardado })
   assert.deepEqual(conta, { moto: 11900, frete: FRETE, total: 12050 })
+  // Vai ao navegador com a moto: só o que a conta usa, sem endereço nem quem recebe.
+  assert.deepEqual(moto.aprovacaoPendenteFreteGuardado, { frete: null, entrega: { modo: 'entregar', frete: FRETE } })
 })
 
 test('D6: reserva finalizada pelo Vender com frete: restante = moto + frete - entrada; venda com o total e reserva convertida', async () => {
