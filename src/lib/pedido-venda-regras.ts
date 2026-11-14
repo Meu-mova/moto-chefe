@@ -1,3 +1,5 @@
+import { centavos } from '@/lib/numero-br'
+
 // Regras puras do pedido de venda, sem banco: usadas pela action (servidor) e pelo
 // cartão do pedido (cliente), para a tela e o servidor não divergirem de novo (#181:
 // a tela mostrava "Cancelar" ao sócio e o banco recusava).
@@ -35,4 +37,18 @@ export function motivoBloqueioCriarPedido(moto: MotoParaPedido, temTransferencia
   }
   if (temTransferenciaPendente) return 'Moto tem transferência pendente'
   return null
+}
+
+/** Peça que entra no pedido (#778): brinde (R$ 0) ou acessório, do catálogo de peças da Conta. */
+export type PecaDoPedidoInput = { tipo: 'brinde' | 'acessorio'; pecaId: string; quantidade: number; valorUnitario?: number }
+
+/** Valor unitário gravado no item: brinde sempre R$ 0; acessório com o valor ajustado (já saneado) ou o do catálogo. */
+export function valorDaPecaNoPedido(p: PecaDoPedidoInput, precoDoCatalogo: string): string {
+  if (p.tipo === 'brinde') return '0.00'
+  return p.valorUnitario != null && p.valorUnitario >= 0 ? p.valorUnitario.toFixed(2) : Number(precoDoCatalogo).toFixed(2)
+}
+
+/** Soma dos acessórios do pedido (o brinde vale R$ 0): entra no total que os pagamentos fecham. */
+export function totalDasPecas(itens: readonly { quantidade: number | string; valorUnitario: number | string | null }[]): number {
+  return centavos(itens.reduce((s, i) => s + Number(i.quantidade) * Number(i.valorUnitario ?? 0), 0))
 }

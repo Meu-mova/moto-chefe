@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { motivoBloqueioCriarPedido, podeCancelarPedido, podeCriarPedido } from './pedido-venda-regras'
+import { motivoBloqueioCriarPedido, podeCancelarPedido, podeCriarPedido, totalDasPecas, valorDaPecaNoPedido } from './pedido-venda-regras'
 
 const pedido = { status: 'pendente', lojaId: 'loja-a', vendedorId: 'vend-1' }
 
@@ -45,4 +45,17 @@ describe('motivoBloqueioCriarPedido', () => {
 test('podeCriarPedido: sócios, aux_adm e vendedor criam; mecânico e motorista não', () => {
   for (const p of ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']) assert.equal(podeCriarPedido(p), true, p)
   for (const p of ['mecanico', 'motorista', '']) assert.equal(podeCriarPedido(p), false, p)
+})
+
+test('valorDaPecaNoPedido: brinde sempre R$ 0; acessório ajustado ou o preço do catálogo (#778)', () => {
+  assert.equal(valorDaPecaNoPedido({ tipo: 'brinde', pecaId: 'p', quantidade: 1, valorUnitario: 40 }, '40.00'), '0.00')
+  assert.equal(valorDaPecaNoPedido({ tipo: 'acessorio', pecaId: 'p', quantidade: 1, valorUnitario: 199.9 }, '250.00'), '199.90')
+  assert.equal(valorDaPecaNoPedido({ tipo: 'acessorio', pecaId: 'p', quantidade: 1 }, '250'), '250.00')
+  assert.equal(valorDaPecaNoPedido({ tipo: 'acessorio', pecaId: 'p', quantidade: 1, valorUnitario: 0 }, '250.00'), '0.00')
+})
+
+test('totalDasPecas: soma quantidade × valor em centavos; brinde (R$ 0) não muda', () => {
+  assert.equal(totalDasPecas([{ quantidade: '2.00', valorUnitario: '200.10' }, { quantidade: '1.00', valorUnitario: '0.00' }]), 400.2)
+  assert.equal(totalDasPecas([{ quantidade: 3, valorUnitario: 0.1 }]), 0.3)
+  assert.equal(totalDasPecas([]), 0)
 })

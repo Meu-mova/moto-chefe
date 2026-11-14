@@ -1,13 +1,34 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { historicoEstoque, motos, pedidosVenda, pedidosVendaItens, reservas, transferencias } from '@/lib/db/schema'
-import { motivoBloqueioCriarPedido, podeCancelarPedido, type QuemCancela } from '@/lib/pedido-venda-regras'
+import { historicoEstoque, motos, pecasCatalogo, pedidosVenda, pedidosVendaItens, reservas, transferencias } from '@/lib/db/schema'
+import { motivoBloqueioCriarPedido, podeCancelarPedido, valorDaPecaNoPedido, type PecaDoPedidoInput, type QuemCancela } from '@/lib/pedido-venda-regras'
+import { daContaDaLoja } from '@/lib/pecas-da-conta'
+import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
 import { pedidoEmAprovacaoSql } from '@/lib/pedido-de-aprovacao'
 import type { EntregaVenda } from '@/lib/notagateway/entrega'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * Brinde e acessório do pedido (#778) conferidos como na venda de peça: só peça do catálogo da Conta da loja
+ * ("Peça não encontrada" também para id inexistente) e quantidade inteira. O estoque só baixa na efetivação.
+ */
+async function pecasConferidas(tx: Tx, lojaId: string, pecas: PecaDoPedidoInput[]) {
+  if (pecas.length === 0) return []
+  const recusa = recusaDaQuantidadeVendida(pecas)
+  if (recusa) throw new RecusaUsuario(recusa)
+  if (pecas.some(p => !['brinde', 'acessorio'].includes(p.tipo) || p.quantidade <= 0)) throw new RecusaUsuario('Item do pedido inválido')
+  const doCatalogo = await tx.select({ id: pecasCatalogo.id, valor: pecasCatalogo.valor }).from(pecasCatalogo)
+    .where(and(inArray(pecasCatalogo.id, pecas.map(p => p.pecaId)), daContaDaLoja(lojaId)))
+  const preco = new Map(doCatalogo.map(p => [p.id, p.valor]))
+  return pecas.map(p => {
+    const precoDoCatalogo = preco.get(p.pecaId)
+    if (precoDoCatalogo === undefined) throw new RecusaUsuario('Peça não encontrada')
+    return { tipo: p.tipo, pecaId: p.pecaId, quantidade: String(p.quantidade), valorUnitario: valorDaPecaNoPedido(p, precoDoCatalogo) }
+  })
+}
 
 /**
  * Cria um pedido de venda pendente e reserva a moto. Substitui a rpc
@@ -20,9 +41,10 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
  */
 export async function criarPedidoTx(
   tx: Tx,
-  d: { motoId: string; vendedorId: string; observacao: string | null; entrega: EntregaVenda },
+  d: { motoId: string; vendedorId: string; observacao: string | null; entrega: EntregaVenda; pecas?: PecaDoPedidoInput[] },
 ): Promise<{ pedidoId: string; lojaId: string }> {
   const moto = await travarMotoNaoArquivada(tx, d.motoId)
+  const pecas = await pecasConferidas(tx, moto.lojaId, d.pecas ?? [])
 
   const [transferencia] = await tx
     .select({ id: transferencias.id })
@@ -44,6 +66,7 @@ export async function criarPedidoTx(
   }).returning({ id: pedidosVenda.id })
   // Sem valor: o Novo pedido ainda não pede o valor da moto (#783); a efetivação preenche.
   await gravarMotoDoPedido(tx, { pedidoId: pedido.id, motoId: d.motoId, valor: null })
+  if (pecas.length > 0) await tx.insert(pedidosVendaItens).values(pecas.map(p => ({ ...p, pedidoVendaId: pedido.id })))
 
   await tx.insert(historicoEstoque).values({
     motoId: d.motoId,
