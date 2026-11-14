@@ -29,9 +29,10 @@ import { lerContribuinteIcms, tipoPessoaDoDocumento } from '@/lib/documento'
 import { STATUS_MORTOS } from '@/lib/notagateway/status'
 import { vendaTemNfViva } from '@/lib/notagateway/nf-viva'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
-import { podeCriarPedido } from '@/lib/pedido-venda-regras'
+import { podeCriarPedido, totalDasPecas, type PecaDoPedidoInput } from '@/lib/pedido-venda-regras'
+import { podeGerirPecas } from '../pecas/papeis'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
-import { efetivarPedidoTx, pedirAprovacaoDoPedidoTx, type PedidoEmAprovacao } from '@/lib/efetivar-pedido'
+import { efetivarPedidoTx, pecasDoPedido, pedirAprovacaoDoPedidoTx, type PedidoEmAprovacao } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
 import { conferirEntrega, freteDaVenda, motoNaNota, totalComFrete, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { ufDoEmissorDaMoto } from '@/lib/notagateway/grupo-emissor'
@@ -169,7 +170,7 @@ export async function criarPedidoVendaAction(...a: Parameters<typeof criarPedido
   return acao(() => criarPedidoVenda(...a))
 }
 
-async function criarPedidoVenda(motoId: string, observacao: string | undefined, entregaDaTela: unknown) {
+async function criarPedidoVenda(motoId: string, observacao: string | undefined, entregaDaTela: unknown, pecas: PecaDoPedidoInput[] = []) {
   const usuario = await getUsuarioLogado()
   if (!podeCriarPedido(usuario.papel)) {
     throw new RecusaUsuario('Sem permissão para criar pedido de venda')
@@ -184,6 +185,8 @@ async function criarPedidoVenda(motoId: string, observacao: string | undefined, 
     vendedorId: usuario.id,
     observacao: observacao?.trim() || null,
     entrega,
+    // Preço fora do catálogo é decisão de gestor, como na tela Peças: dos demais, o valor mandado é descartado.
+    pecas: podeGerirPecas(usuario.papel) ? pecas : pecas.map(({ valorUnitario: _descartado, ...p }) => p),
   }))
 
   revalidatePath('/vendas')
@@ -246,7 +249,9 @@ async function efetivarVenda(
   // As mesmas regras do Vender (#776); o mínimo vale sobre a moto, sem o frete do pedido.
   const [moto] = await db.select({ modeloId: motos.modeloId }).from(motos).where(eq(motos.id, pedido.motoId)).limit(1)
   const prec = moto ? await buscarPrecificacao(moto.modeloId, pedido.lojaId) : null
-  const preco = prec && { liquido: liquidoDaMoto(pagamentos, prec.taxas, freteDaVenda(pedido.entrega)), minimo: prec.valorMinimoPix }
+  // Frete e acessórios (#778) ficam fora do preço da moto: não pagam desconto dela.
+  const foraDaMoto = freteDaVenda(pedido.entrega) + totalDasPecas(await pecasDoPedido(db, pedidoId))
+  const preco = prec && { liquido: liquidoDaMoto(pagamentos, prec.taxas, foraDaMoto), minimo: prec.valorMinimoPix }
   const tipo = aprovacaoNecessaria({
     sensivelSemPermissao: temPagamentoSensivel(pagamentos) && !(await podeAprovarPagamentoSensivelNaLoja(usuario, pedido.lojaId)),
     preco,

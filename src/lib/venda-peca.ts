@@ -11,6 +11,9 @@ import { sincronizarCaixaDaVendaPeca } from '@/lib/caixa-venda-peca'
 // `valorUnitario` sobrepõe o preço do catálogo só naquela venda (desconto/ajuste de
 // balcão). Só gestor pode mandar — quem decide é o servidor, não o cliente; ver
 // registrarVendaPecaAction.
+/** Forma da venda de peça que saiu de um pedido de venda: o pagamento está na venda da moto (#778). */
+export const FORMA_PAGAMENTO_DO_PEDIDO = 'pedido'
+
 export type ItemVendaPecaInput = { pecaId: string; quantidade: number; valorUnitario?: number }
 export type PagamentoVendaPecaInput = { tipo: string; valor: number; operadora?: string; parcelas?: number; autorizacao?: string }
 export type DadosVendaPeca = {
@@ -32,8 +35,13 @@ export async function aplicarVendaPeca(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   vendedorId: string,
   input: DadosVendaPeca,
+  /**
+   * Brinde e acessório de um pedido de venda (#778): o cliente pagou no pedido, e o dinheiro entra no
+   * caixa pela venda da moto. Aqui ficam só o valor dos itens, a baixa de estoque e a ligação ao pedido.
+   */
+  doPedido?: { pedidoVendaId: string; valorTotal: number },
 ) {
-  const valorTotal = input.pagamentos.reduce((s, p) => s + p.valor, 0)
+  const valorTotal = doPedido ? doPedido.valorTotal : input.pagamentos.reduce((s, p) => s + p.valor, 0)
 
   const pecaIds = input.itens.map(i => i.pecaId)
   const pecas = await tx
@@ -59,7 +67,7 @@ export async function aplicarVendaPeca(
     if (item.quantidade <= 0) throw new RecusaUsuario(`Quantidade inválida para ${peca.nome}`)
   }
 
-  const formaPagamento = input.pagamentos.length === 1 ? input.pagamentos[0].tipo : 'multiplo'
+  const formaPagamento = doPedido ? FORMA_PAGAMENTO_DO_PEDIDO : input.pagamentos.length === 1 ? input.pagamentos[0].tipo : 'multiplo'
 
   const [venda] = await tx.insert(vendasPecas).values({
     lojaId: input.lojaId,
@@ -71,7 +79,8 @@ export async function aplicarVendaPeca(
     formaPagamento,
     pagamentos: input.pagamentos,
     valorTotal: valorTotal.toFixed(2),
-    caixaAutomatico: true,
+    caixaAutomatico: !doPedido,
+    pedidoVendaId: doPedido?.pedidoVendaId ?? null,
   }).returning({ id: vendasPecas.id, numero: vendasPecas.numero, dataVenda: vendasPecas.dataVenda })
 
   for (const item of input.itens) {
@@ -91,7 +100,7 @@ export async function aplicarVendaPeca(
     await moverSaldo(tx, item.pecaId, input.lojaId, -item.quantidade)
   }
 
-  await sincronizarCaixaDaVendaPeca(tx, { ...venda, lojaId: input.lojaId, caixaAutomatico: true }, input.pagamentos, vendedorId)
+  if (!doPedido) await sincronizarCaixaDaVendaPeca(tx, { ...venda, lojaId: input.lojaId, caixaAutomatico: true }, input.pagamentos, vendedorId)
 
   return { id: venda.id }
 }

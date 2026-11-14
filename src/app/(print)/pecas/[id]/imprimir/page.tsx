@@ -15,7 +15,7 @@ const TIPO_LABEL: Record<string, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro',
   cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito',
   financiamento: 'Financiamento', link_pagamento: 'Link de Pagamento',
-  bonificacao: 'Bonificação (sem cobrança)', multiplo: 'Múltiplo',
+  bonificacao: 'Bonificação (sem cobrança)', multiplo: 'Múltiplo', pedido: 'Pedido de venda',
 }
 
 type Pgto = { tipo: string; valor: number; parcelas?: number; autorizacao?: string }
