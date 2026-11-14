@@ -59,15 +59,15 @@ const campo = (rotulo: string) => {
   return document.getElementById(l.getAttribute('for')!) as HTMLInputElement
 }
 
-test('T1: corrigida no cartão com o padrão, SP com o padrão do MOVA, BA sem padrão, MG como sua UF', async () => {
+test('T1: corrigida no cartão com o padrão, SP com o padrão do MOVA, MA sem padrão, MG como sua UF', async () => {
   await montar()
   const cartoes = document.querySelector('[data-corrigidas]')
   assert.match(cartoes?.textContent ?? '', /RJ.*Corrigido pelo seu contador/)
-  assert.match(cartoes?.textContent ?? '', /Padrão do MOVA: sem valor padrão/)
+  assert.match(cartoes?.textContent ?? '', /Padrão do MOVA: 20%, FCP sem valor, base única/)
   const sp = document.querySelector('[data-uf="SP"]')?.textContent ?? ''
   assert.match(sp, /18%/); assert.match(sp, /Única/)
   assert.match(sp, /Alíquota geral; a de moto elétrica não foi conferida\./)
-  assert.match(document.querySelector('[data-uf="BA"]')?.textContent ?? '', /Sem valor padrão\. Preencha com o seu contador\./)
+  assert.match(document.querySelector('[data-uf="MA"]')?.textContent ?? '', /Sem valor padrão\. Preencha com o seu contador\./)
   assert.match(document.querySelector('[data-uf="MG"]')?.textContent ?? '', /sua UF/)
   assert.doesNotMatch(texto(), /—/)
 })
@@ -93,7 +93,7 @@ test('T3: voltar ao padrão em RJ manda grupo e UF', async () => {
 
 test('T4: valor inválido mostra o erro e não chama a action', async () => {
   await montar()
-  await clicar(botao('Corrigir BA'))
+  await clicar(botao('Corrigir MA'))
   await digitar(campo('Alíquota interna (%)'), '120')
   await clicar(botao('Salvar correção'))
   assert.deepEqual(salvas, [])
