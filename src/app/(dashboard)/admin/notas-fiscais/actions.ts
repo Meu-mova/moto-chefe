@@ -7,7 +7,7 @@ import { podeUsuarioVerGrupo } from '@/lib/grupo'
 import { salvarCredencial, type CredencialPayload } from '@/lib/notagateway/credencial'
 import { revalidatePath } from 'next/cache'
 import { podeConfigurarFiscal } from '../../vendas/papeis-nf-saida'
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { caminhoLogoDanfe, enviarLogoDanfe, previaLogoDanfe, type DependenciasLogo, type ResultadoLogo } from '@/lib/logo-danfe'
 import { cnpjDaEmpresaNaNg, configNotaGateway, dadosDaEmpresaNaNg } from '@/lib/notagateway/client'
 import { vincularLogoNaNg } from '@/lib/notagateway/logo-ng'
@@ -132,7 +132,7 @@ const depsLogo: DependenciasLogo = {
   dadosDaEmpresaNaNg,
   vincularNaNg: vincularLogoNaNg,
   salvarCopia: async (grupoId, png) => {
-    const admin = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const admin = clienteSupabaseAdmin()
     const { error } = await admin.storage.from('logos-danfe').upload(caminhoLogoDanfe(grupoId), png, { contentType: 'image/png', upsert: true })
     if (error) throw new Error(error.message)
   },

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { asc, eq } from 'drizzle-orm'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { db } from '@/lib/db'
 import { assinaturaEventos, usuarios } from '@/lib/db/schema'
 import { dossieDoUsuario } from '@/lib/dossie-do-usuario'
@@ -56,10 +56,7 @@ export default async function DossieAssinaturaPage({ params }: { params: Promise
 
   // URLs assinadas de curta duração: as imagens ficam em bucket privado e não
   // podem virar link permanente.
-  const admin = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const admin = clienteSupabaseAdmin()
   const assinar = async (caminho: string | null) => {
     if (!caminho) return null
     const { data } = await admin.storage.from('assinaturas').createSignedUrl(caminho, 600)

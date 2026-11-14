@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { BUCKET_CONTADOR, apagarZipsVencidos, bucketInexistente, type ArmazemZips } from '@/lib/notas-contador-limpeza'
 
 export const dynamic = 'force-dynamic'
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   if (!autorizado(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const storage = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).storage
+  const storage = clienteSupabaseAdmin().storage
   const { error: erroBucket } = await storage.getBucket(BUCKET_CONTADOR)
   if (erroBucket) {
     // O bucket só nasce no primeiro envio por link: até lá não há o que limpar. Outro erro não pode passar por sucesso.

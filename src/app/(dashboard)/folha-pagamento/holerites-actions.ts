@@ -1,5 +1,5 @@
 'use server'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { db } from '@/lib/db'
 import { holerites, folhaValoresReais } from '@/lib/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
@@ -25,13 +25,6 @@ async function checarAdmin() {
   const usuario = await getUsuarioLogado()
   if (!ADMINS.includes(usuario.papel)) throw new Error('Sem permissão')
   return usuario
-}
-
-function storageAdmin() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
 }
 
 export type HoleriteRow = {
@@ -100,10 +93,10 @@ export async function uploadHoleriteAction(formData: FormData) {
     avisos.push(`o PDF é da competência ${lido.competencia}, e não de ${mes}`)
   }
 
-  const storage = storageAdmin()
+  const storage = clienteSupabaseAdmin().storage
   const filePath = caminhoDoHolerite({ grupoId, mes, usuarioId, tipo }, crypto.randomUUID())
 
-  const { error } = await storage.storage
+  const { error } = await storage
     .from(BUCKET)
     .upload(filePath, file, { contentType: 'application/pdf' })
   if (error) throw new Error(`Erro no upload: ${error.message}`)
@@ -143,7 +136,7 @@ export async function uploadHoleriteAction(formData: FormData) {
   // Depois do upsert: se a gravação falhar, o arquivo novo é que fica órfão, e é
   // melhor sobrar arquivo do que a linha apontar para um PDF já apagado.
   if (anterior?.arquivoPath && anterior.arquivoPath !== filePath) {
-    await storage.storage.from(BUCKET).remove([anterior.arquivoPath])
+    await storage.from(BUCKET).remove([anterior.arquivoPath])
   }
 
   // Com aviso na leitura o valor NÃO entra sozinho: se o papel é de outra pessoa
@@ -205,7 +198,7 @@ export async function removerHoleriteAction(id: string) {
   const arquivoPath = await removerHoleriteDoGrupo(grupoId, id)
   if (!arquivoPath) throw new Error('Holerite não encontrado no grupo ativo')
 
-  await storageAdmin().storage.from(BUCKET).remove([arquivoPath])
+  await clienteSupabaseAdmin().storage.from(BUCKET).remove([arquivoPath])
 
   revalidatePath('/folha-pagamento')
 }
@@ -224,7 +217,7 @@ export async function getHoleriteUrlAction(id: string): Promise<string> {
   const row = await holeriteDoGrupo(grupoId, id)
   if (!row) throw new Error('Holerite não encontrado no grupo ativo')
 
-  const { data, error } = await storageAdmin().storage
+  const { data, error } = await clienteSupabaseAdmin().storage
     .from(BUCKET)
     .createSignedUrl(row.arquivoPath, 600)
   if (error || !data?.signedUrl) throw new Error('Erro ao gerar o link do holerite')
@@ -278,7 +271,7 @@ export async function getMeuHoleriteUrlAction(id: string): Promise<string> {
     .limit(1)
   if (!row) throw new Error('Holerite não encontrado')
 
-  const { data, error } = await storageAdmin().storage
+  const { data, error } = await clienteSupabaseAdmin().storage
     .from(BUCKET)
     .createSignedUrl(row.arquivoPath, 600)
   if (error || !data?.signedUrl) throw new Error('Erro ao gerar o link do holerite')
