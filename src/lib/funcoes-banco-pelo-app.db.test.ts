@@ -31,6 +31,7 @@ const mocks = [
 
 type Db = typeof import('@/lib/db')
 let db: Db['db']
+let execRows: Db['execRows']
 let transf: typeof import('@/app/(dashboard)/transferencias/actions')
 let garantiasActions: typeof import('@/app/(dashboard)/garantias/actions')
 let alterarStatusAction: typeof import('@/app/(dashboard)/estoque/[id]/actions')['alterarStatusAction']
@@ -38,9 +39,7 @@ let correcaoStatusAdminAction: typeof import('@/app/(dashboard)/admin/acoes/acti
 const s = { contaId: '', grupoId: '', lojaId: '', destinoId: '', modeloId: '', contaBId: '', grupoBId: '' }
 const quem = { socio: {}, aux: {}, admin: {}, socioB: {}, auxB: {} } as Record<'socio' | 'aux' | 'admin' | 'socioB' | 'auxB', Record<string, unknown>>
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const linhas = async (q: ReturnType<typeof sql>) => ((await db.execute(q)) as unknown as { rows: any[] }).rows
-const umaLinha = async (q: ReturnType<typeof sql>) => (await linhas(q))[0]
+const umaLinha = async (q: ReturnType<typeof sql>) => (await execRows(q))[0]
 
 let chassis = 0
 const novaMoto = async (status = 'montada') => (await umaLinha(sql`insert into motos (chassi, modelo_id, loja_id, cor, nota_fiscal_entrada, status, disponibilidade)
@@ -50,7 +49,7 @@ const ultimoHistorico = (motoId: string) => umaLinha(sql`select status_anterior,
   from historico_estoque where moto_id = ${motoId} and tipo = 'mudanca_status' order by data desc limit 1`)
 
 before(async () => {
-  ;({ db } = await import('@/lib/db'))
+  ;({ db, execRows } = await import('@/lib/db'))
   transf = await import('@/app/(dashboard)/transferencias/actions')
   garantiasActions = await import('@/app/(dashboard)/garantias/actions')
   ;({ alterarStatusAction } = await import('@/app/(dashboard)/estoque/[id]/actions'))
