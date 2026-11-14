@@ -4,6 +4,7 @@
 // permissões padrão do Supabase em supabase/ci-stubs.sql. Local: `npm run test:db:local`.
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { sql, type SQL } from 'drizzle-orm'
 import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 
@@ -183,5 +184,31 @@ describe('o app e o service_role seguem com acesso', () => {
       }
       assert.deepEqual(faltando, [])
     })
+  })
+})
+
+// A migração roda de novo numa transação desfeita, sobre um objeto aberto de propósito.
+describe('migração que fecha o acesso direto', () => {
+  const migracao = sql.raw(readFileSync('src/lib/db/migrations/0187_login_sem_acesso_direto.sql', 'utf8'))
+
+  test('fecha também o que foi liberado a todos (PUBLIC)', async () => {
+    await emTransacaoDesfeita(async tx => {
+      await tx.execute(sql`create table adb891_publica (id int)`)
+      await tx.execute(sql`grant select on adb891_publica to public`)
+      await tx.execute(migracao)
+      const [r] = await linhas(tx, sql`select has_table_privilege('authenticated', 'adb891_publica', 'SELECT') as pode`)
+      assert.equal(r.pode, false)
+    })
+  })
+
+  test('falha, e não grava nada, se sobrar acesso que ela não fecha', async () => {
+    await assert.rejects(
+      db.transaction(async tx => {
+        await tx.execute(sql`create table adb891_aberta (id int)`)
+        await tx.execute(sql`grant select on adb891_aberta to anon`)
+        await tx.execute(migracao)
+      }),
+      (e: { cause?: { message?: string } }) => /acesso direto aberto: anon public\.adb891_aberta/.test(e.cause?.message ?? ''),
+    )
   })
 })

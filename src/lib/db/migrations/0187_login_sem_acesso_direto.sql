@@ -15,9 +15,10 @@ BEGIN
   END LOOP;
 END $$;
 
--- Tabelas, views e sequências: o login comum não tem o que fazer aqui.
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM authenticated;
-REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM authenticated;
+-- Tabelas, views e sequências: o login comum não tem o que fazer aqui, nem por um
+-- privilégio dado a todos (PUBLIC).
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, authenticated;
 
 -- Funções: ninguém além do app as executa. Funções de extensão ficam de fora,
 -- como na 0123 (não são do app e não leem dado dele).
@@ -35,8 +36,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- Objeto novo criado pelas migrações não nasce aberto ao login comum. O papel é
--- explícito: se as migrações rodarem com outro, isto falha em vez de não valer.
+-- Objeto novo criado pelas migrações não nasce aberto ao login comum.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM authenticated;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM authenticated;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM authenticated;
@@ -44,3 +44,39 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTI
 -- função nova; por isso a mesma linha da 0123, com IN SCHEMA, não valeu. Aqui, sem
 -- IN SCHEMA, vale para toda função criada pelas migrações.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+
+-- Conferência: um REVOKE sem efeito só avisa (objeto de outro dono, por exemplo) e a
+-- migração passaria com acesso aberto. Sobrou algum, ela falha e nada fica gravado.
+DO $$
+DECLARE abertos text;
+BEGIN
+  SELECT string_agg(o, ', ' ORDER BY o) INTO abertos FROM (
+    SELECT format('%s %I.%I', r.papel, n.nspname, c.relname) AS o
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    CROSS JOIN (VALUES ('authenticated'), ('anon')) AS r(papel)
+    WHERE n.nspname = 'public'
+      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e')
+      AND (
+        (c.relkind IN ('r', 'p', 'v', 'm', 'f')
+          AND has_table_privilege(r.papel, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'))
+        OR (c.relkind = 'S' AND has_sequence_privilege(r.papel, c.oid, 'USAGE, SELECT, UPDATE'))
+      )
+    UNION ALL
+    SELECT format('%s %s', r.papel, p.oid::regprocedure)
+    FROM pg_proc p
+    CROSS JOIN (VALUES ('authenticated'), ('anon')) AS r(papel)
+    WHERE p.pronamespace = 'public'::regnamespace
+      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
+      AND has_function_privilege(r.papel, p.oid, 'EXECUTE')
+    UNION ALL
+    SELECT format('padrão %s para %s', d.defaclobjtype, a.grantee::regrole)
+    FROM pg_default_acl d, aclexplode(d.defaclacl) a
+    WHERE d.defaclrole = 'postgres'::regrole
+      AND d.defaclnamespace = 'public'::regnamespace
+      AND a.grantee IN ('authenticated'::regrole, 'anon'::regrole)
+  ) x;
+  IF abertos IS NOT NULL THEN
+    RAISE EXCEPTION 'acesso direto aberto: %', abertos;
+  END IF;
+END $$;
