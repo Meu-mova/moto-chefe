@@ -34,10 +34,12 @@ type Props = {
 function EntregaDoPedido({ entrega, alterar }: { entrega: EntregaVenda | null; alterar: React.ReactNode }) {
   return (
     <section aria-label="Entrega do pedido" className="space-y-1 rounded-lg border border-border bg-muted p-3 text-sm">
-      {alterar && <div className="float-right">{alterar}</div>}
-      {!entrega ? <p className="text-muted-foreground">Pedido sem a Entrega informada.</p> : (
+      <div className="flex items-start justify-between gap-3">
+        <p className={entrega ? 'font-medium' : 'text-muted-foreground'}>{entrega ? `${textoDaEntrega(entrega)} (do pedido)` : 'Pedido sem a Entrega informada.'}</p>
+        {alterar}
+      </div>
+      {entrega && (
         <>
-          <p className="font-medium">{textoDaEntrega(entrega)} (do pedido)</p>
           {entrega.modo === 'entregar' && (
             <>
               <p className="text-muted-foreground">{enderecoDaEntregaEmLinha(entrega.endereco)}</p>
@@ -56,6 +58,8 @@ export function EfetivarDialog({ pedidoId, motoId, chassi, modelo, origens, entr
   const [open, setOpen] = useState(false)
   // O "Alterar" grava no pedido; o total e a tela seguem a nova sem esperar a página recarregar.
   const [entrega, setEntrega] = useState(entregaDoPedido)
+  // A página recarregada (outra aba, aprovação) traz o pedido de novo: a tela acompanha.
+  useEffect(() => setEntrega(entregaDoPedido), [entregaDoPedido])
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [clienteSelecionado, setClienteSelecionado] = useState<{ id: string; nome: string } | null>(null)
   const [clienteNome, setClienteNome] = useState('')
