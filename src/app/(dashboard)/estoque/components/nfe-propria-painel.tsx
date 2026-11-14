@@ -17,7 +17,9 @@ import { NfeRecusa } from './nfe-recusa'
 import { TransporteForm } from './transporte-form'
 import { DADOS_TRANSPORTE_VAZIOS, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
 import { tipoPessoa } from '@/lib/notagateway/venda'
-import { conflitoDaUfDoFormulario, textoDaOperacao, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { conflitoDaUfDoFormulario, textoDaEntrega, textoDaOperacao, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { alterarEntregaDaVendaAction } from '../../vendas/actions'
+import { AlterarEntregaDialog } from '../../vendas/components/alterar-entrega-dialog'
 import type { CorrecaoNf } from '@/lib/notagateway/correcao'
 import {
   previsualizarNfePropriaAction, transmitirNfePropriaAction, corrigirEReenviarNfAction, consultarNfePropriaAction, salvarFichaMotoAction, salvarCestMotoAction,
@@ -103,6 +105,16 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       // "Reenviar" volta à conferência: ali não reabre a recusa.
       const recusa = abrirRecusa ? recusaParaAbrir(r.notas, r.ambiente) : null
       if (recusa) setResultado({ nota: recusa })
+    })
+  }
+
+  // Depois do "Alterar entrega" (#895): só a prévia muda (pendências, operação, trava); o que a pessoa já
+  // preencheu (ficha, RENAVE, frete, observação, etapa) fica.
+  function recarregarPrevia() {
+    startTransition(async () => {
+      const r = await previsualizarNfePropriaAction(motoId)
+      if (!r.ok) { setErro(r.error); return }
+      setPrevia(r)
     })
   }
 
@@ -311,6 +323,14 @@ export function NfePropriaPainel({ motoId, onVoltar, outrasFormas, onOcupado }: 
       {bloqueadaProducao && (
         <p className="border-l-2 border-l-border pl-3 text-sm">Esta venda já tem a NF <b>{previa.jaFaturada}</b>.</p>
       )}
+
+      <div className="flex items-center justify-between gap-3 border-l-2 border-l-border pl-3 text-sm">
+        <p>Entrega: {previa.entrega ? textoDaEntrega(previa.entrega) : 'não informada'}</p>
+        {previa.travaDaEntrega
+          ? <p className="text-muted-foreground">{previa.travaDaEntrega}</p>
+          : <AlterarEntregaDialog entrega={previa.entrega} freteFixo rotulo="Alterar entrega"
+              salvar={nova => alterarEntregaDaVendaAction(previa.vendaId, nova)} aoSalvar={recarregarPrevia} />}
+      </div>
 
       {previa.pendencias.length > 0 && (
         <div className="border-l-2 border-l-destructive pl-3 text-sm">
