@@ -1,6 +1,6 @@
 'use client'
 // Exportar (CSV para Excel) e imprimir a aba aberta. O arquivo chega pronto do servidor
-// (planilhaDoPainel): o navegador não recebe as listas, só o que vai na planilha.
+// (planilhaDoPainel): este Client Component não recebe as listas, só o arquivo pronto.
 import { Download, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { baixarArquivo } from '@/lib/baixar-arquivo'
