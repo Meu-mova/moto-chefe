@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { semearContaBase, semearGrupo, semearUsuario } from '@/test/semear-conta'
-import { CANCELE_A_NF_PARA_ALTERAR, ENTREGA_EM_OUTRO_ESTADO, FRETE_FIXO_NA_VENDA, operacaoDaVenda, PEDIDO_EM_APROVACAO_PARA_ALTERAR, SEM_FRETE_NA_VENDA, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { CANCELE_A_NF_PARA_ALTERAR, ENTREGA_EM_OUTRO_ESTADO, TRAVA_DO_ALTERAR, FRETE_FIXO_NA_VENDA, operacaoDaVenda, PEDIDO_EM_APROVACAO_PARA_ALTERAR, SEM_FRETE_NA_VENDA, type EntregaVenda } from '@/lib/notagateway/entrega'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
@@ -523,9 +523,10 @@ async function vendaEfetivada(c: Awaited<ReturnType<typeof semearConta>>, entreg
   return { id: venda.id as string, numero: venda.numero as number, grupoId: venda.grupo_id as string }
 }
 
-const semearNota = (v: { id: string; numero: number; grupoId: string }, ambiente: string, status: string) =>
-  execRows(sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, payload)
-    values (${v.id}, ${v.numero}, ${v.grupoId}, ${randomUUID()}, ${ambiente}, ${status}, '{}'::jsonb)`)
+// Autorizada há 1 hora por padrão: dentro das 24h, a trava é "cancele a NF".
+const semearNota = (v: { id: string; numero: number; grupoId: string }, ambiente: string, status: string, autorizadaEm: string | null = new Date(Date.now() - 3600_000).toISOString()) =>
+  execRows(sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, data_autorizacao, payload)
+    values (${v.id}, ${v.numero}, ${v.grupoId}, ${randomUUID()}, ${ambiente}, ${status}, ${autorizadaEm}, '{}'::jsonb)`)
 
 test('Alterar na efetivação: o pedido ganha a Entrega nova, a venda nasce com ela e o total segue o frete novo; o log guarda antes e depois', async () => {
   const a = await semearConta()
@@ -541,6 +542,10 @@ test('Alterar na efetivação: o pedido ganha a Entrega nova, a venda nasce com 
     antes: { modo: 'retira', uf: null, modalidade: RETIRA.modalidade, frete: 0 },
     depois: { modo: 'entregar', uf: 'MA', modalidade: COM_FRETE.modalidade, frete: 350 },
   } }])
+  // O log fica no grupo e na Conta do pedido, com quem alterou.
+  const [{ grupo_id }] = await execRows(sql`select grupo_id from lojas where id = ${a.aux.lojaId}`)
+  assert.deepEqual(await execRows(sql`select usuario_id, grupo_id, conta_id from log_acoes where tipo = 'entrega_alterada' and detalhe->>'pedidoId' = ${pedidoId}`),
+    [{ usuario_id: a.aux.id, grupo_id, conta_id: a.aux.contaId }])
 })
 
 test('Alterar na efetivação: vendedor (não efetiva) é recusado e o pedido não muda', async () => {
@@ -564,8 +569,10 @@ test('Alterar na efetivação: Conta B recebe a frase de pedido inexistente e o 
 test('Alterar na efetivação: pedido aguardando aprovação é recusado com a frase e não muda', async () => {
   const a = await semearConta()
   const pedidoId = await criarPedido(a)
-  await execRows(sql`update motos set disponibilidade = 'aguardando_aprovacao' where id = ${a.motoId}`)
   usuario = a.aux
+  // Transferência sem a permissão de pagamento sensível: o pedido vai para aprovação, como no balcão.
+  assert.deepEqual(await efetivarVendaAction(pedidoId, 'Cliente sintético', '529.982.247-25', '1000', [{ tipo: 'transferencia', valor: 1000 }], undefined, a.origemId, undefined, 'conferir'),
+    { ok: true, dados: { aprovacao: 'pagamento_sensivel' } })
   assert.deepEqual(await alterarEntregaDoPedidoAction(pedidoId, COM_FRETE), { ok: false, erro: PEDIDO_EM_APROVACAO_PARA_ALTERAR })
   assert.deepEqual(await entregaDoPedidoDaMoto(a.motoId), [RETIRA])
 })
@@ -607,18 +614,31 @@ test('Alterar depois da venda: com frete não vira Retira; sem frete não ganha 
   assert.deepEqual(await vendasDaMoto(b.motoId), [{ entrega: RETIRA }])
 })
 
-test('Alterar depois da venda: NF de produção viva (em emissão, autorizada, em cancelamento) trava com a frase', async () => {
-  for (const status of ['Processando', 'Autorizada', 'EmProcessoDeCancelamento']) {
+test('Alterar depois da venda: NF de produção viva trava com a orientação de cada situação, e nada muda', async () => {
+  const casos: [string, string][] = [
+    ['Enviando', TRAVA_DO_ALTERAR.emissao_em_andamento], ['Processando', TRAVA_DO_ALTERAR.emissao_em_andamento],
+    ['Autorizada', CANCELE_A_NF_PARA_ALTERAR], ['CancelamentoNegado', CANCELE_A_NF_PARA_ALTERAR],
+    ['EmProcessoDeCancelamento', TRAVA_DO_ALTERAR.cancelamento_em_andamento],
+  ]
+  for (const [status, frase] of casos) {
     const a = await semearConta()
     const v = await vendaEfetivada(a)
     await semearNota(v, 'Producao', status)
-    assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), { ok: false, erro: CANCELE_A_NF_PARA_ALTERAR }, status)
+    assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), { ok: false, erro: frase }, status)
     assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: RETIRA }])
   }
 })
 
+test('Alterar depois da venda: uma nota recusada e outra autorizada na mesma venda: a viva trava', async () => {
+  const a = await semearConta()
+  const v = await vendaEfetivada(a)
+  await semearNota(v, 'Producao', 'Negada', null)
+  await semearNota(v, 'Producao', 'Autorizada')
+  assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), { ok: false, erro: CANCELE_A_NF_PARA_ALTERAR })
+})
+
 test('Alterar depois da venda: NF de homologação, recusada ou cancelada libera', async () => {
-  for (const [ambiente, status] of [['Homologacao', 'Autorizada'], ['Producao', 'Negada'], ['Producao', 'Cancelada']]) {
+  for (const [ambiente, status] of [['Homologacao', 'Autorizada'], ['Producao', 'Negada'], ['Producao', 'Denegada'], ['Producao', 'Cancelada'], ['Producao', 'Descartada']]) {
     const a = await semearConta()
     const v = await vendaEfetivada(a)
     await semearNota(v, ambiente, status)
@@ -642,4 +662,61 @@ test('Alterar depois da venda: "Entregar" em outra UF que a do emitente é recus
   const v = await vendaEfetivada(a)
   assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), { ok: false, erro: ENTREGA_EM_OUTRO_ESTADO })
   assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: RETIRA }])
+})
+
+test('Alterar depois da venda: vendedor (não opera a NF) é recusado e a venda não muda', async () => {
+  const a = await semearConta()
+  const v = await vendaEfetivada(a)
+  usuario = a.vendedor
+  assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), { ok: false, erro: 'Sem permissão para mudar a entrega' })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: RETIRA }])
+})
+
+test('Alterar: admin_rede (persona real) altera o pedido do grupo liberado; a venda de um grupo não liberado dá "não encontrada" e não muda', async () => {
+  const { usuarioDaRede } = await import('@/lib/grupos-liberados')
+  const casa = await semearConta()
+  const liberado = await semearConta()
+  const naoLiberado = await semearConta()
+  const [{ grupo_id: grupoLiberado }] = await execRows(sql`select grupo_id from lojas where id = ${liberado.aux.lojaId}`)
+  const rede = { id: casa.socio.id, papel: 'admin_rede', lojaId: casa.aux.lojaId, contaId: casa.aux.contaId, gruposAcesso: [] as string[], gruposAprovacao: [] as string[] }
+  const vivos = [{ grupoId: grupoLiberado as string, contaId: liberado.aux.contaId }]
+
+  const pedidoLiberado = await criarPedido(liberado)
+  const vendaNaoLiberada = await vendaEfetivada(naoLiberado)
+
+  usuario = usuarioDaRede(rede, vivos, grupoLiberado as string)
+  assert.deepEqual(await alterarEntregaDoPedidoAction(pedidoLiberado, COM_FRETE), { ok: true, dados: undefined })
+  assert.deepEqual(await entregaDoPedidoDaMoto(liberado.motoId), [COM_FRETE])
+
+  const [{ grupo_id: grupoNaoLiberado }] = await execRows(sql`select grupo_id from lojas where id = ${naoLiberado.aux.lojaId}`)
+  usuario = usuarioDaRede(rede, vivos, grupoNaoLiberado as string)
+  assert.deepEqual(await alterarEntregaDaVendaAction(vendaNaoLiberada.id, ENTREGAR), NAO_ACHOU_VENDA)
+  assert.deepEqual(await vendasDaMoto(naoLiberado.motoId), [{ entrega: RETIRA }])
+})
+
+test('Alterar depois da venda: a leitura da NF passa a ver a Entrega nova e a operação da nota sai dela', async () => {
+  const a = await contaComNg('MG')
+  const v = await vendaEfetivada(a)
+  const operacao = async () => operacaoDaVenda({ entrega: (await vendaDoUsuarioParaNf(a.aux, eq(vendas.id, v.id)))!.entrega, ufEmitente: 'MG', ufCliente: 'SP', clienteContribuinte: false, ciclomotor: false })
+  const antes = await operacao()
+  assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR_MG), { ok: true, dados: undefined })
+  const depois = await operacao()
+  assert.deepEqual([antes.motivo, depois.motivo], ['retira', 'entregar'])
+  assert.deepEqual([antes.interestadual, depois.interestadual], [false, false])
+})
+
+test('Alterar depois da venda: duas alterações ao mesmo tempo ficam em fila; o log da segunda parte do que a primeira gravou', async () => {
+  const a = await semearConta()
+  const v = await vendaEfetivada(a)
+  const ma = ENTREGAR
+  const mg = { ...ENTREGAR_MG }
+  const r = await Promise.all([alterarEntregaDaVendaAction(v.id, ma), alterarEntregaDaVendaAction(v.id, mg)])
+  assert.deepEqual(r, [{ ok: true, dados: undefined }, { ok: true, dados: undefined }])
+  const logs = (await logDaAlteracao(v.id)).map(l => l.detalhe as { antes: { modo: string; uf: string | null }; depois: { uf: string } })
+  assert.equal(logs.length, 2)
+  // Uma partiu da retirada; a outra, da Entrega que a primeira gravou (nunca as duas da retirada).
+  assert.deepEqual(logs.map(l => l.antes.modo).sort(), ['entregar', 'retira'])
+  const segunda = logs.find(l => l.antes.modo === 'entregar')!
+  const primeira = logs.find(l => l.antes.modo === 'retira')!
+  assert.equal(segunda.antes.uf, primeira.depois.uf)
 })

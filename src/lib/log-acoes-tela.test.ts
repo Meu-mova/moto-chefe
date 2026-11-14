@@ -129,7 +129,7 @@ test('entrega alterada (#895): pedido ou venda, de onde para onde, com o frete q
     antes: { modo: 'retira', uf: null, modalidade: '', frete: 0 },
     depois: { modo: 'entregar', uf: 'MG', modalidade: 'TransporteProprioPorContaDoRemetente', frete: 350 },
   } }))
-  assert.equal(resumo.replace(/ /g, ' '), 'venda · Retira na loja → Entregar MG, frete R$ 350,00')
+  assert.equal(resumo.replace(/\u00a0/g, ' '), 'venda · Retira na loja → Entregar MG, frete R$ 350,00')
   assert.equal(ehSensivel('entrega_alterada'), true)
   assert.equal(ROTULO_TIPO.entrega_alterada, 'Mudou a entrega')
 })
