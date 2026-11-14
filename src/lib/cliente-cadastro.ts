@@ -1,11 +1,24 @@
 // ─── Cadastro de cliente (CPF único por Conta) ────────────────────────────────
 // Na persona do admin_rede (#517, ADR-0019), CPF repetido recebe uma frase neutra: a trava é
 // da Conta dona inteira, e "já cadastrado" revelaria que o cliente existe em outro grupo dela.
+import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { clientes } from '@/lib/db/schema'
+import { clientesDoEscopo } from '@/lib/conta'
 
 type Executor = Pick<typeof db, 'insert'>
 type Escopo = { contaId: string; grupoLiberado?: string | null }
+
+// Grava só os campos do formulário de cliente; o resto do que chega à Server Action fica de fora.
+const CAMPOS_DO_FORMULARIO = [
+  'nome', 'tipoPessoa', 'cpfCnpj', 'sexo', 'email', 'celular',
+  'endereco', 'numero', 'complemento', 'bairro', 'cep', 'cidade', 'uf',
+] as const satisfies readonly (keyof typeof clientes.$inferInsert)[]
+type CampoDoFormulario = (typeof CAMPOS_DO_FORMULARIO)[number]
+
+const soDoFormulario = <T extends object>(dados: T) =>
+  Object.fromEntries(Object.entries(dados).filter(([campo]) => (CAMPOS_DO_FORMULARIO as readonly string[]).includes(campo))) as
+    Pick<T, Extract<keyof T, CampoDoFormulario>>
 
 export const CPF_RECUSADO_NA_PERSONA = 'Não foi possível cadastrar este cliente. Fale com o administrador.'
 
@@ -25,8 +38,25 @@ export async function cadastrarCliente(
   dados: Omit<typeof clientes.$inferInsert, 'contaId'>,
 ): Promise<string> {
   try {
-    const [novo] = await exec.insert(clientes).values({ ...dados, contaId: escopo.contaId }).returning({ id: clientes.id })
+    const [novo] = await exec.insert(clientes).values({ ...soDoFormulario(dados), contaId: escopo.contaId }).returning({ id: clientes.id })
     return novo.id
+  } catch (e: unknown) {
+    if (cpfRepetido(e)) throw new Error(mensagemCpfRepetido(escopo))
+    throw e
+  }
+}
+
+export async function atualizarCliente(
+  exec: Pick<typeof db, 'update'>,
+  escopo: Escopo,
+  id: string,
+  dados: Partial<Omit<typeof clientes.$inferInsert, 'contaId'>>,
+): Promise<void> {
+  try {
+    const atualizados = await exec.update(clientes).set({ ...soDoFormulario(dados), atualizadoEm: new Date() })
+      .where(and(eq(clientes.id, id), clientesDoEscopo(escopo.contaId, escopo)))
+      .returning({ id: clientes.id })
+    if (!atualizados.length) throw new Error('Cliente não encontrado')
   } catch (e: unknown) {
     if (cpfRepetido(e)) throw new Error(mensagemCpfRepetido(escopo))
     throw e
