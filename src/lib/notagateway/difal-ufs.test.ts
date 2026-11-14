@@ -12,15 +12,27 @@ test('U1: todo número padrão tem fonte com URL e data de conferência', () => 
   for (const [uf, p] of Object.entries(TABELA_DIFAL_PADRAO)) {
     const temNumero = p.aliquotaInterna !== null || p.fcp !== null
     if (!temNumero) { assert.equal(p.fonte, null, uf); continue }
-    assert.match(p.fonte ?? '', /https:\/\//, uf)
+    assert.match(p.fonte ?? '', /https?:\/\//, uf)
     assert.match(p.conferidoEm ?? '', /^\d{4}-\d{2}-\d{2}$/, uf)
     assert.ok(p.aliquotaInterna === null || percentualValido(p.aliquotaInterna), uf)
   }
 })
 
-test('U1: só SP e MG têm número padrão hoje (decisão do Luis, 14/11)', () => {
+test('U1: só UF com alíquota confirmada em fonte oficial tem número (Luis, 14/11)', () => {
   const comNumero = Object.entries(TABELA_DIFAL_PADRAO).filter(([, p]) => p.aliquotaInterna !== null).map(([uf]) => uf).sort()
-  assert.deepEqual(comNumero, ['MG', 'SP'])
+  assert.deepEqual(comNumero, ['AC', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MG', 'MS', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RO', 'RR', 'RS', 'SC', 'SP', 'TO'])
+  // Parciais e sem fonte aberta ficam sem número: o grupo preenche com o contador.
+  for (const uf of ['MT', 'AL', 'RN', 'SE', 'MA'] as const) assert.equal(TABELA_DIFAL_PADRAO[uf].aliquotaInterna, null, uf)
+})
+
+test('U1: FCP 0 só onde a lei foi lida; null onde não foi conferido', () => {
+  const fcp = (v: number | null) => Object.entries(TABELA_DIFAL_PADRAO).filter(([, p]) => p.aliquotaInterna !== null && p.fcp === v).map(([uf]) => uf).sort()
+  assert.deepEqual(fcp(0), ['AC', 'AP', 'BA', 'CE', 'MS', 'PB', 'PE', 'PI', 'RO', 'RR', 'RS', 'TO'])
+  assert.deepEqual(fcp(null), ['AM', 'DF', 'ES', 'GO', 'MG', 'PA', 'PR', 'RJ', 'SC', 'SP'])
+})
+
+test('U1: moto 8711 a 12% onde a lei dá alíquota própria (BA, RS, RR, SC)', () => {
+  for (const uf of ['BA', 'RS', 'RR', 'SC'] as const) assert.equal(TABELA_DIFAL_PADRAO[uf].aliquotaInterna, 12, uf)
 })
 
 test('U2: UF sem correção devolve o padrão', () => {
@@ -29,7 +41,7 @@ test('U2: UF sem correção devolve o padrão', () => {
 })
 
 test('U2: UF sem número padrão devolve nulos, para a NF travar', () => {
-  const n = numerosDifalDaUf('BA', [])
+  const n = numerosDifalDaUf('MA', [])
   assert.deepEqual(n && { a: n.aliquotaInterna, f: n.fcp, o: n.origem }, { a: null, f: null, o: 'padrao' })
 })
 

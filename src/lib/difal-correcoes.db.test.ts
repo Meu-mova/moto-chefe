@@ -74,8 +74,11 @@ test('D2: a correção da Conta A não aparece nem vale para a Conta B', async (
     await salvarCorrecaoUf(c.socioA, { grupoId: c.grupoA, ...rj }, tx)
     const doB = await correcoesDosGrupos([c.grupoB], tx)
     assert.deepEqual(doB, [])
-    assert.equal(numerosDifalDaUf('RJ', doB)?.origem, 'padrao')
-    assert.equal(numerosDifalDaUf('RJ', doB)?.aliquotaInterna, null)
+    const rjDeB = numerosDifalDaUf('RJ', doB)
+    assert.equal(rjDeB?.origem, 'padrao')
+    // B fica com o número da tabela padrão, não com os 20% corrigidos por A.
+    assert.equal(rjDeB?.aliquotaInterna, rjDeB?.padrao.aliquotaInterna)
+    assert.equal(rjDeB?.fcp, rjDeB?.padrao.fcp)
   })
 })
 
