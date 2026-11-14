@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm'
 import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 import { SOMA_PAGAMENTOS_DIFERE } from '@/lib/pagamentos-entrada'
 import { contaDaAprovacao } from '@/lib/aprovacao-venda'
+import { freteDaVenda, motoNaNota, pendenciasDaEntrega } from '@/lib/notagateway/entrega'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
@@ -27,11 +28,17 @@ let db: Db['db']
 let execRows: Db['execRows']
 let actions: Actions
 let buscarMoto: typeof import('@/lib/queries/motos')['buscarMoto']
+let vendaDoUsuarioParaNf: typeof import('@/lib/venda-do-usuario')['vendaDoUsuarioParaNf']
+let vendas: typeof import('@/lib/db/schema')['vendas']
+let eq: typeof import('drizzle-orm')['eq']
 
 before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
   actions = await import('@/app/(dashboard)/vendas/actions')
   ;({ buscarMoto } = await import('@/lib/queries/motos'))
+  ;({ vendaDoUsuarioParaNf } = await import('@/lib/venda-do-usuario'))
+  ;({ vendas } = await import('@/lib/db/schema'))
+  ;({ eq } = await import('drizzle-orm'))
 })
 after(async () => {
   authMock.restore()
@@ -168,3 +175,28 @@ test('D3b: a página da moto lê o pedido de aprovação com frete como moto + f
   assert.deepEqual(conta, { moto: 11900, frete: FRETE, total: 12050 })
 })
 
+test('D6: reserva finalizada pelo Vender com frete: restante = moto + frete - entrada; venda com o total e reserva convertida', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  const cliente = venda(a, MINIMO, [])
+  const r = await actions.registrarReservaAction({
+    ...cliente, valorReserva: '4000', valorTotalVenda: String(MINIMO), pagamentos: [{ tipo: 'pix', valor: 4000 }], dataPrevistaFinalizacao: '2026-12-01',
+  })
+  assert.equal(r.ok, true, JSON.stringify(r))
+  const fim = await actions.registrarVendaCompletaAction(venda(a, MINIMO, [{ tipo: 'pix', valor: 4000 }, { tipo: 'pix', valor: MINIMO + FRETE - 4000 }]))
+  assert.equal(fim.ok, true, JSON.stringify(fim))
+  assert.deepEqual((await vendaDaMoto(a.motoId)).map(v => v.valor), ['12150.00'])
+  assert.deepEqual(await execRows(sql`select status from reservas where moto_id = ${a.motoId}`), [{ status: 'convertida' }])
+})
+
+test('D1b: a NF lê a venda do Vender com moto 12.000 e frete 150, sem pendência da Entrega', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.equal((await actions.registrarVendaCompletaAction(venda(a, MINIMO, [{ tipo: 'pix', valor: MINIMO + FRETE }]))).ok, true)
+  const nf = await vendaDoUsuarioParaNf(a.socio, eq(vendas.motoId, a.motoId))
+  assert.ok(nf)
+  const entrega = nf.entrega
+  const valor = Number(nf.valor)
+  assert.deepEqual([motoNaNota(valor, freteDaVenda(entrega)), freteDaVenda(entrega)], [12000, FRETE])
+  assert.deepEqual(pendenciasDaEntrega(entrega, nf.clienteNome, valor), [])
+})
