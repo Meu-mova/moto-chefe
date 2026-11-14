@@ -26,14 +26,14 @@ import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { lerContribuinteIcms, tipoPessoaDoDocumento } from '@/lib/documento'
-import { STATUS_MORTOS, travaDoCancelamentoDaVenda } from '@/lib/notagateway/status'
-import { vendaTemNfViva } from '@/lib/notagateway/nf-viva'
+import { STATUS_MORTOS } from '@/lib/notagateway/status'
+import { notasParaTravaDaVenda, vendaTemNfViva } from '@/lib/notagateway/nf-viva'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
-import { podeCriarPedido } from '@/lib/pedido-venda-regras'
+import { podeCriarPedido, podeEfetivarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
 import { alterarEntregaDoPedidoTx, efetivarPedidoTx, pedirAprovacaoDoPedidoTx, type PedidoEmAprovacao } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { CANCELE_A_NF_PARA_ALTERAR, conferirEntrega, entregaParaLog, freteDaVenda, motoNaNota, recusaDoFreteDaVendaEfetivada, totalComFrete, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { conferirEntrega, entregaParaLog, freteDaVenda, motoNaNota, recusaDoFreteDaVendaEfetivada, totalComFrete, travaDaAlteracaoDaEntrega, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { ufDoEmissorDaMoto } from '@/lib/notagateway/grupo-emissor'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
@@ -225,7 +225,7 @@ async function efetivarVenda(
   motivo?: string,
 ): Promise<{ aprovacao: TipoAprovacaoVenda } | undefined> {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS_QUE_EFETIVAM.includes(usuario.papel)) {
+  if (!podeEfetivarPedido(usuario.papel)) {
     throw new RecusaUsuario('Sem permissão para efetivar venda')
   }
 
@@ -272,12 +272,19 @@ async function efetivarVenda(
 // ─── Alterar a Entrega (#895) ────────────────────────────────────────────────
 
 const SEM_PERMISSAO_ENTREGA = 'Sem permissão para mudar a entrega'
-const PAPEIS_QUE_EFETIVAM = ['admin_geral', 'admin_socio', 'aux_adm']
 
-const registrarAlteracaoDaEntrega = (usuarioId: string, lojaId: string, chave: { pedidoId: string } | { vendaId: string }, antes: EntregaVenda | null, depois: EntregaVenda) =>
+type AlteracaoDaEntrega = {
+  usuarioId: string
+  /** Loja do pedido ou da venda: o log fica no grupo e na Conta dela. */
+  lojaId: string
+  registro: { pedidoId: string } | { vendaId: string }
+  antes: EntregaVenda | null
+  depois: EntregaVenda
+}
+const registrarAlteracaoDaEntrega = ({ usuarioId, lojaId, registro, antes, depois }: AlteracaoDaEntrega) =>
   registrarAcaoSensivelSemFalhar({
     tipo: 'entrega_alterada', usuarioId, lojaId,
-    detalhe: { ...chave, antes: entregaParaLog(antes), depois: entregaParaLog(depois) },
+    detalhe: { ...registro, antes: entregaParaLog(antes), depois: entregaParaLog(depois) },
   })
 
 export async function alterarEntregaDoPedidoAction(...a: Parameters<typeof alterarEntregaDoPedido>) {
@@ -287,12 +294,12 @@ export async function alterarEntregaDoPedidoAction(...a: Parameters<typeof alter
 /** Na efetivação, quem efetiva troca a Entrega do pedido; o frete pode mudar, os pagamentos ainda vão ser digitados. */
 async function alterarEntregaDoPedido(pedidoId: string, entregaDaTela: unknown) {
   const usuario = await getUsuarioLogado()
-  if (!PAPEIS_QUE_EFETIVAM.includes(usuario.papel)) throw new RecusaUsuario(SEM_PERMISSAO_ENTREGA)
+  if (!podeEfetivarPedido(usuario.papel)) throw new RecusaUsuario(SEM_PERMISSAO_ENTREGA)
   const pedido = await pedidoDoUsuario(usuario, pedidoId)
   if (!pedido) throw new RecusaUsuario('Pedido não encontrado')
   const entrega = await entregaConferida(pedido.motoId, pedido.lojaId, entregaDaTela)
   const antes = await db.transaction(tx => alterarEntregaDoPedidoTx(tx, pedidoId, entrega))
-  await registrarAlteracaoDaEntrega(usuario.id, pedido.lojaId, { pedidoId }, antes, entrega)
+  await registrarAlteracaoDaEntrega({ usuarioId: usuario.id, lojaId: pedido.lojaId, registro: { pedidoId }, antes, depois: entrega })
   revalidatePath('/vendas')
 }
 
@@ -310,14 +317,18 @@ async function alterarEntregaDaVenda(vendaId: string, entregaDaTela: unknown) {
   const venda = await vendaDoUsuarioParaNf(usuario, eq(vendas.id, vendaId))
   if (!venda) throw new RecusaUsuario('Venda não encontrada')
   const entrega = await entregaConferida(venda.motoId, venda.lojaId, entregaDaTela)
-  const recusaDoFrete = recusaDoFreteDaVendaEfetivada(venda.entrega, entrega)
-  if (recusaDoFrete) throw new RecusaUsuario(recusaDoFrete)
-  const notas = await db.select({ ambiente: notasFiscaisSaida.ambiente, status: notasFiscaisSaida.status, dataAutorizacao: notasFiscaisSaida.dataAutorizacao })
-    .from(notasFiscaisSaida).where(eq(notasFiscaisSaida.vendaId, vendaId))
-  const comData = notas.map(n => ({ ...n, dataAutorizacao: n.dataAutorizacao?.toISOString() ?? null }))
-  if (travaDoCancelamentoDaVenda(comData, new Date())) throw new RecusaUsuario(CANCELE_A_NF_PARA_ALTERAR)
-  await db.update(vendas).set({ entrega }).where(eq(vendas.id, vendaId))
-  await registrarAlteracaoDaEntrega(usuario.id, venda.lojaId, { vendaId }, venda.entrega, entrega)
+  const antes = await db.transaction(async tx => {
+    // Com a venda travada, um segundo Alterar espera e lê a Entrega que o primeiro gravou (base do frete fixo e do log).
+    // Limite: a emissão da NF não trava a venda, então uma nota que comece depois desta leitura não é vista aqui.
+    const [atual] = await tx.select({ entrega: vendas.entrega }).from(vendas).where(eq(vendas.id, vendaId)).for('update')
+    const trava = travaDaAlteracaoDaEntrega(await notasParaTravaDaVenda(tx, vendaId), new Date())
+    if (trava) throw new RecusaUsuario(trava)
+    const recusaDoFrete = recusaDoFreteDaVendaEfetivada(atual.entrega, entrega)
+    if (recusaDoFrete) throw new RecusaUsuario(recusaDoFrete)
+    await tx.update(vendas).set({ entrega }).where(eq(vendas.id, vendaId))
+    return atual.entrega
+  })
+  await registrarAlteracaoDaEntrega({ usuarioId: usuario.id, lojaId: venda.lojaId, registro: { vendaId }, antes, depois: entrega })
   revalidatePath('/vendas')
   revalidatePath('/estoque')
 }

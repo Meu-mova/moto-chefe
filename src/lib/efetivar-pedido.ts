@@ -68,6 +68,7 @@ async function travarPedidoEMoto(tx: Tx, pedidoId: string, daAprovacao: boolean)
  * como a efetivação; em aprovação, recusa: o frete já foi guardado nos dados da aprovação. Devolve a de antes, para o log.
  */
 export async function alterarEntregaDoPedidoTx(tx: Tx, pedidoId: string, entrega: EntregaVenda): Promise<EntregaVenda | null> {
+  // `true` deixa passar o "aguardando aprovação", recusado logo abaixo com a frase do Alterar; "vendida" continua barrando.
   const { pedido, moto } = await travarPedidoEMoto(tx, pedidoId, true)
   if (moto.disponibilidade === 'aguardando_aprovacao') throw new RecusaUsuario(PEDIDO_EM_APROVACAO_PARA_ALTERAR)
   await tx.update(pedidosVenda).set({ entrega, dataAtualizacao: new Date() }).where(eq(pedidosVenda.id, pedidoId))
