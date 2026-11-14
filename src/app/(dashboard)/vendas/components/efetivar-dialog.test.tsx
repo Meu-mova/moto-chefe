@@ -217,3 +217,11 @@ test('recusa do servidor no "Alterar" fica no diálogo e a Entrega do pedido nã
   assert.match(dialogoAlterar()?.textContent ?? '', /Pedido aguardando aprovação/)
   assert.match(entregaNaTela(), /Entregar em São Luís\/MA \(do pedido\)/)
 })
+
+test('"Alterar" num pedido que já tem frete abre com o frete ligado e salvar sem mudar envia o mesmo frete', async () => {
+  await abrir({ ...ENTREGAR, frete: 350 } as EntregaVenda)
+  await clicar(botao('Alterar'))
+  assert.equal(document.querySelector<HTMLInputElement>('#alterar-frete')?.value.replace(/\D/g, ''), '35000')
+  await clicar(botao('Salvar entrega'))
+  assert.deepEqual(alteracoes, [['p1', { ...ENTREGAR, frete: 350 }]])
+})
