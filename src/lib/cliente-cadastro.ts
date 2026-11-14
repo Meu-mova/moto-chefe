@@ -9,6 +9,15 @@ import { clientesDoEscopo } from '@/lib/conta'
 type Executor = Pick<typeof db, 'insert'>
 type Escopo = { contaId: string; grupoLiberado?: string | null }
 
+// Grava só os campos do formulário de cliente; o resto do que chega à Server Action fica de fora.
+const CAMPOS_DO_FORMULARIO = [
+  'nome', 'tipoPessoa', 'cpfCnpj', 'sexo', 'email', 'celular',
+  'endereco', 'numero', 'complemento', 'bairro', 'cep', 'cidade', 'uf',
+] as const
+
+const soDoFormulario = <T extends object>(dados: T): T =>
+  Object.fromEntries(Object.entries(dados).filter(([campo]) => (CAMPOS_DO_FORMULARIO as readonly string[]).includes(campo))) as T
+
 export const CPF_RECUSADO_NA_PERSONA = 'Não foi possível cadastrar este cliente. Fale com o administrador.'
 
 // Só a trava de CPF por Conta vira "já cadastrado": o texto do erro do Drizzle traz a
@@ -27,7 +36,7 @@ export async function cadastrarCliente(
   dados: Omit<typeof clientes.$inferInsert, 'contaId'>,
 ): Promise<string> {
   try {
-    const [novo] = await exec.insert(clientes).values({ ...dados, contaId: escopo.contaId }).returning({ id: clientes.id })
+    const [novo] = await exec.insert(clientes).values({ ...soDoFormulario(dados), contaId: escopo.contaId }).returning({ id: clientes.id })
     return novo.id
   } catch (e: unknown) {
     if (cpfRepetido(e)) throw new Error(mensagemCpfRepetido(escopo))
@@ -42,7 +51,7 @@ export async function atualizarCliente(
   dados: Partial<Omit<typeof clientes.$inferInsert, 'contaId'>>,
 ): Promise<void> {
   try {
-    const atualizados = await exec.update(clientes).set({ ...dados, atualizadoEm: new Date() })
+    const atualizados = await exec.update(clientes).set({ ...soDoFormulario(dados), atualizadoEm: new Date() })
       .where(and(eq(clientes.id, id), clientesDoEscopo(escopo.contaId, escopo)))
       .returning({ id: clientes.id })
     if (!atualizados.length) throw new Error('Cliente não encontrado')
