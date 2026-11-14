@@ -26,14 +26,14 @@ import { buscarOrigemParaValidar } from '@/lib/queries/origens-venda'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { lerContribuinteIcms, tipoPessoaDoDocumento } from '@/lib/documento'
-import { STATUS_MORTOS } from '@/lib/notagateway/status'
+import { STATUS_MORTOS, travaDoCancelamentoDaVenda } from '@/lib/notagateway/status'
 import { vendaTemNfViva } from '@/lib/notagateway/nf-viva'
 import { travaDoCancelamentoDaVendaAction } from './nfe-propria-actions'
 import { podeCriarPedido } from '@/lib/pedido-venda-regras'
 import { PAPEIS_QUE_CANCELAM_VENDA, travaDoPapel } from '@/lib/cancelar-venda'
-import { efetivarPedidoTx, pedirAprovacaoDoPedidoTx, type PedidoEmAprovacao } from '@/lib/efetivar-pedido'
+import { alterarEntregaDoPedidoTx, efetivarPedidoTx, pedirAprovacaoDoPedidoTx, type PedidoEmAprovacao } from '@/lib/efetivar-pedido'
 import { cancelarPedidoTx, criarPedidoTx, gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { conferirEntrega, freteDaVenda, motoNaNota, totalComFrete, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { CANCELE_A_NF_PARA_ALTERAR, conferirEntrega, entregaParaLog, freteDaVenda, motoNaNota, recusaDoFreteDaVendaEfetivada, totalComFrete, travaDaEntregaEmOutroEstado, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { ufDoEmissorDaMoto } from '@/lib/notagateway/grupo-emissor'
 import { travaDoValorVenda } from '@/lib/valor-venda'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
@@ -43,7 +43,8 @@ import { aprovacaoDoUsuario } from '@/lib/aprovacao-do-usuario'
 import { voltarMotoAoEstoque } from '@/lib/motos-vendidas-sem-venda'
 import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
-import { vendaDoUsuario } from '@/lib/venda-do-usuario'
+import { vendaDoUsuario, vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
+import { podeOperarNfSaida } from './papeis-nf-saida'
 import { apagarVendaTx } from '@/lib/apagar-venda'
 import { abaixoDoMinimo, aprovacaoNecessaria, MOTIVO_OBRIGATORIO, motivoDaAprovacao, podeVenderAbaixoDoMinimo, temPagamentoSensivel, type TipoAprovacaoVenda } from '@/lib/aprovacao-venda'
 import { gravarPedidoDeAprovacaoTx } from '@/lib/pedido-de-aprovacao'
@@ -224,7 +225,7 @@ async function efetivarVenda(
   motivo?: string,
 ): Promise<{ aprovacao: TipoAprovacaoVenda } | undefined> {
   const usuario = await getUsuarioLogado()
-  if (!['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)) {
+  if (!PAPEIS_QUE_EFETIVAM.includes(usuario.papel)) {
     throw new RecusaUsuario('Sem permissão para efetivar venda')
   }
 
@@ -266,6 +267,59 @@ async function efetivarVenda(
   revalidatePath('/vendas')
   revalidatePath('/estoque')
   return tipo ? { aprovacao: tipo } : undefined
+}
+
+// ─── Alterar a Entrega (#895) ────────────────────────────────────────────────
+
+const SEM_PERMISSAO_ENTREGA = 'Sem permissão para mudar a entrega'
+const PAPEIS_QUE_EFETIVAM = ['admin_geral', 'admin_socio', 'aux_adm']
+
+const registrarAlteracaoDaEntrega = (usuarioId: string, lojaId: string, chave: { pedidoId: string } | { vendaId: string }, antes: EntregaVenda | null, depois: EntregaVenda) =>
+  registrarAcaoSensivelSemFalhar({
+    tipo: 'entrega_alterada', usuarioId, lojaId,
+    detalhe: { ...chave, antes: entregaParaLog(antes), depois: entregaParaLog(depois) },
+  })
+
+export async function alterarEntregaDoPedidoAction(...a: Parameters<typeof alterarEntregaDoPedido>) {
+  return acao(() => alterarEntregaDoPedido(...a))
+}
+
+/** Na efetivação, quem efetiva troca a Entrega do pedido; o frete pode mudar, os pagamentos ainda vão ser digitados. */
+async function alterarEntregaDoPedido(pedidoId: string, entregaDaTela: unknown) {
+  const usuario = await getUsuarioLogado()
+  if (!PAPEIS_QUE_EFETIVAM.includes(usuario.papel)) throw new RecusaUsuario(SEM_PERMISSAO_ENTREGA)
+  const pedido = await pedidoDoUsuario(usuario, pedidoId)
+  if (!pedido) throw new RecusaUsuario('Pedido não encontrado')
+  const entrega = await entregaConferida(pedido.motoId, pedido.lojaId, entregaDaTela)
+  const antes = await db.transaction(tx => alterarEntregaDoPedidoTx(tx, pedidoId, entrega))
+  await registrarAlteracaoDaEntrega(usuario.id, pedido.lojaId, { pedidoId }, antes, entrega)
+  revalidatePath('/vendas')
+}
+
+export async function alterarEntregaDaVendaAction(...a: Parameters<typeof alterarEntregaDaVenda>) {
+  return acao(() => alterarEntregaDaVenda(...a))
+}
+
+/**
+ * Na prévia da NF, quem opera a NF troca a Entrega da venda, com o frete cobrado fixo. NF de produção viva
+ * trava pela mesma regra do "Cancelar venda" (ADR-0014); homologação, recusada e cancelada não travam.
+ */
+async function alterarEntregaDaVenda(vendaId: string, entregaDaTela: unknown) {
+  const usuario = await getUsuarioLogado()
+  if (!podeOperarNfSaida(usuario.papel)) throw new RecusaUsuario(SEM_PERMISSAO_ENTREGA)
+  const venda = await vendaDoUsuarioParaNf(usuario, eq(vendas.id, vendaId))
+  if (!venda) throw new RecusaUsuario('Venda não encontrada')
+  const entrega = await entregaConferida(venda.motoId, venda.lojaId, entregaDaTela)
+  const recusaDoFrete = recusaDoFreteDaVendaEfetivada(venda.entrega, entrega)
+  if (recusaDoFrete) throw new RecusaUsuario(recusaDoFrete)
+  const notas = await db.select({ ambiente: notasFiscaisSaida.ambiente, status: notasFiscaisSaida.status, dataAutorizacao: notasFiscaisSaida.dataAutorizacao })
+    .from(notasFiscaisSaida).where(eq(notasFiscaisSaida.vendaId, vendaId))
+  const comData = notas.map(n => ({ ...n, dataAutorizacao: n.dataAutorizacao?.toISOString() ?? null }))
+  if (travaDoCancelamentoDaVenda(comData, new Date())) throw new RecusaUsuario(CANCELE_A_NF_PARA_ALTERAR)
+  await db.update(vendas).set({ entrega }).where(eq(vendas.id, vendaId))
+  await registrarAlteracaoDaEntrega(usuario.id, venda.lojaId, { vendaId }, venda.entrega, entrega)
+  revalidatePath('/vendas')
+  revalidatePath('/estoque')
 }
 
 // ─── Venda completa direto do estoque ────────────────────────────────────────

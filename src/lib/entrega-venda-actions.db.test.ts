@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { semearContaBase, semearGrupo, semearUsuario } from '@/test/semear-conta'
-import { ENTREGA_EM_OUTRO_ESTADO, operacaoDaVenda, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { CANCELE_A_NF_PARA_ALTERAR, ENTREGA_EM_OUTRO_ESTADO, FRETE_FIXO_NA_VENDA, operacaoDaVenda, PEDIDO_EM_APROVACAO_PARA_ALTERAR, SEM_FRETE_NA_VENDA, type EntregaVenda } from '@/lib/notagateway/entrega'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
@@ -30,13 +30,15 @@ let editarVendaAction: Actions['editarVendaAction']
 let registrarVendaCompletaAction: Actions['registrarVendaCompletaAction']
 let solicitarAprovacaoVendaAction: Actions['solicitarAprovacaoVendaAction']
 let aprovarVendaAction: Actions['aprovarVendaAction']
+let alterarEntregaDoPedidoAction: Actions['alterarEntregaDoPedidoAction']
+let alterarEntregaDaVendaAction: Actions['alterarEntregaDaVendaAction']
 let vendaDoUsuarioParaNf: typeof import('@/lib/venda-do-usuario')['vendaDoUsuarioParaNf']
 let vendas: typeof import('@/lib/db/schema')['vendas']
 let eq: typeof import('drizzle-orm')['eq']
 
 before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
-  ;({ criarPedidoVendaAction, efetivarVendaAction, editarVendaAction, registrarVendaCompletaAction, solicitarAprovacaoVendaAction, aprovarVendaAction } = await import('@/app/(dashboard)/vendas/actions'))
+  ;({ criarPedidoVendaAction, efetivarVendaAction, editarVendaAction, registrarVendaCompletaAction, solicitarAprovacaoVendaAction, aprovarVendaAction, alterarEntregaDoPedidoAction, alterarEntregaDaVendaAction } = await import('@/app/(dashboard)/vendas/actions'))
   ;({ vendaDoUsuarioParaNf } = await import('@/lib/venda-do-usuario'))
   ;({ vendas } = await import('@/lib/db/schema'))
   ;({ eq } = await import('drizzle-orm'))
@@ -504,4 +506,140 @@ test('Vender com aprovação: Conta B não pede aprovação na moto da Conta A n
   assert.deepEqual(await aprovarVendaAction(randomUUID()), { ok: false, erro: 'Solicitação não encontrada' })
   assert.deepEqual(await vendasDaMoto(a.motoId), [])
   assert.deepEqual(await execRows(sql`select status, dados_venda->'entrega' as entrega from aprovacoes_venda where id = ${id}`), [{ status: 'pendente', entrega: ENTREGAR_MG }])
+})
+
+// ─── Alterar a Entrega (#895): na efetivação muda o pedido; depois da venda, a venda, com frete fixo e a trava da NF viva.
+const NAO_ACHOU_PEDIDO = { ok: false, erro: 'Pedido não encontrado' }
+const NAO_ACHOU_VENDA = { ok: false, erro: 'Venda não encontrada' }
+const logDaAlteracao = (id: string) => execRows(sql`select detalhe from log_acoes where tipo = 'entrega_alterada' and (detalhe->>'pedidoId' = ${id} or detalhe->>'vendaId' = ${id})`)
+
+async function vendaEfetivada(c: Awaited<ReturnType<typeof semearConta>>, entrega: unknown = RETIRA, total = 1000) {
+  usuario = c.vendedor
+  assert.deepEqual(await criarPedidoVendaAction(c.motoId, '', entrega), { ok: true, dados: undefined })
+  const [pedido] = await pedidosDaMoto(c.motoId)
+  usuario = c.aux
+  assert.deepEqual(await efetivarVendaAction(pedido.id as string, 'Cliente sintético', '529.982.247-25', '1000', [{ tipo: 'pix', valor: total }], undefined, c.origemId), { ok: true, dados: undefined })
+  const [venda] = await execRows(sql`select v.id, v.numero, l.grupo_id from vendas v join lojas l on l.id = v.loja_id where v.moto_id = ${c.motoId}`)
+  return { id: venda.id as string, numero: venda.numero as number, grupoId: venda.grupo_id as string }
+}
+
+const semearNota = (v: { id: string; numero: number; grupoId: string }, ambiente: string, status: string) =>
+  execRows(sql`insert into notas_fiscais_saida (venda_id, venda_numero, grupo_id, id_externo, ambiente, status, payload)
+    values (${v.id}, ${v.numero}, ${v.grupoId}, ${randomUUID()}, ${ambiente}, ${status}, '{}'::jsonb)`)
+
+test('Alterar na efetivação: o pedido ganha a Entrega nova, a venda nasce com ela e o total segue o frete novo; o log guarda antes e depois', async () => {
+  const a = await semearConta()
+  const pedidoId = await criarPedido(a)
+  usuario = a.aux
+  assert.deepEqual(await alterarEntregaDoPedidoAction(pedidoId, COM_FRETE), { ok: true, dados: undefined })
+  assert.deepEqual(await entregaDoPedidoDaMoto(a.motoId), [COM_FRETE])
+  assert.deepEqual(await efetivarVendaAction(pedidoId, 'Cliente sintético', '529.982.247-25', '1000', [{ tipo: 'pix', valor: 1350 }], undefined, a.origemId), { ok: true, dados: undefined })
+  const [venda] = await vendaDaMoto(a.motoId)
+  assert.equal(Number(venda.valor), 1350)
+  assert.deepEqual(await logDaAlteracao(pedidoId), [{ detalhe: {
+    pedidoId,
+    antes: { modo: 'retira', uf: null, modalidade: RETIRA.modalidade, frete: 0 },
+    depois: { modo: 'entregar', uf: 'MA', modalidade: COM_FRETE.modalidade, frete: 350 },
+  } }])
+})
+
+test('Alterar na efetivação: vendedor (não efetiva) é recusado e o pedido não muda', async () => {
+  const a = await semearConta()
+  const pedidoId = await criarPedido(a)
+  assert.deepEqual(await alterarEntregaDoPedidoAction(pedidoId, COM_FRETE), { ok: false, erro: 'Sem permissão para mudar a entrega' })
+  assert.deepEqual(await entregaDoPedidoDaMoto(a.motoId), [RETIRA])
+})
+
+test('Alterar na efetivação: Conta B recebe a frase de pedido inexistente e o pedido da A não muda', async () => {
+  const a = await semearConta()
+  const b = await semearConta()
+  const pedidoId = await criarPedido(a)
+  usuario = b.aux
+  assert.deepEqual(await alterarEntregaDoPedidoAction(pedidoId, COM_FRETE), NAO_ACHOU_PEDIDO)
+  assert.deepEqual(await alterarEntregaDoPedidoAction(randomUUID(), COM_FRETE), NAO_ACHOU_PEDIDO)
+  assert.deepEqual(await entregaDoPedidoDaMoto(a.motoId), [RETIRA])
+  assert.deepEqual(await logDaAlteracao(pedidoId), [])
+})
+
+test('Alterar na efetivação: pedido aguardando aprovação é recusado com a frase e não muda', async () => {
+  const a = await semearConta()
+  const pedidoId = await criarPedido(a)
+  await execRows(sql`update motos set disponibilidade = 'aguardando_aprovacao' where id = ${a.motoId}`)
+  usuario = a.aux
+  assert.deepEqual(await alterarEntregaDoPedidoAction(pedidoId, COM_FRETE), { ok: false, erro: PEDIDO_EM_APROVACAO_PARA_ALTERAR })
+  assert.deepEqual(await entregaDoPedidoDaMoto(a.motoId), [RETIRA])
+})
+
+test('Alterar na efetivação: pedido já efetivado não muda mais por aqui', async () => {
+  const a = await semearConta()
+  await vendaEfetivada(a)
+  const [pedido] = await pedidosDaMoto(a.motoId)
+  assert.deepEqual(await alterarEntregaDoPedidoAction(pedido.id as string, COM_FRETE), { ok: false, erro: 'Este pedido não está mais pendente. Recarregue a página.' })
+  assert.deepEqual(await entregaDoPedidoDaMoto(a.motoId), [RETIRA])
+})
+
+test('Alterar na efetivação: "Entregar" em outra UF que a do emitente é recusado com a frase da #848', async () => {
+  const a = await contaComNg('MG')
+  const pedidoId = await criarPedido(a)
+  usuario = a.aux
+  assert.deepEqual(await alterarEntregaDoPedidoAction(pedidoId, ENTREGAR), { ok: false, erro: ENTREGA_EM_OUTRO_ESTADO })
+  assert.deepEqual(await alterarEntregaDoPedidoAction(pedidoId, ENTREGAR_MG), { ok: true, dados: undefined })
+})
+
+test('Alterar depois da venda: muda endereço e quem recebe com o mesmo frete; o log guarda antes e depois', async () => {
+  const a = await semearConta()
+  const v = await vendaEfetivada(a, COM_FRETE, 1350)
+  const nova = { ...COM_FRETE, endereco: { ...COM_FRETE.endereco, logradouro: 'Outra rua' }, recebe: null }
+  assert.deepEqual(await alterarEntregaDaVendaAction(v.id, nova), { ok: true, dados: undefined })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: nova }])
+  assert.equal((await logDaAlteracao(v.id)).length, 1)
+})
+
+test('Alterar depois da venda: com frete não vira Retira; sem frete não ganha frete; nada muda', async () => {
+  const a = await semearConta()
+  const comFrete = await vendaEfetivada(a, COM_FRETE, 1350)
+  assert.deepEqual(await alterarEntregaDaVendaAction(comFrete.id, RETIRA), { ok: false, erro: FRETE_FIXO_NA_VENDA })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: COM_FRETE }])
+
+  const b = await semearConta()
+  const semFrete = await vendaEfetivada(b)
+  assert.deepEqual(await alterarEntregaDaVendaAction(semFrete.id, COM_FRETE), { ok: false, erro: SEM_FRETE_NA_VENDA })
+  assert.deepEqual(await vendasDaMoto(b.motoId), [{ entrega: RETIRA }])
+})
+
+test('Alterar depois da venda: NF de produção viva (em emissão, autorizada, em cancelamento) trava com a frase', async () => {
+  for (const status of ['Processando', 'Autorizada', 'EmProcessoDeCancelamento']) {
+    const a = await semearConta()
+    const v = await vendaEfetivada(a)
+    await semearNota(v, 'Producao', status)
+    assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), { ok: false, erro: CANCELE_A_NF_PARA_ALTERAR }, status)
+    assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: RETIRA }])
+  }
+})
+
+test('Alterar depois da venda: NF de homologação, recusada ou cancelada libera', async () => {
+  for (const [ambiente, status] of [['Homologacao', 'Autorizada'], ['Producao', 'Negada'], ['Producao', 'Cancelada']]) {
+    const a = await semearConta()
+    const v = await vendaEfetivada(a)
+    await semearNota(v, ambiente, status)
+    assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), { ok: true, dados: undefined }, `${ambiente} ${status}`)
+  }
+})
+
+test('Alterar depois da venda: Conta B recebe a frase de venda inexistente e a venda da A não muda', async () => {
+  const a = await semearConta()
+  const b = await semearConta()
+  const v = await vendaEfetivada(a)
+  usuario = b.aux
+  assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), NAO_ACHOU_VENDA)
+  assert.deepEqual(await alterarEntregaDaVendaAction(randomUUID(), ENTREGAR), NAO_ACHOU_VENDA)
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: RETIRA }])
+  assert.deepEqual(await logDaAlteracao(v.id), [])
+})
+
+test('Alterar depois da venda: "Entregar" em outra UF que a do emitente é recusado com a frase da #848', async () => {
+  const a = await contaComNg('MG')
+  const v = await vendaEfetivada(a)
+  assert.deepEqual(await alterarEntregaDaVendaAction(v.id, ENTREGAR), { ok: false, erro: ENTREGA_EM_OUTRO_ESTADO })
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: RETIRA }])
 })

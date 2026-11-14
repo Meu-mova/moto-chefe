@@ -8,7 +8,7 @@ import { formaPagamentoDaVenda, pagamentosFecham, pagamentosIncompletos, PAGAMEN
 import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { gravarMotoDoPedido } from '@/lib/pedido-venda'
-import { freteDaVenda, totalComFrete, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { freteDaVenda, PEDIDO_EM_APROVACAO_PARA_ALTERAR, totalComFrete, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { motivoBloqueioPedidoAprovacao } from '@/lib/estado-moto'
 import { gravarPedidoDeAprovacaoTx } from '@/lib/pedido-de-aprovacao'
 import type { TipoAprovacaoVenda } from '@/lib/aprovacao-venda'
@@ -61,6 +61,17 @@ async function travarPedidoEMoto(tx: Tx, pedidoId: string, daAprovacao: boolean)
   if (moto.status === 'vendida') throw new RecusaUsuario('Moto já foi vendida')
   if (!daAprovacao && moto.disponibilidade === 'aguardando_aprovacao') throw new RecusaUsuario(motivoBloqueioPedidoAprovacao(moto)!)
   return { pedido, moto }
+}
+
+/**
+ * Troca a Entrega do pedido pendente (#895); a venda nasce com ela no efetivarPedidoTx. Trava o pedido e a moto
+ * como a efetivação; em aprovação, recusa: o frete já foi guardado nos dados da aprovação. Devolve a de antes, para o log.
+ */
+export async function alterarEntregaDoPedidoTx(tx: Tx, pedidoId: string, entrega: EntregaVenda): Promise<EntregaVenda | null> {
+  const { pedido, moto } = await travarPedidoEMoto(tx, pedidoId, true)
+  if (moto.disponibilidade === 'aguardando_aprovacao') throw new RecusaUsuario(PEDIDO_EM_APROVACAO_PARA_ALTERAR)
+  await tx.update(pedidosVenda).set({ entrega, dataAtualizacao: new Date() }).where(eq(pedidosVenda.id, pedidoId))
+  return pedido.entrega
 }
 
 /** Contato e endereço do cliente escolhido, lidos do cadastro da Conta; vazio sem cliente. */
