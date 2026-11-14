@@ -32,7 +32,7 @@ import { notaSaidaDoUsuario } from '@/lib/nota-saida-do-usuario'
 import { recusaSemVenda } from '@/lib/notas-emitidas'
 import { vendaDoUsuarioParaNf } from '@/lib/venda-do-usuario'
 import { transporteDoPayload, validarDadosTransporte, type DadosTransporte } from '@/lib/notagateway/transporte'
-import { conflitoDaUfDoFormulario, pendenciasDaEntrega, travaDaEntregaEmOutroEstado, type EntregaVenda, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
+import { conflitoDaUfDoFormulario, pendenciasDaEntrega, travaDaAlteracaoDaEntrega, travaDaEntregaEmOutroEstado, type EntregaVenda, type OperacaoDaVenda } from '@/lib/notagateway/entrega'
 
 /**
  * NF-e de venda de moto emitida pelo próprio MOVA (Nota Gateway).
@@ -113,6 +113,8 @@ export type PreviaNfe =
       avisoEmissor: string | null
       /** Entrega da venda: a tela do faturamento direto confere o formulário com ela (`conflitoDaUfDoFormulario`). */
       entrega: EntregaVenda | null
+      /** Frase da trava do "Alterar entrega" (NF viva, #895), ou null: a mesma função do servidor. */
+      travaDaEntrega: string | null
     }
 
 const avisoEmissor = (e: { nome: string; cnpj: string }) => `A NF desta moto sai pelo CNPJ de ${e.nome} (${formatarCpfCnpj(e.cnpj)})`
@@ -385,6 +387,7 @@ export async function previsualizarNfePropriaAction(motoId: string): Promise<Pre
       podeConfigurarFiscal: podeConfigurarFiscal(usuario.papel),
       avisoEmissor: e.emissor.outroCnpj ? avisoEmissor(e.emissor) : null,
       entrega: e.venda.entrega,
+      travaDaEntrega: travaDaAlteracaoDaEntrega(notas, new Date()),
     }
   } catch (err) {
     return { ok: false, error: (err as Error).message }

@@ -8,7 +8,9 @@ import { CurrencyInput } from '@/components/ui/currency-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { buscarPrecoMinimoAction, efetivarVendaAction } from '../actions'
+import { alterarEntregaDoPedidoAction, buscarPrecoMinimoAction, efetivarVendaAction } from '../actions'
+import { AlterarEntregaDialog } from './alterar-entrega-dialog'
+import { podeEfetivarPedido } from '@/lib/pedido-venda-regras'
 import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busca'
@@ -25,16 +27,19 @@ type Props = {
   papel: string
   /** Quem tem a permissão efetiva transferência direto; os demais pedem aprovação (#776). */
   podeAprovarSensivel: boolean
-  /** Vem do pedido e vai para a venda no servidor; aqui só se confere ("Alterar" é do #727). */
+  /** Vem do pedido e vai para a venda no servidor; "Alterar" muda a do pedido (#895). */
   entrega: EntregaVenda | null
 }
 
-function EntregaDoPedido({ entrega }: { entrega: EntregaVenda | null }) {
+function EntregaDoPedido({ entrega, alterar }: { entrega: EntregaVenda | null; alterar: React.ReactNode }) {
   return (
     <section aria-label="Entrega do pedido" className="space-y-1 rounded-lg border border-border bg-muted p-3 text-sm">
-      {!entrega ? <p className="text-muted-foreground">Pedido sem a Entrega informada.</p> : (
+      <div className="flex items-start justify-between gap-3">
+        <p className={entrega ? 'font-medium' : 'text-muted-foreground'}>{entrega ? `${textoDaEntrega(entrega)} (do pedido)` : 'Pedido sem a Entrega informada.'}</p>
+        {alterar}
+      </div>
+      {entrega && (
         <>
-          <p className="font-medium">{textoDaEntrega(entrega)} (do pedido)</p>
           {entrega.modo === 'entregar' && (
             <>
               <p className="text-muted-foreground">{enderecoDaEntregaEmLinha(entrega.endereco)}</p>
@@ -49,8 +54,12 @@ function EntregaDoPedido({ entrega }: { entrega: EntregaVenda | null }) {
   )
 }
 
-export function EfetivarDialog({ pedidoId, motoId, chassi, modelo, origens, entrega, papel, podeAprovarSensivel }: Props) {
+export function EfetivarDialog({ pedidoId, motoId, chassi, modelo, origens, entrega: entregaDoPedido, papel, podeAprovarSensivel }: Props) {
   const [open, setOpen] = useState(false)
+  // O "Alterar" grava no pedido; o total e a tela seguem a nova sem esperar a página recarregar.
+  const [entrega, setEntrega] = useState(entregaDoPedido)
+  // A página recarregada (outra aba, aprovação) traz o pedido de novo: a tela acompanha.
+  useEffect(() => setEntrega(entregaDoPedido), [entregaDoPedido])
   const [clienteId, setClienteId] = useState<string | null>(null)
   const [clienteSelecionado, setClienteSelecionado] = useState<{ id: string; nome: string } | null>(null)
   const [clienteNome, setClienteNome] = useState('')
@@ -146,7 +155,10 @@ export function EfetivarDialog({ pedidoId, motoId, chassi, modelo, origens, entr
               <Label>CPF/CNPJ do Cliente</Label>
               <DocumentoClienteInput value={clienteCpf} onChange={setClienteCpf} />
             </div>
-            <EntregaDoPedido entrega={entrega} />
+            <EntregaDoPedido entrega={entrega} alterar={podeEfetivarPedido(papel) && (
+              <AlterarEntregaDialog entrega={entrega} freteFixo={false} rotulo="Alterar"
+                salvar={nova => alterarEntregaDoPedidoAction(pedidoId, nova)} aoSalvar={setEntrega} />
+            )} />
             <div className="space-y-2">
               <Label>{frete ? 'Valor da moto (R$)' : 'Valor (R$)'}</Label>
               <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" />
