@@ -75,6 +75,46 @@ test('peça nova entra no catálogo da Conta da loja, com saldo, custo, vínculo
   })
 })
 
+test('a nota grava só chave, número e fornecedor do que chega; Conta, grupo, loja e o resto são do servidor', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const idEnviado = '00000000-0000-4000-8000-000000000924'
+    const notaComMais = {
+      ...NOTA, contaId: b.contaId, grupoId: b.grupoId, lojaId: b.lojaId,
+      id: idEnviado, criadoEm: new Date('2020-01-01T00:00:00Z'),
+    } as typeof NOTA
+    await entrada.gravarEntradaPecas(tx, { lojaId: a.lojaId, usuario: a.usuario, nota: notaComMais, linhas: [{ ...CAPACETE, pecaId: a.pecaId }] })
+
+    const notas = await linhas(tx, sql`select conta_id, grupo_id, loja_id, numero, fornecedor_cnpj, origem, impressao_digital,
+      id = ${idEnviado} as id_enviado, criado_em > now() - interval '1 hour' as criada_agora
+      from notas_entrada where chave_acesso = ${NOTA.chaveAcesso}`)
+    assert.deepEqual(notas, [{
+      conta_id: a.contaId, grupo_id: a.grupoId, loja_id: a.lojaId, numero: NOTA.numero, fornecedor_cnpj: NOTA.fornecedorCnpj,
+      origem: 'nota', impressao_digital: null, id_enviado: false, criada_agora: true,
+    }])
+  })
+})
+
+test('a nota só aceita os campos do formulário; o resto é recusado e nada fica', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const impressao = 'f'.repeat(64)
+    const comoPlanilha = {
+      chaveAcesso: null, numero: null, fornecedorCnpj: NOTA.fornecedorCnpj,
+      origem: 'planilha', impressaoDigital: impressao, contaId: b.contaId, grupoId: b.grupoId, lojaId: b.lojaId,
+    } as unknown as typeof NOTA
+    await assert.rejects(
+      tx.transaction(t => entrada.gravarEntradaPecas(t, {
+        lojaId: a.lojaId, usuario: a.usuario, nota: comoPlanilha, linhas: [{ ...CAPACETE, pecaId: a.pecaId }],
+      })),
+      (erro: { cause?: { constraint?: string } }) => erro.cause?.constraint === 'notas_entrada_origem_campos_check',
+    )
+    assert.deepEqual(await linhas(tx, sql`select loja_id from notas_entrada where impressao_digital = ${impressao}`), [])
+  })
+})
+
 // Roda num savepoint: a recusa desfaz só ela, e dá para conferir que nada ficou.
 const recusa = (tx: Tx, e: Parameters<typeof entrada.gravarEntradaPecas>[1]) =>
   assert.rejects(tx.transaction(t => entrada.gravarEntradaPecas(t, e)), (erro: unknown) => erro instanceof entrada.EntradaPecasRecusada)
