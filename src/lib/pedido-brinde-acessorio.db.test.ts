@@ -101,7 +101,7 @@ test('B1b: aux_adm (gestor) ajusta o preço do acessório; o brinde segue R$ 0 m
 test('B2: peça de outra Conta e id inexistente: "Peça não encontrada", nada gravado', async () => {
   const a = await semearConta()
   const b = await semearConta()
-  for (const pecaId of [b.capacete, randomUUID()]) {
+  for (const pecaId of [b.capacete, randomUUID(), 'nao-e-uuid']) {
     const { r, pedidoId } = await criarPedido(a, [{ tipo: 'acessorio', pecaId, quantidade: 1 }])
     assert.deepEqual(r, { ok: false, erro: 'Peça não encontrada' })
     assert.equal(pedidoId, undefined)
@@ -109,11 +109,16 @@ test('B2: peça de outra Conta e id inexistente: "Peça não encontrada", nada g
   assert.equal(await saldo(b, b.capacete), 1)
 })
 
-test('B3: quantidade inválida é recusada com a frase da venda de peça', async () => {
+test('B3: quantidade com fração e valor que não é número são recusados com frase, sem erro do banco', async () => {
   const a = await semearConta()
   const { r, pedidoId } = await criarPedido(a, [{ tipo: 'acessorio', pecaId: a.capacete, quantidade: 1.5 }])
-  assert.equal(r.ok, false)
+  assert.deepEqual(r, { ok: false, erro: 'Quantidade é em unidades inteiras, sem vírgula.' })
   assert.equal(pedidoId, undefined)
+  for (const valorUnitario of [Infinity, -1]) {
+    const x = await criarPedido(a, [{ tipo: 'acessorio', pecaId: a.capacete, quantidade: 1, valorUnitario }], a.aux)
+    assert.deepEqual(x.r, { ok: false, erro: 'Item do pedido inválido' })
+    assert.equal(x.pedidoId, undefined)
+  }
 })
 
 test('B4/B5/B6: efetivar fecha com moto + acessórios, baixa o estoque (zero vira negativo) e cria a venda de peça do pedido sem caixa próprio', async () => {

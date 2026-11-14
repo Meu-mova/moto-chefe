@@ -4,6 +4,7 @@ import { historicoEstoque, motos, pecasCatalogo, pedidosVenda, pedidosVendaItens
 import { motivoBloqueioCriarPedido, podeCancelarPedido, valorDaPecaNoPedido, type PecaDoPedidoInput, type QuemCancela } from '@/lib/pedido-venda-regras'
 import { daContaDaLoja } from '@/lib/pecas-da-conta'
 import { recusaDaQuantidadeVendida } from '@/lib/quantidade-vendida'
+import { ehUuid } from '@/lib/uuid'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
 import { pedidoEmAprovacaoSql } from '@/lib/pedido-de-aprovacao'
@@ -19,7 +20,12 @@ async function pecasConferidas(tx: Tx, lojaId: string, pecas: PecaDoPedidoInput[
   if (pecas.length === 0) return []
   const recusa = recusaDaQuantidadeVendida(pecas)
   if (recusa) throw new RecusaUsuario(recusa)
-  if (pecas.some(p => !['brinde', 'acessorio'].includes(p.tipo) || p.quantidade <= 0)) throw new RecusaUsuario('Item do pedido inválido')
+  const valorInvalido = (v: number | undefined) => v != null && !(Number.isFinite(v) && v >= 0)
+  if (pecas.some(p => !['brinde', 'acessorio'].includes(p.tipo) || p.quantidade <= 0 || valorInvalido(p.valorUnitario))) {
+    throw new RecusaUsuario('Item do pedido inválido')
+  }
+  // Id que nem é uuid derrubaria a consulta com erro do banco; recebe a mesma frase de peça de outra Conta.
+  if (!pecas.every(p => ehUuid(p.pecaId))) throw new RecusaUsuario('Peça não encontrada')
   const doCatalogo = await tx.select({ id: pecasCatalogo.id, valor: pecasCatalogo.valor }).from(pecasCatalogo)
     .where(and(inArray(pecasCatalogo.id, pecas.map(p => p.pecaId)), daContaDaLoja(lojaId)))
   const preco = new Map(doCatalogo.map(p => [p.id, p.valor]))
