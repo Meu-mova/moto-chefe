@@ -32,22 +32,23 @@ export type TaxasPayload = {
 
 export async function salvarTaxasAction(data: TaxasPayload) {
   const grupo = await checarAdmin()
+  // Só os campos do formulário; o grupo é sempre o ativo do servidor.
+  const taxas = {
+    taxasCartao: data.taxasCartao,
+    taxasDebito: data.taxasDebito,
+    taxasLink: data.taxasLink,
+    taxasFinanciamento: data.taxasFinanciamento,
+    freteValorKm: data.freteValorKm,
+    freteKmGratis: data.freteKmGratis,
+    freteValorFixo: data.freteValorFixo,
+    imposto: data.imposto,
+  }
   await db
     .insert(configuracaoTaxas)
-    .values({ grupoId: grupo.id, ...data })
+    .values({ grupoId: grupo.id, ...taxas })
     .onConflictDoUpdate({
       target: configuracaoTaxas.grupoId,
-      set: {
-        taxasCartao: data.taxasCartao,
-        taxasDebito: data.taxasDebito,
-        taxasLink: data.taxasLink,
-        taxasFinanciamento: data.taxasFinanciamento,
-        freteValorKm: data.freteValorKm,
-        freteKmGratis: data.freteKmGratis,
-        freteValorFixo: data.freteValorFixo,
-        imposto: data.imposto,
-        atualizadoEm: sql`NOW()`,
-      },
+      set: { ...taxas, atualizadoEm: sql`NOW()` },
     })
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
