@@ -25,6 +25,12 @@ test('U1: só UF com alíquota confirmada em fonte oficial tem número (Luis, 14
   for (const uf of ['MT', 'AL', 'RN', 'SE', 'MA'] as const) assert.equal(TABELA_DIFAL_PADRAO[uf].aliquotaInterna, null, uf)
 })
 
+test('U1: FCP 0 só onde a lei foi lida; null onde não foi conferido', () => {
+  const fcp = (v: number | null) => Object.entries(TABELA_DIFAL_PADRAO).filter(([, p]) => p.aliquotaInterna !== null && p.fcp === v).map(([uf]) => uf).sort()
+  assert.deepEqual(fcp(0), ['AC', 'AP', 'BA', 'CE', 'MS', 'PB', 'PE', 'PI', 'RO', 'RR', 'RS', 'TO'])
+  assert.deepEqual(fcp(null), ['AM', 'DF', 'ES', 'GO', 'MG', 'PA', 'PR', 'RJ', 'SC', 'SP'])
+})
+
 test('U1: moto 8711 a 12% onde a lei dá alíquota própria (BA, RS, RR, SC)', () => {
   for (const uf of ['BA', 'RS', 'RR', 'SC'] as const) assert.equal(TABELA_DIFAL_PADRAO[uf].aliquotaInterna, 12, uf)
 })
