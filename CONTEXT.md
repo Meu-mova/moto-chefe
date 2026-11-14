@@ -323,6 +323,17 @@ Anulação de uma NF de saída autorizada junto à SEFAZ, possível só dentro d
 na regra geral da SEFAZ). Em produção, a venda continua e volta a aguardar NF de saída.
 _Evitar_: cancelar a venda (é outra coisa: desfaz a venda inteira); excluir a nota
 
+**DIFAL**:
+Diferença entre a alíquota interna do estado de destino e a interestadual, devida na venda a
+consumidor final não contribuinte de outro estado. O MOVA calcula só para moto importada; os
+números de cada estado de destino vêm da tabela padrão do MOVA ou da correção do grupo, feita
+com o contador dele.
+_Evitar_: diferencial (sozinho), ICMS de destino
+
+**Alíquota do importado**:
+Alíquota interestadual de ICMS da moto importada vendida para outro estado (4% na prática). É
+do grupo, preenchida pelo admin com o contador, e fica vazia até lá.
+
 **Carta de correção**:
 Correção de um dado de uma NF de saída autorizada, registrada na SEFAZ sem alterar a nota (ex.:
 chassi ou motor errado). Não corrige valores, impostos, a parte nem datas. Cada carta substitui a
