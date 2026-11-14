@@ -327,7 +327,7 @@ const nota = (ambiente: string, status: string, dataAutorizacao: string | null =
 
 test('trava do Alterar: cada nota de produção viva tem a sua orientação', () => {
   assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'Autorizada')], AGORA), CANCELE_A_NF_PARA_ALTERAR)
-  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'CancelamentoNegado')], AGORA), CANCELE_A_NF_PARA_ALTERAR)
+  assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'CancelamentoNegado')], AGORA), TRAVA_DO_ALTERAR.tentar_de_novo)
   assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'Enviando', null)], AGORA), TRAVA_DO_ALTERAR.emissao_em_andamento)
   assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'EmProcessoDeCancelamento')], AGORA), TRAVA_DO_ALTERAR.cancelamento_em_andamento)
   assert.equal(travaDaAlteracaoDaEntrega([nota('Producao', 'Autorizada', '2026-11-12T12:00:00Z')], AGORA), TRAVA_DO_ALTERAR.fora_do_prazo)

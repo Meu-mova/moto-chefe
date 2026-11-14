@@ -237,7 +237,7 @@ export const CANCELE_A_NF_PARA_ALTERAR = 'Cancele a NF antes de mudar a entrega.
 /** O que fazer em cada situação da nota viva que trava o Alterar, como no "Cancelar venda". */
 export const TRAVA_DO_ALTERAR: Record<TravaDoCancelamento, string> = {
   cancelar_nf: CANCELE_A_NF_PARA_ALTERAR,
-  tentar_de_novo: CANCELE_A_NF_PARA_ALTERAR,
+  tentar_de_novo: 'A SEFAZ recusou o cancelamento da NF, e ela continua valendo. Peça o cancelamento de novo; com a NF cancelada, mude a entrega.',
   emissao_em_andamento: 'Há uma NF de saída em emissão para esta venda. Espere ela terminar ou descarte a tentativa pelo botão "NF Saída"; depois, mude a entrega.',
   cancelamento_em_andamento: 'O cancelamento da NF está em andamento na SEFAZ. Mude a entrega depois que ele terminar.',
   fora_do_prazo: 'A NF passou do prazo de 24h para cancelar: o caminho é o cancelamento extemporâneo, pedido pela contabilidade. Com a NF cancelada, mude a entrega.',
