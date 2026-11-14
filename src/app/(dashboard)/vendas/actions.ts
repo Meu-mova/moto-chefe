@@ -321,6 +321,8 @@ async function alterarEntregaDaVenda(vendaId: string, entregaDaTela: unknown) {
     // Com a venda travada, um segundo Alterar espera e lê a Entrega que o primeiro gravou (base do frete fixo e do log).
     // Limite: a emissão da NF não trava a venda, então uma nota que comece depois desta leitura não é vista aqui.
     const [atual] = await tx.select({ entrega: vendas.entrega }).from(vendas).where(eq(vendas.id, vendaId)).for('update')
+    // Apagada entre a leitura acima e o lock (cancelar venda ao mesmo tempo).
+    if (!atual) throw new RecusaUsuario('Venda não encontrada')
     const trava = travaDaAlteracaoDaEntrega(await notasParaTravaDaVenda(tx, vendaId), new Date())
     if (trava) throw new RecusaUsuario(trava)
     const recusaDoFrete = recusaDoFreteDaVendaEfetivada(atual.entrega, entrega)

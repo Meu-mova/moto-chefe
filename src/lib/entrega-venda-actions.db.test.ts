@@ -617,7 +617,7 @@ test('Alterar depois da venda: com frete não vira Retira; sem frete não ganha 
 test('Alterar depois da venda: NF de produção viva trava com a orientação de cada situação, e nada muda', async () => {
   const casos: [string, string][] = [
     ['Enviando', TRAVA_DO_ALTERAR.emissao_em_andamento], ['Processando', TRAVA_DO_ALTERAR.emissao_em_andamento],
-    ['Autorizada', CANCELE_A_NF_PARA_ALTERAR], ['CancelamentoNegado', CANCELE_A_NF_PARA_ALTERAR],
+    ['Autorizada', CANCELE_A_NF_PARA_ALTERAR], ['CancelamentoNegado', TRAVA_DO_ALTERAR.tentar_de_novo],
     ['EmProcessoDeCancelamento', TRAVA_DO_ALTERAR.cancelamento_em_andamento],
   ]
   for (const [status, frase] of casos) {
@@ -719,4 +719,33 @@ test('Alterar depois da venda: duas alterações ao mesmo tempo ficam em fila; o
   const segunda = logs.find(l => l.antes.modo === 'entregar')!
   const primeira = logs.find(l => l.antes.modo === 'retira')!
   assert.equal(segunda.antes.uf, primeira.depois.uf)
+})
+
+test('Alterar depois da venda: venda apagada enquanto o Alterar esperava o lock responde "Venda não encontrada"', async () => {
+  const a = await semearConta()
+  const v = await vendaEfetivada(a)
+  let soltar!: () => void
+  const solta = new Promise<void>(r => { soltar = r })
+  let travou!: () => void
+  const travada = new Promise<void>(r => { travou = r })
+  // Outra transação segura a venda, apaga e só então libera: o Alterar já passou da leitura e espera no lock.
+  const apagando = db.transaction(async tx => {
+    await tx.execute(sql`select id from vendas where id = ${v.id} for update`)
+    travou()
+    await solta
+    await tx.execute(sql`delete from vendas where id = ${v.id}`)
+  })
+  await travada
+  const alterando = alterarEntregaDaVendaAction(v.id, ENTREGAR)
+  try {
+    // Espera o Alterar ficar parado no lock da linha da venda, não um tempo fixo.
+    const esperandoLock = async () => (await execRows(sql`select 1 from pg_stat_activity
+      where wait_event_type = 'Lock' and query ilike '%from "vendas"%for update%'`)).length > 0
+    for (let i = 0; i < 500 && !(await esperandoLock()); i++) await new Promise(r => setImmediate(r))
+    assert.equal(await esperandoLock(), true, 'o Alterar não chegou ao lock da venda')
+  } finally {
+    soltar()
+    await apagando
+  }
+  assert.deepEqual(await alterando, NAO_ACHOU_VENDA)
 })
