@@ -1,7 +1,7 @@
 'use client'
 import { useId, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { ChevronRight, MessageCircleQuestion, Pencil, RotateCcw, ShieldCheck, Table2, TriangleAlert } from 'lucide-react'
+import { ChevronRight, MessageCircleQuestion, Pencil, RotateCcw, Table2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,18 +38,19 @@ function resumoPadrao(n: NumerosDifal) {
   return p.aliquotaInterna === null ? 'sem valor padrão' : `${pct(p.aliquotaInterna)}, FCP ${pct(p.fcp)}, base ${nomeBase(p.base).toLowerCase()}`
 }
 
-function Selo({ n }: { n: NumerosDifal }) {
-  if (n.origem === 'corrigido') {
-    return <span className="inline-flex items-center gap-1 rounded-full border border-warning/45 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning"><Pencil size={12} aria-hidden />Corrigido pelo seu contador</span>
-  }
-  if (n.aliquotaInterna === null) return null
-  return <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-text"><ShieldCheck size={12} aria-hidden />Padrão do MOVA</span>
-}
+const SeloCorrigido = () => (
+  <span className="inline-flex items-center gap-1 rounded-full border border-warning/45 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning"><Pencil size={12} aria-hidden />Corrigido pelo seu contador</span>
+)
+
+/** Número do padrão com a ressalva da fonte, quando houver (SP e MG: alíquota geral). */
+const Ressalva = ({ n }: { n: NumerosDifal }) =>
+  n.padrao.ressalva ? <span className="block text-[11px] text-warning">{n.padrao.ressalva}</span> : null
 
 export function DifalUfs({ grupoId, ufEmitente, correcoes, importado, onImportado }: Props) {
   const idImportado = useId()
   const [editando, setEditando] = useState<NumerosDifal | null>(null)
   const [busca, setBusca] = useState('')
+  const [folhaAberta, setFolhaAberta] = useState(false)
   const [pendVolta, startVolta] = useTransition()
 
   const todas = UFS.map(u => numerosDifalDaUf(u.sigla, correcoes)).filter((n): n is NumerosDifal => n !== null)
@@ -65,11 +66,14 @@ export function DifalUfs({ grupoId, ufEmitente, correcoes, importado, onImportad
     })
   }
 
+  // Corrigir de dentro da folha fecha a folha antes: duas camadas modais embaralham foco e teclado.
+  const corrigir = (n: NumerosDifal) => { setFolhaAberta(false); setEditando(n) }
+
   const campoBusca = <Input type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar estado" aria-label="Buscar estado" />
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2 md:items-start">
+      <div className="space-y-4">
         <div className="space-y-1">
           <Label htmlFor={idImportado} className="text-xs">Alíquota ICMS para moto importada (%)</Label>
           <Input id={idImportado} inputMode="decimal" value={importado} onChange={e => onImportado(e.target.value)} placeholder="Ex.: 4,00" className="font-mono text-sm sm:max-w-xs" />
@@ -84,8 +88,8 @@ export function DifalUfs({ grupoId, ufEmitente, correcoes, importado, onImportad
         <div className="rounded-lg border border-info/30 bg-info/5 p-3 text-sm">
           <p className="mb-1.5 flex items-center gap-1.5 font-medium text-info"><MessageCircleQuestion size={16} aria-hidden />O que perguntar ao seu contador</p>
           <ol className="list-decimal space-y-1 pl-5">
-            <li>Qual a alíquota de ICMS para moto importada vendida para outro estado?</li>
-            <li>Para os estados onde vendemos: qual a alíquota interna e o FCP, se a tabela do MOVA não tiver ou estiver diferente?</li>
+            <li>Qual a alíquota de ICMS para moto importada vendida para outro estado? (costuma ser 4%)</li>
+            <li>Algum estado para onde vendemos tem alíquota interna, FCP ou base diferente da tabela do MOVA?</li>
             <li>Para cada um desses estados: a base do DIFAL é única ou dupla?</li>
           </ol>
           <p className="mt-2 text-xs text-muted-foreground">Vale só para moto importada vendida a consumidor final de outro estado. Moto nacional e venda dentro do estado não mudam.</p>
@@ -103,12 +107,12 @@ export function DifalUfs({ grupoId, ufEmitente, correcoes, importado, onImportad
                 <div key={n.uf} className="rounded-lg border border-warning/35 bg-card p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm"><b>{n.uf}</b> <span className="text-muted-foreground">{nomeDaUf(n.uf)}</span></span>
-                    <Selo n={n} />
+                    <SeloCorrigido />
                   </div>
                   <p className="mt-1 text-sm tabular-nums">Interna <b>{pct(n.aliquotaInterna)}</b> · FCP <b>{pct(n.fcp)}</b> · Base <b>{nomeBase(n.base).toLowerCase()}</b></p>
                   <p className="text-xs text-muted-foreground">Padrão do MOVA: {resumoPadrao(n)}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => setEditando(n)} aria-label={`Corrigir ${n.uf}`}><Pencil size={14} aria-hidden />Editar</Button>
+                    <Button variant="ghost" size="sm" onClick={() => corrigir(n)} aria-label={`Corrigir ${n.uf}`}><Pencil size={14} aria-hidden />Editar</Button>
                     <Button variant="ghost" size="sm" disabled={pendVolta} onClick={() => voltar(n.uf)} aria-label={`Voltar ao padrão ${n.uf}`}><RotateCcw size={14} aria-hidden />Voltar ao padrão</Button>
                   </div>
                 </div>
@@ -130,15 +134,15 @@ export function DifalUfs({ grupoId, ufEmitente, correcoes, importado, onImportad
               <span><b>{n.uf}</b> <span className="text-muted-foreground">{nomeDaUf(n.uf)}</span></span>
               {n.aliquotaInterna === null
                 ? <span className="col-span-3 text-warning">{SEM_PADRAO}</span>
-                : <><span className="tabular-nums">{pct(n.aliquotaInterna)}</span><span className="tabular-nums">FCP {pct(n.fcp)}</span><span>{nomeBase(n.base)}</span></>}
-              <Button variant="ghost" size="sm" className="text-primary-text" onClick={() => setEditando(n)} aria-label={`Corrigir ${n.uf}`}><Pencil size={14} aria-hidden />Corrigir</Button>
+                : <><span className="tabular-nums">{pct(n.aliquotaInterna)}<Ressalva n={n} /></span><span className="tabular-nums">FCP {pct(n.fcp)}</span><span>{nomeBase(n.base)}</span></>}
+              <Button variant="ghost" size="sm" className="text-primary-text" onClick={() => corrigir(n)} aria-label={`Corrigir ${n.uf}`}><Pencil size={14} aria-hidden />Corrigir</Button>
             </div>
           ))}
         </div>
       </details>
 
       {/* Celular: botão que abre a folha de tela inteira (protótipo, opção 2). */}
-      <Sheet>
+      <Sheet open={folhaAberta} onOpenChange={setFolhaAberta}>
         <SheetTrigger className="flex min-h-12 w-full items-center justify-between rounded-lg border bg-card px-3 text-sm font-medium md:hidden">
           <span className="flex items-center gap-2"><Table2 size={16} aria-hidden />Ver tabela do MOVA: {daTabela.length} estados</span>
           <ChevronRight size={16} aria-hidden />
@@ -157,8 +161,9 @@ export function DifalUfs({ grupoId, ufEmitente, correcoes, importado, onImportad
                   {n.aliquotaInterna === null
                     ? <span className="text-warning">· {SEM_PADRAO}</span>
                     : <span className="tabular-nums text-muted-foreground">· {pct(n.aliquotaInterna)} · FCP {pct(n.fcp)} · {nomeBase(n.base)}</span>}
+                  <Ressalva n={n} />
                 </span>
-                <Button variant="ghost" size="icon" aria-label={`Corrigir ${n.uf}`} onClick={() => setEditando(n)}><Pencil size={16} aria-hidden /></Button>
+                <Button variant="ghost" size="icon" aria-label={`Corrigir ${n.uf}`} onClick={() => corrigir(n)}><Pencil size={16} aria-hidden /></Button>
               </div>
             ))}
           </div>
@@ -175,7 +180,7 @@ function DialogoCorrigir({ grupoId, n, onFechar }: { grupoId: string; n: Numeros
   const idFcp = useId()
   const idBase = useId()
   const [aliq, setAliq] = useState(n.aliquotaInterna === null ? '' : String(n.aliquotaInterna).replace('.', ','))
-  const [fcp, setFcp] = useState(n.fcp === null ? '0' : String(n.fcp).replace('.', ','))
+  const [fcp, setFcp] = useState(n.fcp === null ? '' : String(n.fcp).replace('.', ','))
   const [base, setBase] = useState<BaseDifal>(n.base)
   const [erro, setErro] = useState<string | null>(null)
   const [pendente, start] = useTransition()

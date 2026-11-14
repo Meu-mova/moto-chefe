@@ -66,6 +66,7 @@ test('T1: corrigida no cartão com o padrão, SP com o padrão do MOVA, BA sem p
   assert.match(cartoes?.textContent ?? '', /Padrão do MOVA: sem valor padrão/)
   const sp = document.querySelector('[data-uf="SP"]')?.textContent ?? ''
   assert.match(sp, /18%/); assert.match(sp, /Única/)
+  assert.match(sp, /Alíquota geral; a de moto elétrica não foi conferida\./)
   assert.match(document.querySelector('[data-uf="BA"]')?.textContent ?? '', /Sem valor padrão\. Preencha com o seu contador\./)
   assert.match(document.querySelector('[data-uf="MG"]')?.textContent ?? '', /sua UF/)
   assert.doesNotMatch(texto(), /—/)
@@ -76,6 +77,8 @@ test('T2: corrigir SP pelo diálogo manda grupo, UF, números com vírgula e bas
   await clicar(botao('Corrigir SP'))
   assert.match(texto(), /RICMS\/SP/)
   await digitar(campo('Alíquota interna (%)'), '18,5')
+  // Sem FCP no padrão, o campo vem vazio: o número tem que vir do contador.
+  assert.equal(campo('FCP (%)').value, '')
   await digitar(campo('FCP (%)'), '2')
   await digitar(campo('Base'), 'dupla')
   await clicar(botao('Salvar correção'))
@@ -102,10 +105,14 @@ test('T5: enquanto salva, os botões do diálogo ficam desabilitados', async () 
   let soltar!: () => void
   segurar = new Promise(r => { soltar = r })
   await clicar(botao('Corrigir SP'))
+  await digitar(campo('FCP (%)'), '0')
   const salvarBtn = botao('Salvar correção')
   await clicar(salvarBtn)
   assert.ok(botao('Salvando...').disabled)
   assert.ok(botao('Cancelar').disabled)
+  const { act: agir } = await import('react')
+  await agir(async () => { document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+  assert.ok(document.querySelector('[role="dialog"]'), 'Escape não fecha enquanto salva')
   const { act } = await import('react'); await act(async () => { soltar() })
 })
 
@@ -115,9 +122,27 @@ test('T6: no celular, o botão abre a folha com Fechar, busca e linhas compactas
   const folha = document.querySelector('[data-folha-ufs]')
   assert.ok(folha)
   assert.match(folha.textContent ?? '', /SP São Paulo · 18% · FCP sem valor · Única/)
-  botao('Fechar')
   await digitar(folha.querySelector('input[type="search"]') as HTMLInputElement, 'paulo')
   assert.equal(folha.querySelectorAll('[data-linha-uf]').length, 1)
+  await clicar(botao('Fechar'))
+  assert.equal(document.querySelector('[data-folha-ufs]'), null)
+})
+
+test('T6b: o lápis dentro da folha fecha a folha e abre só o diálogo de corrigir', async () => {
+  await montar()
+  await clicar(botao(/Ver tabela do MOVA/))
+  const folha = document.querySelector('[data-folha-ufs]')!
+  await clicar(folha.querySelector('[aria-label="Corrigir SP"]') as HTMLElement)
+  assert.equal(document.querySelector('[data-folha-ufs]'), null)
+  assert.match(document.querySelector('[role="dialog"]')?.textContent ?? '', /Corrigir SP/)
+})
+
+test('T9: FCP vazio não grava', async () => {
+  await montar()
+  await clicar(botao('Corrigir SP'))
+  await clicar(botao('Salvar correção'))
+  assert.deepEqual(salvas, [])
+  assert.match(document.querySelector('[role="dialog"] [role="alert"]')?.textContent ?? '', /FCP/)
 })
 
 test('T7: o campo do importado repassa o que foi digitado', async () => {
@@ -133,6 +158,7 @@ test('T8: erro da action aparece na tela', async () => {
   await montar()
   await clicar(botao('Corrigir SP'))
   await digitar(campo('Alíquota interna (%)'), '18')
+  await digitar(campo('FCP (%)'), '0')
   await clicar(botao('Salvar correção'))
   assert.match(document.querySelector('[role="dialog"] [role="alert"]')?.textContent ?? '', /Grupo não encontrado/)
 })
