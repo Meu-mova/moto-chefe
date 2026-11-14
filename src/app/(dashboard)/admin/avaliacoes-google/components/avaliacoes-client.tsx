@@ -11,6 +11,7 @@ import type { LojaPainel, PainelAvaliacoes, PlacaPainel } from '@/lib/avaliacoes
 import {
   atualizarAgoraAction, criarPlacaAction, editarPlacaAction, salvarChaveGoogleAction, salvarPlaceIdAction,
 } from '../actions'
+import { baixarArquivo } from '@/lib/baixar-arquivo'
 import { dataPuraBr } from '@/lib/data-venda'
 
 export type LinkPlaca = { link: string; qrSvg: string }
@@ -172,13 +173,6 @@ function ResultadoPorVendedor({ painel }: { painel: PainelAvaliacoes }) {
   )
 }
 
-function baixar(nome: string, dataUrl: string) {
-  const a = document.createElement('a')
-  a.href = dataUrl
-  a.download = nome
-  a.click()
-}
-
 function NovaPlaca({ painel }: { painel: PainelAvaliacoes }) {
   const [lojaId, setLojaId] = useState(painel.lojas[0]?.lojaId ?? '')
   const [usuarioId, setUsuarioId] = useState('')
@@ -271,7 +265,7 @@ function LinhaPlaca({ placa, link, painel }: { placa: PlacaPainel; link: LinkPla
       </div>
       <div className="flex flex-col items-center gap-2">
         <img src={link.qrSvg} alt={`QR code da placa ${titulo}`} className="size-28 rounded-md" />
-        <Button size="sm" variant="secondary" onClick={() => baixar(`qr-avaliacao-${placa.lojaNome}-${placa.usuarioNome ?? 'balcao'}-${placa.codigo}.svg`, link.qrSvg)}>
+        <Button size="sm" variant="secondary" onClick={() => baixarArquivo(`qr-avaliacao-${placa.lojaNome}-${placa.usuarioNome ?? 'balcao'}-${placa.codigo}.svg`, link.qrSvg)}>
           <Download /> Baixar QR
         </Button>
       </div>

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { FileSpreadsheet, Loader2, Printer } from 'lucide-react'
+import { baixarArquivo } from '@/lib/baixar-arquivo'
 
 /**
  * Exportação para a assessoria contábil.
@@ -30,12 +31,7 @@ export function ExportContabil({ de: dePadrao, ate: atePadrao }: { de: string; a
       const blob = await res.blob()
       const nome = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1]
         ?? `contabilidade-${de}-a-${ate}.xlsx`
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = nome
-      a.click()
-      URL.revokeObjectURL(url)
+      baixarArquivo(nome, blob)
     } catch {
       setErro('Não foi possível gerar a planilha agora.')
     } finally {

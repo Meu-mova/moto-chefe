@@ -1,12 +1,12 @@
 // Filtros do Painel da Fábrica: formulário GET, sem JavaScript. O filtro mora na URL,
 // para o impresso e o CSV saírem iguais ao que está na tela.
 import Link from 'next/link'
-import type { FiltroPainel, LojaPainel } from '@/lib/painel-fabrica'
+import { ROTA_PAINEL_FABRICA, type Aba, type FiltroPainel, type LojaPainel } from '@/lib/painel-fabrica'
 
 function Multipla({ nome, rotulo, opcoes, marcados }: {
   nome: string
   rotulo: string
-  opcoes: { valor: string; texto: string; detalhe?: string }[]
+  opcoes: { valor: string; texto: string }[]
   marcados: string[]
 }) {
   const resumo = marcados.length === 0 ? 'Todas' : marcados.length === 1
@@ -23,7 +23,7 @@ function Multipla({ nome, rotulo, opcoes, marcados }: {
         {opcoes.map(o => (
           <label key={o.valor} className="flex items-start gap-2 text-sm px-1 py-0.5 rounded hover:bg-muted cursor-pointer">
             <input type="checkbox" name={nome} value={o.valor} defaultChecked={marcados.includes(o.valor)} className="mt-0.5" />
-            <span>{o.texto}{o.detalhe && <span className="block text-xs text-muted-foreground">{o.detalhe}</span>}</span>
+            <span>{o.texto}</span>
           </label>
         ))}
       </div>
@@ -31,7 +31,8 @@ function Multipla({ nome, rotulo, opcoes, marcados }: {
   )
 }
 
-export function FiltrosPainel({ lojas, modelos, cores, filtro, de, ate }: {
+export function FiltrosPainel({ aba, lojas, modelos, cores, filtro, de, ate }: {
+  aba: Aba
   lojas: LojaPainel[]
   modelos: string[]
   cores: string[]
@@ -40,23 +41,28 @@ export function FiltrosPainel({ lojas, modelos, cores, filtro, de, ate }: {
   ate: string
 }) {
   return (
-    <form method="get" className="flex flex-wrap items-end gap-3 bg-card border rounded-lg p-3">
-      <Multipla
-        nome="loja" rotulo="Lojas" marcados={filtro.lojas}
-        opcoes={lojas.map(l => ({ valor: l.lojaId, texto: l.lojaNome, detalhe: `${l.cidade} · ${l.grupoNome}` }))}
-      />
+    <form method="get" action={ROTA_PAINEL_FABRICA} className="flex flex-wrap items-end gap-3 bg-card border rounded-lg p-3">
+      <input type="hidden" name="aba" value={aba} />
+      <Multipla nome="loja" rotulo="Lojas" marcados={filtro.lojas} opcoes={lojas.map(l => ({ valor: l.lojaId, texto: l.lojaNome }))} />
       <Multipla nome="modelo" rotulo="Modelos" marcados={filtro.modelos} opcoes={modelos.map(m => ({ valor: m, texto: m }))} />
       <Multipla nome="cor" rotulo="Cores" marcados={filtro.cores} opcoes={cores.map(c => ({ valor: c, texto: c }))} />
-      <div className="space-y-1">
-        <label htmlFor="de" className="text-xs text-muted-foreground block">Vendas de</label>
-        <input type="date" id="de" name="de" defaultValue={de} className="border border-input rounded-md px-3 py-1.5 text-sm bg-card" />
-      </div>
-      <div className="space-y-1">
-        <label htmlFor="ate" className="text-xs text-muted-foreground block">até</label>
-        <input type="date" id="ate" name="ate" defaultValue={ate} className="border border-input rounded-md px-3 py-1.5 text-sm bg-card" />
-      </div>
+      {aba === 'vendas' ? (
+        <>
+          <div className="space-y-1">
+            <label htmlFor="de" className="text-xs text-muted-foreground block">Vendas de</label>
+            <input type="date" id="de" name="de" defaultValue={de} className="border border-input rounded-md px-3 py-1.5 text-sm bg-card" />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="ate" className="text-xs text-muted-foreground block">até</label>
+            <input type="date" id="ate" name="ate" defaultValue={ate} className="border border-input rounded-md px-3 py-1.5 text-sm bg-card" />
+          </div>
+        </>
+      ) : (
+        // O estoque é o de hoje; o período segue escondido para não se perder ao voltar à aba de vendas.
+        <><input type="hidden" name="de" value={de} /><input type="hidden" name="ate" value={ate} /></>
+      )}
       <button type="submit" className="h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm">Aplicar</button>
-      <Link href="/admin/painel-fabrica" className="h-9 px-3 inline-flex items-center rounded-md text-sm text-muted-foreground hover:bg-muted">Limpar</Link>
+      <Link href={`${ROTA_PAINEL_FABRICA}?aba=${aba}`} className="h-9 px-3 inline-flex items-center rounded-md text-sm text-muted-foreground hover:bg-muted">Limpar</Link>
     </form>
   )
 }
