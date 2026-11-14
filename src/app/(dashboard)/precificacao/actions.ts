@@ -49,6 +49,7 @@ export async function salvarTaxasAction(data: TaxasPayload) {
     .onConflictDoUpdate({
       target: configuracaoTaxas.grupoId,
       set: { ...taxas, atualizadoEm: sql`NOW()` },
+      setWhere: eq(configuracaoTaxas.grupoId, grupo.id),
     })
   revalidatePath('/precificacao')
   revalidatePath('/simulador')
