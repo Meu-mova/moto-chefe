@@ -8,7 +8,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
-import { cadastrarCliente, cpfRepetido, mensagemCpfRepetido } from '@/lib/cliente-cadastro'
+import { atualizarCliente, cadastrarCliente, type Resultado } from '@/lib/cliente-cadastro'
 
 export type ClienteInput = {
   nome: string
@@ -127,37 +127,33 @@ export async function listarCidadesAction() {
   return rows.map(r => r.cidade).filter(Boolean) as string[]
 }
 
-export async function criarClienteAction(dados: ClienteInput): Promise<string> {
+// Recusa volta como { ok: false, erro } (#404): na produção o Next esconde a mensagem de erro
+// lançado por Server Action, e a tela mostrava "React error #441".
+export async function criarClienteAction(dados: ClienteInput): Promise<Resultado<{ id: string }>> {
   const usuario = await getUsuarioLogado()
-  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) return { ok: false, erro: 'Sem permissão' }
 
   const cpfCnpj = limparCpfCnpj(dados.cpfCnpj)
 
-  const id = await cadastrarCliente(db, { contaId: await contaDoGrupoAtivo(usuario), grupoLiberado: usuario.grupoLiberado }, { ...dados, cpfCnpj })
-  revalidatePath('/clientes')
-  return id
+  const r = await cadastrarCliente(db, { contaId: await contaDoGrupoAtivo(usuario), grupoLiberado: usuario.grupoLiberado }, { ...dados, cpfCnpj })
+  if (r.ok) revalidatePath('/clientes')
+  return r
 }
 
-export async function atualizarClienteAction(id: string, dados: Partial<ClienteInput>) {
+export async function atualizarClienteAction(id: string, dados: Partial<ClienteInput>): Promise<Resultado> {
   const usuario = await getUsuarioLogado()
-  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) return { ok: false, erro: 'Sem permissão' }
 
   const cpfCnpj = dados.cpfCnpj !== undefined ? limparCpfCnpj(dados.cpfCnpj) : undefined
 
-  try {
-    const atualizados = await db.update(clientes).set({
-      ...dados,
-      ...(cpfCnpj !== undefined ? { cpfCnpj } : {}),
-      atualizadoEm: new Date(),
-    }).where(and(eq(clientes.id, id), clientesDoEscopo(await contaDoGrupoAtivo(usuario), usuario)))
-      .returning({ id: clientes.id })
-    if (!atualizados.length) throw new Error('Cliente não encontrado')
-    revalidatePath('/clientes')
-    revalidatePath(`/clientes/${id}`)
-  } catch (e: unknown) {
-    if (cpfRepetido(e)) throw new Error(mensagemCpfRepetido(usuario))
-    throw e
-  }
+  const r = await atualizarCliente(db, { contaId: await contaDoGrupoAtivo(usuario), grupoLiberado: usuario.grupoLiberado }, id, {
+    ...dados,
+    ...(cpfCnpj !== undefined ? { cpfCnpj } : {}),
+  })
+  if (!r.ok) return r
+  revalidatePath('/clientes')
+  revalidatePath(`/clientes/${id}`)
+  return r
 }
 
 export async function excluirClienteAction(id: string) {

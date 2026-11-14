@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CamposPix } from '@/components/campos-pix'
 import type { TipoChavePix } from '@/lib/dados-funcionario'
+import { FALHA_SEM_RESPOSTA } from '@/lib/falha-sem-resposta'
 import { salvarDadosFuncionarioAction } from './actions'
 
 const AJUDA: Record<TipoChavePix, string> = {
@@ -42,7 +43,7 @@ export function CompletarCadastroForm({ inicial }: { inicial: Inicial | null }) 
       // servidor a montar o layout do zero, já enxergando os dados gravados.
       window.location.assign('/dashboard')
     } catch {
-      setErro('Não consegui salvar agora. Tente de novo.')
+      setErro(FALHA_SEM_RESPOSTA)
       setSalvando(false)
     }
   }

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CamposPix } from '@/components/campos-pix'
 import type { TipoChavePix } from '@/lib/dados-funcionario'
+import { FALHA_SEM_RESPOSTA } from '@/lib/falha-sem-resposta'
 import { salvarPixDoFuncionarioAction } from '../actions'
 
 export function EditarPixDialog({ usuarioId, nome, pixTipo, pixChave }: {
@@ -41,7 +42,7 @@ export function EditarPixDialog({ usuarioId, nome, pixTipo, pixChave }: {
       if (r.ok) setOpen(false)
       else setErro(r.erro)
     } catch {
-      setErro('Não consegui salvar agora. Tente de novo.')
+      setErro(FALHA_SEM_RESPOSTA)
     } finally {
       enviando.current = false
       setSalvando(false)

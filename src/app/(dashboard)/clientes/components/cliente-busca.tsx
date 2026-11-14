@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { Loader2, UserPlus, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { FALHA_SEM_RESPOSTA } from '@/lib/falha-sem-resposta'
 import { buscarClientesAction, criarClienteAction } from '../actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -118,22 +119,23 @@ export function ClienteBusca({
     }
     setSalvando(true)
     try {
-      const id = await criarClienteAction({
+      const r = await criarClienteAction({
         nome: novoNome.trim(),
         tipoPessoa: novoTipo,
         cpfCnpj: novoCpf.trim() || null,
         celular: novoCelular.trim() || null,
         sexo: 'nao_identificado',
       })
-      onSelect(id, novoNome.trim(), novoCpf.trim() || null)
+      if (!r.ok) { toast.error(r.erro); return }
+      onSelect(r.id, novoNome.trim(), novoCpf.trim() || null)
       setNovoOpen(false)
       setNovoNome('')
       setNovoCelular('')
       setNovoCpf('')
       setNovoTipo('fisica')
       toast.success('Cliente cadastrado com sucesso')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao cadastrar cliente')
+    } catch {
+      toast.error(FALHA_SEM_RESPOSTA)
     } finally {
       setSalvando(false)
     }
