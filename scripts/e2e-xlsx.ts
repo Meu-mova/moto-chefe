@@ -18,6 +18,7 @@ import { execRows } from '@/lib/db'
 import { motivoRecusaForaDoStaging } from './lib/alvo-banco'
 import { motivoRecusa } from './lib/e2e-mensalidade'
 import { DOMINIO_TESTE } from './lib/seed-dados'
+import { fecharNovidadesSeAbrir } from './lib/janela-novidades'
 
 const base = process.env.E2E_URL?.replace(/\/$/, '') ?? ''
 const recusa = motivoRecusa({ url: base, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, databaseUrl: process.env.DATABASE_URL })
@@ -46,6 +47,7 @@ async function entrar(pagina: Page) {
     pagina.waitForURL(url => !url.pathname.startsWith('/login') || url.searchParams.has('error'), { timeout: 30_000 }),
     pagina.click('button[type="submit"]'),
   ])
+  await fecharNovidadesSeAbrir(pagina)
 }
 
 /** Planilha sintética gerada com a própria lib, com o cabeçalho que cada tela espera. */

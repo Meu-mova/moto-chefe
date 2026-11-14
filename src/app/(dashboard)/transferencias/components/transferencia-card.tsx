@@ -7,13 +7,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { MotoStatusIcon } from '@/components/moto-status-icon'
+import { rotuloStatusTransferencia, type StatusTransferencia } from '@/lib/transferencia-tela'
+import { PrintButton } from '../../relatorio-fabrica/print-button'
 import { aceitarTransferenciaAction, recusarTransferenciaAction } from '../actions'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 export type TransferenciaCardData = {
   id: string
-  status: 'pendente' | 'aceita' | 'recusada'
+  status: StatusTransferencia
   dataSolicitacao: Date | string | null
   dataResposta: Date | string | null
   observacao: string | null
@@ -29,16 +31,11 @@ export type TransferenciaCardData = {
   respondidoPorNome: string | null
 }
 
-const statusBadge: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+// Record pelo tipo da lista: status novo sem cor de selo não compila.
+const statusBadge: Record<StatusTransferencia, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pendente: 'outline',
   aceita:   'default',
   recusada: 'destructive',
-}
-
-const statusLabel: Record<string, string> = {
-  pendente: 'Pendente',
-  aceita:   'Aceita',
-  recusada: 'Recusada',
 }
 
 type Props = {
@@ -100,8 +97,8 @@ export function TransferenciaCard({ transferencia: t, papel, lojaIdUsuario }: Pr
               </div>
             )}
           </div>
-          <Badge variant={statusBadge[t.status] ?? 'secondary'}>
-            {statusLabel[t.status] ?? t.status}
+          <Badge variant={statusBadge[t.status]}>
+            {rotuloStatusTransferencia(t.status)}
           </Badge>
         </div>
         <div className="text-xs text-muted-foreground space-y-1">
@@ -122,16 +119,19 @@ export function TransferenciaCard({ transferencia: t, papel, lojaIdUsuario }: Pr
           )}
           {t.observacao && <p className="italic">{t.observacao}</p>}
         </div>
-        {podeResponder && (
-          <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={handleAceitar} disabled={loading}>
-              Aceitar
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => setRecusarOpen(true)} disabled={loading}>
-              Recusar
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2 pt-1">
+          {podeResponder && (
+            <>
+              <Button size="sm" onClick={handleAceitar} disabled={loading}>
+                Aceitar
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => setRecusarOpen(true)} disabled={loading}>
+                Recusar
+              </Button>
+            </>
+          )}
+          <PrintButton href={`/transferencias/${t.id}/imprimir`} rotulo="Imprimir" />
+        </div>
       </CardContent>
 
       <Dialog open={recusarOpen} onOpenChange={setRecusarOpen}>

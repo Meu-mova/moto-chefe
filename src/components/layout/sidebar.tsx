@@ -8,6 +8,7 @@ import { CATEGORIAS, ITENS, type ItemNav } from '@/lib/navegacao'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { MenuUsuario, type UsuarioMenu } from './menu-usuario'
 import { COOKIE_SIDEBAR_RECOLHIDA } from './sidebar-cookie'
+import { gravarCookieDeUmAno } from '@/lib/cookie-do-navegador'
 import { PesquisaTelas } from './pesquisa-telas'
 
 
@@ -120,7 +121,7 @@ export function Sidebar({ itensIds, conecta, usuario, recolhidaInicial }: Props)
 
   function alternar() {
     const nova = !recolhida
-    document.cookie = `${COOKIE_SIDEBAR_RECOLHIDA}=${nova ? '1' : '0'}; path=/; max-age=31536000; samesite=lax`
+    gravarCookieDeUmAno(COOKIE_SIDEBAR_RECOLHIDA, nova ? '1' : '0')
     setRecolhida(nova)
   }
 

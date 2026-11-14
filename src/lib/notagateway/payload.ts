@@ -26,7 +26,7 @@ import type { IndicadorIe } from '../documento'
 import { operacaoExigeEntrega, type VeiculoNovo } from './veiculo'
 import { validarDadosTransporte, type DadosTransporte, type EnderecoEntrega } from './transporte'
 import { AVISO_SEM_MODALIDADE, freteDaVenda, modalidadeComFrete, valorDaMoto, operacaoDaVenda, transporteDaEntrega, type EntregaVenda } from './entrega'
-import { centavos } from '../numero-br'
+import { centavos } from '@/lib/centavos'
 
 export type RegraSaida = {
   naturezaOperacao: string
