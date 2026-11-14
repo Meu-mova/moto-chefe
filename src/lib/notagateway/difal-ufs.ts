@@ -19,6 +19,8 @@ export type PadraoUf = {
   base: BaseDifal
   fonte: string | null
   conferidoEm: string | null
+  /** O que a fonte não confirma e a tela precisa mostrar junto do número. */
+  ressalva: string | null
 }
 
 export type CorrecaoUf = { uf: string; aliquotaInterna: number; fcp: number; base: BaseDifal }
@@ -46,16 +48,18 @@ const CONFIRMADAS: Partial<Record<SiglaUf, Omit<PadraoUf, 'base'>>> = {
     fcp: null,
     fonte: 'RICMS/SP, art. 52, I (alíquota geral; enquadramento da moto elétrica não conferido: art. 55, VI dá 25% para moto acima de 250 cm³): https://legislacao.fazenda.sp.gov.br/Paginas/art052.aspx',
     conferidoEm: '2026-11-14',
+    ressalva: 'Alíquota geral; a de moto elétrica não foi conferida.',
   },
   MG: {
     aliquotaInterna: 18,
     fcp: null,
     fonte: 'Lei 6.763/1975, art. 12, I, d (alíquota geral; alíquota específica de moto não conferida): https://www.almg.gov.br/legislacao-mineira/texto/LEI/6763/1975/',
     conferidoEm: '2026-11-14',
+    ressalva: 'Alíquota geral; a de moto elétrica não foi conferida.',
   },
 }
 
-const SEM_FONTE = { aliquotaInterna: null, fcp: null, fonte: null, conferidoEm: null }
+const SEM_FONTE = { aliquotaInterna: null, fcp: null, fonte: null, conferidoEm: null, ressalva: null }
 
 export const TABELA_DIFAL_PADRAO: Readonly<Record<SiglaUf, PadraoUf>> = Object.fromEntries(
   UFS.map(({ sigla }) => [sigla, { ...(CONFIRMADAS[sigla] ?? SEM_FONTE), base: BASE_PADRAO }]),
