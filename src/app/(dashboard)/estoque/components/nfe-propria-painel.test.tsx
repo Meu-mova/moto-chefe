@@ -7,7 +7,7 @@ import { RENAVE_COMPLETO_FATURAMENTO_DIRETO } from '@/test/renave-completo'
 import type { DadosTransporte } from '@/lib/notagateway/transporte'
 import type { NotaResumo } from '../../vendas/nfe-propria-actions'
 import { montarDom } from '@/test/montar-dom'
-import { clicar, digitarTexto } from '@/test/eventos-dom'
+import { clicar, digitar, digitarTexto } from '@/test/eventos-dom'
 
 const { dom, desmontar } = montarDom()
 after(desmontar)
@@ -51,7 +51,7 @@ const preview: Extract<PreviaNfe, { ok: true }> = {
     moto: { ncm: '87116000', cest: '' },
   },
   podeConfigurarFiscal: false, avisoEmissor: null,
-  entrega: null,
+  entrega: null, travaDaEntrega: null,
 }
 
 
@@ -62,6 +62,7 @@ const acoesInesperadas = () => ({
   corrigirEReenviarNfAction: unexpectedAction as (...args: unknown[]) => Promise<unknown>,
 })
 let acoes = acoesInesperadas()
+let alterarDaVenda: (...a: unknown[]) => Promise<unknown> = unexpectedAction
 // Um só mock de módulo para o arquivo todo; cada teste troca só as ações que espera.
 const modulos: { restore(): void }[] = []
 before(() => {
@@ -72,6 +73,9 @@ before(() => {
     consultarNfePropriaAction: unexpectedAction, salvarFichaMotoAction: unexpectedAction,
     salvarCestMotoAction: unexpectedAction, cancelarNfePropriaAction: unexpectedAction,
     cancelarNfeExtemporaneaAction: unexpectedAction, descartarTentativaAction: unexpectedAction,
+  } }))
+  modulos.push(mock.module('../../vendas/actions', { namedExports: {
+    alterarEntregaDaVendaAction: (...args: unknown[]) => alterarDaVenda(...args),
   } }))
   modulos.push(mock.module('../../vendas/cartas-correcao-actions', { namedExports: {
     cartasDaNotaAction: unexpectedAction, descartarCartaAction: unexpectedAction,
@@ -407,4 +411,38 @@ test('reabrir a recusa traz a observação editada do envio anterior e o reenvio
   await click(/^Salvar e reenviar/)
   assert.equal(chamadas.length, 1)
   assert.equal(chamadas[0][4], 'EDITADO ANTES')
+})
+
+// "Alterar entrega" na prévia (#895): o frete cobrado não muda; NF viva esconde o botão com a frase da trava.
+const ENTREGA_COM_FRETE = {
+  modo: 'entregar', modalidade: 'TransporteProprioPorContaDoRemetente', recebe: null, frete: 350,
+  endereco: { cep: '37000000', logradouro: 'Rua de teste', numero: '10', complemento: '', bairro: 'Centro', cidade: '3170701', nomeCidade: 'Varginha', uf: 'MG' },
+} as const
+// Moto que não é ciclomotor: a prévia abre direto na conferência, onde fica a Entrega.
+const SEM_RENAVE = { ...preview, exigeRenave: false, renave: null }
+
+test('prévia: "Alterar entrega" sem o "+ Frete" (o frete cobrado não muda); salvar envia à venda e recarrega a prévia', async () => {
+  const enviados: unknown[][] = []
+  let previas = 0
+  alterarDaVenda = async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } }
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => { previas++; return { ...SEM_RENAVE, entrega: ENTREGA_COM_FRETE } } }
+  const { container, click } = await abrirPainel()
+  await click(/^Alterar entrega$/)
+  const dialogo = document.querySelector('[aria-label="Alterar entrega"]')
+  assert.ok(dialogo, 'o diálogo abriu')
+  assert.equal([...dialogo.querySelectorAll('button')].some(b => /\+ Frete/.test(b.textContent ?? '')), false)
+  assert.match(dialogo.textContent ?? '', /Frete cobrado: R\$\s*350,00/)
+  await digitar(document.getElementById('entrega-logradouro') as HTMLInputElement, 'Outra rua')
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Salvar entrega'))
+  assert.deepEqual(enviados, [['venda-teste', { ...ENTREGA_COM_FRETE, endereco: { ...ENTREGA_COM_FRETE.endereco, logradouro: 'Outra rua' } }]])
+  assert.equal(previas, 2)
+  assert.ok(container)
+})
+
+test('prévia: com NF viva o "Alterar entrega" some e aparece a frase da trava', async () => {
+  alterarDaVenda = unexpectedAction
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...SEM_RENAVE, entrega: ENTREGA_COM_FRETE, travaDaEntrega: 'Cancele a NF antes de mudar a entrega.' }) }
+  const { container } = await abrirPainel()
+  assert.equal([...container.querySelectorAll('button')].some(b => /Alterar entrega/.test(b.textContent ?? '')), false)
+  assert.match(container.textContent ?? '', /Cancele a NF antes de mudar a entrega\./)
 })
