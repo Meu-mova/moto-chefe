@@ -10,10 +10,23 @@ CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
 CREATE ROLE service_role NOLOGIN;
 
-CREATE SCHEMA auth;
+-- Permissões que o Supabase dá por padrão aos seus papéis no schema public. Sem elas,
+-- o teste de banco não enxerga o que um login acessa num projeto Supabase de verdade.
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 
--- No Supabase, devolve o usuário do JWT da requisição; aqui não há requisição.
-CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
+CREATE SCHEMA auth;
+GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
+
+-- Como no Supabase: o usuário vem das claims do JWT, que o teste define com set_config.
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
+  SELECT coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
+  )::uuid
+$$;
 
 -- Só as colunas que as migrações usam ao criar bucket (INSERT INTO storage.buckets ...).
 CREATE SCHEMA storage;
