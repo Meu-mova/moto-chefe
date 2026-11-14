@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql, type SQL } from 'drizzle-orm'
 import type { db } from '@/lib/db'
 import { aprovacoesVenda, historicoEstoque, motos } from '@/lib/db/schema'
 import type { TipoAprovacaoVenda } from '@/lib/aprovacao-venda'
@@ -47,3 +47,12 @@ export async function gravarPedidoDeAprovacaoTx(tx: Tx, d: {
     observacao: d.observacao,
   })
 }
+
+/**
+ * O pedido tem um pedido de aprovação pendente dele mesmo (#776). Não basta a moto estar "aguardando":
+ * ela pode estar por um pedido do Vender, e aí o pedido de venda segue cancelável como antes.
+ * `pedidoId` é a coluna ou o valor do id do pedido na consulta de quem chama.
+ */
+export const pedidoEmAprovacaoSql = (pedidoId: SQL | string) => sql<boolean>`exists (
+  select 1 from aprovacoes_venda a
+  where a.origem = 'pedido' and a.status = 'pendente' and a.dados_venda->>'pedidoId' = (${pedidoId})::text)`

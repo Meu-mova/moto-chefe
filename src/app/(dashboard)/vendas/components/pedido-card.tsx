@@ -38,7 +38,7 @@ export function PedidoCard({ pedido: p, papel, usuarioId, lojaIdUsuario, origens
   const isAdmin = ['admin_geral', 'admin_socio'].includes(papel)
 
   // Em aprovação (#776): quem decide é o aprovador; efetivar e cancelar esperam.
-  const aguardandoAprovacao = p.status === 'pendente' && p.disponibilidade === 'aguardando_aprovacao'
+  const aguardandoAprovacao = p.status === 'pendente' && p.emAprovacao
   const podeEfetivar = p.status === 'pendente' && !aguardandoAprovacao && ['admin_geral', 'admin_socio', 'aux_adm'].includes(papel) &&
     (isAdmin || lojaIdUsuario === p.lojaId)
 

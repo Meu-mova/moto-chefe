@@ -140,6 +140,9 @@ test('D5: enquanto aguarda, efetivar de novo e cancelar o pedido são recusados'
   assert.deepEqual(await actions.cancelarPedidoAction(a.pedidoId), { ok: false, erro: 'Este pedido está aguardando aprovação. Aprove ou recuse antes de cancelar.' })
   assert.deepEqual(await estado(a), AGUARDANDO)
   assert.equal((await aprovacoes(a)).length, 1)
+  // O card lê a mesma marca que trava o cancelar.
+  const { listarPedidosPorLoja } = await import('@/lib/queries/vendas')
+  assert.deepEqual((await listarPedidosPorLoja(a.lojaId)).filter(p => p.id === a.pedidoId).map(p => p.emAprovacao), [true])
 })
 
 test('D6: transferência de aux_adm sem a permissão vai para aprovação de pagamento sensível; só quem tem a permissão aprova', async () => {

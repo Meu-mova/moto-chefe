@@ -4,6 +4,7 @@ import { historicoEstoque, motos, pedidosVenda, pedidosVendaItens, reservas, tra
 import { motivoBloqueioCriarPedido, podeCancelarPedido, type QuemCancela } from '@/lib/pedido-venda-regras'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
+import { pedidoEmAprovacaoSql } from '@/lib/pedido-de-aprovacao'
 import type { EntregaVenda } from '@/lib/notagateway/entrega'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -81,7 +82,8 @@ export async function cancelarPedidoTx(
     .where(eq(motos.id, pedido.motoId))
     .for('update')
   // Cancelar no meio deixaria a aprovação pendente sem pedido para efetivar (#776).
-  if (moto?.disponibilidade === 'aguardando_aprovacao') throw new RecusaUsuario(PEDIDO_AGUARDANDO_APROVACAO)
+  const [{ emAprovacao }] = await tx.select({ emAprovacao: pedidoEmAprovacaoSql(d.pedidoId) }).from(pedidosVenda).where(eq(pedidosVenda.id, d.pedidoId))
+  if (emAprovacao) throw new RecusaUsuario(PEDIDO_AGUARDANDO_APROVACAO)
 
   // O motivo do cancelamento vai só para o histórico: a observação de quem criou o pedido fica.
   await tx.update(pedidosVenda)

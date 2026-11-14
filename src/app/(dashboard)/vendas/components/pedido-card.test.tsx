@@ -19,7 +19,7 @@ mock.module('@/app/(dashboard)/clientes/actions', { namedExports: {
 const PEDIDO = {
   id: 'p1', numero: 77, status: 'pendente', motoId: 'm1', lojaId: 'loja-1', vendedorId: 'v1', chassi: 'CHASSI1', cor: 'CINZA',
   marca: 'MOTOCHEFE', modelo: 'JET', lojaNome: 'Loja Exemplo', vendedorNome: 'Vendedor Exemplo', observacao: null,
-  dataPedido: new Date('2026-11-14T12:00:00Z'), entrega: null, disponibilidade: 'reservada',
+  dataPedido: new Date('2026-11-14T12:00:00Z'), entrega: null, emAprovacao: false,
 } as unknown as PedidoComDetalhes
 
 let desmontarCard: (() => Promise<void>) | null = null
@@ -39,7 +39,7 @@ async function desenhar(pedido: PedidoComDetalhes) {
 }
 const botoes = () => [...document.querySelectorAll('button')].map(b => b.textContent?.trim())
 
-test('pedido pendente com a moto reservada: Efetivar e Cancelar', async () => {
+test('pedido pendente fora de aprovação: Efetivar e Cancelar', async () => {
   await desenhar(PEDIDO)
   assert.ok(botoes().includes('Efetivar Venda'))
   assert.ok(botoes().includes('Cancelar'))
@@ -47,7 +47,7 @@ test('pedido pendente com a moto reservada: Efetivar e Cancelar', async () => {
 })
 
 test('pedido em aprovação: "Aguardando aprovação", sem Efetivar nem Cancelar', async () => {
-  await desenhar({ ...PEDIDO, disponibilidade: 'aguardando_aprovacao' } as PedidoComDetalhes)
+  await desenhar({ ...PEDIDO, emAprovacao: true } as PedidoComDetalhes)
   assert.match(document.body.textContent ?? '', /Aguardando aprovação/)
   assert.ok(!botoes().includes('Efetivar Venda'))
   assert.ok(!botoes().includes('Cancelar'))
