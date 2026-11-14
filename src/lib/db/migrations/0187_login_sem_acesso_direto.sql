@@ -58,8 +58,10 @@ BEGIN
     WHERE n.nspname = 'public'
       AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e')
       AND (
+        -- Coluna conta: um grant só de coluna também abre a tabela.
         (c.relkind IN ('r', 'p', 'v', 'm', 'f')
-          AND has_table_privilege(r.papel, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'))
+          AND (has_table_privilege(r.papel, c.oid, 'DELETE, TRUNCATE, TRIGGER')
+            OR has_any_column_privilege(r.papel, c.oid, 'SELECT, INSERT, UPDATE, REFERENCES')))
         OR (c.relkind = 'S' AND has_sequence_privilege(r.papel, c.oid, 'USAGE, SELECT, UPDATE'))
       )
     UNION ALL
@@ -70,11 +72,13 @@ BEGIN
       AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e')
       AND has_function_privilege(r.papel, p.oid, 'EXECUTE')
     UNION ALL
-    SELECT format('padrão %s para %s', d.defaclobjtype, a.grantee::regrole)
+    -- Padrão global (sem schema) ou do public; grantee 0 = PUBLIC.
+    SELECT format('padrão %s para %s', d.defaclobjtype,
+      CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END)
     FROM pg_default_acl d, aclexplode(d.defaclacl) a
     WHERE d.defaclrole = 'postgres'::regrole
-      AND d.defaclnamespace = 'public'::regnamespace
-      AND a.grantee IN ('authenticated'::regrole, 'anon'::regrole)
+      AND d.defaclnamespace IN (0, 'public'::regnamespace)
+      AND a.grantee IN (0, 'authenticated'::regrole, 'anon'::regrole)
   ) x;
   IF abertos IS NOT NULL THEN
     RAISE EXCEPTION 'acesso direto aberto: %', abertos;

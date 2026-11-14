@@ -236,4 +236,26 @@ describe('migração que fecha o acesso direto', () => {
       await tx.execute(migracao)
     }), falhaCom(/acesso direto aberto: anon public\.adb_t/))
   })
+
+  test('falha se sobrar só uma coluna aberta', async () => {
+    await assert.rejects(db.transaction(async tx => {
+      await tx.execute(sql`create table adb_t (id int)`)
+      await abrirPorOutro(tx, 'select (id)', 'adb_t', 'authenticated')
+      await tx.execute(migracao)
+    }), falhaCom(/acesso direto aberto: authenticated public\.adb_t/))
+  })
+
+  test('falha se o padrão global abrir objeto novo ao login comum', async () => {
+    await assert.rejects(db.transaction(async tx => {
+      await tx.execute(sql`alter default privileges for role postgres grant select on tables to authenticated`)
+      await tx.execute(migracao)
+    }), falhaCom(/padrão r para authenticated/))
+  })
+
+  test('falha se o padrão do schema abrir objeto novo a todos (PUBLIC)', async () => {
+    await assert.rejects(db.transaction(async tx => {
+      await tx.execute(sql`alter default privileges for role postgres in schema public grant select on tables to public`)
+      await tx.execute(migracao)
+    }), falhaCom(/padrão r para PUBLIC/))
+  })
 })
