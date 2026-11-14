@@ -2,16 +2,14 @@ import Link from 'next/link'
 import { exigirAcessoPagina } from '../components/admin-guard'
 import { carregarPainelFabrica } from '@/lib/queries/painel-fabrica'
 import {
-  abaDaUrl, filtroDaUrl, filtrarEstoque, filtrarVendas, opcoesDoPainel, paraCsv, planilhaDoPainel, urlDoFiltro,
-  MARCA_PAINEL_FABRICA, ROTA_PAINEL_FABRICA, type Aba, type ParamsPainel,
+  abaDaUrl, filtroDaUrl, filtrarEstoque, filtrarVendas, opcoesDoPainel, paraCsv, planilhaDoPainel, rotuloDaAba, urlDoFiltro,
+  ABAS_PAINEL, MARCA_PAINEL_FABRICA, ROTA_PAINEL_FABRICA, type ParamsPainel,
 } from '@/lib/painel-fabrica'
 import { dataPuraBr, hojeBrt } from '@/lib/data-venda'
 import { cn } from '@/lib/utils'
 import { FiltrosPainel } from './components/filtros-painel'
 import { TabelaEstoque, TabelaVendas } from './components/tabelas-painel'
 import { AcoesPainel } from './components/acoes-painel'
-
-const ABAS: { id: Aba; rotulo: string }[] = [{ id: 'estoque', rotulo: 'Estoque' }, { id: 'vendas', rotulo: 'Vendas' }]
 
 export default async function PainelFabricaPage({ searchParams }: { searchParams: Promise<ParamsPainel> }) {
   // Antes de qualquer busca (#579): lê todas as Contas, só o admin_geral.
@@ -38,13 +36,13 @@ export default async function PainelFabricaPage({ searchParams }: { searchParams
         </div>
         <AcoesPainel
           arquivo={{ nome: planilha.nome, conteudo: paraCsv(planilha.cabecalho, planilha.linhas) }}
-          rotuloExportar={`${aba === 'estoque' ? 'Estoque' : 'Vendas'} (Excel)`}
+          rotuloExportar={`${rotuloDaAba(aba)} (Excel)`}
           urlImpressao={`${ROTA_PAINEL_FABRICA}/imprimir?${urlDoFiltro(filtro, de, ate, aba)}`}
         />
       </div>
 
       <nav className="flex gap-1 border-b" aria-label="Abas do painel">
-        {ABAS.map(a => (
+        {ABAS_PAINEL.map(a => (
           <Link
             key={a.id}
             href={`${ROTA_PAINEL_FABRICA}?${urlDoFiltro(filtro, de, ate, a.id)}`}

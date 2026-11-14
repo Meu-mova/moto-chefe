@@ -3,7 +3,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { carregarPainelFabrica } from '@/lib/queries/painel-fabrica'
 import {
-  abaDaUrl, filtroDaUrl, filtrarEstoque, filtrarVendas, MARCA_PAINEL_FABRICA, ROTA_PAINEL_FABRICA, type ParamsPainel,
+  abaDaUrl, filtroDaUrl, filtrarEstoque, filtrarVendas, rotuloDaAba, MARCA_PAINEL_FABRICA, ROTA_PAINEL_FABRICA, type ParamsPainel,
 } from '@/lib/painel-fabrica'
 import { dataEHoraBrt, dataPuraBr } from '@/lib/data-venda'
 import { TabelaEstoque, TabelaVendas } from '@/app/(dashboard)/admin/painel-fabrica/components/tabelas-painel'
@@ -38,7 +38,7 @@ export default async function PainelFabricaImprimirPage({ searchParams }: { sear
       <PrintButtons />
       <header className="flex justify-between items-start gap-4 border-b-2 border-foreground pb-3">
         <div>
-          <h1 className="text-xl font-bold">{aba === 'estoque' ? 'Estoque' : 'Vendas'} · Fábrica {MARCA_PAINEL_FABRICA}</h1>
+          <h1 className="text-xl font-bold">{rotuloDaAba(aba)} · Fábrica {MARCA_PAINEL_FABRICA}</h1>
           <p className="text-xs text-muted-foreground">Só motos {MARCA_PAINEL_FABRICA} · {lojas.length} lojas</p>
         </div>
         <p className="text-xs text-muted-foreground text-right">Gerado em {dataEHoraBrt(new Date().toISOString())}<br />MOVA</p>

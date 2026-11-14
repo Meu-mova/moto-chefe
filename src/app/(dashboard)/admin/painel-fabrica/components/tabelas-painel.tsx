@@ -2,7 +2,7 @@
 // (src/app/(print)/admin/painel-fabrica/imprimir) mostram exatamente o mesmo.
 import Link from 'next/link'
 import {
-  resumirEstoque, resumirVendas, urlDoFiltro, ROTA_PAINEL_FABRICA,
+  resumirEstoque, resumirVendas, urlDoFiltro, COLUNAS_VENDAS, ROTA_PAINEL_FABRICA,
   type FiltroPainel, type LinhaEstoquePainel, type LojaPainel, type VendaPainel,
 } from '@/lib/painel-fabrica'
 import { dataEHoraBrt } from '@/lib/data-venda'
@@ -186,11 +186,11 @@ export function TabelaVendas({ lojas, vendas, periodo, filtro, de, ate, impresso
           <table className="w-full text-sm">
             <thead className="bg-muted border-b">
               <tr>
-                {['Data', 'Venda', 'Loja', 'Modelo', 'Cor', 'Chassi'].map(c => <th key={c} className={`${th} text-left`}>{c}</th>)}
+                {COLUNAS_VENDAS.map(c => <th key={c} className={`${th} text-left`}>{c}</th>)}
               </tr>
             </thead>
             <tbody className="divide-y">
-              {vendas.length === 0 && <tr><td colSpan={6} className={vazio}>{SEM_VENDA}</td></tr>}
+              {vendas.length === 0 && <tr><td colSpan={COLUNAS_VENDAS.length} className={vazio}>{SEM_VENDA}</td></tr>}
               {vendas.map(x => (
                 <tr key={`${x.numero}-${x.chassi}`}>
                   <td className={`${td} whitespace-nowrap tabular-nums`}>{dataEHoraBrt(x.data)}</td>

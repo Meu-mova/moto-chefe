@@ -47,8 +47,14 @@ export type VendaPainel = {
   chassi: string
 }
 
-export type Aba = 'estoque' | 'vendas'
-export const abaDaUrl = (v: unknown): Aba => (v === 'vendas' ? 'vendas' : 'estoque')
+/** Abas do painel, na ordem da tela; a 1ª é a padrão. */
+export const ABAS_PAINEL = [{ id: 'estoque', rotulo: 'Estoque' }, { id: 'vendas', rotulo: 'Vendas' }] as const
+export type Aba = (typeof ABAS_PAINEL)[number]['id']
+export const abaDaUrl = (v: unknown): Aba => ABAS_PAINEL.find(a => a.id === v)?.id ?? ABAS_PAINEL[0].id
+export const rotuloDaAba = (aba: Aba) => ABAS_PAINEL.find(a => a.id === aba)!.rotulo
+
+/** Colunas da lista de vendas: as mesmas na tela, no impresso e no Excel. */
+export const COLUNAS_VENDAS = ['Data', 'Venda', 'Loja', 'Modelo', 'Cor', 'Chassi'] as const
 
 /** Lista vazia = sem filtro (tudo). */
 export type FiltroPainel = { lojas: string[]; modelos: string[]; cores: string[] }
@@ -160,7 +166,7 @@ export function planilhaDoPainel(aba: Aba, d: {
   if (aba === 'vendas') {
     return {
       nome: `vendas-motochefe-${d.de}-a-${d.ate}.csv`,
-      cabecalho: ['Data', 'Venda', 'Loja', 'Modelo', 'Cor', 'Chassi'],
+      cabecalho: [...COLUNAS_VENDAS],
       linhas: d.vendas.map(v => [dataEHoraBrt(v.data), v.numero, loja(v.lojaId), v.modelo, v.cor, v.chassi]),
     }
   }
