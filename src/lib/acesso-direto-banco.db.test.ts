@@ -229,33 +229,57 @@ describe('migração que fecha o acesso direto', () => {
     })
   })
 
-  test('falha, e não grava nada, se sobrar tabela aberta', async () => {
-    await assert.rejects(db.transaction(async tx => {
+  /** Prepara, roda a migração num savepoint e devolve a mensagem do erro ('' se passou). Tudo é desfeito no fim. */
+  async function erroDaMigracao(preparar: (tx: Tx) => Promise<void>, depois?: (tx: Tx) => Promise<void>) {
+    let erro = ''
+    await emTransacaoDesfeita(async tx => {
+      await preparar(tx)
+      erro = await tx.transaction(async sp => { await sp.execute(migracao) })
+        .then(() => '', (e: { cause?: { message?: string } }) => e.cause?.message ?? String(e))
+      await depois?.(tx)
+    })
+    return erro
+  }
+
+  test('falha, e desfaz tudo o que fez, se sobrar tabela aberta', async () => {
+    let fechadoPeloDono: unknown
+    const erro = await erroDaMigracao(async tx => {
       await tx.execute(sql`create table adb_t (id int)`)
+      await tx.execute(sql`create table adb_u (id int)`)
+      await tx.execute(sql`grant select on adb_u to authenticated`)
       await abrirPorOutro(tx, 'select', 'adb_t', 'anon')
-      await tx.execute(migracao)
-    }), falhaCom(/acesso direto aberto: anon public\.adb_t/))
+    }, async tx => { fechadoPeloDono = !(await pode(tx, sql`has_table_privilege('authenticated', 'adb_u', 'SELECT')`)) })
+    assert.match(erro, /acesso direto aberto: anon public\.adb_t/)
+    assert.equal(fechadoPeloDono, false, 'o REVOKE que a migração fez antes de falhar foi desfeito')
+  })
+
+  test('falha se sobrar sequência aberta', async () => {
+    const erro = await erroDaMigracao(async tx => {
+      await tx.execute(sql`create sequence adb_s`)
+      await abrirPorOutro(tx, 'usage', 'sequence adb_s', 'anon')
+    })
+    assert.match(erro, /acesso direto aberto: anon public\.adb_s/)
   })
 
   test('falha se sobrar só uma coluna aberta', async () => {
-    await assert.rejects(db.transaction(async tx => {
+    const erro = await erroDaMigracao(async tx => {
       await tx.execute(sql`create table adb_t (id int)`)
       await abrirPorOutro(tx, 'select (id)', 'adb_t', 'authenticated')
-      await tx.execute(migracao)
-    }), falhaCom(/acesso direto aberto: authenticated public\.adb_t/))
+    })
+    assert.match(erro, /acesso direto aberto: authenticated public\.adb_t/)
   })
 
   test('falha se o padrão global abrir objeto novo ao login comum', async () => {
-    await assert.rejects(db.transaction(async tx => {
+    const erro = await erroDaMigracao(async tx => {
       await tx.execute(sql`alter default privileges for role postgres grant select on tables to authenticated`)
-      await tx.execute(migracao)
-    }), falhaCom(/padrão r para authenticated/))
+    })
+    assert.match(erro, /padrão r para authenticated/)
   })
 
   test('falha se o padrão do schema abrir objeto novo a todos (PUBLIC)', async () => {
-    await assert.rejects(db.transaction(async tx => {
+    const erro = await erroDaMigracao(async tx => {
       await tx.execute(sql`alter default privileges for role postgres in schema public grant select on tables to public`)
-      await tx.execute(migracao)
-    }), falhaCom(/padrão r para PUBLIC/))
+    })
+    assert.match(erro, /padrão r para PUBLIC/)
   })
 })
