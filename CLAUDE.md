@@ -56,6 +56,28 @@ mais se erra:
   grupo no banco, nunca lista fixa no código, que todas as Contas veriam (#460). Em revisão,
   procurar `const`/`type`/`<option>` com opção de cliente e nome, CNPJ ou e-mail escrito no código.
 
+## O servidor não confia no navegador (#891)
+
+Toda Server Action e todo Route Handler pode ser chamado direto, com qualquer argumento, por quem
+tem um login e abre o DevTools. A tela esconder o botão não protege nada.
+
+- **Gravação monta o objeto campo a campo.** Nunca `...dados`, `.values(dados)` ou `.set(dados)` com
+  objeto que veio do navegador, nem com o campo do servidor antes do spread. Conta, grupo, loja, id,
+  autor, papel, status e datas saem só do servidor; os campos do formulário ficam numa lista
+  explícita amarrada às colunas (`satisfies`), como no hotfix de Clientes (#925).
+- **Toda action checa login e papel no início** e põe a Conta no `where` de toda leitura e gravação,
+  inclusive id que a tela "só mostra" e parâmetro de escopo (`lojaId`, `grupoId`) vindo da tela.
+- **Teste de banco com o pedido forjado**: campos a mais e id ou grupo de outra Conta. Ele fica
+  vermelho sem a correção e prova que nada grava nem vaza na outra Conta.
+- **O banco não abre nada ao login comum.** O app fala com o banco pelo servidor (Drizzle). Os papéis
+  `authenticated` e `anon` do Supabase não têm permissão em tabela, sequência ou função, e não
+  existe policy `using (true)`. Migração não dá `GRANT` a eles, não cria policy aberta e não expõe
+  schema novo na API; o servidor não chama função do banco com `.rpc` pela sessão do usuário.
+  A migração 0187 confere isso e falha se sobrar acesso.
+- Em revisão de PR, estes itens se conferem junto com o isolamento: achado bloqueia o merge.
+- Falha de segurança achada: o detalhe fica fora do repo (é público). Issue, PR, commit e
+  comentário levam só a descrição genérica.
+
 ## Cores: nenhuma cor hardcoded
 
 - **Nenhuma cor hardcoded no projeto.** Cor só pelo nome (variável do `src/app/globals.css`):
