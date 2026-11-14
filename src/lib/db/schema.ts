@@ -901,7 +901,11 @@ export const vendasPecas = pgTable('vendas_pecas', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   /** Venda que lança o dinheiro no caixa sozinha (#546). As anteriores ficam false: a loja lançou à mão. */
   caixaAutomatico: boolean('caixa_automatico').notNull().default(false),
-})
+  /** Brinde e acessório de um pedido de venda (#778): o pagamento e o caixa ficam na venda da moto. */
+  pedidoVendaId: uuid('pedido_venda_id').references(() => pedidosVenda.id),
+}, t => [
+  index('vendas_pecas_pedido_venda_idx').on(t.pedidoVendaId).where(sql`pedido_venda_id is not null`),
+])
 
 // ─── vendas_pecas_itens ────────────────────────────────────────────────────────
 export const vendasPecasItens = pgTable('vendas_pecas_itens', {

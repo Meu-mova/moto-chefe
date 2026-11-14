@@ -38,7 +38,7 @@ const TIPO_LABEL: Record<string, string> = {
   pix: 'PIX', dinheiro: 'Dinheiro',
   cartao_credito: 'Cartão de Crédito', cartao_debito: 'Cartão de Débito',
   financiamento: 'Financiamento', link_pagamento: 'Link de Pagamento',
-  bonificacao: 'Bonificação', multiplo: 'Múltiplo',
+  bonificacao: 'Bonificação', multiplo: 'Múltiplo', pedido: 'Pedido de venda',
 }
 
 const moeda = (v: string) => parseFloat(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
