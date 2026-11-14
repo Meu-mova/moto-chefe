@@ -156,7 +156,8 @@ recebido aponta para um "pedido", é este.
 _Evitar_: pedido (sozinho), que se confunde com o pedido da fábrica
 
 **Item do pedido**:
-Cada linha do pedido de venda: moto, brinde, acessório ou frete, com o seu valor.
+Cada linha do pedido de venda: moto, brinde ou acessório, com o seu valor. O frete cobrado não é item:
+fica na Entrega da venda.
 
 **Brinde**:
 Peça do catálogo entregue junto com a moto, sem cobrança. No balcão (tela Peças), o mesmo gesto é
@@ -170,12 +171,19 @@ Peça do catálogo vendida junto com a moto, no mesmo pedido de venda; conta com
 Transporte da moto até o cliente: quem paga, quem leva e o valor. Soma no total só quando o
 cliente paga a loja.
 
+**Frete cobrado**:
+Valor que a loja cobra do cliente para levar a moto, ela mesma ou por transportadora que ela contrata.
+Soma no valor da venda, nos pagamentos e na NF; fica fora do valor da moto (comissão, metas, desconto
+e preço mínimo).
+_Evitar_: frete como item do pedido
+
 **Precificação**:
 Tabela de preços de cada modelo no grupo, com as taxas de cada meio de pagamento. É de onde sai o
 preço mínimo.
 
 **Preço mínimo**:
-Menor valor pelo qual um modelo pode ser vendido no grupo, conforme a precificação.
+Menor valor pelo qual um modelo pode ser vendido no grupo, conforme a precificação. Vale sobre o
+valor da moto, sem o frete cobrado.
 
 **Desconto**:
 Quanto o valor líquido da venda (depois das taxas do meio de pagamento) ficou abaixo do preço
