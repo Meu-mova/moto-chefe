@@ -1,4 +1,5 @@
 import { valorDaMoto } from '@/lib/notagateway/entrega'
+import { abaixoDoMinimo } from '@/lib/aprovacao-venda'
 
 export type TaxasVenda = {
   taxasCartao: Record<string, number>
@@ -81,8 +82,8 @@ export function validarReserva(
 ): { entradaOk: boolean; totalOk: boolean; minimoEntrada: number } {
   const minimoEntrada = precoMinimoPix * 0.3
   return {
-    entradaOk: valorEntrada >= minimoEntrada - 0.01,
-    totalOk: valorTotalVenda >= precoMinimoPix - 0.01,
+    entradaOk: !abaixoDoMinimo(valorEntrada, minimoEntrada),
+    totalOk: !abaixoDoMinimo(valorTotalVenda, precoMinimoPix),
     minimoEntrada,
   }
 }
