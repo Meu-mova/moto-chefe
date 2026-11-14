@@ -12,7 +12,7 @@ import { useBuscaCep } from '@/components/use-busca-cep'
 import { lerDocumentoCliente } from '@/lib/documento'
 import { UFS } from '@/lib/sefaz/uf'
 import { ModalidadeFreteSelect } from '@/components/modalidade-frete-select'
-import { AVISO_SEM_MODALIDADE, conferirQuemRecebe, modalidadeComFrete, type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
+import { AVISO_SEM_MODALIDADE, conferirQuemRecebe, freteDaVenda, modalidadeComFrete, type EnderecoDaEntrega, type EntregaVenda, type QuemRecebe } from '@/lib/notagateway/entrega'
 
 /** O que a tela edita: trocar de "Entregar" para "Retira" e voltar não apaga o endereço digitado. */
 export type EntregaDoFormulario = Pick<EntregaVenda, 'modalidade'> & {
@@ -39,6 +39,18 @@ export function entregaDoFormulario(f: EntregaDoFormulario): EntregaVenda {
   if (f.modo === 'retira') return { modo: 'retira', modalidade: f.modalidade }
   const frete = freteDoFormulario(f)
   return { modo: 'entregar', modalidade: f.modalidade, endereco: f.endereco, recebe: f.outraPessoa ? f.recebe : null, ...(frete ? { frete } : {}) }
+}
+
+/** O inverso de `entregaDoFormulario`: a Entrega gravada abre o formulário do "Alterar" (#895) já preenchida. */
+export function formularioDaEntrega(e: EntregaVenda | null): EntregaDoFormulario {
+  const inicial = ENTREGA_DO_FORMULARIO_INICIAL
+  if (!e) return inicial
+  if (e.modo === 'retira') return { ...inicial, modalidade: e.modalidade }
+  const frete = freteDaVenda(e)
+  return {
+    ...inicial, modo: 'entregar', modalidade: e.modalidade, endereco: e.endereco,
+    outraPessoa: !!e.recebe, recebe: e.recebe ?? inicial.recebe, comFrete: frete > 0, frete: frete ? frete.toFixed(2) : '',
+  }
 }
 
 /** Quem recebe recusado pela mesma regra do servidor (ADR-0015, até 60 caracteres): a tela não deixa criar. */
