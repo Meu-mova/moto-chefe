@@ -203,4 +203,10 @@ describe('importar garantias da fábrica', () => {
       from garantias g join motos m on m.id = g.moto_id where g.numero_pedido_fabrica = ${P + '-1'}`),
     { loja_id: s.lojaId, descricao: 'Bateria', data_inicio: '2026-11-03', data_fim: '2026-12-03', status: 'ativa', moto: 'em_garantia' })
   })
+
+  test('recusa do banco chega à tela com o motivo, sem a consulta nem os ids', async () => {
+    const motoId = await novaMoto('caixa')
+    const r = await importar(motoId, `${P}-2`)
+    assert.deepEqual(r.porLoja.map(l => [l.importadas, l.erro]), [[0, 'Garantia não pode ser aberta para moto com status "caixa"']])
+  })
 })

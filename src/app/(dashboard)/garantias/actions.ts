@@ -8,7 +8,7 @@ import { motoDaContaPorChassi } from '@/lib/busca-chassi'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { motos, garantias } from '@/lib/db/schema'
-import { and, eq, ilike, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, DrizzleQueryError, eq, ilike, inArray, isNotNull, sql } from 'drizzle-orm'
 import { loginFabrica, buscarStatusGarantiaFabrica, listarPedidosGarantiaFabrica, buscarDetalhePedidoGarantia } from '@/lib/fabrica-scraper'
 import { escolherMotoPorChassi, garantiaEmAndamento, normalizarNumeroPedido, MIN_DIGITOS_SUFIXO_CHASSI } from '@/lib/garantia-importacao'
 import { exportarRelatorioGarantias } from '@/lib/queries/garantias'
@@ -161,6 +161,12 @@ export async function sincronizarFabricaAction(): Promise<{
   return { porLoja, semCredencial }
 }
 
+// Erro do banco vem embrulhado com a consulta e os ids; para a tela, só o motivo.
+function motivoDoErro(e: unknown): string {
+  if (e instanceof DrizzleQueryError && e.cause instanceof Error) return e.cause.message
+  return e instanceof Error ? e.message : String(e)
+}
+
 export type ResultadoImportacaoFabrica = {
   porLoja: { loja: string; importadas: number; semChassi: number; erro?: string }[]
   semCredencial: string[]
@@ -269,7 +275,7 @@ export async function importarGarantiasFabricaAction(): Promise<ResultadoImporta
         loja: conta.lojaNome,
         importadas,
         semChassi,
-        erro: e instanceof Error ? e.message : String(e),
+        erro: motivoDoErro(e),
       })
     }
   }
