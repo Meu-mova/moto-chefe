@@ -229,3 +229,25 @@ export function textoDaOperacao(o: OperacaoDaVenda): { selo: string; porque: str
   const ufs = `(${o.ufOrigem} para ${o.ufDestino})`
   return { selo: o.interestadual ? `Para outro estado ${ufs}` : `Dentro do estado ${ufs}`, porque: PORQUE[o.motivo] }
 }
+
+/** Alterar a Entrega (#895) com NF de produção viva da venda: a mesma trava do "Cancelar venda" (ADR-0014). */
+export const CANCELE_A_NF_PARA_ALTERAR = 'Cancele a NF antes de mudar a entrega.'
+/** O pedido em aprovação já guardou o frete nos dados da aprovação: mudar agora os descasaria. */
+export const PEDIDO_EM_APROVACAO_PARA_ALTERAR = 'Pedido aguardando aprovação: recuse ou aprove antes de mudar a entrega.'
+export const FRETE_FIXO_NA_VENDA = 'O frete cobrado não muda depois da venda: mantenha "Entregar", com a loja levando ou contratando, e o mesmo valor.'
+export const SEM_FRETE_NA_VENDA = 'A venda não tem frete cobrado, e o frete não entra depois da venda.'
+
+/**
+ * Na venda já efetivada o frete cobrado está no total e nos pagamentos (decisão do Luis, #727 Q3): com frete, só
+ * muda o resto, mantendo "Entregar", modalidade com frete e o mesmo valor em centavos; sem frete, não ganha.
+ */
+export function recusaDoFreteDaVendaEfetivada(antes: EntregaVenda | null, depois: EntregaVenda): string | null {
+  const frete = freteDaVenda(antes)
+  if (!frete) return freteDaVenda(depois) ? SEM_FRETE_NA_VENDA : null
+  const mantem = depois.modo === 'entregar' && modalidadeComFrete(depois.modalidade) && centavos(freteDaVenda(depois)) === centavos(frete)
+  return mantem ? null : FRETE_FIXO_NA_VENDA
+}
+
+/** O que o log de ações guarda de cada lado da alteração (sem endereço nem documento de quem recebe). */
+export const entregaParaLog = (e: EntregaVenda | null) =>
+  e && { modo: e.modo, uf: e.modo === 'entregar' ? e.endereco.uf : null, modalidade: e.modalidade, frete: freteDaVenda(e) }
