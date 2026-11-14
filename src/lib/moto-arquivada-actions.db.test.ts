@@ -18,7 +18,6 @@ const P = 'MAA688'
 let usuarioDaSessao: Record<string, unknown> = {}
 const mocks = [
   mock.module('@/lib/auth', { namedExports: { getUsuarioLogado: async () => usuarioDaSessao } }),
-  mock.module('@/lib/supabase/server', { namedExports: { createClient: async () => ({}) } }),
   mock.module('next/cache', { namedExports: { revalidatePath: () => {} } }),
 ]
 

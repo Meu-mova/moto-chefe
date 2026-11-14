@@ -1,6 +1,6 @@
 // src/app/(dashboard)/estoque/[id]/actions.ts
 'use server'
-import { createClient } from '@/lib/supabase/server'
+import { mudarStatusMoto } from '@/lib/mudar-status-moto'
 import { hojeBrt } from '@/lib/data-venda'
 import { getUsuarioLogado } from '@/lib/auth'
 import { lojaDaMotoParaGravar, travarMotoNaoArquivada } from '@/lib/moto-do-usuario'
@@ -47,7 +47,6 @@ export async function alterarStatusAction(
   dataMontagem?: string,
 ) {
   const usuario = await getUsuarioLogado()
-  const supabase = await createClient()
 
   const [moto] = await db.select().from(motos).where(eq(motos.id, motoId)).limit(1)
   if (!moto || !(await podeAbrirRegistroDaLoja(usuario, moto.lojaId))) throw new Error('Moto não encontrada')
@@ -86,14 +85,7 @@ export async function alterarStatusAction(
     obsHistorico = partes.join(' — ')
   }
 
-  const { error } = await supabase.rpc('mudar_status_moto', {
-    p_moto_id: motoId,
-    p_novo_status: novoStatus,
-    p_usuario_id: usuario.id,
-    p_observacao: obsHistorico,
-  })
-
-  if (error) throw new Error(error.message)
+  await mudarStatusMoto({ motoId, novoStatus, usuarioId: usuario.id, observacao: obsHistorico })
 
   if (novoStatus === 'montada' && mecanicoId) {
     // Uma moto em "caixa" pode já ter sido reservada antes de montar — não
