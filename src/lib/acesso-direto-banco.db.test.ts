@@ -154,7 +154,7 @@ describe('login comum direto no banco', () => {
       await tx.execute(sql`create function adb891_nova_fn() returns int language sql as 'select 1'`)
       const [r] = await linhas(tx, sql`select
         has_table_privilege('authenticated', 'adb891_nova', 'SELECT, INSERT, UPDATE, DELETE') as tabela,
-        has_sequence_privilege('authenticated', 'adb891_nova_id_seq', 'USAGE, SELECT, UPDATE') as sequencia,
+        has_sequence_privilege('authenticated', pg_get_serial_sequence('adb891_nova', 'id'), 'USAGE, SELECT, UPDATE') as sequencia,
         has_function_privilege('authenticated', 'adb891_nova_fn()', 'EXECUTE') as funcao`)
       assert.deepEqual(r, { tabela: false, sequencia: false, funcao: false })
     })
