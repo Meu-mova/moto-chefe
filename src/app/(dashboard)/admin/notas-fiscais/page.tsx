@@ -109,7 +109,9 @@ export default async function NotasFiscaisPage() {
             aliquotaIcmsImportado: regra.aliquotaIcmsImportado ?? '',
           }
         : null,
-      difalCorrecoes: correcoes.filter(c => c.grupoId === g.id).map(({ grupoId: _, ...c }) => c),
+      difalCorrecoes: correcoes
+        .filter(c => c.grupoId === g.id)
+        .map(c => ({ uf: c.uf, aliquotaInterna: c.aliquotaInterna, fcp: c.fcp, base: c.base })),
       certificado: cert
         ? {
             titular: cert.titular,
