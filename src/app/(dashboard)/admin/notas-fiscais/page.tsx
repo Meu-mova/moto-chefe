@@ -7,7 +7,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { listarGruposVisiveis } from '@/lib/grupo'
 import { credencialParaTela } from '@/lib/notagateway/credencial-tela'
 import { podeGravarCredencialNg } from '@/lib/notagateway/credencial'
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { caminhoLogoDanfe, gruposParaLogo } from '@/lib/logo-danfe'
 import { LogoDanfeCard, type LinhaLogo } from './components/logo-danfe-card'
 import { motoNaoArquivada } from '@/lib/queries/showroom'
@@ -18,7 +18,7 @@ async function linhasDaLogo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>
   const comLogo = grupos.filter(g => g.logoEnviadaEm).map(g => caminhoLogoDanfe(g.id))
   const urls = new Map<string, string>()
   if (comLogo.length) {
-    const admin = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const admin = clienteSupabaseAdmin()
     const { data } = await admin.storage.from('logos-danfe').createSignedUrls(comLogo, 600)
     for (const d of data ?? []) if (d.path && d.signedUrl) urls.set(d.path, d.signedUrl)
   }

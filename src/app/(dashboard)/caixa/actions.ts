@@ -8,7 +8,7 @@ import { acao } from '@/lib/resultado-action'
 import { eq, and } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 
 type LancamentoInput = {
   lojaId: string
@@ -92,10 +92,7 @@ export async function uploadComprovanteAction(formData: FormData): Promise<strin
   const fileName = `${Date.now()}-${crypto.randomUUID()}.${ext}`
   const filePath = `caixa/${fileName}`
 
-  const supabaseAdmin = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const supabaseAdmin = clienteSupabaseAdmin()
   const { error } = await supabaseAdmin.storage
     .from('comprovantes')
     .upload(filePath, file, { contentType: file.type })
@@ -130,10 +127,7 @@ export async function getComprovanteUrlAction(filePath: string): Promise<string>
 
   if (!lancamento || !(await podeAgirNaLoja(usuario, lancamento.lojaId))) throw new Error('Comprovante não encontrado')
 
-  const supabaseAdmin = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  const supabaseAdmin = clienteSupabaseAdmin()
   const { data, error } = await supabaseAdmin.storage
     .from('comprovantes')
     .createSignedUrl(filePath, 600)

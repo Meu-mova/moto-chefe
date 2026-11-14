@@ -19,7 +19,7 @@ import { emailValido, enviarEmail } from '@/lib/email'
 import { motivoBloqueioNf } from '@/lib/assinatura/nf'
 import { situacaoNfDaVenda } from '@/lib/assinatura/consulta'
 import { urlBase } from '@/lib/assinatura/url'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 
 const DIAS_VALIDADE = 7
 const PAPEIS_ENVIO = ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']
@@ -423,11 +423,7 @@ export async function registrarAssinaturaPapelAction(
   const ext = arquivo.type === 'application/pdf' ? 'pdf' : arquivo.type.split('/')[1]
   const caminho = `${montado.grupoId}/${doc.id}/via-assinada.${ext}`
 
-  const storage = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-  const { error } = await storage.storage.from('assinaturas')
+  const { error } = await clienteSupabaseAdmin().storage.from('assinaturas')
     .upload(caminho, buffer, { contentType: arquivo.type, upsert: true })
   if (error) {
     // Sem a via anexada o registro não vale — desfaz para não deixar um

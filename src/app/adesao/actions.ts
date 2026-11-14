@@ -1,6 +1,6 @@
 'use server'
 import { randomUUID } from 'node:crypto'
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { db } from '@/lib/db'
 import { adesoesMova } from '@/lib/db/schema'
 import { cifrar } from '@/lib/cripto'
@@ -38,7 +38,7 @@ export async function registrarAdesaoAction(form: FormData): Promise<ResultadoAd
 
   const id = randomUUID()
   const caminho = `${id}/cnpj.${vCnpj.extensao}`
-  const admin = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const admin = clienteSupabaseAdmin()
 
   const up = await admin.storage.from('adesoes').upload(caminho, Buffer.from(await cnpj.arrayBuffer()), { contentType: cnpj.type })
   if (up.error) {
