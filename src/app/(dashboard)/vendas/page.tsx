@@ -207,6 +207,7 @@ export default async function VendasPage({
               usuarioId={usuario.id}
               lojaIdUsuario={usuario.lojaId ?? null}
               origens={origens}
+              podeAprovarSensivel={podeAprovarSensivel}
             />
           ))}
         </section>

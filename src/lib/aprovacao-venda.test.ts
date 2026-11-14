@@ -1,7 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { abaixoDoMinimo, aprovacaoNecessaria, podeVenderAbaixoDoMinimo, temPagamentoSensivel } from './aprovacao-venda'
-import { motivoDaAprovacao } from './pedido-de-aprovacao'
+import { abaixoDoMinimo, aprovacaoNecessaria, motivoDaAprovacao, podeVenderAbaixoDoMinimo, resumoDoPedidoEmAprovacao, temPagamentoSensivel } from './aprovacao-venda'
 import { liquidoDaMoto } from './preco-minimo'
 
 test('abaixoDoMinimo: 1 centavo abaixo ainda passa; 2 centavos abaixo pede aprovação', () => {
@@ -43,4 +42,11 @@ test('liquidoDaMoto: tira o frete do líquido, com piso 0; a taxa do cartão sob
   assert.equal(liquidoDaMoto([{ tipo: 'pix', valor: 100 }], taxas, 150), 0)
   const noCartao = liquidoDaMoto([{ tipo: 'cartao_credito', valor: 1150, parcelas: 10 }], taxas, 150)
   assert.equal(noCartao, liquidoDaMoto([{ tipo: 'cartao_credito', valor: 1150, parcelas: 10 }], taxas, 0) - 150)
+})
+
+test('resumoDoPedidoEmAprovacao: número e moto + frete do pedido; null fora do pedido', () => {
+  assert.deepEqual(resumoDoPedidoEmAprovacao({ origem: 'pedido', valor: '11900.00', dadosVenda: { numero: 42, frete: 150.1 } }),
+    { numero: 42, moto: 11900, frete: 150.1, total: 12050.1 })
+  assert.deepEqual(resumoDoPedidoEmAprovacao({ origem: 'pedido', valor: '11900.00', dadosVenda: {} }), { numero: null, moto: 11900, frete: 0, total: 11900 })
+  assert.equal(resumoDoPedidoEmAprovacao({ origem: 'moto', valor: '1', dadosVenda: { numero: 1 } }), null)
 })

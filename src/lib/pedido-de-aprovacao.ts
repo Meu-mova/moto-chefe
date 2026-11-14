@@ -5,15 +5,6 @@ import type { TipoAprovacaoVenda } from '@/lib/aprovacao-venda'
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-export const MOTIVO_OBRIGATORIO = 'Informe o motivo do pedido de aprovação'
-
-/** Motivo gravado no pedido de aprovação, ou null quando falta (o valor mínimo exige o motivo). */
-export function motivoDaAprovacao(tipo: TipoAprovacaoVenda, motivo: string | undefined): string | null {
-  const digitado = motivo?.trim() ?? ''
-  if (tipo === 'pagamento_sensivel') return digitado || 'Pagamento via Transferência Bancária'
-  return digitado || null
-}
-
 /**
  * Grava o pedido de aprovação de uma venda de moto (Vender ou pedido, #776) e põe a moto em
  * "aguardando aprovação". A recusa devolve a disponibilidade anterior. A moto já vem travada

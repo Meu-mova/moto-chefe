@@ -1,3 +1,5 @@
+import { totalComFrete } from '@/lib/notagateway/entrega'
+
 // Regras de quando uma venda de moto precisa de aprovação. Uma só para a tela e o servidor
 // do Vender e da efetivação do pedido (#776), e para o fechamento da OS (pagamento sensível).
 
@@ -33,4 +35,25 @@ export function aprovacaoNecessaria(p: {
   if (p.sensivelSemPermissao) return 'pagamento_sensivel'
   if (p.preco && abaixoDoMinimo(p.preco.liquido, p.preco.minimo) && !podeVenderAbaixoDoMinimo(p.papel)) return 'valor_minimo'
   return null
+}
+
+export const MOTIVO_OBRIGATORIO = 'Informe o motivo do pedido de aprovação'
+
+/** Motivo gravado no pedido de aprovação, ou null quando falta (o valor mínimo exige o motivo). */
+export function motivoDaAprovacao(tipo: TipoAprovacaoVenda, motivo: string | undefined): string | null {
+  const digitado = motivo?.trim() ?? ''
+  if (tipo === 'pagamento_sensivel') return digitado || 'Pagamento via Transferência Bancária'
+  return digitado || null
+}
+
+/**
+ * Número do pedido e a conta moto + frete do pedido em aprovação (#776), lidos de `dados_venda`; null fora
+ * da origem 'pedido'. O valor da aprovação é só a moto (#796); o frete vem guardado à parte.
+ */
+export function resumoDoPedidoEmAprovacao(a: { origem: string; valor: string | number; dadosVenda: unknown }) {
+  if (a.origem !== 'pedido') return null
+  const d = (a.dadosVenda ?? {}) as { numero?: unknown; frete?: unknown }
+  const moto = Number(a.valor)
+  const frete = Number(d.frete) || 0
+  return { numero: typeof d.numero === 'number' ? d.numero : null, moto, frete, total: totalComFrete(moto, frete) }
 }

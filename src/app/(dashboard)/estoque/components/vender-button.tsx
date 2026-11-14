@@ -15,7 +15,7 @@ import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { Search, ShoppingCart, CalendarClock, AlertTriangle, CheckCircle2, UserCheck, UserX, Loader2 } from 'lucide-react'
 import { PagamentosFields, pgtoIncompleto, pgtosFecham, TIPOS_COM_PARCELAS, type Pgto } from './pagamentos-fields'
 import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimoAction, buscarClientePorCpfAction, solicitarAprovacaoVendaAction } from '../../vendas/actions'
-import { calcLiquidoRecebido, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
+import { liquidoDaMoto, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
 import { EntregaEModalidade, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from '../../vendas/components/entrega-campos'
@@ -371,7 +371,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       parcelas: p.parcelas ? parseInt(p.parcelas) : undefined,
     }))
   const liquidoEstimado = taxasVenda && pgtoCalc.length > 0
-    ? calcLiquidoRecebido(pgtoCalc, taxasVenda)
+    ? liquidoDaMoto(pgtoCalc, taxasVenda, 0)
     : null
   const liquidoOk = !precoMinimoPix || liquidoEstimado === null || !abaixoDoMinimo(liquidoEstimado, precoMinimoPix)
   const bypassMinimo = podeVenderAbaixoDoMinimo(papel)

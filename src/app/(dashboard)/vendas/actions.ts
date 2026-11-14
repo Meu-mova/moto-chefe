@@ -45,8 +45,8 @@ import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
 import { vendaDoUsuario } from '@/lib/venda-do-usuario'
 import { apagarVendaTx } from '@/lib/apagar-venda'
-import { abaixoDoMinimo, aprovacaoNecessaria, podeVenderAbaixoDoMinimo, temPagamentoSensivel, type TipoAprovacaoVenda } from '@/lib/aprovacao-venda'
-import { gravarPedidoDeAprovacaoTx, MOTIVO_OBRIGATORIO, motivoDaAprovacao } from '@/lib/pedido-de-aprovacao'
+import { abaixoDoMinimo, aprovacaoNecessaria, MOTIVO_OBRIGATORIO, motivoDaAprovacao, podeVenderAbaixoDoMinimo, temPagamentoSensivel, type TipoAprovacaoVenda } from '@/lib/aprovacao-venda'
+import { gravarPedidoDeAprovacaoTx } from '@/lib/pedido-de-aprovacao'
 import { apagarArquivosAssinatura } from '@/lib/assinatura/infra'
 
 /**
