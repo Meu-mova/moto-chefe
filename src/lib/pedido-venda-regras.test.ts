@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { motivoBloqueioCriarPedido, podeCancelarPedido, podeCriarPedido } from './pedido-venda-regras'
+import { motivoBloqueioCriarPedido, podeCancelarPedido, podeCriarPedido, podeEfetivarPedido } from './pedido-venda-regras'
 
 const pedido = { status: 'pendente', lojaId: 'loja-a', vendedorId: 'vend-1' }
 
@@ -45,4 +45,8 @@ describe('motivoBloqueioCriarPedido', () => {
 test('podeCriarPedido: sócios, aux_adm e vendedor criam; mecânico e motorista não', () => {
   for (const p of ['admin_geral', 'admin_socio', 'aux_adm', 'vendedor']) assert.equal(podeCriarPedido(p), true, p)
   for (const p of ['mecanico', 'motorista', '']) assert.equal(podeCriarPedido(p), false, p)
+})
+
+test('efetiva (e muda a Entrega na efetivação): admin_geral, admin_socio e aux_adm; vendedor e mecânico não', () => {
+  assert.deepEqual(['admin_geral', 'admin_socio', 'aux_adm', 'vendedor', 'mecanico'].map(podeEfetivarPedido), [true, true, true, false, false])
 })
