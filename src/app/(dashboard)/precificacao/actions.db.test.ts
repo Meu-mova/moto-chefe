@@ -38,7 +38,7 @@ const ENVIO: TaxasPayload = {
 
 const taxasDo = async (grupoId: string) => (await execRows(sql`
   select taxas_cartao, taxas_debito, taxas_link, taxas_financiamento, frete_valor_km, frete_km_gratis,
-    frete_valor_fixo, imposto, padrao_simulador
+    frete_valor_fixo, imposto, padrao_simulador, atualizado_em > now() - interval '1 hour' as atualizada_agora
   from configuracao_taxas where grupo_id = ${grupoId}`))[0]
 
 before(async () => {
@@ -56,19 +56,26 @@ before(async () => {
 })
 
 after(async () => {
-  await db.execute(sql`delete from configuracao_taxas where grupo_id in (${s.grupoA}, ${s.grupoB})`)
-  await db.execute(sql`delete from usuarios where email like '%-pt924-%'`)
-  await db.execute(sql`delete from lojas where grupo_id in (${s.grupoA}, ${s.grupoB})`)
-  await db.execute(sql`delete from grupos where id in (${s.grupoA}, ${s.grupoB})`)
-  await db.execute(sql`delete from contas where id in (${s.contaA}, ${s.contaB})`)
-  for (const m of mocks) m.restore()
-  await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
+  // Só o que a semente chegou a criar: um before que falhou no meio não esconde o erro dele.
+  const grupos = sql.param([s.grupoA, s.grupoB].filter(Boolean))
+  const contas = sql.param([s.contaA, s.contaB].filter(Boolean))
+  try {
+    await db.execute(sql`delete from configuracao_taxas where grupo_id = any(${grupos}::uuid[])`)
+    await db.execute(sql`delete from usuarios where email like '%-pt924-%'`)
+    await db.execute(sql`delete from lojas where grupo_id = any(${grupos}::uuid[])`)
+    await db.execute(sql`delete from grupos where id = any(${grupos}::uuid[])`)
+    await db.execute(sql`delete from contas where id = any(${contas}::uuid[])`)
+  } finally {
+    for (const m of mocks) m.restore()
+    await (globalThis as { __pgPool?: { end(): Promise<void> } }).__pgPool?.end()
+  }
 })
 
 const comoNoBanco = (t: TaxasPayload) => ({
   taxas_cartao: t.taxasCartao, taxas_debito: t.taxasDebito, taxas_link: t.taxasLink, taxas_financiamento: t.taxasFinanciamento,
   frete_valor_km: t.freteValorKm, frete_km_gratis: t.freteKmGratis, frete_valor_fixo: t.freteValorFixo, imposto: t.imposto,
   padrao_simulador: 'taxas',
+  atualizada_agora: true,
 })
 
 test('o envio com o grupo de outra Conta grava no grupo ativo e não muda as taxas da outra', async () => {
@@ -80,6 +87,7 @@ test('o envio com o grupo de outra Conta grava no grupo ativo e não muda as tax
 
 test('salvar de novo atualiza a mesma linha do grupo ativo', async () => {
   const outra: TaxasPayload = { ...ENVIO, imposto: '0.0500', freteKmGratis: 30 }
+  await salvarTaxasAction(ENVIO)
   await salvarTaxasAction(outra)
   assert.deepEqual(await taxasDo(s.grupoA), comoNoBanco(outra))
   const [{ n }] = await execRows(sql`select count(*)::int n from configuracao_taxas where grupo_id = ${s.grupoA}`)
