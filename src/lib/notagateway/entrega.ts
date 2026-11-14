@@ -7,6 +7,7 @@ import { mascaraCep } from '@/lib/mascaras'
 import { brl } from '@/lib/dashboard-painel'
 import { centavos } from '@/lib/numero-br'
 import { tipoPessoa } from './venda'
+import { travaDoCancelamentoDaVenda, type TravaDoCancelamento } from './status'
 import { ehModalidade, erroDoLocalDeEntrega, textoDaModalidade, LIMITE_TEXTO_XML, MODALIDADE_INVALIDA, NOME_DE_QUEM_RECEBE_LONGO, type DadosTransporte, type LocalDeEntrega, type ModalidadeFrete } from './transporte'
 
 /** O lugar da entrega como a NF exige (cidade = código IBGE), mais o nome da cidade só para a tela. */
@@ -230,8 +231,27 @@ export function textoDaOperacao(o: OperacaoDaVenda): { selo: string; porque: str
   return { selo: o.interestadual ? `Para outro estado ${ufs}` : `Dentro do estado ${ufs}`, porque: PORQUE[o.motivo] }
 }
 
-/** Alterar a Entrega (#895) com NF de produção viva da venda: a mesma trava do "Cancelar venda" (ADR-0014). */
+/** Alterar a Entrega (#895) com NF de produção autorizada na venda (decisão do Luis, #727). */
 export const CANCELE_A_NF_PARA_ALTERAR = 'Cancele a NF antes de mudar a entrega.'
+
+/** O que fazer em cada situação da nota viva que trava o Alterar, como no "Cancelar venda". */
+export const TRAVA_DO_ALTERAR: Record<TravaDoCancelamento, string> = {
+  cancelar_nf: CANCELE_A_NF_PARA_ALTERAR,
+  tentar_de_novo: CANCELE_A_NF_PARA_ALTERAR,
+  emissao_em_andamento: 'Há uma NF de saída em emissão para esta venda. Espere ela terminar ou descarte a tentativa pelo botão "NF Saída"; depois, mude a entrega.',
+  cancelamento_em_andamento: 'O cancelamento da NF está em andamento na SEFAZ. Mude a entrega depois que ele terminar.',
+  fora_do_prazo: 'A NF passou do prazo de 24h para cancelar: o caminho é o cancelamento extemporâneo, pedido pela contabilidade. Com a NF cancelada, mude a entrega.',
+  sem_data: 'Não deu para confirmar o prazo de cancelamento da NF. Abra a NF pelo número dela e consulte; depois, tente de novo.',
+}
+
+/**
+ * Trava do Alterar: a regra do "Cancelar venda" (ADR-0014, `travaDoCancelamentoDaVenda`). Só a nota de produção
+ * viva trava; homologação, recusada e cancelada liberam. A tela e o servidor decidem por esta função.
+ */
+export function travaDaAlteracaoDaEntrega<N extends { ambiente: string; status: string; dataAutorizacao: string | null }>(notas: N[], agora: Date): string | null {
+  const r = travaDoCancelamentoDaVenda(notas, agora)
+  return r && TRAVA_DO_ALTERAR[r.trava]
+}
 /** O pedido em aprovação já guardou o frete nos dados da aprovação: mudar agora os descasaria. */
 export const PEDIDO_EM_APROVACAO_PARA_ALTERAR = 'Pedido aguardando aprovação: recuse ou aprove antes de mudar a entrega.'
 export const FRETE_FIXO_NA_VENDA = 'O frete cobrado não muda depois da venda: mantenha "Entregar", com a loja levando ou contratando, e o mesmo valor.'
