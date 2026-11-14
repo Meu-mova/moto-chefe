@@ -11,6 +11,7 @@ import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { caminhoLogoDanfe, gruposParaLogo } from '@/lib/logo-danfe'
 import { LogoDanfeCard, type LinhaLogo } from './components/logo-danfe-card'
 import { motoNaoArquivada } from '@/lib/queries/showroom'
+import { correcoesDosGrupos } from '@/lib/difal-correcoes'
 
 /** Miniatura da logo atual: link assinado de 10 min, só para os grupos que o usuário já pode ver. */
 async function linhasDaLogo(usuario: Awaited<ReturnType<typeof getUsuarioLogado>>): Promise<LinhaLogo[]> {
@@ -69,6 +70,9 @@ export default async function NotasFiscaisPage() {
     linhasDaLogo(usuario),
   ])
 
+  // #904: só as correções dos grupos que o usuário vê, filtradas na consulta.
+  const correcoes = await correcoesDosGrupos(todosGrupos.map(g => g.id))
+
   const porGrupo = new Map(configs.map(c => [c.grupoId, c]))
   const regraPorGrupo = new Map(regras.map(r => [r.grupoId, r]))
   const certPorGrupo = new Map(certificados.map(c => [c.grupoId, c]))
@@ -102,8 +106,10 @@ export default async function NotasFiscaisPage() {
             origemFixa: regra.origemFixa ?? '',
             ibptFederal: regra.ibptFederal ?? '',
             ibptEstadual: regra.ibptEstadual ?? '',
+            aliquotaIcmsImportado: regra.aliquotaIcmsImportado ?? '',
           }
         : null,
+      difalCorrecoes: correcoes.filter(c => c.grupoId === g.id).map(({ grupoId: _, ...c }) => c),
       certificado: cert
         ? {
             titular: cert.titular,

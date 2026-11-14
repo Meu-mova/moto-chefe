@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { salvarCredencialAction, salvarRegraAction } from '../actions'
 import type { CredencialTela } from '@/lib/notagateway/credencial-tela'
+import type { CorrecaoUf } from '@/lib/notagateway/difal-ufs'
 import { ShieldCheck, ShieldAlert, FileCheck2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
 type Credencial = CredencialTela
@@ -16,6 +17,7 @@ type Regra = {
   cstPis: string; aliquotaPis: string; cstCofins: string; aliquotaCofins: string
   cstIpi: string; cstIbsCbs: string; classTribIbsCbs: string; crt: number; origemFixa: string
   ibptFederal: string; ibptEstadual: string
+  aliquotaIcmsImportado: string
 }
 type LinhaGrupo = {
   grupoId: string
@@ -24,6 +26,8 @@ type LinhaGrupo = {
   regra: Regra | null
   certificado: { titular: string; cnpj: string; uf: string; validoAte: string } | null
   estoque: { total: number; comFicha: number }
+  /** #904: correções do grupo sobre a tabela padrão do DIFAL (a tela vem no 904-b). */
+  difalCorrecoes: CorrecaoUf[]
 }
 
 const REGRA_VAZIA: Regra = {
@@ -31,6 +35,7 @@ const REGRA_VAZIA: Regra = {
   cfopInterestadual: '', cstIcmsInterestadual: '', aliquotaIcmsInterestadual: '',
   cstPis: '', aliquotaPis: '', cstCofins: '', aliquotaCofins: '',
   cstIpi: '', cstIbsCbs: '', classTribIbsCbs: '', crt: 3, origemFixa: '', ibptFederal: '', ibptEstadual: '',
+  aliquotaIcmsImportado: '',
 }
 
 const fmtData = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
