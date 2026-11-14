@@ -1644,6 +1644,8 @@ async function solicitarAprovacaoVenda(
   // A trava de outra UF roda aqui; a aprovação usa a Entrega guardada sem consultar a NG de novo.
   data = { ...data, entrega: await entregaDoVender(moto.id, moto.lojaId, data.entrega) }
 
+  const motivoFinal = motivoDaAprovacao(tipoAprovacao, motivo)
+  if (!motivoFinal) throw new RecusaUsuario(MOTIVO_OBRIGATORIO)
   // Snapshot do desconto: só existe no fluxo de valor mínimo. Fica NULL em
   // 'pagamento_sensivel', onde a trava não é sobre preço.
   let snapshot: { valorMinimo: number; liquido: number } | null = null
@@ -1652,7 +1654,6 @@ async function solicitarAprovacaoVenda(
       throw new RecusaUsuario('Nenhum pagamento por transferência bancária nesta venda')
     }
   } else {
-    if (!motivoDaAprovacao(tipoAprovacao, motivo)) throw new RecusaUsuario(MOTIVO_OBRIGATORIO)
     const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
     if (!prec) throw new RecusaUsuario('Sem preço mínimo configurado para este modelo. Use o fluxo normal de venda')
     const liquido = liquidoDaMoto(data.pagamentos, prec.taxas, 0)
@@ -1661,7 +1662,6 @@ async function solicitarAprovacaoVenda(
     }
     snapshot = { valorMinimo: prec.valorMinimoPix, liquido }
   }
-  const motivoFinal = motivoDaAprovacao(tipoAprovacao, motivo) as string
 
   const podeEscolherVendedor = ['admin_geral', 'admin_socio', 'aux_adm'].includes(usuario.papel)
   const vendedorId = (podeEscolherVendedor && data.vendedorId) ? data.vendedorId : usuario.id
