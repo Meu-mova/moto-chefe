@@ -51,10 +51,21 @@ export type VendaPainel = {
 export const ABAS_PAINEL = [{ id: 'estoque', rotulo: 'Estoque' }, { id: 'vendas', rotulo: 'Vendas' }] as const
 export type Aba = (typeof ABAS_PAINEL)[number]['id']
 export const abaDaUrl = (v: unknown): Aba => ABAS_PAINEL.find(a => a.id === v)?.id ?? ABAS_PAINEL[0].id
-export const rotuloDaAba = (aba: Aba) => ABAS_PAINEL.find(a => a.id === aba)!.rotulo
+export const rotuloDaAba = (aba: Aba) => ABAS_PAINEL.find(a => a.id === aba)?.rotulo ?? aba
 
 /** Colunas da lista de vendas: as mesmas na tela, no impresso e no Excel. */
 export const COLUNAS_VENDAS = ['Data', 'Venda', 'Loja', 'Modelo', 'Cor', 'Chassi'] as const
+
+/** Nome da loja pelo id; vazio se a loja não está na lista. */
+export function nomeDaLoja(lojas: LojaPainel[]): (lojaId: string) => string {
+  const nomes = new Map(lojas.map(l => [l.lojaId, l.lojaNome]))
+  return lojaId => nomes.get(lojaId) ?? ''
+}
+
+/** Células de uma venda, na ordem de COLUNAS_VENDAS: a tela, o impresso e o Excel leem daqui. */
+export function celulasDaVenda(v: VendaPainel, nomeLoja: (lojaId: string) => string): (string | number)[] {
+  return [dataEHoraBrt(v.data), v.numero, nomeLoja(v.lojaId), v.modelo, v.cor, v.chassi]
+}
 
 /** Lista vazia = sem filtro (tudo). */
 export type FiltroPainel = { lojas: string[]; modelos: string[]; cores: string[] }
@@ -161,13 +172,12 @@ export function planilhaDoPainel(aba: Aba, d: {
   /** hojeBrt(), de quem chama: nome do arquivo do estoque. */
   hoje: string
 }): Planilha {
-  const nomeLoja = new Map(d.lojas.map(l => [l.lojaId, l.lojaNome]))
-  const loja = (id: string) => nomeLoja.get(id) ?? ''
+  const loja = nomeDaLoja(d.lojas)
   if (aba === 'vendas') {
     return {
       nome: `vendas-motochefe-${d.de}-a-${d.ate}.csv`,
       cabecalho: [...COLUNAS_VENDAS],
-      linhas: d.vendas.map(v => [dataEHoraBrt(v.data), v.numero, loja(v.lojaId), v.modelo, v.cor, v.chassi]),
+      linhas: d.vendas.map(v => celulasDaVenda(v, loja)),
     }
   }
   return {

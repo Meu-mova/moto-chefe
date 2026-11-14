@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   ehMarcaDoPainel, filtroDaUrl, urlDoFiltro, abaDaUrl, opcoesDoPainel, filtrarEstoque, filtrarVendas, resumirEstoque, resumirVendas,
-  planilhaDoPainel, paraCsv, FILTRO_VAZIO,
+  planilhaDoPainel, celulasDaVenda, nomeDaLoja, paraCsv, FILTRO_VAZIO,
   type LinhaEstoquePainel, type LojaPainel, type VendaPainel,
 } from './painel-fabrica'
 
@@ -101,6 +101,16 @@ test('Excel das vendas: data e hora de Brasília, número, loja, modelo, cor e c
     ['31/10/2026 22:30', 201, 'Loja Norte', 'X12', 'PRETO', 'CH201'],
     ['02/10/2026 12:00', 101, 'Loja Centro', 'X12', 'PRETO', 'CH101'],
   ])
+})
+
+test('nome da loja pelo id; loja fora da lista fica em branco', () => {
+  const nome = nomeDaLoja(lojas)
+  assert.deepEqual(['b', 'a', 'x'].map(nome), ['Loja Norte', 'Loja Centro', ''])
+})
+
+test('a linha do Excel de vendas é a mesma das células da venda', () => {
+  const p = planilhaDoPainel('vendas', { ...dadosPlanilha, vendas })
+  assert.deepEqual(p.linhas, vendas.map(v => celulasDaVenda(v, nomeDaLoja(lojas))))
 })
 
 test('Excel do estoque: loja, modelo, cor e quantidade, sem cidade nem empresa', () => {

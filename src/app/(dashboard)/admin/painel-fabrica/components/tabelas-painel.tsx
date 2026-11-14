@@ -2,10 +2,9 @@
 // (src/app/(print)/admin/painel-fabrica/imprimir) mostram exatamente o mesmo.
 import Link from 'next/link'
 import {
-  resumirEstoque, resumirVendas, urlDoFiltro, COLUNAS_VENDAS, ROTA_PAINEL_FABRICA,
+  celulasDaVenda, nomeDaLoja, resumirEstoque, resumirVendas, urlDoFiltro, COLUNAS_VENDAS, ROTA_PAINEL_FABRICA,
   type FiltroPainel, type LinhaEstoquePainel, type LojaPainel, type VendaPainel,
 } from '@/lib/painel-fabrica'
-import { dataEHoraBrt } from '@/lib/data-venda'
 
 const n = (v: number) => v.toLocaleString('pt-BR')
 
@@ -14,6 +13,10 @@ const td = 'px-3 py-1.5'
 const caixa = 'bg-card border rounded-lg overflow-x-auto'
 const vazio = `${td} py-6 text-center text-muted-foreground`
 const SEM_VENDA = 'Nenhuma venda no período com estes filtros.'
+// Estilo de cada coluna da lista, na ordem de COLUNAS_VENDAS.
+const CLASSE_DA_COLUNA = [
+  'whitespace-nowrap tabular-nums', 'tabular-nums', 'whitespace-nowrap', 'whitespace-nowrap font-medium', '', 'font-mono text-xs whitespace-nowrap',
+]
 
 function Cabecalho({ titulo, detalhe }: { titulo: string; detalhe: string }) {
   return (
@@ -26,11 +29,11 @@ function Cabecalho({ titulo, detalhe }: { titulo: string; detalhe: string }) {
 
 export function TabelaEstoque({ lojas, estoque }: { lojas: LojaPainel[]; estoque: LinhaEstoquePainel[] }) {
   const e = resumirEstoque(estoque)
-  const nomeLoja = new Map(lojas.map(l => [l.lojaId, l.lojaNome]))
-  const lojasComEstoque = e.porLoja
-    .flatMap(p => {
-      const nome = nomeLoja.get(p.chave)
-      return nome === undefined ? [] : [{ lojaId: p.chave, nome, quantidade: p.quantidade }]
+  const emEstoque = new Map(e.porLoja.map(p => [p.chave, p.quantidade]))
+  const lojasComEstoque = lojas
+    .flatMap(l => {
+      const quantidade = emEstoque.get(l.lojaId)
+      return quantidade === undefined ? [] : [{ lojaId: l.lojaId, nome: l.lojaNome, quantidade }]
     })
     .sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome, 'pt-BR'))
 
@@ -105,7 +108,7 @@ export function TabelaVendas({ lojas, vendas, periodo, filtro, de, ate, impresso
   impresso?: boolean
 }) {
   const v = resumirVendas(vendas)
-  const nomeLoja = new Map(lojas.map(l => [l.lojaId, l.lojaNome]))
+  const nomeLoja = nomeDaLoja(lojas)
   const vendidasNaLoja = (lojaId: string) => v.porLoja.get(lojaId) ?? 0
   const lojasComVenda = lojas
     .filter(l => vendidasNaLoja(l.lojaId) > 0)
@@ -193,12 +196,7 @@ export function TabelaVendas({ lojas, vendas, periodo, filtro, de, ate, impresso
               {vendas.length === 0 && <tr><td colSpan={COLUNAS_VENDAS.length} className={vazio}>{SEM_VENDA}</td></tr>}
               {vendas.map(x => (
                 <tr key={`${x.numero}-${x.chassi}`}>
-                  <td className={`${td} whitespace-nowrap tabular-nums`}>{dataEHoraBrt(x.data)}</td>
-                  <td className={`${td} tabular-nums`}>{x.numero}</td>
-                  <td className={`${td} whitespace-nowrap`}>{nomeLoja.get(x.lojaId) ?? ''}</td>
-                  <td className={`${td} whitespace-nowrap font-medium`}>{x.modelo}</td>
-                  <td className={td}>{x.cor}</td>
-                  <td className={`${td} font-mono text-xs whitespace-nowrap`}>{x.chassi}</td>
+                  {celulasDaVenda(x, nomeLoja).map((c, i) => <td key={COLUNAS_VENDAS[i]} className={`${td} ${CLASSE_DA_COLUNA[i]}`}>{c}</td>)}
                 </tr>
               ))}
             </tbody>

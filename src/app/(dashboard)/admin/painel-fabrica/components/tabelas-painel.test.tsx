@@ -2,7 +2,7 @@ import { after, before, test, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { COLUNAS_VENDAS, type LinhaEstoquePainel, type LojaPainel, type VendaPainel } from '@/lib/painel-fabrica'
+import { COLUNAS_VENDAS, celulasDaVenda, nomeDaLoja, type LinhaEstoquePainel, type LojaPainel, type VendaPainel } from '@/lib/painel-fabrica'
 
 const link = mock.module('next/link', { defaultExport: ({ href, children }: { href: string; children: ReactNode }) => createElement('a', { href }, children) })
 after(() => link.restore())
@@ -41,6 +41,14 @@ test('vendas: cada venda numa linha com data e hora de Brasília, número, loja,
 test('vendas: a lista tem as colunas da planilha, na mesma ordem', () => {
   const html = renderToStaticMarkup(createElement(TabelaVendas, { ...props, vendas }))
   assert.ok(linhas(html).some(l => l.join('|') === COLUNAS_VENDAS.join('|')))
+})
+
+test('vendas: a linha da tela tem as mesmas células da planilha', () => {
+  const html = renderToStaticMarkup(createElement(TabelaVendas, { ...props, vendas }))
+  for (const v of vendas) {
+    const celulas = celulasDaVenda(v, nomeDaLoja(lojas)).map(String)
+    assert.deepEqual(linhaQueComecaCom(html, celulas[0]), celulas)
+  }
 })
 
 test('vendas: a loja leva ao filtro só dela, na aba de vendas, mantendo modelo, cor e período', () => {
