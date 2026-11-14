@@ -549,7 +549,8 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
   revalidatePath('/estoque')
   revalidatePath('/caixa')
 
-  // Vira o lead do cliente no Kommo pra "Venda Ganha" (best-effort, com timeout).
+  // Vira o lead do cliente no Kommo pra "Venda Ganha" (best-effort, com timeout). O lead leva o que o cliente
+  // paga (moto + frete); o aviso no WhatsApp, logo abaixo, leva só a moto, como metas e comissão (#796).
   const kommo: ResultadoVirarLead = await Promise.race([
     virarLeadKommo(data.clienteCelular, total),
     new Promise<ResultadoVirarLead>(res => setTimeout(() => res({ resultado: 'erro' }), 8000)),
