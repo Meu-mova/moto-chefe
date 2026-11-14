@@ -44,6 +44,8 @@ async function abrir(entrega: EntregaVenda | null, origens: { id: string; nome: 
   await act(async () => { root.render(createElement(EfetivarDialog, { pedidoId: 'p1', motoId: 'm1', chassi: 'LA1', modelo: 'MC JET', origens, entrega, ...quem })) })
   montados.push(() => act(async () => { root.unmount(); container.remove() }))
   await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Efetivar Venda'))
+  // A página recarregada passa o pedido de novo, com outra Entrega.
+  return (nova: EntregaVenda | null) => act(async () => { root.render(createElement(EfetivarDialog, { pedidoId: 'p1', motoId: 'm1', chassi: 'LA1', modelo: 'MC JET', origens, entrega: nova, ...quem })) })
 }
 
 const ENTREGAR: EntregaVenda = {
@@ -257,4 +259,10 @@ test('quem recebe com nome acima de 60 caracteres deixa o "Salvar entrega" desab
   await digitar(document.getElementById('entrega-recebe-nome') as HTMLInputElement, 'x'.repeat(61))
   assert.equal(botao('Salvar entrega')?.disabled, true)
   assert.deepEqual(alteracoes, [])
+})
+
+test('a página recarregada com outra Entrega do pedido: a efetivação aberta mostra a nova', async () => {
+  const recarregar = await abrir(ENTREGAR)
+  await recarregar({ modo: 'retira', modalidade: '' })
+  assert.match(entregaNaTela(), /Retira na loja \(do pedido\)/)
 })
