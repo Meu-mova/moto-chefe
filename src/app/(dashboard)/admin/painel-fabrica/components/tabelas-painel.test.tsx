@@ -31,11 +31,11 @@ const linhas = (html: string) =>
   [...html.matchAll(/<tr[^>]*>(.*?)<\/tr>/g)].map(tr => [...tr[1].matchAll(/<t[dh][^>]*>(.*?)<\/t[dh]>/g)].map(c => textoVisivel(c[1]).trim()))
 const linhaQueComecaCom = (html: string, inicio: string) => linhas(html).find(l => l[0] === inicio)
 
-test('vendas: cada venda numa linha com data e hora de Brasília, número, loja, modelo, cor e chassi', () => {
+test('vendas: cada venda numa linha com a data (dia de Brasília, sem hora), número, loja, modelo, cor e chassi', () => {
   const html = renderToStaticMarkup(createElement(TabelaVendas, { ...props, vendas }))
-  // 01:30 UTC de 01/11 é 22h30 de 31/10 em Brasília.
-  assert.deepEqual(linhaQueComecaCom(html, '31/10/2026 22:30'), ['31/10/2026 22:30', '201', 'Loja Norte', 'X12', 'PRETO', 'CHASSI201'])
-  assert.deepEqual(linhaQueComecaCom(html, '02/10/2026 12:00'), ['02/10/2026 12:00', '101', 'Loja Centro', 'JETMAX', 'AZUL', 'CHASSI101'])
+  // 01:30 UTC de 01/11 ainda é 31/10 em Brasília. Sem hora: a data da venda é digitada sem hora.
+  assert.deepEqual(linhaQueComecaCom(html, '31/10/2026'), ['31/10/2026', '201', 'Loja Norte', 'X12', 'PRETO', 'CHASSI201'])
+  assert.deepEqual(linhaQueComecaCom(html, '02/10/2026'), ['02/10/2026', '101', 'Loja Centro', 'JETMAX', 'AZUL', 'CHASSI101'])
 })
 
 test('vendas: a lista tem as colunas da planilha, na mesma ordem', () => {

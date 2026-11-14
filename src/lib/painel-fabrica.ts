@@ -13,7 +13,7 @@
 // filtrar pela URL e não aparece na tela, no Excel nem no impresso.
 //
 // Este arquivo é puro (sem banco): filtro, totais e planilha, usados pela tela e testados.
-import { dataEHoraBrt } from '@/lib/data-venda'
+import { diaBrt } from '@/lib/data-venda'
 
 export const ROTA_PAINEL_FABRICA = '/admin/painel-fabrica'
 
@@ -38,7 +38,7 @@ export type LinhaEstoquePainel = {
 
 /** Uma moto vendida. */
 export type VendaPainel = {
-  /** ISO, em UTC; exibir pelo dia e hora de Brasília. */
+  /** ISO, em UTC; exibir pelo dia de Brasília. */
   data: string
   numero: number
   lojaId: string
@@ -62,9 +62,13 @@ export function nomeDaLoja(lojas: LojaPainel[]): (lojaId: string) => string {
   return lojaId => nomes.get(lojaId) ?? ''
 }
 
-/** Células de uma venda, na ordem de COLUNAS_VENDAS: a tela, o impresso e o Excel leem daqui. */
+/**
+ * Células de uma venda, na ordem de COLUNAS_VENDAS: a tela, o impresso e o Excel leem daqui.
+ * Só a data: a venda é digitada sem hora (parseDataInput grava meio-dia UTC), então a hora
+ * mostraria 09:00 em quase todas (decisão do Luis, #899).
+ */
 export function celulasDaVenda(v: VendaPainel, nomeLoja: (lojaId: string) => string): (string | number)[] {
-  return [dataEHoraBrt(v.data), v.numero, nomeLoja(v.lojaId), v.modelo, v.cor, v.chassi]
+  return [diaBrt(v.data), v.numero, nomeLoja(v.lojaId), v.modelo, v.cor, v.chassi]
 }
 
 /** Lista vazia = sem filtro (tudo). */

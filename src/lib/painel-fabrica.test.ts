@@ -92,14 +92,14 @@ test('opções juntam modelos e cores do estoque e das vendas, sem repetir', () 
 const lojas: LojaPainel[] = [{ lojaId: 'a', lojaNome: 'Loja Centro' }, { lojaId: 'b', lojaNome: 'Loja Norte' }]
 const dadosPlanilha = { lojas, estoque, de: '2026-10-01', ate: '2026-10-31', hoje: '2026-11-14' }
 
-test('Excel das vendas: data e hora de Brasília, número, loja, modelo, cor e chassi, na ordem da lista', () => {
-  const tarde = venda(201, 'b', 'X12', 'PRETO', '2026-11-01T01:30:00.000Z') // 22h30 de 31/10 em Brasília
+test('Excel das vendas: só a data (dia de Brasília), número, loja, modelo, cor e chassi, na ordem da lista', () => {
+  const tarde = venda(201, 'b', 'X12', 'PRETO', '2026-11-01T01:30:00.000Z') // 31/10 em Brasília; a hora não é real (#899)
   const p = planilhaDoPainel('vendas', { ...dadosPlanilha, vendas: [tarde, vendas[0]] })
   assert.equal(p.nome, 'vendas-motochefe-2026-10-01-a-2026-10-31.csv')
   assert.deepEqual(p.cabecalho, ['Data', 'Venda', 'Loja', 'Modelo', 'Cor', 'Chassi'])
   assert.deepEqual(p.linhas, [
-    ['31/10/2026 22:30', 201, 'Loja Norte', 'X12', 'PRETO', 'CH201'],
-    ['02/10/2026 12:00', 101, 'Loja Centro', 'X12', 'PRETO', 'CH101'],
+    ['31/10/2026', 201, 'Loja Norte', 'X12', 'PRETO', 'CH201'],
+    ['02/10/2026', 101, 'Loja Centro', 'X12', 'PRETO', 'CH101'],
   ])
 })
 
