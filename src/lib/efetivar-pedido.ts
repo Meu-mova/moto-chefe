@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import type { db } from '@/lib/db'
-import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, reservas, vendas } from '@/lib/db/schema'
+import { clientes, historicoEstoque, lancamentosCaixa, motos, pedidosVenda, pedidosVendaItens, reservas, vendas } from '@/lib/db/schema'
 import { hojeBrt } from '@/lib/data-venda'
 import { lancamentosDinheiroDaVenda } from '@/lib/caixa-venda-moto'
 import { conferirMaquininhas } from '@/lib/maquininhas'
@@ -8,6 +8,10 @@ import { formaPagamentoDaVenda, pagamentosFecham, pagamentosIncompletos, PAGAMEN
 import { clientesDoEscopo, contaDaLoja } from '@/lib/conta'
 import { RecusaUsuario } from '@/lib/resultado-action'
 import { gravarMotoDoPedido } from '@/lib/pedido-venda'
+import { totalDasPecas } from '@/lib/pedido-venda-regras'
+import { centavos } from '@/lib/numero-br'
+import { aplicarVendaPeca } from '@/lib/venda-peca'
+import { lerDocumentoCliente } from '@/lib/documento'
 import { freteDaVenda, PEDIDO_EM_APROVACAO_PARA_ALTERAR, totalComFrete, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { motivoBloqueioPedidoAprovacao } from '@/lib/estado-moto'
 import { gravarPedidoDeAprovacaoTx } from '@/lib/pedido-de-aprovacao'
@@ -101,9 +105,17 @@ async function clienteDoCadastro(tx: Tx, lojaId: string, d: Pick<DadosEfetivarPe
   return cliente
 }
 
-/** Confere as formas contra o total do pedido (moto + frete) e as maquininhas da loja; devolve o total. */
-async function conferirPagamentos(tx: Tx, pedido: { lojaId: string; entrega: EntregaVenda | null }, d: Pick<DadosEfetivarPedido, 'valor' | 'pagamentos'>) {
-  const total = totalComFrete(d.valor, freteDaVenda(pedido.entrega))
+/** Brinde e acessório do pedido (#778), com o valor gravado no item. */
+export async function pecasDoPedido(exec: Pick<Tx, 'select'>, pedidoId: string) {
+  return exec.select({ tipo: pedidosVendaItens.tipo, pecaId: pedidosVendaItens.pecaId, quantidade: pedidosVendaItens.quantidade, valorUnitario: pedidosVendaItens.valorUnitario })
+    .from(pedidosVendaItens)
+    .where(and(eq(pedidosVendaItens.pedidoVendaId, pedidoId), inArray(pedidosVendaItens.tipo, ['brinde', 'acessorio'])))
+}
+type PecasDoPedido = Awaited<ReturnType<typeof pecasDoPedido>>
+
+/** Confere as formas contra o total do pedido (moto + frete + acessórios) e as maquininhas da loja; devolve o total. */
+async function conferirPagamentos(tx: Tx, pedido: { lojaId: string; entrega: EntregaVenda | null }, pecas: PecasDoPedido, d: Pick<DadosEfetivarPedido, 'valor' | 'pagamentos'>) {
+  const total = centavos(totalComFrete(d.valor, freteDaVenda(pedido.entrega)) + totalDasPecas(pecas))
   // Aqui e não na action: o frete que entra no total só se conhece lendo o pedido.
   if (pagamentosIncompletos(d.pagamentos)) throw new RecusaUsuario(PAGAMENTO_INCOMPLETO)
   if (!pagamentosFecham(d.pagamentos, total)) throw new RecusaUsuario(SOMA_PAGAMENTOS_DIFERE)
@@ -127,10 +139,13 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
     .where(and(eq(reservas.motoId, pedido.motoId), eq(reservas.status, 'ativa')))
     .limit(1)
 
-  const total = await conferirPagamentos(tx, pedido, d)
+  const pecas = await pecasDoPedido(tx, d.pedidoId)
+  await conferirPagamentos(tx, pedido, pecas, d)
 
   const agora = new Date()
-  const valor = total.toFixed(2)
+  // A venda da moto vale moto + frete (a folha lê só a moto, #796); os pagamentos são os do pedido inteiro,
+  // que com acessório somam mais que ela (decisão do Luis, #778; o Editar venda recusa até o #782).
+  const valor = totalComFrete(d.valor, freteDaVenda(pedido.entrega)).toFixed(2)
   const [venda] = await tx.insert(vendas).values({
     pedidoVendaId: d.pedidoId,
     motoId: pedido.motoId,
@@ -181,6 +196,20 @@ export async function efetivarPedidoTx(tx: Tx, d: DadosEfetivarPedido): Promise<
   })
   if (caixa.length > 0) await tx.insert(lancamentosCaixa).values(caixa)
 
+  // Brinde e acessório viram a venda de peça do pedido (#778): baixa o estoque (pode ficar negativo), entra na
+  // base de peças da folha e aparece em Peças; sem pagamento nem caixa próprios, que estão na venda da moto.
+  if (pecas.length > 0) {
+    const comprador = lerDocumentoCliente(d.clienteCpf)
+    await aplicarVendaPeca(tx, pedido.vendedorId, {
+      lojaId: pedido.lojaId,
+      clienteNome: d.clienteNome,
+      clienteTipoPessoa: comprador.ok ? comprador.tipoPessoa : 'fisica',
+      clienteDocumento: comprador.ok ? comprador.documento : null,
+      itens: pecas.map(p => ({ pecaId: p.pecaId!, quantidade: Number(p.quantidade), valorUnitario: Number(p.valorUnitario ?? 0) })),
+      pagamentos: [],
+    }, { pedidoVendaId: d.pedidoId, valorTotal: totalDasPecas(pecas) })
+  }
+
   return { vendaId: venda.id }
 }
 
@@ -197,7 +226,7 @@ export async function pedirAprovacaoDoPedidoTx(tx: Tx, d: DadosEfetivarPedido & 
 }) {
   const { pedido, moto } = await travarPedidoEMoto(tx, d.pedidoId, false)
   await clienteDoCadastro(tx, pedido.lojaId, d)
-  const total = await conferirPagamentos(tx, pedido, d)
+  const total = await conferirPagamentos(tx, pedido, await pecasDoPedido(tx, d.pedidoId), d)
   const guardado: PedidoEmAprovacao = {
     pedidoId: d.pedidoId, numero: d.numero, lojaId: pedido.lojaId, clienteId: d.clienteId, clienteNome: d.clienteNome,
     clienteCpf: d.clienteCpf, valor: d.valor, frete: freteDaVenda(pedido.entrega), pagamentos: projetarPagamentos(d.pagamentos),
