@@ -70,6 +70,34 @@ test('criar grava os campos do formulário e ignora os outros', async () => {
   })
 })
 
+// Lista dos 13 campos do formulário: se um sair da lista de gravação, o valor some calado.
+const FORMULARIO_CRIAR = {
+  nome: 'Carla', tipoPessoa: 'juridica', cpfCnpj: '11222333000181', sexo: 'feminino', email: 'carla@teste.invalid',
+  celular: '35999990000', endereco: 'Rua A', numero: '10', complemento: 'Sala 1', bairro: 'Centro', cep: '37000000',
+  cidade: 'Varginha', uf: 'MG',
+} as const
+const FORMULARIO_EDITAR = {
+  nome: 'Carla Lima', tipoPessoa: 'fisica', cpfCnpj: '52998224725', sexo: 'masculino', email: 'lima@teste.invalid',
+  celular: '35988887777', endereco: 'Rua B', numero: '20', complemento: 'Casa', bairro: 'Jardim', cep: '37010000',
+  cidade: 'Lavras', uf: 'SP',
+} as const
+const comoColunas = (f: typeof FORMULARIO_CRIAR | typeof FORMULARIO_EDITAR) => ({
+  nome: f.nome, tipo_pessoa: f.tipoPessoa, cpf_cnpj: f.cpfCnpj, sexo: f.sexo, email: f.email, celular: f.celular,
+  endereco: f.endereco, numero: f.numero, complemento: f.complemento, bairro: f.bairro, cep: f.cep, cidade: f.cidade, uf: f.uf,
+})
+const colunasDoFormulario = (tx: Tx, id: string) => linhas(tx, sql`select nome, tipo_pessoa, cpf_cnpj, sexo, email, celular,
+  endereco, numero, complemento, bairro, cep, cidade, uf from clientes where id = ${id}`)
+
+test('os 13 campos do formulário gravam no criar e no editar', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { a } = await contas(tx)
+    const id = await mod.cadastrarCliente(tx, { contaId: a }, FORMULARIO_CRIAR)
+    assert.deepEqual(await colunasDoFormulario(tx, id), [comoColunas(FORMULARIO_CRIAR)])
+    await mod.atualizarCliente(tx, { contaId: a }, id, FORMULARIO_EDITAR)
+    assert.deepEqual(await colunasDoFormulario(tx, id), [comoColunas(FORMULARIO_EDITAR)])
+  })
+})
+
 test('Conta B editando cliente da Conta A recebe a mesma frase que id inexistente, e nada muda', async () => {
   await emTransacaoDesfeita(async tx => {
     const { a, b } = await contas(tx)
