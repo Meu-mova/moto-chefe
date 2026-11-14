@@ -11,6 +11,8 @@ import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { caminhoLogoDanfe, enviarLogoDanfe, previaLogoDanfe, type DependenciasLogo, type ResultadoLogo } from '@/lib/logo-danfe'
 import { cnpjDaEmpresaNaNg, configNotaGateway, dadosDaEmpresaNaNg } from '@/lib/notagateway/client'
 import { vincularLogoNaNg } from '@/lib/notagateway/logo-ng'
+import { salvarCorrecaoUf, voltarAoPadraoUf, type DadosCorrecao, type Resultado } from '@/lib/difal-correcoes'
+import { aliquotaImportadoDoForm } from '@/lib/notagateway/difal-ufs'
 
 /**
  * Configuração fiscal por grupo. Cada grupo é um CNPJ com contabilidade
@@ -61,6 +63,8 @@ export type RegraPayload = {
   origemFixa: string
   ibptFederal: string
   ibptEstadual: string
+  /** #904: alíquota da moto importada no DIFAL. Ausente = não mexe; '' = limpa. */
+  aliquotaIcmsImportado?: string
 }
 
 const ouNulo = (v: string) => (v.trim() === '' ? null : v.trim())
@@ -85,6 +89,8 @@ export async function salvarRegraAction(data: RegraPayload) {
   ]
   const faltando = obrigatorios.filter(([, v]) => !v.trim()).map(([n]) => n)
   if (faltando.length) throw new Error(`Preencha: ${faltando.join(', ')}`)
+  const importado = aliquotaImportadoDoForm(data.aliquotaIcmsImportado)
+  if (!importado.ok) throw new Error(importado.erro)
 
   const valores = {
     naturezaOperacao: data.naturezaOperacao.trim(),
@@ -104,6 +110,7 @@ export async function salvarRegraAction(data: RegraPayload) {
     origemFixa: ouNulo(data.origemFixa),
     ibptFederal: ouNulo(data.ibptFederal),
     ibptEstadual: ouNulo(data.ibptEstadual),
+    ...(importado.valor === undefined ? {} : { aliquotaIcmsImportado: importado.valor }),
     atualizadoEm: sql`NOW()` as unknown as Date,
   }
 
@@ -113,6 +120,21 @@ export async function salvarRegraAction(data: RegraPayload) {
     .onConflictDoUpdate({ target: regrasFiscaisSaida.grupoId, set: valores })
 
   revalidatePath('/admin/notas-fiscais')
+}
+
+// ─── DIFAL por UF (#904) ─────────────────────────────────────────────────
+// Permissão e Conta em src/lib/difal-correcoes.ts (teste de banco); aqui só a sessão.
+
+export async function salvarCorrecaoUfAction(dados: DadosCorrecao): Promise<Resultado> {
+  const r = await salvarCorrecaoUf(await getUsuarioLogado(), dados)
+  if (r.ok) revalidatePath('/admin/notas-fiscais')
+  return r
+}
+
+export async function voltarAoPadraoUfAction(dados: { grupoId: string; uf: string }): Promise<Resultado> {
+  const r = await voltarAoPadraoUf(await getUsuarioLogado(), dados)
+  if (r.ok) revalidatePath('/admin/notas-fiscais')
+  return r
 }
 
 // ─── Logo do DANFE (#428) ────────────────────────────────────────────────
