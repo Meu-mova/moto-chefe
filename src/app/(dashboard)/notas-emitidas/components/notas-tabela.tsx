@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { baixarArquivo } from '@/lib/baixar-arquivo'
 import { diaBrt } from '@/lib/data-venda'
 import { marcarVarias } from '@/lib/selecao'
 import type { NotaEmitidaComInutilizacao } from '@/lib/queries/notas-emitidas'
@@ -98,12 +99,7 @@ export function NotasTabela({ notas, totalComDocumento, filtro, podeInutilizar }
         setErro((await r.json().catch(() => null))?.error ?? 'Não foi possível baixar as notas. Tente de novo.')
         return
       }
-      const url = URL.createObjectURL(await r.blob())
-      const a = document.createElement('a')
-      a.href = url
-      a.download = nomeDaResposta(r)
-      a.click()
-      URL.revokeObjectURL(url)
+      baixarArquivo(nomeDaResposta(r), await r.blob())
     } catch {
       setErro('Não foi possível baixar as notas. Confira a conexão e tente de novo.')
     } finally {
