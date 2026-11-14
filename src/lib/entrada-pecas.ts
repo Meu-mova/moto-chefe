@@ -100,11 +100,14 @@ async function gravarLinhas(
 export async function gravarEntradaPecas(exec: Executor, entrada: EntradaPecas): Promise<void> {
   const { contaId, grupoId } = await lojaDeDestino(exec, entrada.usuario, entrada.lojaId)
   await gravarLinhas(exec, contaId, entrada.lojaId, entrada.linhas, entrada.nota.fornecedorCnpj)
+  // Da nota só os campos do formulário; Conta, grupo, loja e o resto são do servidor.
   await exec.insert(notasEntrada).values({
     contaId,
     grupoId,
     lojaId: entrada.lojaId,
-    ...entrada.nota,
+    chaveAcesso: entrada.nota.chaveAcesso,
+    numero: entrada.nota.numero,
+    fornecedorCnpj: entrada.nota.fornecedorCnpj,
     criadoPor: entrada.usuario.id,
   })
 }
