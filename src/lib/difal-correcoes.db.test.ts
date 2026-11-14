@@ -2,7 +2,7 @@
 // Como montar local: `npm run test:db:local`. Cada caso grava numa transação desfeita no fim.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sql } from 'drizzle-orm'
+import { semearContaBase, semearUsuario, type Base } from '@/test/semear-conta'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url) throw new Error('TEST_DATABASE_URL não definida — este teste só roda num Postgres descartável')
@@ -38,20 +38,18 @@ async function emTransacao(corpo: (tx: Tx) => Promise<void>) {
 }
 
 async function cenario(tx: Tx) {
-  const linha = async (q: ReturnType<typeof sql>) => ((await tx.execute(q)) as unknown as { rows: { id: string }[] }).rows[0]
-  const contaA = await linha(sql`insert into contas (nome) values ('Conta A difal') returning id`)
-  const contaB = await linha(sql`insert into contas (nome) values ('Conta B difal') returning id`)
-  const grupoA = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Grupo A difal', '00000000000191', ${contaA.id}) returning id`)
-  const grupoB = await linha(sql`insert into grupos (nome, cnpj, conta_id) values ('Grupo B difal', '00000000000272', ${contaB.id}) returning id`)
-  const usuario = async (nome: string, papel: string, contaId: string, grupo: string) => {
-    const u = await linha(sql`insert into usuarios (id, nome, email, papel, conta_id) values (gen_random_uuid(), ${nome}, ${nome + '@difal.t'}, ${papel}, ${contaId}) returning id`)
-    return { id: u.id, papel, contaId, lojaId: null, gruposAcesso: [grupo] }
-  }
+  const prefixo = 'DIFAL904'
+  const a = await semearContaBase(tx, { prefixo, nome: 'A', cnpj: '90400000000101' })
+  const b = await semearContaBase(tx, { prefixo, nome: 'B', cnpj: '90400000000202' })
+  const usuario = async (base: Base, papel: string) => ({
+    id: await semearUsuario(tx, base, { papel, semLoja: true, comGrupo: true, comConta: true }),
+    papel, contaId: base.contaId, lojaId: null, gruposAcesso: [base.grupoId],
+  })
   return {
-    grupoA: grupoA.id, grupoB: grupoB.id,
-    socioA: await usuario('socioA', 'admin_socio', contaA.id, grupoA.id),
-    socioB: await usuario('socioB', 'admin_socio', contaB.id, grupoB.id),
-    auxA: await usuario('auxA', 'aux_adm', contaA.id, grupoA.id),
+    grupoA: a.grupoId, grupoB: b.grupoId,
+    socioA: await usuario(a, 'admin_socio'),
+    socioB: await usuario(b, 'admin_socio'),
+    auxA: await usuario(a, 'aux_adm'),
   }
 }
 
