@@ -362,6 +362,17 @@ export async function buscarMoto(usuario: Parameters<typeof daContaDo>[0], id: s
         WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
         ORDER BY a.data_solicitacao DESC LIMIT 1
       )`,
+      // Origem e o frete guardado (#854): o card da moto mostra moto + frete = total. Só o frete, não o formulário.
+      aprovacaoPendenteOrigem: sql<string | null>`(
+        SELECT a.origem FROM aprovacoes_venda a
+        WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
+        ORDER BY a.data_solicitacao DESC LIMIT 1
+      )`,
+      aprovacaoPendenteFreteGuardado: sql<unknown>`(
+        SELECT jsonb_build_object('frete', a.dados_venda->'frete', 'entrega', a.dados_venda->'entrega') FROM aprovacoes_venda a
+        WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'
+        ORDER BY a.data_solicitacao DESC LIMIT 1
+      )`,
       aprovacaoPendenteMotivo: sql<string | null>`(
         SELECT a.motivo FROM aprovacoes_venda a
         WHERE a.moto_id = ${motos.id} AND a.status = 'pendente'

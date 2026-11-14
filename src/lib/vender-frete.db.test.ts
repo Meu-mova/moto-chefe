@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { semearContaBase, semearUsuario } from '@/test/semear-conta'
 import { SOMA_PAGAMENTOS_DIFERE } from '@/lib/pagamentos-entrada'
+import { contaDaAprovacao } from '@/lib/aprovacao-venda'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
@@ -25,10 +26,12 @@ type Actions = typeof import('@/app/(dashboard)/vendas/actions')
 let db: Db['db']
 let execRows: Db['execRows']
 let actions: Actions
+let buscarMoto: typeof import('@/lib/queries/motos')['buscarMoto']
 
 before(async () => {
   ;({ db, execRows } = await import('@/lib/db'))
   actions = await import('@/app/(dashboard)/vendas/actions')
+  ;({ buscarMoto } = await import('@/lib/queries/motos'))
 })
 after(async () => {
   authMock.restore()
@@ -153,3 +156,15 @@ test('D8: sem frete, a venda vale o que foi digitado, como antes', async () => {
   assert.equal(r.ok, true, JSON.stringify(r))
   assert.deepEqual((await vendaDaMoto(a.motoId)).map(v => v.valor), ['12000.00'])
 })
+
+test('D3b: a página da moto lê o pedido de aprovação com frete como moto + frete = total', async () => {
+  const a = await semearConta()
+  usuario = a.vendedor
+  assert.deepEqual(await actions.solicitarAprovacaoVendaAction(venda(a, MINIMO - 100, [{ tipo: 'pix', valor: MINIMO - 100 + FRETE }]), 'Cliente fiel'), { ok: true, dados: undefined })
+  usuario = a.socio
+  const moto = await buscarMoto(a.socio, a.motoId)
+  assert.ok(moto)
+  const conta = contaDaAprovacao({ origem: moto.aprovacaoPendenteOrigem ?? 'moto', valor: moto.aprovacaoPendenteValor ?? '0', dadosVenda: moto.aprovacaoPendenteFreteGuardado })
+  assert.deepEqual(conta, { moto: 11900, frete: FRETE, total: 12050 })
+})
+

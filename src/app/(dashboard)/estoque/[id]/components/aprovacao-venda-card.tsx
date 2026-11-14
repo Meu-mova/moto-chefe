@@ -11,7 +11,8 @@ import { fmtBRL } from '@/lib/preco-minimo'
 
 type Props = {
   aprovacaoId: string
-  valor: number
+  /** Moto + frete = total (#854); sem frete, só o valor. */
+  conta: { moto: number; frete: number; total: number }
   motivo: string
   vendedorNome: string
   dataSolicitacao: string
@@ -19,7 +20,7 @@ type Props = {
   podeAprovar: boolean
 }
 
-export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, dataSolicitacao, tipo, podeAprovar }: Props) {
+export function AprovacaoVendaCard({ aprovacaoId, conta, motivo, vendedorNome, dataSolicitacao, tipo, podeAprovar }: Props) {
   const [loading, setLoading] = useState(false)
   const [recusarOpen, setRecusarOpen] = useState(false)
   const [observacao, setObservacao] = useState('')
@@ -60,7 +61,15 @@ export function AprovacaoVendaCard({ aprovacaoId, valor, motivo, vendedorNome, d
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Valor</span><span className="font-bold">{fmtBRL(valor)}</span></div>
+        {conta.frete > 0 ? (
+          <>
+            <div className="flex justify-between"><span className="text-muted-foreground">Moto</span><span>{fmtBRL(conta.moto)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Frete cobrado</span><span>{fmtBRL(conta.frete)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-bold">{fmtBRL(conta.total)}</span></div>
+          </>
+        ) : (
+          <div className="flex justify-between"><span className="text-muted-foreground">Valor</span><span className="font-bold">{fmtBRL(conta.moto)}</span></div>
+        )}
         <div className="flex justify-between"><span className="text-muted-foreground">Vendedor</span><span>{vendedorNome}</span></div>
         <div className="flex justify-between"><span className="text-muted-foreground">Pedido em</span><span>{new Date(dataSolicitacao).toLocaleString('pt-BR')}</span></div>
         <div>
