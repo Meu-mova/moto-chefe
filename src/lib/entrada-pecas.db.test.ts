@@ -96,6 +96,22 @@ test('a nota grava só chave, número e fornecedor do que chega; Conta, grupo, l
   })
 })
 
+test('a nota não vira "planilha" nem ganha impressão digital pelo que chega; a gravação é recusada e nada fica', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const a = await semearConta(tx, 'A', '11111111000191')
+    const b = await semearConta(tx, 'B', '22222222000191')
+    const impressao = 'f'.repeat(64)
+    const comoPlanilha = {
+      chaveAcesso: null, numero: null, fornecedorCnpj: NOTA.fornecedorCnpj,
+      origem: 'planilha', impressaoDigital: impressao, contaId: b.contaId, grupoId: b.grupoId, lojaId: b.lojaId,
+    } as unknown as typeof NOTA
+    await assert.rejects(tx.transaction(t => entrada.gravarEntradaPecas(t, {
+      lojaId: a.lojaId, usuario: a.usuario, nota: comoPlanilha, linhas: [{ ...CAPACETE, pecaId: a.pecaId }],
+    })))
+    assert.deepEqual(await linhas(tx, sql`select loja_id from notas_entrada where impressao_digital = ${impressao}`), [])
+  })
+})
+
 // Roda num savepoint: a recusa desfaz só ela, e dá para conferir que nada ficou.
 const recusa = (tx: Tx, e: Parameters<typeof entrada.gravarEntradaPecas>[1]) =>
   assert.rejects(tx.transaction(t => entrada.gravarEntradaPecas(t, e)), (erro: unknown) => erro instanceof entrada.EntradaPecasRecusada)
