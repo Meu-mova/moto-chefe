@@ -1,5 +1,7 @@
 # Integração do CRM "Elite da IA" no MOVA — Fase 1 (teste em paralelo)
 
+> **14/11/2026:** o teste foi encerrado e o schema `crm` foi apagado (migração 0188, #927). Este documento fica como histórico.
+
 **Data:** 2026-09-02
 **Status:** Design aprovado (seções 1–2), aguardando revisão da spec
 **Abordagem escolhida:** A — CRM no repositório do MOVA, motor em runtime separado
