@@ -62,12 +62,19 @@ export function EfetivarDialog({ pedidoId, motoId, chassi, modelo, origens, entr
   const [origemDetalhe, setOrigemDetalhe] = useState('')
   const [motivo, setMotivo] = useState('')
   const [preco, setPreco] = useState<{ minimo: number; taxas: TaxasVenda } | null>(null)
+  // Até a precificação chegar, a tela não sabe se é "Confirmar" ou "Pedir aprovação".
+  const [precoPronto, setPrecoPronto] = useState(false)
 
   // Precificação do modelo da moto, a mesma que o servidor confere (#776).
   useEffect(() => {
     if (!open) return
     let vivo = true
-    buscarPrecoMinimoAction(motoId).then(info => { if (vivo) setPreco(info && { minimo: info.valorMinimoPix, taxas: info.taxas }) })
+    setPrecoPronto(false)
+    buscarPrecoMinimoAction(motoId)
+      .then(info => { if (vivo) setPreco(info && { minimo: info.valorMinimoPix, taxas: info.taxas }) })
+      // Sem a precificação o servidor ainda decide; a tela só não consegue avisar antes.
+      .catch(() => { if (vivo) toast.error('Não deu para conferir o preço mínimo agora. O sistema confere ao confirmar.') })
+      .finally(() => { if (vivo) setPrecoPronto(true) })
     return () => { vivo = false }
   }, [open, motoId])
 
@@ -114,7 +121,7 @@ export function EfetivarDialog({ pedidoId, motoId, chassi, modelo, origens, entr
     papel,
   })
   const podeEfetivar = !!clienteNome && lerDocumentoCliente(clienteCpf).ok && !!valor && !!formaPagamento
-    && origemPreenchida(origens, origemId, origemDetalhe) && (!aprovacao || !!motivoDaAprovacao(aprovacao, motivo))
+    && origemPreenchida(origens, origemId, origemDetalhe) && precoPronto && (!aprovacao || !!motivoDaAprovacao(aprovacao, motivo))
 
   return (
     <>

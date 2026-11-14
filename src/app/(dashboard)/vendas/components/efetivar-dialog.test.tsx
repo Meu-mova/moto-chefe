@@ -13,16 +13,17 @@ after(desmontarDom)
 const enviados: unknown[][] = []
 const SEM_TAXA = { taxasCartao: {}, taxasDebito: {}, taxasLink: {}, taxasFinanciamento: {} }
 let precificacao: { valorMinimoPix: number; taxas: typeof SEM_TAXA } | null = null
+let buscaDePreco: (() => Promise<unknown>) | null = null
 mock.module('../actions', { namedExports: {
   efetivarVendaAction: async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } },
-  buscarPrecoMinimoAction: async () => precificacao,
+  buscarPrecoMinimoAction: async () => (buscaDePreco ? buscaDePreco() : precificacao),
 } })
 mock.module('@/app/(dashboard)/clientes/actions', { namedExports: {
   buscarClientesAction: async () => [], criarClienteAction: async () => ({ ok: true, dados: undefined }),
 } })
 
 const montados: (() => Promise<void>)[] = []
-afterEach(async () => { for (const desmontar of montados.splice(0)) await desmontar(); precificacao = null })
+afterEach(async () => { for (const desmontar of montados.splice(0)) await desmontar(); precificacao = null; buscaDePreco = null })
 
 const entregaNaTela = () => document.querySelector('[aria-label="Entrega do pedido"]')?.textContent ?? ''
 
@@ -154,5 +155,21 @@ test('sócio abaixo do mínimo efetiva direto, como no servidor', async () => {
   await abrir(ENTREGAR, ORIGEM, { papel: 'admin_socio', podeAprovarSensivel: false })
   await preencher('1000000', 'PIX')
   assert.equal(document.querySelector('[role="status"]'), null)
+  assert.equal(botao('Confirmar Venda')?.disabled, false)
+})
+
+test('o botão espera a precificação chegar; se a busca falhar, libera e o servidor decide', async () => {
+  let chegar: (v: unknown) => void = () => {}
+  buscaDePreco = () => new Promise(r => { chegar = r })
+  await abrir(ENTREGAR, ORIGEM)
+  await preencher('1000000', 'PIX')
+  assert.equal(botao('Confirmar Venda')?.disabled, true)
+  const { act } = await import('react')
+  await act(async () => { chegar({ valorMinimoPix: 12000, taxas: SEM_TAXA }) })
+  assert.equal(botao('Pedir aprovação')?.disabled, true, 'abaixo do mínimo: agora pede o motivo')
+  for (const d of montados.splice(0)) await d()
+  buscaDePreco = async () => { throw new Error('rede') }
+  await abrir(ENTREGAR, ORIGEM)
+  await preencher('1000000', 'PIX')
   assert.equal(botao('Confirmar Venda')?.disabled, false)
 })
