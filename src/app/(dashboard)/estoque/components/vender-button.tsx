@@ -18,9 +18,10 @@ import { registrarVendaCompletaAction, registrarReservaAction, buscarPrecoMinimo
 import { liquidoDaMoto, validarReserva, fmtBRL, type TaxasVenda } from '@/lib/preco-minimo'
 import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-entrada'
 import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
-import { EntregaEModalidade, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from '../../vendas/components/entrega-campos'
+import { EntregaEModalidade, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, FreteCobrado, freteDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from '../../vendas/components/entrega-campos'
 import { ContribuinteIcmsCampos, DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
 import { abaixoDoMinimo, podeVenderAbaixoDoMinimo, temPagamentoSensivel } from '@/lib/aprovacao-venda'
+import { totalComFrete } from '@/lib/notagateway/entrega'
 
 /** Add/remove/update das linhas de pagamento — a venda e a reserva têm um jogo cada. */
 function pgtoHandlers(setter: React.Dispatch<React.SetStateAction<Pgto[]>>) {
@@ -143,14 +144,17 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const [entrega, setEntrega] = useState<EntregaDoFormulario>(ENTREGA_DO_FORMULARIO_INICIAL)
   const [erro, setErro] = useState<string | null>(null)
 
+  // Valor digitado = a moto; com frete cobrado, o total (o que os pagamentos somam) é moto + frete (#854).
+  const frete = freteDoFormulario(entrega)
+  const totalVenda = totalComFrete(parseFloat(valorVenda) || 0, frete)
+
   // Quando o total da venda muda numa finalização de reserva, atualiza o restante automaticamente
   useEffect(() => {
     if (!reservaAtiva) return
-    const total = parseFloat(valorVenda) || 0
     const entrada = parseFloat(reservaAtiva.valorEntrada) || 0
-    const restante = Math.max(0, total - entrada).toFixed(2)
+    const restante = Math.max(0, totalVenda - entrada).toFixed(2)
     setPgtos(prev => prev.map(p => p.id === 'restante' ? { ...p, valor: restante } : p))
-  }, [valorVenda]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [totalVenda]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reserva ──
   const [valorReserva, setValorReserva] = useState('')
@@ -358,7 +362,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const tipoPessoa = tipoPessoaSeCompleto(clienteCpf)
   const valorNum = parseFloat(valorVenda) || 0
   const somatorio = pgtos.reduce((a, p) => a + (parseFloat(p.valor) || 0), 0)
-  const somatorioOk = pgtosFecham(pgtos, valorNum)
+  const somatorioOk = pgtosFecham(pgtos, totalVenda)
   const cartaoIncompleto = pgtos.some(p => pgtoIncompleto(p, taxasVenda, maquininhas))
   const clientePreenchido = !!(clienteNome && lerDocumentoCliente(clienteCpf).ok && clienteCelular && clienteEmail)
 
@@ -371,7 +375,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
       parcelas: p.parcelas ? parseInt(p.parcelas) : undefined,
     }))
   const liquidoEstimado = taxasVenda && pgtoCalc.length > 0
-    ? liquidoDaMoto(pgtoCalc, taxasVenda, 0)
+    ? liquidoDaMoto(pgtoCalc, taxasVenda, frete)
     : null
   const liquidoOk = !precoMinimoPix || liquidoEstimado === null || !abaixoDoMinimo(liquidoEstimado, precoMinimoPix)
   const bypassMinimo = podeVenderAbaixoDoMinimo(papel)
@@ -744,6 +748,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
               {tipo === 'venda' && (
                 <div className="space-y-4 border-t border-border pt-4">
                   <EntregaEModalidade idModalidade="vender-modalidade" valor={entrega} onChange={setEntrega} />
+                  <FreteCobrado id="vender-frete" valor={entrega} onChange={setEntrega} />
                 </div>
               )}
             </div>
@@ -757,13 +762,13 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
               {reservaAtiva && (
                 <div className="text-sm px-3 py-3 rounded-lg border bg-info/10 text-info border-info/30 space-y-1">
                   <p className="font-semibold">Resumo da reserva</p>
-                  <p>Total negociado: <span className="font-bold">{fmtBRL(parseFloat(valorVenda) || 0)}</span>
+                  <p>Total negociado: <span className="font-bold">{fmtBRL(totalVenda)}</span>
                     {valorVenda !== reservaAtiva.valorTotal && (
                       <span className="ml-1 text-xs text-info">(reservado: {fmtBRL(parseFloat(reservaAtiva.valorTotal))})</span>
                     )}
                   </p>
                   <p>Entrada recebida: <span className="font-bold">{fmtBRL(parseFloat(reservaAtiva.valorEntrada))}</span></p>
-                  <p>Restante: <span className="font-bold">{fmtBRL(Math.max(0, (parseFloat(valorVenda) || 0) - parseFloat(reservaAtiva.valorEntrada)))}</span></p>
+                  <p>Restante: <span className="font-bold">{fmtBRL(Math.max(0, totalVenda - parseFloat(reservaAtiva.valorEntrada)))}</span></p>
                 </div>
               )}
 
@@ -771,10 +776,13 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <Label>
-                      Valor da Venda (R$) <span className="text-destructive">*</span>
+                      {frete > 0 ? 'Valor da moto' : 'Valor da Venda'} (R$) <span className="text-destructive">*</span>
                       {reservaAtiva && <span className="text-xs text-muted-foreground ml-1">— restante atualiza automaticamente</span>}
                     </Label>
                     <CurrencyInput value={valorVenda} onChange={setValorVenda} placeholder="0,00" />
+                    {frete > 0 && (
+                      <p className="text-sm">Frete cobrado: {fmtBRL(frete)} · <span className="font-medium">Total: {fmtBRL(totalVenda)}</span></p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -801,7 +809,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     }`}>
                       {somatorioOk
                         ? `Somatório confere: R$ ${somatorio.toFixed(2).replace('.', ',')}`
-                        : `Somatório R$ ${somatorio.toFixed(2).replace('.', ',')} ≠ Valor R$ ${valorNum.toFixed(2).replace('.', ',')}`
+                        : `Somatório R$ ${somatorio.toFixed(2).replace('.', ',')} ≠ Valor R$ ${totalVenda.toFixed(2).replace('.', ',')}`
                       }
                     </div>
                   )}

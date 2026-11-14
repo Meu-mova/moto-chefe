@@ -234,3 +234,52 @@ test('reserva com entrada de R$ 1.000,00 e a forma em R$ 1.000,01 mantém "Confi
   await digitar(valorDaForma, '100001')
   assert.equal(botao('Confirmar Reserva')?.disabled, true, '1 centavo a mais desabilita')
 })
+
+// Frete cobrado no "Vender" (#854): o mesmo "+ Frete" do Novo pedido; o valor digitado é a moto.
+const TAXAS_ZERO = { taxasCartao: {}, taxasDebito: {}, taxasLink: {}, taxasFinanciamento: {} }
+
+async function cobrarFrete(t: Awaited<ReturnType<typeof montar>>, centavos: string) {
+  mock.method(globalThis, 'fetch', async () => Response.json({ logradouro: 'Rua de exemplo', bairro: 'Centro', localidade: 'São Luís', uf: 'MA', ibge: '2111300' }))
+  await t.clique(opcaoDeEntrega(/Entregar/))
+  await digitar(campo<HTMLInputElement>(/^CEP/), '65000000')
+  await t.act(() => esperar(50))
+  await digitar(campo<HTMLInputElement>(/^Número/), '100')
+  await escolher(campo<HTMLSelectElement>(/^Modalidade do frete na nota/), 'TransporteProprioPorContaDoRemetente')
+  await t.clique(botao('+ Frete'))
+  await digitar(campo<HTMLInputElement>(/^Valor cobrado do cliente/), centavos)
+  await t.act(() => esperar(20))
+}
+
+test('"+ Frete" só liga com a loja fazendo o frete; voltar a modalidade do destinatário tira o frete e o total', async () => {
+  const t = await montar()
+  await preencherVenda(t)
+  assert.equal(botao('+ Frete')?.disabled, true)
+  await cobrarFrete(t, '15000')
+  assert.match(textoDaTela(), /Total: R\$\s*12\.150,00/)
+  await escolher(campo<HTMLSelectElement>(/^Modalidade do frete na nota/), 'TransporteProprioPorContaDoDestinatario')
+  await t.act(() => esperar(20))
+  assert.doesNotMatch(textoDaTela(), /Total: R\$/)
+  assert.equal(botao('+ Frete')?.disabled, true)
+})
+
+test('com frete: o campo vira "Valor da moto", o restante da reserva soma o frete e a venda envia a moto e o frete', async () => {
+  const t = await montar()
+  await preencherVenda(t)
+  await cobrarFrete(t, '15000')
+  assert.match(textoDaTela(), /Valor da moto/)
+  assert.match(textoDaTela(), /Restante: R\$\s*11\.150,00/)
+  await t.clique(botao('Confirmar Venda'))
+  const enviado = registrar.mock.calls[0]?.arguments[0]
+  assert.ok(enviado, 'a venda não foi enviada')
+  assert.equal(enviado.valorTotal, '12000.00')
+  assert.equal((enviado.entrega as { frete?: number }).frete, 150)
+  assert.deepEqual((enviado.pagamentos as { valor: number }[]).map(p => p.valor), [1000, 11150])
+})
+
+test('o frete não passa a moto do mínimo: moto 12.000 + frete 150 com mínimo 12.100 pede aprovação', async () => {
+  const t = await montar({ precoMinimoPix: 12100, taxasVenda: TAXAS_ZERO })
+  await preencherVenda(t)
+  await cobrarFrete(t, '15000')
+  assert.match(textoDaTela(), /Abaixo do preço mínimo/)
+  assert.ok(botao('Pedir aprovação'), 'não trocou para "Pedir aprovação"')
+})
