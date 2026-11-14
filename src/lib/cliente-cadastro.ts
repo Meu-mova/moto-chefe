@@ -9,7 +9,7 @@ import { clientes } from '@/lib/db/schema'
 import { clientesDoEscopo } from '@/lib/conta'
 
 type Escopo = { contaId: string; grupoLiberado?: string | null }
-type Resultado<T = object> = ({ ok: true } & T) | { ok: false; erro: string }
+export type Resultado<T = object> = ({ ok: true } & T) | { ok: false; erro: string }
 type DadosCliente = Omit<typeof clientes.$inferInsert, 'contaId'>
 
 export const CPF_RECUSADO_NA_PERSONA = 'Não foi possível cadastrar este cliente. Fale com o administrador.'

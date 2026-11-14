@@ -8,7 +8,7 @@ import { getUsuarioLogado } from '@/lib/auth'
 import { acessaModulo } from '@/lib/navegacao'
 import { contaDoGrupoAtivo } from '@/lib/grupo'
 import { revalidatePath } from 'next/cache'
-import { atualizarCliente, cadastrarCliente } from '@/lib/cliente-cadastro'
+import { atualizarCliente, cadastrarCliente, type Resultado } from '@/lib/cliente-cadastro'
 
 export type ClienteInput = {
   nome: string
@@ -127,21 +127,22 @@ export async function listarCidadesAction() {
   return rows.map(r => r.cidade).filter(Boolean) as string[]
 }
 
-export async function criarClienteAction(dados: ClienteInput): Promise<string> {
+// Recusa volta como { ok: false, erro } (#404): na produção o Next esconde a mensagem de erro
+// lançado por Server Action, e a tela mostrava "React error #441".
+export async function criarClienteAction(dados: ClienteInput): Promise<Resultado<{ id: string }>> {
   const usuario = await getUsuarioLogado()
-  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) return { ok: false, erro: 'Sem permissão' }
 
   const cpfCnpj = limparCpfCnpj(dados.cpfCnpj)
 
   const r = await cadastrarCliente(db, { contaId: await contaDoGrupoAtivo(usuario), grupoLiberado: usuario.grupoLiberado }, { ...dados, cpfCnpj })
-  if (!r.ok) throw new Error(r.erro)
-  revalidatePath('/clientes')
-  return r.id
+  if (r.ok) revalidatePath('/clientes')
+  return r
 }
 
-export async function atualizarClienteAction(id: string, dados: Partial<ClienteInput>) {
+export async function atualizarClienteAction(id: string, dados: Partial<ClienteInput>): Promise<Resultado> {
   const usuario = await getUsuarioLogado()
-  if (!acessaModulo(usuario, 'clientes')) throw new Error('Sem permissão')
+  if (!acessaModulo(usuario, 'clientes')) return { ok: false, erro: 'Sem permissão' }
 
   const cpfCnpj = dados.cpfCnpj !== undefined ? limparCpfCnpj(dados.cpfCnpj) : undefined
 
@@ -149,9 +150,10 @@ export async function atualizarClienteAction(id: string, dados: Partial<ClienteI
     ...dados,
     ...(cpfCnpj !== undefined ? { cpfCnpj } : {}),
   })
-  if (!r.ok) throw new Error(r.erro)
+  if (!r.ok) return r
   revalidatePath('/clientes')
   revalidatePath(`/clientes/${id}`)
+  return r
 }
 
 export async function excluirClienteAction(id: string) {

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FALHA_SEM_RESPOSTA } from '@/lib/falha-sem-resposta'
 import { criarClienteAction, atualizarClienteAction, type ClienteInput } from '../actions'
 
 type Props = {
@@ -84,17 +85,19 @@ export function ClienteForm({ trigger, clienteInicial, onCreated }: Props) {
     setLoading(true)
     try {
       if (isEdit && clienteInicial) {
-        await atualizarClienteAction(clienteInicial.id, form)
+        const r = await atualizarClienteAction(clienteInicial.id, form)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Cliente atualizado!')
       } else {
-        const id = await criarClienteAction(form)
+        const r = await criarClienteAction(form)
+        if (!r.ok) { toast.error(r.erro); return }
         toast.success('Cliente cadastrado!')
-        onCreated?.(id)
+        onCreated?.(r.id)
       }
       setOpen(false)
       router.refresh()
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao salvar')
+    } catch {
+      toast.error(FALHA_SEM_RESPOSTA)
     } finally {
       setLoading(false)
     }
