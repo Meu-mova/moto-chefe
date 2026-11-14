@@ -749,3 +749,24 @@ test('Alterar depois da venda: venda apagada enquanto o Alterar esperava o lock 
   }
   assert.deepEqual(await alterando, NAO_ACHOU_VENDA)
 })
+
+// #896: venda antiga (de antes da Entrega) recebe a Entrega pelo "Preencher entrega" da prévia; a leitura da NF passa a
+// segui-la. A Conta B não acha a venda e nada da A muda.
+test('venda antiga sem Entrega: "Preencher entrega" grava, a NF lê a Entrega nova; a Conta B recebe "Venda não encontrada"', async () => {
+  const a = await semearConta()
+  const b = await semearConta()
+  const pedidoId = await idDe(sql`insert into pedidos_venda (moto_id, loja_id, vendedor_id) values (${a.motoId}, ${a.aux.lojaId}, ${a.vendedor.id}) returning id`)
+  usuario = a.aux
+  assert.deepEqual(await efetivar(pedidoId, a.origemId), { ok: true, dados: undefined })
+  const [{ id: vendaId }] = await execRows(sql`select id from vendas where moto_id = ${a.motoId}`)
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: null }])
+
+  usuario = b.aux
+  assert.deepEqual(await alterarEntregaDaVendaAction(vendaId as string, ENTREGAR), NAO_ACHOU_VENDA)
+  assert.deepEqual(await vendasDaMoto(a.motoId), [{ entrega: null }])
+
+  usuario = a.aux
+  assert.deepEqual(await alterarEntregaDaVendaAction(vendaId as string, ENTREGAR), { ok: true, dados: undefined })
+  assert.deepEqual((await vendaDoUsuarioParaNf(a.aux, eq(vendas.id, vendaId as string)))?.entrega, ENTREGAR)
+  assert.deepEqual((await logDaAlteracao(vendaId as string)).map(l => (l.detalhe as { antes: unknown }).antes), [null])
+})

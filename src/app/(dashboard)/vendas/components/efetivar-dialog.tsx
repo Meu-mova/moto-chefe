@@ -10,14 +10,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { alterarEntregaDoPedidoAction, buscarPrecoMinimoAction, efetivarVendaAction } from '../actions'
 import { AlterarEntregaDialog } from './alterar-entrega-dialog'
+import { ResumoDaEntrega } from './resumo-da-entrega'
 import { podeEfetivarPedido } from '@/lib/pedido-venda-regras'
 import { OrigemVendaSelect, origemPreenchida } from '@/components/origem-venda-select'
 import type { OrigemParaEscolher } from '@/lib/queries/origens-venda'
 import { ClienteBusca } from '@/app/(dashboard)/clientes/components/cliente-busca'
 import { lerDocumentoCliente, mascararCpfCnpj, tipoPessoaSeCompleto } from '@/lib/documento'
 import { DocumentoClienteInput } from '@/components/documento-cliente'
-import { textoDaModalidade } from '@/lib/notagateway/transporte'
-import { enderecoDaEntregaEmLinha, freteDaVenda, textoDaEntrega, totalComFrete, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { freteDaVenda, totalComFrete, type EntregaVenda } from '@/lib/notagateway/entrega'
 import { brl } from '@/lib/dashboard-painel'
 import { aprovacaoNecessaria, motivoDaAprovacao, temPagamentoSensivel } from '@/lib/aprovacao-venda'
 import { liquidoDaMoto, type TaxasVenda } from '@/lib/preco-minimo'
@@ -29,29 +29,6 @@ type Props = {
   podeAprovarSensivel: boolean
   /** Vem do pedido e vai para a venda no servidor; "Alterar" muda a do pedido (#895). */
   entrega: EntregaVenda | null
-}
-
-function EntregaDoPedido({ entrega, alterar }: { entrega: EntregaVenda | null; alterar: React.ReactNode }) {
-  return (
-    <section aria-label="Entrega do pedido" className="space-y-1 rounded-lg border border-border bg-muted p-3 text-sm">
-      <div className="flex items-start justify-between gap-3">
-        <p className={entrega ? 'font-medium' : 'text-muted-foreground'}>{entrega ? `${textoDaEntrega(entrega)} (do pedido)` : 'Pedido sem a Entrega informada.'}</p>
-        {alterar}
-      </div>
-      {entrega && (
-        <>
-          {entrega.modo === 'entregar' && (
-            <>
-              <p className="text-muted-foreground">{enderecoDaEntregaEmLinha(entrega.endereco)}</p>
-              <p className="text-muted-foreground">Quem recebe: {entrega.recebe?.nome ?? 'o comprador'}</p>
-              {freteDaVenda(entrega) > 0 && <p className="text-muted-foreground">Frete cobrado: {brl(freteDaVenda(entrega))}</p>}
-            </>
-          )}
-          <p className="text-muted-foreground">Modalidade: {textoDaModalidade(entrega.modalidade) ?? 'não escolhida'}</p>
-        </>
-      )}
-    </section>
-  )
 }
 
 export function EfetivarDialog({ pedidoId, motoId, chassi, modelo, origens, entrega: entregaDoPedido, papel, podeAprovarSensivel }: Props) {
@@ -155,10 +132,12 @@ export function EfetivarDialog({ pedidoId, motoId, chassi, modelo, origens, entr
               <Label>CPF/CNPJ do Cliente</Label>
               <DocumentoClienteInput value={clienteCpf} onChange={setClienteCpf} />
             </div>
-            <EntregaDoPedido entrega={entrega} alterar={podeEfetivarPedido(papel) && (
-              <AlterarEntregaDialog entrega={entrega} freteFixo={false} rotulo="Alterar"
-                salvar={nova => alterarEntregaDoPedidoAction(pedidoId, nova)} aoSalvar={setEntrega} />
-            )} />
+            <ResumoDaEntrega rotulo="Entrega do pedido" entrega={entrega} sufixo="(do pedido)"
+              semEntrega={<p className="text-muted-foreground">Pedido sem a Entrega informada.</p>}
+              acao={podeEfetivarPedido(papel) && (
+                <AlterarEntregaDialog entrega={entrega} freteFixo={false} rotulo="Alterar"
+                  salvar={nova => alterarEntregaDoPedidoAction(pedidoId, nova)} aoSalvar={setEntrega} />
+              )} />
             <div className="space-y-2">
               <Label>{frete ? 'Valor da moto (R$)' : 'Valor (R$)'}</Label>
               <CurrencyInput value={valor} onChange={setValor} placeholder="0,00" />

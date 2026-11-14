@@ -2,6 +2,7 @@
  * Tradução da venda do MOVA para a emissão pela Nota Gateway — funções puras,
  * sem banco, para a tela e a action decidirem a mesma coisa.
  */
+import { lerDocumentoCliente } from '@/lib/documento'
 
 export type PagamentoMova = { tipo: string; valor: number; operadora?: string; parcelas?: number }
 export type FormaPagamentoNfe = { tipo: string; valor: number; descricao?: string }
@@ -54,6 +55,9 @@ export type ConferenciaVenda = {
   temFicha: boolean
 }
 
+export const CPF_DIGITO_ERRADO = 'CPF do comprador com dígito errado. Corrija em Editar venda para a nota sair.'
+export const CNPJ_DIGITO_ERRADO = 'CNPJ do comprador com dígito errado. Corrija em Editar venda para a nota sair.'
+
 /**
  * O que impede transmitir. Cada item diz ONDE corrigir — o vendedor não sabe
  * o que é "enderDest", sabe o que é "editar a venda".
@@ -68,6 +72,8 @@ export function pendenciasDaVenda(v: ConferenciaVenda): string[] {
   if (vazio(v.clienteNome)) falta.push('Nome do cliente — edite a venda')
   const doc = (v.clienteCpf ?? '').replace(/\D/g, '')
   if (doc.length !== 11 && doc.length !== 14) falta.push('CPF/CNPJ do cliente inválido — edite a venda')
+  // Venda antiga de antes do ADR-0015: dígito errado viraria erro no transporte da nota e derrubaria a prévia (#896).
+  else if (!lerDocumentoCliente(doc).ok) falta.push(doc.length === 14 ? CNPJ_DIGITO_ERRADO : CPF_DIGITO_ERRADO)
   // A venda grava sem a IE (avise, não bloqueie; ADR-0011), mas a SEFAZ recusa
   // destinatário contribuinte sem inscrição.
   if (v.clienteIndicadorIe === 'contribuinte' && vazio(v.clienteInscricaoEstadual ?? null)) {

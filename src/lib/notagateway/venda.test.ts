@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formaPagamentoNfe, tipoPessoa, pendenciasDaVenda, idExternoNfe, proximaTentativa, type ConferenciaVenda } from './venda'
+import { formaPagamentoNfe, tipoPessoa, pendenciasDaVenda, idExternoNfe, proximaTentativa, type ConferenciaVenda, CPF_DIGITO_ERRADO, CNPJ_DIGITO_ERRADO } from './venda'
 
 test('formas de pagamento do MOVA viram os nomes aceitos pela API', () => {
   assert.deepEqual(formaPagamentoNfe({ tipo: 'pix', valor: 10 }), { tipo: 'PagamentoInstantaneoPix', valor: 10 })
@@ -69,4 +69,12 @@ test('comprador contribuinte de ICMS sem inscrição estadual é pendência; ise
   assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: 'contribuinte', clienteInscricaoEstadual: '0623079040081' }), [])
   assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: 'isento', clienteInscricaoEstadual: null }), [])
   assert.deepEqual(pendenciasDaVenda({ ...pj, clienteIndicadorIe: null, clienteInscricaoEstadual: null }), [])
+})
+
+// #896: venda antiga com o documento do comprador de dígito errado. Antes, a prévia da NF caía no erro do
+// transporte ("CPF do destinatário inválido."); agora é pendência com frase própria e a prévia abre.
+test('CPF ou CNPJ do comprador com dígito errado é pendência com frase própria; documento certo não', () => {
+  assert.deepEqual(pendenciasDaVenda({ ...OK, clienteCpf: '123.456.789-00' }), [CPF_DIGITO_ERRADO])
+  assert.deepEqual(pendenciasDaVenda({ ...OK, clienteCpf: '11.222.333/0001-80' }), [CNPJ_DIGITO_ERRADO])
+  assert.deepEqual(pendenciasDaVenda({ ...OK, clienteCpf: '11.222.333/0001-81' }), [])
 })

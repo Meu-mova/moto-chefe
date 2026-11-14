@@ -7,7 +7,7 @@ import { RENAVE_COMPLETO_FATURAMENTO_DIRETO } from '@/test/renave-completo'
 import type { DadosTransporte } from '@/lib/notagateway/transporte'
 import type { NotaResumo } from '../../vendas/nfe-propria-actions'
 import { montarDom } from '@/test/montar-dom'
-import { clicar, digitar, digitarTexto } from '@/test/eventos-dom'
+import { clicar, digitar, digitarTexto, escolher } from '@/test/eventos-dom'
 
 const { dom, desmontar } = montarDom()
 after(desmontar)
@@ -456,4 +456,57 @@ test('prévia: salvar a Entrega recarrega só a prévia; a observação já edit
   await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Salvar entrega'))
   assert.match(textoDaTela(container), /Texto editado para esta nota/)
   assert.match(textoDaTela(container), /GARANTIA DA LOJA/)
+})
+
+// #896: a prévia mostra a Entrega inteira (cartão igual ao da efetivação) e trata a venda antiga, sem Entrega.
+const cartao = () => document.querySelector('[aria-label="Entrega da venda"]')
+
+test('prévia com Entrega: o cartão mostra endereço, quem recebe, modalidade e frete cobrado', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, entrega: ENTREGA_COM_FRETE }) }
+  await abrirPainel()
+  const texto = cartao()?.textContent ?? ''
+  assert.match(texto, /Entregar em Varginha\/MG/)
+  assert.match(texto, /Rua de teste, 10, Centro, Varginha\/MG, CEP 37000-000/)
+  assert.match(texto, /Quem recebe: o comprador/)
+  assert.match(texto, /Modalidade: Loja leva com veículo próprio/)
+  assert.match(texto, /Frete cobrado: R\$\s*350,00/)
+})
+
+test('venda antiga sem Entrega: avisa a UF do cliente e "Preencher entrega" abre o diálogo (sem "+ Frete") e envia à venda', async () => {
+  const enviados: unknown[][] = []
+  alterarDaVenda = async (...a: unknown[]) => { enviados.push(a); return { ok: true, dados: undefined } }
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, entrega: null }) }
+  const { click } = await abrirPainel()
+  assert.match(cartao()?.textContent ?? '', /Esta venda é de antes da Entrega: a NF sai pela UF do endereço do cliente \(MG\)\./)
+  await click(/^Preencher entrega$/)
+  const dialogo = document.querySelector('[aria-label="Alterar entrega"]')!
+  assert.equal([...dialogo.querySelectorAll('button')].some(b => /\+ Frete/.test(b.textContent ?? '')), false)
+  await clicar(document.querySelector('[aria-label="Alterar entrega"] input[name="pedido-entrega"][value="retira"]'))
+  await escolherNaModalidade('TransporteProprioPorContaDoDestinatario')
+  await clicar([...document.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Salvar entrega'))
+  assert.deepEqual(enviados, [['venda-teste', { modo: 'retira', modalidade: 'TransporteProprioPorContaDoDestinatario' }]])
+})
+
+test('venda antiga com NF viva: sem "Preencher entrega", com a frase da trava', async () => {
+  alterarDaVenda = unexpectedAction
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, entrega: null, travaDaEntrega: 'Cancele a NF antes de mudar a entrega.' }) }
+  const { container } = await abrirPainel()
+  assert.equal([...container.querySelectorAll('button')].some(b => /Preencher entrega/.test(b.textContent ?? '')), false)
+  assert.match(cartao()?.textContent ?? '', /Cancele a NF antes de mudar a entrega\./)
+})
+
+test('pendência do CPF com dígito errado vinda do servidor aparece em "Corrija antes de emitir"', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, resumo: null, pendencias: ['CPF do comprador com dígito errado. Corrija em Editar venda para a nota sair.'] }) }
+  const { container } = await abrirPainel()
+  assert.match(container.textContent ?? '', /Corrija antes de emitirCPF do comprador com dígito errado\. Corrija em Editar venda para a nota sair\./)
+})
+
+async function escolherNaModalidade(valor: string) {
+  await escolher(document.querySelector<HTMLSelectElement>('[aria-label="Alterar entrega"] #alterar-modalidade')!, valor)
+}
+
+test('venda antiga sem a UF do cliente: o aviso não mostra parêntese vazio', async () => {
+  acoes = { ...acoes, previsualizarNfePropriaAction: async () => ({ ...previaSemRenave, entrega: null, correcao: { ...previaSemRenave.correcao, comprador: { ...previaSemRenave.correcao.comprador, clienteEstado: null } } }) }
+  await abrirPainel()
+  assert.match(cartao()?.textContent ?? '', /a NF sai pela UF do endereço do cliente\./)
 })
