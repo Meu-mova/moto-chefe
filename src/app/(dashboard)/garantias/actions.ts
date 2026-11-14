@@ -16,6 +16,7 @@ import { listarContasFabrica, lojaDaContaDaGarantia } from '@/lib/fabrica-contas
 import { conferirVinculosDaConta } from '@/lib/vinculos-da-conta'
 import { motoNaoArquivada } from '@/lib/queries/showroom'
 import { acao, RecusaUsuario } from '@/lib/resultado-action'
+import { addDias } from '@/lib/calendario'
 
 export async function exportarRelatorioGarantiasAction(filtros: {
   lojaId?: string
@@ -74,9 +75,7 @@ async function gravarGarantia(g: {
   dataPedidoPeca?: string
   numeroPedidoFabrica?: string
 }) {
-  const fim = new Date(g.dataInicio)
-  fim.setDate(fim.getDate() + 30)
-  const dataFim = fim.toISOString().split('T')[0]
+  const dataFim = addDias(g.dataInicio, 30)
 
   // A função do banco roda na transação que já travou a moto: um arquivar no meio faz recusar (#688).
   await db.transaction(async tx => {
