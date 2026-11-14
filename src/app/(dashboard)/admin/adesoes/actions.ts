@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { adesoesMova, contratosAdesao, contratosAdesaoEventos, grupos } from '@/lib/db/schema'
 import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { getUsuarioLogado } from '@/lib/auth'
 import {
   lerDadosContrato, statusDaAdesao, type EntradaContrato,
@@ -134,7 +134,7 @@ export async function linkCartaoCnpjAction(id: string): Promise<{ ok: true; url:
   await assertAdmin()
   const [a] = await db.select({ caminho: adesoesMova.cnpjArquivoPath }).from(adesoesMova).where(eq(adesoesMova.id, id))
   if (!a) return { ok: false, erro: 'Adesão não encontrada' }
-  const admin = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const admin = clienteSupabaseAdmin()
   const { data, error } = await admin.storage.from('adesoes').createSignedUrl(a.caminho, 600)
   if (error || !data) return { ok: false, erro: 'Não deu para abrir o arquivo agora' }
   return { ok: true, url: data.signedUrl }
@@ -300,7 +300,7 @@ export async function criarLojaAtivacaoAction(adesaoId: string, dados: { nome: s
 export async function criarUsuariosAtivacaoAction(adesaoId: string, lojaPorEmail: Record<string, string>) {
   const u = await assertAdmin()
   if (!(await contratoAssinado(adesaoId))) return { ok: false as const, erro: 'O contrato desta adesão ainda não foi assinado' }
-  const auth = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).auth.admin
+  const auth = clienteSupabaseAdmin().auth.admin
   const r = await criarUsuariosDaAdesao({ adesaoId, lojaPorEmail, adminId: u.id }, {
     criarNoAuth: async (email, senha) => {
       // must_change_password: o middleware leva a pessoa a /trocar-senha no 1º login.

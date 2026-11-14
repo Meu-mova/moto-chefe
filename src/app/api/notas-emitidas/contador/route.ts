@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { getUsuarioLogado } from '@/lib/auth'
 import { usuarioPodeAcessar } from '@/lib/navegacao-servidor'
 import { grupoAtivoDaRequisicao } from '@/lib/grupo'
@@ -23,7 +23,7 @@ async function baixar(url: string) {
 }
 
 async function publicar(grupoId: string, zip: Uint8Array): Promise<string | null> {
-  const storage = createSupabaseAdmin(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).storage
+  const storage = clienteSupabaseAdmin().storage
   const caminho = `${grupoId}/${randomUUID()}.zip`
   const subir = () => storage.from(BUCKET).upload(caminho, zip, { contentType: 'application/zip' })
   let { error } = await subir()

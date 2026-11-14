@@ -2,7 +2,7 @@
 import { db } from '@/lib/db'
 import { usuarios, grupos, gruposLiberados } from '@/lib/db/schema'
 import { eq, sql, inArray, or } from 'drizzle-orm'
-import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
+import { clienteSupabaseAdmin } from '@/lib/supabase/admin'
 import { getGrupoIdDaLoja } from '@/lib/grupo'
 import { gestorDaSessao } from '@/lib/gestor-da-sessao'
 import { COM_HISTORICO, podeExcluir, recusaDaGravacao } from '@/lib/gestao-usuarios'
@@ -22,13 +22,6 @@ const IDS_VALIDOS = new Set(ITENS.filter(i => !i.soAdminGeral && !i.soPeloPapel)
 // com nada e ficaria preso em modulos_extras/bloqueados para sempre).
 function filtrarIdsValidos(ids: string[]): string[] {
   return ids.filter(id => IDS_VALIDOS.has(id))
-}
-
-function getAdminClient() {
-  return createSupabaseAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
 }
 
 // Recusa esperada ao salvar: volta à tela como { ok: false, erro }, porque na produção o
@@ -189,7 +182,7 @@ export async function criarUsuarioAction(dados: {
     await exigirGruposDaConta(dados.papel, contaId, acesso.gruposAcesso)
     // Usuário novo ainda não tem grupo liberado: aprovação só na própria Conta.
     if ((await aprovacoesForaDoAlcance(db, { id: null, papel: dados.papel, contaId }, aprovacao.gruposAprovacao)).length) throw new Recusa(GRUPO_INVALIDO)
-    const supabase = getAdminClient()
+    const supabase = clienteSupabaseAdmin()
 
     const { data, error } = await supabase.auth.admin.createUser({
       email: dados.email,
@@ -354,7 +347,7 @@ export async function excluirUsuarioAction(id: string): Promise<Resultado> {
       await db.transaction(async tx => {
         ;[alvo] = await tx.delete(usuarios).where(eq(usuarios.id, id)).returning(colunasAlvo)
         if (!alvo) throw new Recusa('Usuário não encontrado')
-        const { error } = await getAdminClient().auth.admin.deleteUser(id)
+        const { error } = await clienteSupabaseAdmin().auth.admin.deleteUser(id)
         if (error) throw new Error(error.message)
       })
     } catch (e) {
