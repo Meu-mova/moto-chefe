@@ -1,5 +1,7 @@
 # CRM no MOVA — Fase 1 (teste em paralelo) — Implementation Plan
 
+> **14/11/2026:** o teste foi encerrado e o schema `crm` foi apagado (migração 0188, #927). Este documento fica como histórico.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ter o CRM "Elite da IA" rodando dentro do MOVA em `/crm` (atrás de flag), com login único, dados isolados no schema `crm`, e o motor (WhatsApp 1:1 / automações / agente) rodando num container separado — para teste em paralelo, sem tocar no Kommo.
