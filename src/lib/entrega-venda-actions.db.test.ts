@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { semearContaBase, semearGrupo, semearUsuario } from '@/test/semear-conta'
-import { ENTREGA_EM_OUTRO_ESTADO, FRETE_FORA_DO_VENDER, operacaoDaVenda, type EntregaVenda } from '@/lib/notagateway/entrega'
+import { ENTREGA_EM_OUTRO_ESTADO, operacaoDaVenda, type EntregaVenda } from '@/lib/notagateway/entrega'
 
 const url = process.env.TEST_DATABASE_URL
 if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname)) throw new Error('Use somente Postgres descartável local')
@@ -470,22 +470,6 @@ test('Vender com aprovação: pedido de aprovação de antes da Entrega vira ven
   usuario = aprovadorDeTransferencia(a)
   assert.deepEqual(await aprovarVendaAction(id), { ok: true, dados: undefined })
   assert.deepEqual((await vendasDaMoto(a.motoId)).map(v => v.entrega), [null])
-})
-
-test('Vender: Entrega com frete cobrado é recusada até o frete do "Vender" existir, e nada é gravado', async () => {
-  const a = await semearConta()
-  usuario = a.vendedor
-  const comFrete = { ...ENTREGAR, modalidade: 'TransporteProprioPorContaDoRemetente', frete: 350 }
-  assert.deepEqual(await registrarVendaCompletaAction(vendaDoShowroom(a, comFrete)), { ok: false, erro: FRETE_FORA_DO_VENDER })
-  assert.deepEqual(await vendasDaMoto(a.motoId), [])
-})
-
-test('Vender: frete cobrado é recusado antes de consultar a Nota Gateway', async () => {
-  const a = await contaComNg('MG')
-  usuario = a.vendedor
-  const comFrete = { ...ENTREGAR_MG, frete: 350 }
-  assert.deepEqual(await registrarVendaCompletaAction(vendaDoShowroom(a, comFrete)), { ok: false, erro: FRETE_FORA_DO_VENDER })
-  assert.deepEqual(a.chamadas, [])
 })
 
 test('Vender: NG que não responde não segura a venda: "Entregar" grava em poucos segundos, sem a trava', async () => {
