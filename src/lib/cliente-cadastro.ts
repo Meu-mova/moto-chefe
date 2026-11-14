@@ -10,7 +10,17 @@ import { clientesDoEscopo } from '@/lib/conta'
 
 type Escopo = { contaId: string; grupoLiberado?: string | null }
 export type Resultado<T = object> = ({ ok: true } & T) | { ok: false; erro: string }
-type DadosCliente = Omit<typeof clientes.$inferInsert, 'contaId'>
+
+// Campos que a tela de cliente grava. A Server Action recebe o objeto cru do navegador: sem esta
+// lista, um `contaId` mandado à mão no editar movia o cliente para outra Conta.
+const CAMPOS_DO_FORMULARIO = [
+  'nome', 'tipoPessoa', 'cpfCnpj', 'sexo', 'email', 'celular',
+  'endereco', 'numero', 'complemento', 'bairro', 'cep', 'cidade', 'uf',
+] as const
+type DadosCliente = Pick<typeof clientes.$inferInsert, (typeof CAMPOS_DO_FORMULARIO)[number]>
+
+const soDoFormulario = <T extends Partial<DadosCliente>>(dados: T): T =>
+  Object.fromEntries(Object.entries(dados).filter(([campo]) => (CAMPOS_DO_FORMULARIO as readonly string[]).includes(campo))) as T
 
 export const CPF_RECUSADO_NA_PERSONA = 'Não foi possível cadastrar este cliente. Fale com o administrador.'
 
@@ -35,7 +45,7 @@ export async function cadastrarCliente(
   dados: DadosCliente,
 ): Promise<Resultado<{ id: string }>> {
   try {
-    const [novo] = await exec.insert(clientes).values({ ...dados, contaId: escopo.contaId }).returning({ id: clientes.id })
+    const [novo] = await exec.insert(clientes).values({ ...soDoFormulario(dados), contaId: escopo.contaId }).returning({ id: clientes.id })
     return { ok: true, id: novo.id }
   } catch (e: unknown) {
     return recusaDoCpfRepetido(e, escopo)
@@ -50,7 +60,7 @@ export async function atualizarCliente(
   dados: Partial<DadosCliente>,
 ): Promise<Resultado> {
   try {
-    const atualizados = await exec.update(clientes).set({ ...dados, atualizadoEm: new Date() })
+    const atualizados = await exec.update(clientes).set({ ...soDoFormulario(dados), atualizadoEm: new Date() })
       .where(and(eq(clientes.id, id), clientesDoEscopo(escopo.contaId, escopo)))
       .returning({ id: clientes.id })
     return atualizados.length ? { ok: true } : { ok: false, erro: 'Cliente não encontrado' }

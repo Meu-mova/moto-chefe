@@ -120,3 +120,15 @@ test('editar pondo o CPF de outro cliente da Conta é recusado com a frase, e o 
     assert.deepEqual((await linhasDoCpf(tx, a, OUTRO_CPF)).map(l => l.id), [bia.id])
   })
 })
+
+// A Server Action recebe o objeto cru do navegador: campo fora do formulário não pode ir ao banco.
+test('editar mandando conta_id de outra Conta (fora do formulário) não move o cliente de Conta', async () => {
+  await emTransacaoDesfeita(async tx => {
+    const { a, b } = await contas(tx)
+    const r = await noSavepoint(tx, sp => mod.cadastrarCliente(sp, { contaId: a }, cliente('Ana', CPF)))
+    assert.ok(r.ok)
+    const forjado = { nome: 'Ana Souza', contaId: b } as unknown as Parameters<typeof mod.atualizarCliente>[3]
+    assert.deepEqual(await noSavepoint(tx, sp => mod.atualizarCliente(sp, { contaId: a }, r.id, forjado)), { ok: true })
+    assert.deepEqual(await linhas(tx, sql`select conta_id, nome from clientes where id = ${r.id}`), [{ conta_id: a, nome: 'Ana Souza' }])
+  })
+})
