@@ -45,16 +45,8 @@ import { vendedorDaConta } from '@/lib/vendedor-da-conta'
 import { reservaDoUsuario } from '@/lib/reserva-do-usuario'
 import { vendaDoUsuario } from '@/lib/venda-do-usuario'
 import { apagarVendaTx } from '@/lib/apagar-venda'
+import { abaixoDoMinimo, ehPagamentoSensivel, podeVenderAbaixoDoMinimo, temPagamentoSensivel } from '@/lib/aprovacao-venda'
 import { apagarArquivosAssinatura } from '@/lib/assinatura/infra'
-
-// Financiamento saiu daqui em 01/09/2026: a venda financiada não espera mais
-// aprovação para ser lançada. O controle virou conferência DEPOIS, na conciliação
-// — o financiamento nasce pendente e só o admin_geral confirma que caiu na conta.
-// Ver precisaConciliar em @/lib/conciliacao-status.
-const TIPOS_PAGAMENTO_SENSIVEL = new Set(['transferencia'])
-function temPagamentoSensivel(pagamentos: { tipo: string }[]): boolean {
-  return pagamentos.some(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
-}
 
 /**
  * Confere a origem contra o grupo da loja da MOTO e devolve o detalhe já limpo.
@@ -512,11 +504,10 @@ async function registrarVendaCompleta(data: DadosVendaCompleta) {
 
   // admin_geral/admin_socio podem vender abaixo do mínimo direto (auto-aprovação);
   // os demais papéis devem usar solicitarAprovacaoVendaAction nesse caso.
-  const podeVenderAbaixoDoMinimo = ['admin_geral', 'admin_socio'].includes(usuario.papel)
   const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
-  if (prec && !podeVenderAbaixoDoMinimo) {
+  if (prec && !podeVenderAbaixoDoMinimo(usuario.papel)) {
     const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
-    if (liquido < prec.valorMinimoPix - 0.01) {
+    if (abaixoDoMinimo(liquido, prec.valorMinimoPix)) {
       const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
       throw new RecusaUsuario(
         `Valor abaixo do mínimo: líquido estimado ${fmt(liquido)}, mínimo PIX ${fmt(prec.valorMinimoPix)}. Peça aprovação em vez de salvar direto.`
@@ -1653,7 +1644,7 @@ async function solicitarAprovacaoVenda(
       throw new RecusaUsuario('Nenhum pagamento por transferência bancária nesta venda')
     }
     const tiposUsados = data.pagamentos
-      .filter(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
+      .filter(p => ehPagamentoSensivel(p.tipo))
       .map(() => 'Transferência Bancária')
     motivoFinal = motivo.trim() || `Pagamento via ${[...new Set(tiposUsados)].join(' + ')}`
   } else {
@@ -1661,7 +1652,7 @@ async function solicitarAprovacaoVenda(
     const prec = await buscarPrecificacao(moto.modeloId, moto.lojaId)
     if (!prec) throw new RecusaUsuario('Sem preço mínimo configurado para este modelo. Use o fluxo normal de venda')
     const liquido = calcLiquidoRecebido(data.pagamentos, prec.taxas)
-    if (liquido >= prec.valorMinimoPix - 0.01) {
+    if (!abaixoDoMinimo(liquido, prec.valorMinimoPix)) {
       throw new RecusaUsuario('Valor está dentro do mínimo. Use o fluxo normal de venda')
     }
     // Congela os dois lados da conta que acabou de reprovar a venda. Recalcular

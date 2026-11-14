@@ -20,6 +20,7 @@ import { normalizarPagamentos, type PagamentoEntrada } from '@/lib/pagamentos-en
 import { lerDocumentoCliente, soDigitosDoc, tipoPessoaSeCompleto } from '@/lib/documento'
 import { EntregaEModalidade, ENTREGA_DO_FORMULARIO_INICIAL, entregaDoFormulario, quemRecebeInvalido, type EntregaDoFormulario } from '../../vendas/components/entrega-campos'
 import { ContribuinteIcmsCampos, DocumentoClienteInput, RepresentanteLegalCampos, TipoPessoaEtiqueta } from '@/components/documento-cliente'
+import { abaixoDoMinimo, podeVenderAbaixoDoMinimo, temPagamentoSensivel } from '@/lib/aprovacao-venda'
 
 /** Add/remove/update das linhas de pagamento — a venda e a reserva têm um jogo cada. */
 function pgtoHandlers(setter: React.Dispatch<React.SetStateAction<Pgto[]>>) {
@@ -98,11 +99,6 @@ type Props = {
   abrirAoMontar?: boolean
 }
 
-// Financiamento saiu daqui em 01/09/2026: a venda financiada é lançada direto e a
-// conferência acontece depois, na conciliação, onde o financiamento nasce pendente
-// até o admin_geral confirmar que caiu na conta. Ver precisaConciliar em
-// @/lib/conciliacao-status.
-const TIPOS_PAGAMENTO_SENSIVEL = new Set(['transferencia'])
 
 export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, papel, usuarios, soReserva, reservaAtiva, showLabel, precoMinimoPix: precoMinimoPixProp, taxasVenda: taxasVendaProp, podeAprovarPagamentoSensivel = false, demandasCompativeis, origens, abrirAoMontar }: Props) {
   const maquininhas = useMaquininhas({ moto: motoId })
@@ -377,15 +373,15 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
   const liquidoEstimado = taxasVenda && pgtoCalc.length > 0
     ? calcLiquidoRecebido(pgtoCalc, taxasVenda)
     : null
-  const liquidoOk = !precoMinimoPix || liquidoEstimado === null || liquidoEstimado >= precoMinimoPix - 0.01
-  const bypassMinimo = ['admin_geral', 'admin_socio'].includes(papel)
+  const liquidoOk = !precoMinimoPix || liquidoEstimado === null || !abaixoDoMinimo(liquidoEstimado, precoMinimoPix)
+  const bypassMinimo = podeVenderAbaixoDoMinimo(papel)
   const precisaAprovacao = !liquidoOk && !bypassMinimo
   const valorOk = liquidoOk || bypassMinimo || (precisaAprovacao && motivo.trim().length > 0)
   const todosPgtosComParcelas = pgtos.filter(p => TIPOS_COM_PARCELAS.has(p.tipo)).every(p => !!p.parcelas)
 
   // ── Financiamento/transferência — só o responsável aprova, sempre (independente de valor/papel) ──
-  const temPagamentoSensivel = pgtos.some(p => TIPOS_PAGAMENTO_SENSIVEL.has(p.tipo))
-  const precisaAprovacaoSensivel = temPagamentoSensivel && !podeAprovarPagamentoSensivel
+  const sensivel = temPagamentoSensivel(pgtos)
+  const precisaAprovacaoSensivel = sensivel && !podeAprovarPagamentoSensivel
 
   // ── Validação de preço mínimo (reserva) ──
   const valorReservaNum = parseFloat(valorReserva) || 0
@@ -829,7 +825,7 @@ export function VenderButton({ motoId, descricao, vendedorId, vendedorNome, pape
                     </div>
                   )}
 
-                  {temPagamentoSensivel && (
+                  {sensivel && (
                     <div className={`flex items-start gap-2 text-sm px-3 py-2 rounded-md border ${
                       podeAprovarPagamentoSensivel ? 'bg-info/10 text-info border-info/30' : 'bg-warning/10 text-warning border-warning/30'
                     }`}>
