@@ -105,9 +105,12 @@ test('a nota não vira "planilha" nem ganha impressão digital pelo que chega; a
       chaveAcesso: null, numero: null, fornecedorCnpj: NOTA.fornecedorCnpj,
       origem: 'planilha', impressaoDigital: impressao, contaId: b.contaId, grupoId: b.grupoId, lojaId: b.lojaId,
     } as unknown as typeof NOTA
-    await assert.rejects(tx.transaction(t => entrada.gravarEntradaPecas(t, {
-      lojaId: a.lojaId, usuario: a.usuario, nota: comoPlanilha, linhas: [{ ...CAPACETE, pecaId: a.pecaId }],
-    })))
+    await assert.rejects(
+      tx.transaction(t => entrada.gravarEntradaPecas(t, {
+        lojaId: a.lojaId, usuario: a.usuario, nota: comoPlanilha, linhas: [{ ...CAPACETE, pecaId: a.pecaId }],
+      })),
+      (erro: { cause?: { constraint?: string } }) => erro.cause?.constraint === 'notas_entrada_origem_campos_check',
+    )
     assert.deepEqual(await linhas(tx, sql`select loja_id from notas_entrada where impressao_digital = ${impressao}`), [])
   })
 })
